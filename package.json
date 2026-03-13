@@ -2,6 +2,7 @@
   "name": "stats-app",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -20,7 +21,10 @@
     "recharts": "latest",
     "tailwind-merge": "latest"
   },
-  "devDependencies": {
+ "devDependencies": {
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
     "@tailwindcss/postcss": "latest",
     "autoprefixer": "latest",
     "postcss": "latest",

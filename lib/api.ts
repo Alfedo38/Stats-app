@@ -1,20 +1,25 @@
 import prisma from './prisma';
 
-// 1. EQUIPOS (Usando 'name' como vimos en DBeaver)
+// 1. OBTENER TODOS LOS EQUIPOS
 export async function getTeams() {
   try {
-    return await prisma.teams.findMany({ orderBy: { name: 'asc' } });
-  } catch (e) { return []; }
+    return await prisma.teams.findMany({ 
+      orderBy: { name: 'asc' } 
+    });
+  } catch (e) {
+    console.error("Error en getTeams:", e);
+    return [];
+  }
 }
 
-// 2. ROSTER DEL EQUIPO (Corregido para ser más flexible)
+// 2. ROSTER DEL EQUIPO (Para /teams/[teamId])
 export async function getTeamPlayers(teamAbbr: string) {
   try {
     const players = await prisma.player_game_logs.findMany({
       where: { 
         team_abbreviation: {
           equals: teamAbbr.toUpperCase(),
-          mode: 'insensitive' // Esto ignora si es mayúscula o minúscula
+          mode: 'insensitive'
         } 
       },
       distinct: ['player_id'],
@@ -25,10 +30,38 @@ export async function getTeamPlayers(teamAbbr: string) {
       full_name: p.player_name,
       team: p.team_abbreviation
     }));
-  } catch (e) { return []; }
+  } catch (e) {
+    return [];
+  }
 }
 
-// 3. JUGADORES ON FIRE (Trending)
+// 3. DETALLES DE UN JUGADOR (Para /players/[playerId])
+// ESTA ES LA QUE EL BUILD NO ENCONTRABA
+export async function getPlayerData(playerId: string) {
+  try {
+    const id = parseInt(playerId);
+    const player = await prisma.players.findUnique({
+      where: { id: id }
+    });
+    const stats = await prisma.player_game_logs.findMany({
+      where: { player_id: id },
+      orderBy: { game_date: 'desc' }
+    });
+    
+    // Serializamos la fecha para que Next.js no se queje
+    const serializedStats = stats.map(s => ({
+      ...s,
+      game_date: s.game_date ? s.game_date.toISOString() : null
+    }));
+
+    return { player, stats: serializedStats };
+  } catch (e) {
+    console.error("Error en getPlayerData:", e);
+    return { player: null, stats: [] };
+  }
+}
+
+// 4. JUGADORES ON FIRE (Trending)
 export async function getTrendingPlayers() {
   try {
     const logs = await prisma.player_game_logs.findMany({
@@ -52,14 +85,14 @@ export async function getTrendingPlayers() {
       }
     });
     return Object.values(stats)
-      .filter((p: any) => p.count >= 3) // Bajamos a 3 por si hay pocos datos
+      .filter((p: any) => p.count >= 3)
       .map((p: any) => ({ ...p, avg_pts: (p.total / p.count).toFixed(1) }))
       .sort((a: any, b: any) => Number(b.avg_pts) - Number(a.avg_pts))
       .slice(0, 4);
   } catch (e) { return []; }
 }
 
-// 4. CEREBRO EV+
+// 5. CEREBRO EV+
 export async function getEvPlays() {
   try {
     const odds = await prisma.player_odds.findMany();
@@ -70,7 +103,7 @@ export async function getEvPlays() {
     });
     const plays = odds.map(odd => {
       const pLogs = logs.filter(l => l.player_name === odd.player_name).slice(0, 10);
-      if (pLogs.length < 3) return null; // Bajamos el requisito a 3 partidos
+      if (pLogs.length < 3) return null;
       const avg = pLogs.reduce((acc, curr) => acc + (curr.pts || 0), 0) / pLogs.length;
       const hits = pLogs.filter(l => (l.pts || 0) > odd.line).length;
       if (avg > odd.line) {

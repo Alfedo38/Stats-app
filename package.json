@@ -10,22 +10,23 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
-    "@prisma/client": "latest",
+    "@prisma/client": "^5.0.0",
     "@prisma/config": "latest",
-    "dotenv": "latest",
+    "dotenv": "^16.0.0",
     "lucide-react": "latest",
     "next": "latest",
     "react": "latest",
-    "react-dom": "latest"
+    "react-dom": "latest",
+    "recharts": "latest",
+    "tailwind-merge": "latest"
   },
   "devDependencies": {
-    "prisma": "latest",
-    "typescript": "latest",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "postcss": "latest",
-    "tailwind-merge": "latest",
-    "tailwindcss": "latest"
+    "prisma": "^5.0.0",
+    "tailwindcss": "latest",
+    "typescript": "latest"
   }
 }

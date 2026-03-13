@@ -1,8 +1,31 @@
-{"name":"stats-app","version":"0.1.0","private":true,"scripts":{"dev":"next dev","build":"next build","start":"next start","lint":"next lint"},"dependencies":{"@prisma/client":"^7.5.0","@prisma/config":"^7.5.0","dotenv":"^17.3.1","lucide-react":"latest","next":"latest","react":"latest","react-dom":"latest","recharts":"latest"},"devDependencies":{"@types/node":"^25.5.0","@types/react":"19.2.14","autoprefixer":"^10.4.27","postcss":"^8.5.8","tailwindcss":"^3.4.19","ts-node":"^10.9.2","typescript":"^5.9.3"}}
-"scripts": {
-  "dev": "next dev",
-  "build": "next build",
-  "start": "next start",
-  "lint": "next lint",
-  "postinstall": "prisma generate"
-},
+{
+  "name": "stats-app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "postinstall": "prisma generate"
+  },
+  "dependencies": {
+    "@prisma/client": "latest",
+    "@prisma/config": "latest",
+    "dotenv": "latest",
+    "lucide-react": "latest",
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest"
+  },
+  "devDependencies": {
+    "prisma": "latest",
+    "typescript": "latest",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "postcss": "latest",
+    "tailwind-merge": "latest",
+    "tailwindcss": "latest"
+  }
+}

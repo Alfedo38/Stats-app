@@ -16,7 +16,7 @@ model players {
 
 model teams {
   id           Int     @id
-  name         String? // <-- Cambiado de full_name a name (como en DBeaver)
+  name         String? // Asegúrate que diga name y NO full_name
   abbreviation String?
   city         String?
   conference   String?

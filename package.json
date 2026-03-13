@@ -20,10 +20,11 @@
     "recharts": "latest",
     "tailwind-merge": "latest"
   },
-  "devDependencies": {
+"devDependencies": {
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
+    "autoprefixer": "latest",
     "postcss": "latest",
     "prisma": "^5.0.0",
     "tailwindcss": "latest",

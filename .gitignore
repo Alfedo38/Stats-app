@@ -15,3 +15,4 @@ config.php
 
 # Logs de Python que creamos
 *.log
+/generated/prisma

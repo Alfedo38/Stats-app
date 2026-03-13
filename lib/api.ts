@@ -4,10 +4,9 @@ import prisma from './prisma';
 // 1. OBTENER TODOS LOS EQUIPOS
 export async function getTeams() {
   try {
-    const data = await prisma.teams.findMany({
-      orderBy: { full_name: 'asc' }
+    return await prisma.teams.findMany({
+      orderBy: { name: 'asc' } // <-- Cambiado aquí también
     });
-    return data || [];
   } catch (error) {
     console.error("Error cargando equipos:", error);
     return [];

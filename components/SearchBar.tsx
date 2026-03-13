@@ -18,7 +18,7 @@ export default function SearchBar() {
       setLoading(true);
       try {
         // Reemplaza el localhost con tu ruta real si es diferente
-        const res = await fetch(`http://127.0.0.1:8000/search_players.php?q=${query}`);
+        const res = await fetch(`'/api/search?q=${query}`);
         const data = await res.json();
         setResults(data);
       } catch (error) {

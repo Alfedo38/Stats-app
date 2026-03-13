@@ -12,23 +12,25 @@ model players {
   first_name String?
   last_name  String?
   full_name  String?
-  // Agrega aquí los campos básicos que viste en DBeaver si faltan
 }
 
 model teams {
-  id        Int     @id
-  full_name String?
+  id           Int     @id
+  name         String? // <-- Cambiado de full_name a name (como en DBeaver)
   abbreviation String?
+  city         String?
+  conference   String?
+  division     String?
 }
 
 model player_game_logs {
-  id          Int      @id @default(autoincrement())
-  player_id   Int
-  player_name String?
-  pts         Int?
-  reb         Int?
-  ast         Int?
-  game_date   DateTime?
+  id                Int       @id @default(autoincrement())
+  player_id         Int
+  player_name       String?
+  pts               Int?
+  reb               Int?
+  ast               Int?
+  game_date         DateTime?
   team_abbreviation String?
 }
 

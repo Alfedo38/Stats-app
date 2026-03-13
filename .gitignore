@@ -1,0 +1,17 @@
+# Dependencias de Node (¡Los pesados!)
+node_modules/
+.pnp
+.pnp.js
+
+# Carpetas de compilación de Next.js
+.next/
+out/
+build/
+
+# Mis archivos secretos
+.env
+.env.local
+config.php
+
+# Logs de Python que creamos
+*.log

@@ -1,17 +1,28 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-body {
-  background-color: #000000;
-  color: #ffffff;
+@theme {
+  --font-sans: var(--font-inter);
+  --font-oswald: var(--font-oswald);
+  --color-brand: #10b981;
 }
 
-/* Ocultar scrollbar para que el carrusel se vea prolijo */
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
+@layer base {
+  *, ::before, ::after {
+    border-color: var(--color-brand-10, #222);
+  }
+  
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-[#050505] text-neutral-200 antialiased;
+    margin: 0;
+    padding: 0;
+  }
 }
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+
+@layer utilities {
+  .text-brand { color: #10b981; }
+  .bg-brand { background-color: #10b981; }
 }

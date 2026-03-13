@@ -6,3 +6,36 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+model players {
+  id         Int     @id
+  first_name String?
+  last_name  String?
+  full_name  String?
+  // Agrega aquí los campos básicos que viste en DBeaver si faltan
+}
+
+model teams {
+  id        Int     @id
+  full_name String?
+  abbreviation String?
+}
+
+model player_game_logs {
+  id          Int      @id @default(autoincrement())
+  player_id   Int
+  player_name String?
+  pts         Int?
+  reb         Int?
+  ast         Int?
+  game_date   DateTime?
+  team_abbreviation String?
+}
+
+model player_odds {
+  id          Int     @id @default(autoincrement())
+  player_name String
+  prop_type   String
+  line        Float
+  matchup     String?
+}

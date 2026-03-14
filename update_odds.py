@@ -3,8 +3,8 @@ from dotenv import load_dotenv
 import requests
 import pandas as pd
 from sqlalchemy import create_engine, text
+from sqlalchemy.engine import URL
 from datetime import datetime
-import urllib.parse
 import time
 
 # Cargar las variables del archivo .env
@@ -13,25 +13,35 @@ load_dotenv()
 # ==========================================
 # CONFIGURACIÓN DE APUESTAS Y BASE DE DATOS
 # ==========================================
-API_KEY = "0fc582787ff0019c1d9933447c397959"
+API_KEY = os.getenv("ODDS_API_KEY")
 SPORT = 'basketball_nba'
 REGIONS = 'us'
 MARKETS = 'player_points' 
 BOOKMAKERS = 'draftkings' 
 
-# Conexión Segura (Pooler + Password Codificado)
-user_raw = "postgres.xxhdctrvjsngwbagamns"
-password_raw = "ALfedo2537@"
-user_encoded = urllib.parse.quote_plus(user_raw)
-password_encoded = urllib.parse.quote_plus(password_raw)
-host = "aws-1-sa-east-1.pooler.supabase.com"
-port = "6543"
-dbname = "postgres"
+password_raw = os.getenv("DB_PASSWORD")
 
-DB_URL = f"postgresql://{user_encoded}:{password_encoded}@{host}:{port}/{dbname}?sslmode=require"
-engine = create_engine(DB_URL, pool_pre_ping=True)
+if not password_raw:
+    raise ValueError("❌ ERROR: Falta la variable DB_PASSWORD en el archivo .env")
+
+# Conexión Segura
+db_url = URL.create(
+    drivername="postgresql",
+    username="postgres.xxhdctrvjsngwbagamns",
+    password=password_raw,
+    host="aws-1-sa-east-1.pooler.supabase.com",
+    port=6543,
+    database="postgres",
+    query={"sslmode": "require"}
+)
+
+engine = create_engine(db_url, pool_pre_ping=True)
 
 def fetch_and_save_odds():
+    if not API_KEY:
+        print("❌ ERROR: No se encontró la ODDS_API_KEY en el archivo .env")
+        return
+
     print("1. Buscando los partidos de hoy...")
     
     events_url = f"https://api.the-odds-api.com/v4/sports/{SPORT}/events?apiKey={API_KEY}"

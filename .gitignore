@@ -1,18 +1,53 @@
-# Dependencias de Node (¡Los pesados!)
+# =========================
+# DEPENDENCIAS NODE / NEXT.JS
+# =========================
 node_modules/
 .pnp
 .pnp.js
 
-# Carpetas de compilación de Next.js
+# Testing
+coverage/
+
+# Next.js build output
 .next/
 out/
 build/
 
-# Mis archivos secretos
+# =========================
+# DEPENDENCIAS PYTHON
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Entornos virtuales (por si stats-api es uno)
+venv/
+.venv/
+env/
+.env_python/
+
+# =========================
+# VARIABLES DE ENTORNO Y SECRETOS (¡CRÍTICO!)
+# =========================
 .env
 .env.local
-config.php
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
 
-# Logs de Python que creamos
+# =========================
+# LOGS Y ARCHIVOS LOCALES
+# =========================
 *.log
-/generated/prisma
+diario.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# =========================
+# ARCHIVOS DEL SISTEMA OPERATIVO
+# =========================
+.DS_Store
+Thumbs.db

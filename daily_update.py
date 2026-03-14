@@ -6,8 +6,8 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import pandas as pd
 from sqlalchemy import create_engine, text
+from sqlalchemy.engine import URL
 from nba_api.stats.endpoints import playergamelogs
-import urllib.parse
 
 # Cargar las variables del archivo .env
 load_dotenv()
@@ -15,17 +15,24 @@ load_dotenv()
 # =========================================================
 # CONFIGURACIÓN SEGURA DE BASE DE DATOS
 # =========================================================
-user_raw = "postgres.xxhdctrvjsngwbagamns"
-password_raw = "ALfedo2537@"
-user_encoded = urllib.parse.quote_plus(user_raw)
-password_encoded = urllib.parse.quote_plus(password_raw)
-host = "aws-1-sa-east-1.pooler.supabase.com"
-port = "6543"
-dbname = "postgres"
+password_raw = os.getenv("DB_PASSWORD")
 
-DB_URL = f"postgresql://{user_encoded}:{password_encoded}@{host}:{port}/{dbname}?sslmode=require"
+if not password_raw:
+    raise ValueError("❌ ERROR: Falta la variable DB_PASSWORD en el archivo .env")
+
+# Dejamos que SQLAlchemy arme la URL de forma segura
+db_url = URL.create(
+    drivername="postgresql",
+    username="postgres.xxhdctrvjsngwbagamns",
+    password=password_raw,
+    host="aws-1-sa-east-1.pooler.supabase.com",
+    port=6543,
+    database="postgres",
+    query={"sslmode": "require"}
+)
+
 TABLE_NAME = "player_game_logs"
-engine = create_engine(DB_URL, pool_pre_ping=True)
+engine = create_engine(db_url, pool_pre_ping=True)
 
 # Configuración API NBA
 TIMEZONE = "America/Argentina/Buenos_Aires"
@@ -117,7 +124,6 @@ def main():
         raw_df = fetch_logs_for_date(date_str, season, season_type)
         if raw_df.empty: continue
         
-        # Filtramos dinámicamente según las columnas que existen en tu BD
         raw_df.columns = [col.lower() for col in raw_df.columns]
         valid_cols = get_db_columns(TABLE_NAME)
         if valid_cols:
@@ -132,16 +138,37 @@ def main():
 
     final_df = pd.concat(new_parts, ignore_index=True)
     
+    # === AUTO-REGISTRADOR DE JUGADORES FALTANTES ===
+    print("\nVerificando si hay jugadores nuevos que no estén en la base de datos...")
+    try:
+        unique_players = final_df[['player_id', 'player_name']].drop_duplicates()
+        with engine.connect() as conn:
+            existing_ids = pd.read_sql("SELECT id FROM players", conn)['id'].tolist()
+            
+        missing_players = unique_players[~unique_players['player_id'].isin(existing_ids)]
+        
+        if not missing_players.empty:
+            print(f"¡Se encontraron {len(missing_players)} jugadores nuevos! Registrándolos...")
+            new_players_df = pd.DataFrame({
+                'id': missing_players['player_id'],
+                'full_name': missing_players['player_name'],
+                'first_name': missing_players['player_name'].apply(lambda x: str(x).split(' ')[0] if pd.notnull(x) else ''),
+                'last_name': missing_players['player_name'].apply(lambda x: ' '.join(str(x).split(' ')[1:]) if pd.notnull(x) and ' ' in str(x) else '')
+            })
+            new_players_df.to_sql('players', engine, if_exists='append', index=False)
+            print("Jugadores registrados correctamente.")
+    except Exception as e:
+        print(f"Aviso: No se pudo auto-registrar jugadores (Puede que la tabla players tenga reglas estrictas). Detalle: {e}")
+    # ===============================================
+
     try:
         with engine.begin() as conn:
-            # Borramos los datos de ayer si el script se corre dos veces por error
             delete_query = text(f"DELETE FROM {TABLE_NAME} WHERE DATE(game_date) = :target_date")
             conn.execute(delete_query, {"target_date": target_date})
             
-            # Insertamos limpios
             final_df.to_sql(TABLE_NAME, engine, if_exists='append', index=False)
             
-        print(f"\n✅ ¡Éxito! Se guardaron {len(final_df)} filas del {date_str} en Supabase.")
+        print(f"\n✅ ¡Éxito Total! Se guardaron {len(final_df)} estadísticas del {date_str} en Supabase.")
     except Exception as e:
         print(f"\nError al guardar en la base de datos: {e}")
 

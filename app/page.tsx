@@ -93,7 +93,7 @@ export default async function Home() {
            <SearchBar />
         </section>
 
-        {/* ESCÁNER EV+ (LA NUEVA MAGIA) */}
+      {/* ESCÁNER EV+ (LA NUEVA MAGIA) */}
         {evPlays && evPlays.length > 0 && (
           <section className="space-y-4">
             <div className="flex items-center gap-2 px-1">
@@ -103,34 +103,47 @@ export default async function Home() {
               </h2>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* CARRUSEL DESLIZABLE (Eliminamos el grid y usamos flex con overflow) */}
+            <div className="flex overflow-x-auto gap-4 pb-4 px-1 no-scrollbar snap-x">
               {evPlays.map((play: any, idx: number) => {
-                const edge = (play.avg_last_10 - play.line).toFixed(1);
+                const edgeValue = play.avg_last_10 - play.line;
+                const edge = edgeValue.toFixed(1);
+                
+                // LÓGICA DEL STICKER: Si el Edge es de 3.0 o más, es una bomba
+                const isBang = edgeValue >= 3.0;
                 
                 return (
-                  <Link href={`/players/${play.player_id}`} key={`ev-${idx}`} className="block no-underline group">
-                    <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-[1.5rem] p-5 hover:bg-[#111] hover:border-[#10b981]/40 transition-all flex flex-col justify-between relative overflow-hidden shadow-xl min-h-[160px]">
+                  <Link href={`/players/${play.player_id}`} key={`ev-${idx}`} className="block no-underline group shrink-0 snap-start">
+                    {/* FIJAMOS LA ALTURA Y EL ANCHO PARA QUE SEAN TODAS IGUALES */}
+                    <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-[1.5rem] p-5 hover:bg-[#111] hover:border-[#10b981]/40 transition-all flex flex-col justify-between relative overflow-hidden shadow-xl w-[280px] h-[180px]">
                       
                       {/* Brillo de fondo */}
                       <div className="absolute -top-10 -right-10 w-32 h-32 bg-[#10b981] opacity-5 blur-2xl group-hover:opacity-20 transition-opacity" />
                       
+                      {/* STICKER "BANG!" (Aparece solo si isBang es true) */}
+                      {isBang && (
+                        <div className="absolute -left-6 top-3 bg-red-500 text-white text-[10px] font-black uppercase tracking-widest py-1 px-8 transform -rotate-45 shadow-[0_0_15px_rgba(239,68,68,0.6)] z-20 animate-pulse">
+                          BANG! 💥
+                        </div>
+                      )}
+
                       {/* Cabecera Tarjeta */}
                       <div className="flex justify-between items-start z-10 relative border-b border-[#222] pb-3 mb-3">
-                        <div>
-                          <span className="text-[#666] font-black text-[9px] uppercase tracking-[0.2em]">{play.team} • {play.matchup}</span>
-                          <h3 className="font-black text-white text-sm leading-none uppercase mt-1 drop-shadow-md truncate max-w-[140px]">
+                        <div className="flex-1 pr-2">
+                          <span className="text-[#666] font-black text-[9px] uppercase tracking-[0.2em] truncate block w-full">{play.team} • {play.matchup}</span>
+                          <h3 className="font-black text-white text-sm leading-tight uppercase mt-1 drop-shadow-md line-clamp-2">
                             {play.player_name}
                           </h3>
                         </div>
                         {/* El Tag Verde de "OVER" */}
-                        <div className="bg-[#10b981] text-black px-2 py-1 rounded-md border border-[#059669] flex flex-col items-center leading-none transform rotate-3 group-hover:rotate-0 transition-transform">
+                        <div className="bg-[#10b981] text-black px-2 py-1 rounded-md border border-[#059669] flex flex-col items-center leading-none transform rotate-3 group-hover:rotate-0 transition-transform shrink-0">
                           <span className="font-black text-[10px] uppercase">OVER</span>
                           <span className="font-black text-sm tabular-nums">{play.line}</span>
                         </div>
                       </div>
 
-                      {/* Datos Matemáticos */}
-                      <div className="z-10 relative flex justify-between items-end">
+                      {/* Datos Matemáticos (Alineados al fondo) */}
+                      <div className="z-10 relative flex justify-between items-end mt-auto">
                         <div className="flex flex-col gap-1">
                           <div className="flex items-center gap-1.5 text-[9px] font-black text-[#888] uppercase tracking-wider">
                             <Target size={10} className="text-[#38bdf8]" />
@@ -142,7 +155,7 @@ export default async function Home() {
                           </div>
                         </div>
 
-                        {/* Medidor de Hits (8/10, etc) */}
+                        {/* Medidor de Hits */}
                         <div className="flex flex-col items-end">
                           <span className="text-[8px] text-[#666] font-black uppercase tracking-[0.2em] mb-1">Hit Rate</span>
                           <div className="flex items-end gap-1">

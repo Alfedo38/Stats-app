@@ -22,9 +22,10 @@ export default function LiveGamesCarousel({ liveGames }: { liveGames: any[] }) {
 
   return (
     <div className="relative group">
+      {/* EL TRUCO ESTÁ AQUÍ: Agregamos las clases arbitrarias para ocultar el scrollbar en todos los navegadores */}
       <div 
         ref={scrollRef}
-        className="flex overflow-x-auto gap-4 pb-4 pt-1 snap-x snap-mandatory no-scrollbar -mx-4 px-4 md:mx-0 md:px-0 scroll-smooth"
+        className="flex overflow-x-auto gap-4 pb-4 pt-1 snap-x snap-mandatory -mx-4 px-4 md:mx-0 md:px-0 scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
       >
         {liveGames.map((game: any) => (
           <div key={game.id} className="snap-center md:snap-start shrink-0 w-[220px] bg-[#0a0a0a] border border-[#1a1a1a] rounded-[1.5rem] p-4 flex flex-col gap-4 shadow-lg hover:border-[#333] transition-colors relative">

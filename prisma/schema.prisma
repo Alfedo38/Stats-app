@@ -7,37 +7,68 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model players {
-  id         Int     @id
-  first_name String?
-  last_name  String?
-  full_name  String?
+model teams {
+  id           Int       @id @default(autoincrement())
+  api_id       Int?
+  name         String?   @db.VarChar(100)
+  city         String?   @db.VarChar(100)
+  abbreviation String?   @db.VarChar(10)
+  logo_url     String?
+  players      players[]
 }
 
-model teams {
-  id           Int     @id
-  name         String? // Asegúrate que diga name y NO full_name
-  abbreviation String?
-  city         String?
-  conference   String?
-  division     String?
+model players {
+  id               Int                @id
+  api_id           Int?
+  team_id          Int?
+  first_name       String?            @db.VarChar(100)
+  last_name        String?            @db.VarChar(100)
+  full_name        String?            @db.VarChar(200)
+  jersey_number    Int?
+  position         String?            @db.VarChar(50)
+  image_url        String?
+  player_game_logs player_game_logs[]
+  teams            teams?             @relation(fields: [team_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model player_game_logs {
   id                Int       @id @default(autoincrement())
-  player_id         Int
+  player_id         Int?
   player_name       String?
-  pts               Int?
-  reb               Int?
-  ast               Int?
-  game_date         DateTime?
   team_abbreviation String?
+  pts               Float?
+  reb               Float?
+  ast               Float?
+  game_date         DateTime? @db.Date
+  season_year       String?   @db.VarChar(50)
+  season_type       String?   @db.VarChar(50)
+  team_id           Int?
+  team_name         String?   @db.VarChar(50)
+  game_id           Int?
+  matchup           String?   @db.VarChar(50)
+  home_away         String?   @db.VarChar(50)
+  opponent_abbr     String?   @db.VarChar(50)
+  wl                String?   @db.VarChar(50)
+  min               Float?    @db.Real
+  stl               Float?    @db.Real
+  blk               Float?    @db.Real
+  tov               Float?    @db.Real
+  pf                Float?    @db.Real
+  fgm               Float?    @db.Real
+  fga               Float?    @db.Real
+  fg3m              Float?    @db.Real
+  fg3a              Float?    @db.Real
+  updated_at        String?   @db.VarChar(50)
+  pulled_for_date   String?   @db.VarChar(50)
+  players           players?  @relation(fields: [player_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model player_odds {
-  id          Int     @id @default(autoincrement())
-  player_name String
-  prop_type   String
-  line        Float
+  player_name String  @id
+  prop_type   String?
+  line        Float?
   matchup     String?
+  over_price  Float?  @db.Real
+  under_price Float?  @db.Real
+  updated_at  String? @db.VarChar(50)
 }

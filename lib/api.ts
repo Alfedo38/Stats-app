@@ -46,26 +46,48 @@ export async function getTeamPlayers(teamAbbr: string) {
   }
 }
 
-// 3. DETALLES DE UN JUGADOR
+// 3. DETALLES DE UN JUGADOR (Con Autocompletado Inteligente)
 export async function getPlayerData(playerId: string) {
   try {
     const id = parseInt(playerId);
     if (isNaN(id)) return { player: null, stats: [] };
 
-    const player = await prisma.players.findUnique({
+    // 1. Buscamos en la tabla de jugadores
+    let player = await prisma.players.findUnique({
       where: { id: id }
     });
 
+    // 2. Buscamos sus partidos
     const stats = await prisma.player_game_logs.findMany({
       where: { player_id: id },
       orderBy: { game_date: 'desc' }
     });
     
+    // 3. MAGIA: Si el jugador no está en la DB pero SÍ tiene partidos, lo "inventamos"
+    if (!player && stats.length > 0) {
+      const fullName = stats[0].player_name || "Jugador";
+      const nameParts = fullName.split(' ');
+      
+      player = {
+        id: id,
+        first_name: nameParts[0],
+        last_name: nameParts.slice(1).join(' '),
+        full_name: fullName,
+        team_id: null,
+        api_id: null,
+        jersey_number: null,
+        position: null,
+        image_url: null
+      } as any;
+    }
+
+    // Serializamos la fecha para que Next.js no se queje
     const serializedStats = stats.map(s => ({
       ...s,
       game_date: s.game_date ? s.game_date.toISOString() : null
     }));
 
+    // Retornamos jugador (real o inventado) y sus stats
     return { player, stats: serializedStats };
   } catch (e) {
     console.error("Error en getPlayerData:", e);

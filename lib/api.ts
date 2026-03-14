@@ -98,32 +98,39 @@ export async function getPlayerData(playerId: string) {
 // 4. JUGADORES ON FIRE (Trending)
 export async function getTrendingPlayers() {
   try {
-    const logs = await prisma.player_game_logs.findMany({
-      take: 500,
-      orderBy: { game_date: 'desc' }
+    // 1. Traemos los logs pero asegurándonos de que no haya basura
+    const playersWithLogs = await prisma.players.findMany({
+      include: {
+        player_game_logs: {
+          orderBy: { game_date: 'desc' },
+          take: 5, // Solo los últimos 5
+        }
+      }
     });
-    const stats: any = {};
-    logs.forEach(l => {
-      const pid = l.player_id;
-      if (!stats[pid]) {
-        stats[pid] = { 
-          id: pid, 
-          first_name: l.player_name?.split(' ')[0] || '', 
-          last_name: l.player_name?.split(' ').slice(1).join(' ') || '',
-          team: l.team_abbreviation, total: 0, count: 0 
+
+    return playersWithLogs
+      .map(player => {
+        const logs = player.player_game_logs;
+        if (logs.length === 0) return null;
+
+        // Calculamos el promedio real basado SOLO en esos 5 partidos
+        const totalPts = logs.reduce((sum, log) => sum + (log.pts || 0), 0);
+        const avg_pts = (totalPts / logs.length).toFixed(1);
+
+        return {
+          id: player.id,
+          first_name: player.first_name,
+          last_name: player.last_name,
+          team: logs[0].team_abbreviation,
+          avg_pts: parseFloat(avg_pts)
         };
-      }
-      if (stats[pid].count < 5) {
-        stats[pid].total += (l.pts || 0);
-        stats[pid].count++;
-      }
-    });
-    return Object.values(stats)
-      .filter((p: any) => p.count >= 3)
-      .map((p: any) => ({ ...p, avg_pts: (p.total / p.count).toFixed(1) }))
-      .sort((a: any, b: any) => Number(b.avg_pts) - Number(a.avg_pts))
-      .slice(0, 4);
-  } catch (e) { return []; }
+      })
+      .filter(p => p !== null)
+      .sort((a, b) => b.avg_pts - a.avg_pts) // Ordenar por los que más anotan
+      .slice(0, 4); // Top 4 para la home
+  } catch (e) {
+    return [];
+  }
 }
 
 // 5. CEREBRO EV+

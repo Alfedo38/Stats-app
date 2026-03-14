@@ -1,243 +1,188 @@
 import Link from 'next/link';
-import { getTeams, getTrendingPlayers, getEvPlays } from '@/lib/api'; 
-import { Calendar, Users, Flame, TrendingUp, Target, Zap } from 'lucide-react';
+import { getTeams, getEvPlays } from '@/lib/api'; 
+import prisma from '@/lib/prisma';
+import { Calendar, Users, Flame, Zap } from 'lucide-react';
 import SearchBar from '@/components/SearchBar';
 import TeamGrid from '@/components/TeamGrid';
 import LiveGamesCarousel from '@/components/LiveGamesCarousel';
+import EVCarousel from '@/components/EVCarousel';
 
-// Seguro de vida: Siempre en vivo, sin caché
 export const dynamic = 'force-dynamic';
 
-async function getLiveGames() {
+async function getPlayersOnFire() {
   try {
-    const today = new Date();
-    today.setHours(today.getHours() - 4); 
-    
-    const yyyy1 = today.getFullYear();
-    const mm1 = String(today.getMonth() + 1).padStart(2, '0');
-    const dd1 = String(today.getDate()).padStart(2, '0');
-    const dateToday = `${yyyy1}${mm1}${dd1}`; 
-
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    const yyyy2 = tomorrow.getFullYear();
-    const mm2 = String(tomorrow.getMonth() + 1).padStart(2, '0');
-    const dd2 = String(tomorrow.getDate()).padStart(2, '0');
-    const dateTomorrow = `${yyyy2}${mm2}${dd2}`;
-
-    const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${dateToday}-${dateTomorrow}`;
-    
-    const res = await fetch(url, { cache: 'no-store' });
-    const data = await res.json();
-    
-    if (!data.events) return [];
-    
-    return data.events.map((event: any) => {
-      const comp = event.competitions[0];
-      const home = comp.competitors.find((c: any) => c.homeAway === 'home');
-      const away = comp.competitors.find((c: any) => c.homeAway === 'away');
-
-      const tv = comp.broadcasts && comp.broadcasts.length > 0 ? comp.broadcasts[0].names[0] : '';
-      const odds = comp.odds && comp.odds.length > 0 ? comp.odds[0] : null;
-
-      const gameDate = new Date(event.date);
-      const dayName = gameDate.toLocaleDateString('en-US', { weekday: 'short' });
-
-      return {
-        id: event.id,
-        status: event.status.type.state, 
-        detail: event.status.type.state === 'pre' ? `${dayName} - ${event.status.type.shortDetail}` : event.status.type.shortDetail, 
-        tv: tv, 
-        odds: odds ? `${odds.details || ''} ${odds.overUnder ? '| O/U: ' + odds.overUnder : ''}` : '',
-        home: { 
-            abbr: home.team.abbreviation || 'TBD', 
-            logo: home.team.logo, 
-            score: event.status.type.state !== 'pre' ? home.score : '',
-            record: home.records && home.records.length > 0 ? home.records[0].summary : '' 
-        },
-        away: { 
-            abbr: away.team.abbreviation || 'TBD', 
-            logo: away.team.logo, 
-            score: event.status.type.state !== 'pre' ? away.score : '',
-            record: away.records && away.records.length > 0 ? away.records[0].summary : ''
-        }
-      };
+    // 1. Ampliamos la muestra a 2500 para asegurarnos de capturar 
+    // los últimos 5 partidos reales de todos los jugadores activos (aprox. 1 semana de NBA)
+    const recentLogs = await prisma.player_game_logs.findMany({
+      orderBy: { game_date: 'desc' },
+      take: 2500, 
+      select: {
+        player_id: true,
+        player_name: true,
+        team_abbreviation: true,
+        pts: true,
+        game_date: true,
+      }
     });
-  } catch (error) {
+
+    // 2. Agrupamos por jugador
+    const playerStats = new Map<number, any>();
+
+    recentLogs.forEach(log => {
+      if (!log.player_id) return;
+      
+      const playerId = log.player_id;
+      if (!playerStats.has(playerId)) {
+        playerStats.set(playerId, {
+          id: playerId,
+          name: log.player_name || 'Unknown',
+          team: log.team_abbreviation || 'NBA',
+          pointsList: [] as number[],
+          uniqueDates: new Set<string>() // Evita duplicados del mismo día
+        });
+      }
+
+      const playerInfo = playerStats.get(playerId);
+      const dateString = log.game_date ? new Date(log.game_date).toISOString().split('T')[0] : null;
+
+      // Solo guardamos si la fecha no está repetida y si aún no llegamos a 5 partidos
+      if (dateString && !playerInfo.uniqueDates.has(dateString) && playerInfo.pointsList.length < 5) {
+         playerInfo.uniqueDates.add(dateString);
+         playerInfo.pointsList.push(Number(log.pts) || 0);
+      }
+    });
+
+    // 3. Calculamos el promedio exacto
+    return Array.from(playerStats.values())
+      // Exigimos que SÍ O SÍ tengan al menos 3 partidos jugados en esta muestra para ser "On Fire"
+      .filter(p => p.pointsList.length >= 3) 
+      .map(p => {
+        const totalPts = p.pointsList.reduce((sum: number, pts: number) => sum + pts, 0);
+        const avg = totalPts / p.pointsList.length;
+        
+        const nameParts = p.name.split(' ');
+        const firstName = nameParts[0];
+        const lastName = nameParts.slice(1).join(' ');
+
+        return {
+          id: p.id,
+          first_name: firstName,
+          last_name: lastName,
+          team: p.team,
+          avg_pts: avg.toFixed(1)
+        };
+      })
+      .sort((a, b) => parseFloat(b.avg_pts) - parseFloat(a.avg_pts))
+      .slice(0, 4);
+
+  } catch (e) {
+    console.error("Error en On Fire:", e);
     return [];
   }
 }
 
+async function getLiveGames() {
+  try {
+    const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard`;
+    const res = await fetch(url, { cache: 'no-store' });
+    const data = await res.json();
+    return data.events?.map((event: any) => ({
+      id: event.id,
+      status: event.status.type.state, 
+      detail: event.status.type.shortDetail, 
+      home: { 
+        abbr: event.competitions[0].competitors[0].team.abbreviation, 
+        score: event.competitions[0].competitors[0].score, 
+        logo: event.competitions[0].competitors[0].team.logo 
+      },
+      away: { 
+        abbr: event.competitions[0].competitors[1].team.abbreviation, 
+        score: event.competitions[0].competitors[1].score, 
+        logo: event.competitions[0].competitors[1].team.logo 
+      }
+    })) || [];
+  } catch (e) { 
+    return []; 
+  }
+}
+
 export default async function Home() {
-  const teams = await getTeams();
-  const liveGames = await getLiveGames();
-  const trendingPlayers = await getTrendingPlayers();
-  const evPlays = await getEvPlays(); // <-- LLAMAMOS AL CEREBRO EV+
+  const [teams, liveGames, onFirePlayers, evPlays] = await Promise.all([
+    getTeams(),
+    getLiveGames(),
+    getPlayersOnFire(),
+    getEvPlays()
+  ]);
 
   return (
-    <main className="min-h-screen bg-black text-white font-sans pb-20 selection:bg-[#10b981]/30">
-      
-      <nav className="border-b border-[#111] bg-black/90 backdrop-blur-md sticky top-0 z-50">
-        <div className="px-6 py-4 max-w-6xl mx-auto">
-          <h1 className="text-2xl font-black italic tracking-tighter uppercase flex items-center gap-1">
-            Mosk<span className="text-[#10b981]">Props</span>
-          </h1>
-        </div>
+    <main className="min-h-screen bg-black text-white pb-20">
+      <nav className="border-b border-[#111] bg-black/90 sticky top-0 z-[100] px-6 py-4">
+        <h1 className="text-2xl font-black italic uppercase max-w-6xl mx-auto">
+          Mosk<span className="text-[#10b981]">Props</span>
+        </h1>
       </nav>
 
-      <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-10">
-        
-        {/* BUSCADOR */}
-        <section className="px-2">
-           <SearchBar />
+      <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-12">
+        <section className="relative z-[120]">
+          <SearchBar />
         </section>
 
-      {/* ESCÁNER EV+ (LA NUEVA MAGIA) */}
         {evPlays && evPlays.length > 0 && (
           <section className="space-y-4">
             <div className="flex items-center gap-2 px-1">
-              <Zap size={16} className="text-[#10b981] animate-pulse" />
-              <h2 className="text-[#10b981] font-bold text-[11px] uppercase tracking-[0.3em] flex items-center gap-2">
-                Top Value Plays <span className="bg-[#10b981]/20 text-[#10b981] px-2 py-0.5 rounded text-[8px]">EV+</span>
-              </h2>
+              <Zap size={16} className="text-[#10b981]" />
+              <h2 className="text-[#10b981] font-bold text-[11px] uppercase tracking-[0.3em]">Top Value Plays</h2>
             </div>
-
-            {/* CARRUSEL DESLIZABLE (Eliminamos el grid y usamos flex con overflow) */}
-            <div className="flex overflow-x-auto gap-4 pb-4 px-1 no-scrollbar snap-x">
-              {evPlays.map((play: any, idx: number) => {
-                const edgeValue = play.avg_last_10 - play.line;
-                const edge = edgeValue.toFixed(1);
-                
-                // LÓGICA DEL STICKER: Si el Edge es de 3.0 o más, es una bomba
-                const isBang = edgeValue >= 3.0;
-                
-                return (
-                  <Link href={`/players/${play.player_id}`} key={`ev-${idx}`} className="block no-underline group shrink-0 snap-start">
-                    {/* FIJAMOS LA ALTURA Y EL ANCHO PARA QUE SEAN TODAS IGUALES */}
-                    <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-[1.5rem] p-5 hover:bg-[#111] hover:border-[#10b981]/40 transition-all flex flex-col justify-between relative overflow-hidden shadow-xl w-[280px] h-[180px]">
-                      
-                      {/* Brillo de fondo */}
-                      <div className="absolute -top-10 -right-10 w-32 h-32 bg-[#10b981] opacity-5 blur-2xl group-hover:opacity-20 transition-opacity" />
-                      
-                      {/* STICKER "BANG!" (Aparece solo si isBang es true) */}
-                      {isBang && (
-                        <div className="absolute -left-6 top-3 bg-red-500 text-white text-[10px] font-black uppercase tracking-widest py-1 px-8 transform -rotate-45 shadow-[0_0_15px_rgba(239,68,68,0.6)] z-20 animate-pulse">
-                          BANG! 💥
-                        </div>
-                      )}
-
-                      {/* Cabecera Tarjeta */}
-                      <div className="flex justify-between items-start z-10 relative border-b border-[#222] pb-3 mb-3">
-                        <div className="flex-1 pr-2">
-                          <span className="text-[#666] font-black text-[9px] uppercase tracking-[0.2em] truncate block w-full">{play.team} • {play.matchup}</span>
-                          <h3 className="font-black text-white text-sm leading-tight uppercase mt-1 drop-shadow-md line-clamp-2">
-                            {play.player_name}
-                          </h3>
-                        </div>
-                        {/* El Tag Verde de "OVER" */}
-                        <div className="bg-[#10b981] text-black px-2 py-1 rounded-md border border-[#059669] flex flex-col items-center leading-none transform rotate-3 group-hover:rotate-0 transition-transform shrink-0">
-                          <span className="font-black text-[10px] uppercase">OVER</span>
-                          <span className="font-black text-sm tabular-nums">{play.line}</span>
-                        </div>
-                      </div>
-
-                      {/* Datos Matemáticos (Alineados al fondo) */}
-                      <div className="z-10 relative flex justify-between items-end mt-auto">
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-1.5 text-[9px] font-black text-[#888] uppercase tracking-wider">
-                            <Target size={10} className="text-[#38bdf8]" />
-                            <span>L10 AVG: <strong className="text-white text-xs tabular-nums">{play.avg_last_10}</strong></span>
-                          </div>
-                          <div className="flex items-center gap-1.5 text-[9px] font-black text-[#888] uppercase tracking-wider">
-                            <TrendingUp size={10} className="text-[#10b981]" />
-                            <span>Edge: <strong className="text-[#10b981] text-xs">+{edge} pts</strong></span>
-                          </div>
-                        </div>
-
-                        {/* Medidor de Hits */}
-                        <div className="flex flex-col items-end">
-                          <span className="text-[8px] text-[#666] font-black uppercase tracking-[0.2em] mb-1">Hit Rate</span>
-                          <div className="flex items-end gap-1">
-                            <span className="text-2xl font-black text-white leading-none tabular-nums">{play.over_hits}</span>
-                            <span className="text-[#555] font-black text-sm leading-none mb-0.5">/10</span>
-                          </div>
-                        </div>
-                      </div>
-
-                    </div>
-                  </Link>
-                )
-              })}
-            </div>
+            <EVCarousel evPlays={evPlays} />
           </section>
         )}
 
-        {/* JUGADORES EN RACHA (FUEGO) */}
-        {trendingPlayers && trendingPlayers.length > 0 && (
+        {onFirePlayers && onFirePlayers.length > 0 && (
           <section className="space-y-4">
             <div className="flex items-center gap-2 px-1">
               <Flame size={14} className="text-orange-500" />
-              <h2 className="text-orange-500 font-bold text-[10px] uppercase tracking-[0.3em]">
-                Players on Fire (L5 PTS)
-              </h2>
+              <h2 className="text-orange-500 font-bold text-[10px] uppercase tracking-[0.3em]">Players on Fire (L5 AVG)</h2>
             </div>
-
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {trendingPlayers.map((player: any) => (
-                <Link href={`/players/${player.id}`} key={player.id} className="block no-underline group">
-                  <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-[1.5rem] p-5 hover:bg-[#111] hover:border-orange-500/40 transition-all flex flex-col justify-between relative overflow-hidden h-[130px] shadow-xl">
-                    <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-orange-500 opacity-10 blur-2xl group-hover:opacity-20 transition-opacity" />
-                    
-                    <div className="flex justify-between items-start z-10 relative">
-                      <div>
-                        <span className="text-[#666] font-black text-[9px] uppercase tracking-[0.2em]">{player.team}</span>
-                        <h3 className="font-black text-white text-sm leading-none uppercase mt-1 drop-shadow-md">
-                          {player.first_name} <br/> <span className="text-orange-500">{player.last_name}</span>
-                        </h3>
-                      </div>
-                      <div className="bg-black/50 backdrop-blur-sm px-2 py-1.5 rounded-lg border border-[#333] flex flex-col items-center leading-none">
-                        <span className="text-orange-500 font-black tabular-nums text-sm">{player.avg_pts}</span>
-                        <span className="text-[#555] text-[7px] font-black uppercase">AVG</span>
-                      </div>
+              {onFirePlayers.map((player: any) => (
+                <Link href={`/players/${player.id}`} key={player.id} className="group relative bg-[#0a0a0a] border border-[#1a1a1a] rounded-2xl p-5 h-[130px] overflow-hidden hover:border-orange-500/50 transition-all">
+                  <div className="z-10 relative">
+                    <span className="text-[#444] font-black text-[9px] uppercase tracking-widest">{player.team}</span>
+                    <h3 className="font-black text-white text-sm uppercase leading-none mt-1">
+                      {player.first_name}<br/>
+                      <span className="text-orange-500">{player.last_name}</span>
+                    </h3>
+                    <div className="mt-3 flex items-baseline gap-1">
+                      <span className="text-white font-black text-xl">{player.avg_pts}</span>
+                      <span className="text-[#444] text-[8px] font-bold uppercase">PTS AVG</span>
                     </div>
-
-                    <img 
-                      src={`https://cdn.nba.com/headshots/nba/latest/260x190/${player.id}.png`} 
-                      alt={player.last_name}
-                      className="absolute bottom-0 -right-2 w-28 h-28 object-contain object-bottom opacity-90 group-hover:scale-110 transition-transform duration-500"
-                    />
                   </div>
+                  <img 
+                    src={`https://cdn.nba.com/headshots/nba/latest/260x190/${player.id}.png`} 
+                    className="absolute bottom-0 -right-2 w-28 h-28 object-contain opacity-40 group-hover:opacity-100 transition-opacity" 
+                    alt="" 
+                  />
                 </Link>
               ))}
             </div>
           </section>
         )}
 
-        {/* PARTIDOS */}
         <section className="space-y-4">
-          <div className="flex items-center justify-between px-1">
-            <div className="flex items-center gap-2">
-              <Calendar size={14} className="text-[#10b981]" />
-              <h2 className="text-[#10b981] font-bold text-[10px] uppercase tracking-[0.3em]">
-                Today's Slate
-              </h2>
-            </div>
+          <div className="flex items-center gap-2 px-1">
+            <Calendar size={14} className="text-[#10b981]" />
+            <h2 className="text-[#10b981] font-bold text-[10px] uppercase tracking-[0.3em]">Today's Slate</h2>
           </div>
           <LiveGamesCarousel liveGames={liveGames} />
         </section>
 
-        {/* EQUIPOS */}
-        <section className="space-y-4">
-          <div className="flex items-center gap-2 px-1 border-t border-[#111] pt-8">
-            <Users size={14} className="text-[#666]" />
-            <h2 className="text-[#666] font-bold text-[10px] uppercase tracking-[0.3em]">
-              Select Team Roster
-            </h2>
+        <section className="space-y-4 pt-4">
+          <div className="flex items-center gap-2 px-1 opacity-50">
+            <Users size={14} />
+            <h2 className="font-bold text-[10px] uppercase tracking-[0.3em]">Team Rosters</h2>
           </div>
           <TeamGrid teams={teams} />
         </section>
-
       </div>
     </main>
   );

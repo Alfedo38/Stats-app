@@ -26,3 +26,13 @@
   .text-brand { color: #10b981; }
   .bg-brand { background-color: #10b981; }
 }
+/* Ocultar barra de scroll para Chrome, Safari y Opera */
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+/* Ocultar barra de scroll para IE, Edge y Firefox */
+.no-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}

@@ -105,9 +105,11 @@ def fetch_and_save_odds():
     print(f"\n¡Éxito! Se descargaron {len(df)} líneas de puntos. Guardando en Supabase...")
     
     with engine.begin() as conn:
-        conn.execute(text("DROP TABLE IF EXISTS player_odds"))
-        df.to_sql('player_odds', engine, index=False)
+        # 1. Limpiamos la tabla vieja (vaciamos las filas)
+        conn.execute(text("TRUNCATE TABLE player_odds"))
         
+        # 2. Insertamos lo nuevo (if_exists='append' porque la tabla ya está creada y limpia)
+        df.to_sql('player_odds', engine, if_exists='append', index=False)
     print("✅ Datos de apuestas guardados correctamente.")
 
 if __name__ == "__main__":

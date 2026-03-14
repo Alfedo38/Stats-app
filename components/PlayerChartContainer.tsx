@@ -14,10 +14,22 @@ export default function PlayerChartContainer({ stats, navStats }: PlayerChartCon
   const [lastN, setLastN] = useState(10);
   const [lineValue, setLineValue] = useState(18.5);
 
-  // Cada vez que cambie la estadística (ej: pasar de PTS a AST), recalculamos una línea sugerida
+  // 1. FILTRO ANTI-DUPLICADOS (El escudo protector)
+  // Revisa la lista y se queda solo con un partido por fecha
+  const uniqueStats = Array.from(
+    new Map(
+      (stats || []).map((s: any) => {
+        // Cortamos la fecha para usar solo "YYYY-MM-DD" como llave única
+        const fechaUnica = s.game_date ? String(s.game_date).split('T')[0] : (s.date || s.id);
+        return [fechaUnica, s];
+      })
+    ).values()
+  );
+
+  // 2. Cálculo de la línea sugerida (usando los datos limpios)
   useEffect(() => {
-    if (stats && stats.length > 0) {
-      const recent = stats.slice(0, 10);
+    if (uniqueStats.length > 0) {
+      const recent = uniqueStats.slice(0, 10);
       let total = 0;
       recent.forEach((s: any) => {
         if (activeStat.includes('+')) {
@@ -30,10 +42,10 @@ export default function PlayerChartContainer({ stats, navStats }: PlayerChartCon
       const avg = total / (recent.length || 1);
       setLineValue(Math.floor(avg) + 0.5);
     }
-  }, [activeStat, stats]);
+  }, [activeStat, stats]); // Usamos stats como dependencia para que reaccione, pero operamos con uniqueStats
 
-  // Procesamos los datos para la gráfica según la stat activa
-  const processedStats = stats.map((s: any) => {
+  // 3. Procesamos los datos según la stat activa (PTS, AST, REB+AST, etc.)
+  const processedStats = uniqueStats.map((s: any) => {
     let val = 0;
     if (activeStat.includes('+')) {
       const parts = activeStat.split('+');
@@ -44,10 +56,10 @@ export default function PlayerChartContainer({ stats, navStats }: PlayerChartCon
     return { ...s, value: val };
   });
 
-  // Filtramos por los últimos N partidos y revertimos para que la gráfica vaya de viejo a nuevo
+  // Filtramos por L5, L10, L20 y lo invertimos para la gráfica (de viejo a nuevo)
   const visibleStats = processedStats.slice(0, lastN).reverse();
 
-  // Cálculos de la tarjeta de resumen
+  // Cálculos de la tarjeta de resumen (AVG y Hit Rate)
   const avgValue = visibleStats.length > 0 
     ? (visibleStats.reduce((a, b) => a + b.value, 0) / visibleStats.length).toFixed(1) 
     : "0.0";
@@ -65,7 +77,7 @@ export default function PlayerChartContainer({ stats, navStats }: PlayerChartCon
             key={stat.id}
             onClick={() => setActiveStat(stat.id)}
             className={`py-4 text-[10px] font-black uppercase tracking-widest border-b-2 transition-all 
-              ${activeStat === stat.id ? 'border-[#10b981] text-[#10b981]' : 'border-transparent text-[#666] hover:text-[#aaa]'}`}
+              ${activeStat === stat.id ? 'border-[#10b981] text-[#10b981] drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'border-transparent text-[#666] hover:text-[#aaa]'}`}
           >
             {stat.label}
           </button>
@@ -77,15 +89,15 @@ export default function PlayerChartContainer({ stats, navStats }: PlayerChartCon
         <div className="flex bg-black p-1 rounded-xl border border-[#222] w-full md:w-auto">
           {[20, 10, 5].map((n) => (
             <button key={n} onClick={() => setLastN(n)}
-              className={`flex-1 md:flex-none px-6 py-2.5 rounded-lg text-[10px] font-black transition-all ${lastN === n ? 'bg-[#1a1a1a] text-white' : 'text-[#666] hover:text-white'}`}>
+              className={`flex-1 md:flex-none px-6 py-2.5 rounded-lg text-[10px] font-black transition-all ${lastN === n ? 'bg-[#1a1a1a] text-white shadow-md border border-[#333]' : 'text-[#666] hover:text-white border border-transparent'}`}>
               L{n}
             </button>
           ))}
         </div>
 
-        <div className="flex items-center gap-8 w-full md:w-auto justify-between">
-          <div className="flex flex-col items-end">
-            <span className="text-[8px] text-[#666] font-black uppercase tracking-widest flex items-center gap-1 mb-1">
+        <div className="flex items-center gap-6 md:gap-8 w-full md:w-auto justify-between md:justify-end">
+          <div className="flex flex-col items-start md:items-end">
+            <span className="text-[8px] text-[#666] font-black uppercase tracking-[0.2em] flex items-center gap-1 mb-1">
               <Sparkles size={10} className="text-[#10b981]"/> Custom Line
             </span>
             <div className="flex items-center gap-2 bg-black px-3 py-1 rounded-lg border border-[#222]">
@@ -94,14 +106,16 @@ export default function PlayerChartContainer({ stats, navStats }: PlayerChartCon
                 type="number" step="0.5" 
                 value={lineValue} 
                 onChange={(e) => setLineValue(parseFloat(e.target.value) || 0)}
-                className="bg-transparent border-none text-2xl font-black w-16 text-right focus:outline-none text-white tabular-nums" 
+                className="bg-transparent border-none text-2xl font-black w-16 md:w-20 text-right focus:outline-none text-white p-0 tabular-nums" 
               />
             </div>
           </div>
           
-          <div className="flex flex-col items-end min-w-[80px]">
-            <span className="text-[8px] text-[#888] font-black uppercase tracking-widest mb-1">AVG: {avgValue}</span>
-            <span className={`text-3xl font-black ${Number(hitRate) >= 50 ? 'text-[#10b981]' : 'text-red-500'}`}>
+          <div className="bg-[#222] w-[1px] h-10 hidden md:block" />
+          
+          <div className="flex flex-col items-end min-w-[70px]">
+            <span className="text-[8px] text-[#888] font-black uppercase tracking-[0.2em] mb-1">AVG: {avgValue}</span>
+            <span className={`text-3xl font-black tabular-nums leading-none ${Number(hitRate) >= 50 ? 'text-[#10b981]' : 'text-red-500'}`}>
               {hitRate}%
             </span>
           </div>
@@ -109,7 +123,7 @@ export default function PlayerChartContainer({ stats, navStats }: PlayerChartCon
       </div>
 
       {/* GRÁFICA */}
-      <div className="bg-[#0a0a0a] p-6 rounded-[2rem] border border-[#171717] shadow-2xl">
+      <div className="bg-[#0a0a0a] p-4 md:p-6 rounded-[2rem] border border-[#171717] shadow-2xl relative">
         <div className="h-[350px] w-full">
           <PlayerChart data={visibleStats} statKey="value" lineValue={lineValue} />
         </div>

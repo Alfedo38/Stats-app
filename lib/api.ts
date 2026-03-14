@@ -12,43 +12,55 @@ export async function getTeams() {
   }
 }
 
-// 2. ROSTER DEL EQUIPO (Para /teams/[teamId])
+// 2. ROSTER DEL EQUIPO (Corregido y Mejorado)
 export async function getTeamPlayers(teamAbbr: string) {
   try {
+    if (!teamAbbr) return [];
+    
+    // Limpiamos la abreviación: quitamos espacios y pasamos a mayúsculas
+    const cleanAbbr = teamAbbr.trim().toUpperCase();
+
     const players = await prisma.player_game_logs.findMany({
       where: { 
         team_abbreviation: {
-          equals: teamAbbr.toUpperCase(),
-          mode: 'insensitive'
+          equals: cleanAbbr,
+          mode: 'insensitive' // Ignora mayúsculas/minúsculas en la DB
         } 
       },
       distinct: ['player_id'],
-      select: { player_id: true, player_name: true, team_abbreviation: true }
+      select: { 
+        player_id: true, 
+        player_name: true, 
+        team_abbreviation: true 
+      }
     });
+
     return players.map(p => ({
       id: p.player_id,
       full_name: p.player_name,
       team: p.team_abbreviation
     }));
   } catch (e) {
+    console.error("Error en getTeamPlayers:", e);
     return [];
   }
 }
 
-// 3. DETALLES DE UN JUGADOR (Para /players/[playerId])
-// ESTA ES LA QUE EL BUILD NO ENCONTRABA
+// 3. DETALLES DE UN JUGADOR
 export async function getPlayerData(playerId: string) {
   try {
     const id = parseInt(playerId);
+    if (isNaN(id)) return { player: null, stats: [] };
+
     const player = await prisma.players.findUnique({
       where: { id: id }
     });
+
     const stats = await prisma.player_game_logs.findMany({
       where: { player_id: id },
       orderBy: { game_date: 'desc' }
     });
     
-    // Serializamos la fecha para que Next.js no se queje
     const serializedStats = stats.map(s => ({
       ...s,
       game_date: s.game_date ? s.game_date.toISOString() : null

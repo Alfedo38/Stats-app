@@ -5,19 +5,18 @@ import { ArrowLeft, Users } from 'lucide-react';
 export const dynamic = 'force-dynamic';
 
 export default async function TeamRosterPage({ params }: { params: { teamId: string } }) {
-  // En Next.js 16/App Router, params es un objeto que recibimos directamente
-  const teamId = params?.teamId || "";
+  // Limpiamos el teamId por si viene con espacios o caracteres raros
+  const rawTeamId = params?.teamId || "";
+  const teamId = rawTeamId.trim();
   
-  // Si no hay ID, evitamos que explote el toLowerCase()
   const displayId = teamId ? teamId.toUpperCase() : "---";
   const logoId = teamId ? teamId.toLowerCase() : "";
 
+  // Llamamos a la API con el ID limpio
   const players = await getTeamPlayers(teamId);
 
   return (
     <main className="min-h-screen bg-black text-white font-sans pb-20">
-      
-      {/* NAVBAR */}
       <nav className="border-b border-[#222] bg-black sticky top-0 z-50">
         <div className="px-6 py-4 max-w-6xl mx-auto flex items-center gap-4">
           <Link href="/" className="text-[#888] hover:text-[#10b981] transition-colors">
@@ -30,13 +29,12 @@ export default async function TeamRosterPage({ params }: { params: { teamId: str
       </nav>
 
       <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-8">
-        
-        {/* HEADER DEL EQUIPO */}
         <div className="flex items-center gap-6 bg-[#111] border border-[#222] rounded-3xl p-6 shadow-xl relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-[#10b981] opacity-5 blur-[100px] rounded-full pointer-events-none" />
           
           {logoId && (
             <img 
+              // CORREGIDO: "scoreboard" en lugar de "coreboard"
               src={`https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/${logoId}.png`} 
               alt={displayId} 
               className="w-24 h-24 object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.1)] z-10"
@@ -49,7 +47,6 @@ export default async function TeamRosterPage({ params }: { params: { teamId: str
           </div>
         </div>
 
-        {/* LISTA DE JUGADORES */}
         <section className="space-y-4">
           <div className="flex items-center gap-2 px-1">
             <Users size={14} className="text-[#666]" />
@@ -62,7 +59,6 @@ export default async function TeamRosterPage({ params }: { params: { teamId: str
             {players && players.map((player: any) => (
               <Link href={`/players/${player.id}`} key={player.id} className="block no-underline">
                 <div className="bg-[#0a0a0a] border border-[#222] rounded-2xl p-4 hover:bg-[#111] hover:border-[#10b981] hover:-translate-y-1 transition-all group flex flex-col items-center gap-4 relative overflow-hidden">
-                  
                   <div className="w-full h-[120px] bg-[#151515] rounded-xl flex items-end justify-center overflow-hidden border border-[#222] group-hover:border-[#10b981]/30 transition-colors">
                     <img 
                       src={`https://cdn.nba.com/headshots/nba/latest/260x190/${player.id}.png`} 
@@ -71,7 +67,6 @@ export default async function TeamRosterPage({ params }: { params: { teamId: str
                       onError={(e) => { e.currentTarget.style.display = 'none'; }}
                     />
                   </div>
-
                   <div className="text-center w-full">
                     <h3 className="font-black text-sm text-white uppercase tracking-tight truncate w-full">
                       {player.full_name}
@@ -83,10 +78,9 @@ export default async function TeamRosterPage({ params }: { params: { teamId: str
           </div>
           
           {(!players || players.length === 0) && (
-             <p className="text-[#444] text-xs font-black uppercase tracking-widest text-center py-10">No se encontraron jugadores para este equipo</p>
+             <p className="text-[#444] text-xs font-black uppercase tracking-widest text-center py-10">No se encontraron jugadores. Revisa la abreviación en la base de datos.</p>
           )}
         </section>
-
       </div>
     </main>
   );

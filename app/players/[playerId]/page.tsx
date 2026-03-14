@@ -1,7 +1,4 @@
-"use client";
-import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
-import PlayerChart from '@/components/PlayerChart';
+import PlayerChartContainer from '@/components/PlayerChartContainer';
 import { getPlayerData } from '@/lib/api';
 import { ArrowLeft, Target, Sparkles, Activity } from 'lucide-react';
 import Link from 'next/link';
@@ -9,202 +6,53 @@ import Link from 'next/link';
 export const dynamic = 'force-dynamic';
 
 const NAV_STATS = [
-  { id: 'pts', label: 'PTS' },
-  { id: 'ast', label: 'AST' },
-  { id: 'reb', label: 'REB' },
-  { id: 'pts+ast', label: 'PTS+AST' },
-  { id: 'pts+reb', label: 'PTS+REB' },
-  { id: 'reb+ast', label: 'REB+AST' }, 
-  { id: 'pts+reb+ast', label: 'P+R+A' },
-  { id: 'fgm', label: 'FGM' },         
-  { id: 'fga', label: 'FGA' },         
-  { id: 'fg3m', label: '3PTM' },
-  { id: 'fg3a', label: '3PTA' },       
-  { id: 'blk', label: 'BLK' },
-  { id: 'stl', label: 'STL' },
-  { id: 'stl+blk', label: 'STL+BLK' },
-  { id: 'tov', label: 'TO' },
-  { id: 'pf', label: 'PF' },
+  { id: 'pts', label: 'PTS' }, { id: 'ast', label: 'AST' }, { id: 'reb', label: 'REB' },
+  { id: 'pts+ast', label: 'PTS+AST' }, { id: 'pts+reb', label: 'PTS+REB' },
+  { id: 'reb+ast', label: 'REB+AST' }, { id: 'pts+reb+ast', label: 'P+R+A' },
+  { id: 'fgm', label: 'FGM' }, { id: 'fga', label: 'FGA' }, { id: 'fg3m', label: '3PTM' },
+  { id: 'fg3a', label: '3PTA' }, { id: 'blk', label: 'BLK' }, { id: 'stl', label: 'STL' },
+  { id: 'stl+blk', label: 'STL+BLK' }, { id: 'tov', label: 'TO' }, { id: 'pf', label: 'PF' },
 ];
 
-export default function PlayerPage() {
-  const { playerId } = useParams();
-  const [data, setData] = useState<any>(null);
-  
-  const [activeStat, setActiveStat] = useState('pts'); 
-  const [lastN, setLastN] = useState(10);
-  const [lineValue, setLineValue] = useState(18.5);
+export default async function PlayerPage({ params }: { params: { playerId: string } }) {
+  const data = await getPlayerData(params.playerId);
 
-  useEffect(() => {
-    getPlayerData(playerId as string).then(setData);
-  }, [playerId]);
-
-  useEffect(() => {
-    if (data && data.stats && data.stats.length > 0) {
-      // 1. FILTRO ANTI-DUPLICADOS CORREGIDO (Busca .date o .game_date)
-      const uniqueStats = Array.from(new Map(data.stats.map((s: any) => {
-        const fecha = s.date || s.game_date || s.id; // Evita el agujero negro
-        return [fecha, s];
-      })).values());
-      
-      const sortedForAvg = uniqueStats.sort((a: any, b: any) => {
-        const dateA = a.date || a.game_date || "";
-        const dateB = b.date || b.game_date || "";
-        return dateB.localeCompare(dateA);
-      });
-      
-      const recent = sortedForAvg.slice(0, 10); 
-      let total = 0;
-      recent.forEach((s: any) => {
-        if (activeStat.includes('+')) {
-          const parts = activeStat.split('+');
-          total += parts.reduce((acc, part) => acc + (Number(s[part]) || 0), 0);
-        } else {
-          total += (Number(s[activeStat]) || 0);
-        }
-      });
-      const avg = total / (recent.length || 1);
-      setLineValue(Math.floor(avg) + 0.5);
-    }
-  }, [activeStat, data]); 
-
-  if (!data || !data.player) return <div className="min-h-screen bg-black flex items-center justify-center text-[#10b981] font-black animate-pulse uppercase tracking-[0.3em] text-xs">Cargando motor de datos...</div>;
+  if (!data || !data.player) {
+    return <div className="min-h-screen bg-black flex items-center justify-center text-[#10b981] font-black uppercase tracking-[0.3em] text-xs">Jugador no encontrado</div>;
+  }
 
   const { player, stats } = data;
-  
-  const processedStats = stats.map((s: any) => {
-    let val = 0;
-    if (activeStat.includes('+')) {
-      const parts = activeStat.split('+');
-      val = parts.reduce((acc, part) => acc + (Number(s[part]) || 0), 0);
-    } else {
-      val = Number(s[activeStat]) || 0;
-    }
-    return { ...s, value: val }; 
-  });
-
-  // 2. BLINDAJE EN LA GRÁFICA CORREGIDO
-  const uniqueProcessed = Array.from(new Map(processedStats.map((s: any) => {
-    const fecha = s.date || s.game_date || s.id; 
-    return [fecha, s];
-  })).values());
-  
-  const sortedStats = uniqueProcessed.sort((a: any, b: any) => {
-    const dateA = a.date || a.game_date || "";
-    const dateB = b.date || b.game_date || "";
-    return dateB.localeCompare(dateA);
-  });
-  
-  const visibleStats = sortedStats.slice(0, lastN).reverse();
-  
-  const avg = visibleStats.length > 0 ? (visibleStats.reduce((a:any, b:any) => a + b.value, 0) / visibleStats.length).toFixed(1) : "0.0";
-  const hits = visibleStats.filter((s:any) => s.value >= lineValue).length; 
-  const hitRate = visibleStats.length > 0 ? ((hits / visibleStats.length) * 100).toFixed(0) : "0";
 
   return (
     <main className="min-h-screen bg-black text-white font-sans pb-20 selection:bg-[#10b981]/30">
-      
-      {/* NAVBAR */}
       <nav className="border-b border-[#111] bg-black/90 backdrop-blur-md sticky top-0 z-50 overflow-hidden">
         <div className="px-6 py-4 flex items-center border-b border-[#111]">
           <Link href="/" className="text-[#666] hover:text-white transition-colors flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.2em]">
             <ArrowLeft size={14} /> Back to Dashboard
           </Link>
         </div>
-
-        {/* MENÚ DESLIZABLE HORIZONTAL */}
-        <div className="px-6 flex items-center gap-6 overflow-x-auto no-scrollbar whitespace-nowrap">
-          {NAV_STATS.map((stat) => {
-            const isActive = activeStat === stat.id;
-            return (
-              <button
-                key={stat.id}
-                onClick={() => setActiveStat(stat.id)}
-                className={`py-4 text-[10px] font-black uppercase tracking-widest border-b-2 transition-all duration-300
-                  ${isActive 
-                    ? 'border-[#10b981] text-[#10b981] drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]' 
-                    : 'border-transparent text-[#666] hover:text-[#aaa]'
-                  }`}
-              >
-                {stat.label}
-              </button>
-            )
-          })}
-        </div>
       </nav>
 
       <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6 md:space-y-8">
-        
-        {/* CABECERA */}
         <div className="relative bg-[#0a0a0a] border border-[#171717] rounded-[2rem] p-6 md:p-10 shadow-2xl overflow-hidden flex justify-between items-end h-[200px] md:h-[280px]">
           <div className="absolute top-0 right-0 w-96 h-96 bg-[#10b981] opacity-[0.03] blur-[120px] rounded-full pointer-events-none" />
-          
           <div className="relative z-20 flex flex-col justify-end h-full">
-            <p className="text-[#10b981] font-bold text-[9px] uppercase tracking-[0.4em] mb-2 flex items-center gap-2 drop-shadow-md">
-              <Activity size={12} /> {NAV_STATS.find(s => s.id === activeStat)?.label} Analysis
-            </p>
             <h1 className="text-5xl md:text-7xl font-black italic tracking-tighter leading-[0.85] uppercase drop-shadow-xl">
               {player.first_name} <br/>
               <span className="text-[#10b981]">{player.last_name}</span>
             </h1>
           </div>
-
           <div className="absolute -right-4 md:right-10 bottom-0 w-[240px] md:w-[380px] pointer-events-none z-10">
-            <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/80 to-transparent z-20"></div>
             <img 
               src={`https://cdn.nba.com/headshots/nba/latest/1040x760/${player.id}.png`} 
-              alt={`${player.first_name} ${player.last_name}`}
+              alt={player.full_name}
               className="w-full h-auto object-cover object-bottom drop-shadow-[0_0_25px_rgba(0,0,0,1)]"
-              onError={(e) => { e.currentTarget.style.display = 'none'; }}
             />
           </div>
         </div>
 
-        {/* CONTROLES */}
-        <div className="flex flex-col md:flex-row justify-between items-center bg-[#0a0a0a] border border-[#171717] rounded-2xl p-4 gap-6 shadow-xl relative z-20">
-          <div className="flex bg-black p-1 rounded-xl border border-[#222] w-full md:w-auto">
-            {[20, 10, 5].map((n) => (
-              <button key={n} onClick={() => setLastN(n)}
-                className={`flex-1 md:flex-none px-6 py-2.5 rounded-lg text-[10px] font-black transition-all ${lastN === n ? 'bg-[#1a1a1a] text-white shadow-md border border-[#333]' : 'text-[#666] hover:text-white border border-transparent'}`}>
-                L{n}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-6 md:gap-8 w-full md:w-auto justify-between md:justify-end">
-            <div className="flex flex-col items-start md:items-end">
-              <span className="text-[8px] text-[#666] font-black uppercase tracking-[0.2em] flex items-center gap-1 mb-1">
-                <Sparkles size={10} className="text-[#10b981]"/> Custom Line
-              </span>
-              <div className="flex items-center gap-2 bg-black px-3 py-1 rounded-lg border border-[#222]">
-                <Target size={14} className="text-red-500" />
-                <input 
-                  type="number" step="0.5" 
-                  value={lineValue} 
-                  onChange={(e) => setLineValue(parseFloat(e.target.value) || 0)}
-                  className="bg-transparent border-none text-2xl font-black w-16 md:w-20 text-right focus:outline-none text-white p-0 tabular-nums" 
-                />
-              </div>
-            </div>
-            
-            <div className="bg-[#222] w-[1px] h-10 hidden md:block" />
-            
-            <div className="flex flex-col items-end min-w-[70px]">
-              <span className="text-[8px] text-[#888] font-black uppercase tracking-[0.2em] mb-1">AVG: {avg}</span>
-              <span className={`text-3xl font-black tabular-nums leading-none ${Number(hitRate) >= 50 ? 'text-[#10b981]' : 'text-red-500'}`}>
-                {hitRate}%
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* GRÁFICA */}
-        <div className="bg-[#0a0a0a] p-4 md:p-6 rounded-[2rem] border border-[#171717] shadow-2xl relative">
-           <div className="h-[350px] w-full">
-              <PlayerChart data={visibleStats} statKey="value" lineValue={lineValue} />
-           </div>
-        </div>
-
+        {/* Pasamos los stats serializados al componente de la gráfica que SI es client-side */}
+        <PlayerChartContainer stats={stats} navStats={NAV_STATS} />
       </div>
     </main>
   );

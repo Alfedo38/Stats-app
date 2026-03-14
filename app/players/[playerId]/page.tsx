@@ -16,10 +16,7 @@ const NAV_STATS = [
 
 export default async function PlayerPage(props: any) {
   try {
-    // 1. Resolvemos params de la forma más segura
     const params = await Promise.resolve(props.params);
-    
-    // 2. Extraemos el ID y aseguramos que sea un string limpio
     let rawId = params?.playerId;
     if (Array.isArray(rawId)) rawId = rawId[0];
     const playerId = typeof rawId === 'string' ? rawId.trim() : "";
@@ -28,7 +25,6 @@ export default async function PlayerPage(props: any) {
       throw new Error("El ID del jugador es nulo o inválido.");
     }
 
-    // 3. Buscamos la data
     const data = await getPlayerData(playerId);
 
     if (!data || !data.player) {
@@ -46,14 +42,10 @@ export default async function PlayerPage(props: any) {
 
     const { player, stats } = data;
 
-    // 4. Limpieza Extrema de Estadísticas para evitar crashes de hidratación
-    // A veces Prisma devuelve valores raros que rompen React.
     const cleanStats = Array.isArray(stats) ? stats.map(s => {
       return {
         ...s,
-        // Forzamos a que sean strings o null para no romper el cliente
         game_date: s.game_date ? String(s.game_date) : null,
-        // Convertimos valores que podrían ser null a 0
         pts: Number(s.pts) || 0,
         ast: Number(s.ast) || 0,
         reb: Number(s.reb) || 0,
@@ -85,23 +77,21 @@ export default async function PlayerPage(props: any) {
 
             <div className="absolute -right-4 md:right-10 bottom-0 w-[240px] md:w-[380px] pointer-events-none z-10">
               <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/80 to-transparent z-20"></div>
+              {/* onError BORRADO */}
               <img 
                 src={`https://cdn.nba.com/headshots/nba/latest/1040x760/${player.id}.png`} 
                 alt={player.full_name || 'Jugador'}
                 className="w-full h-auto object-cover object-bottom drop-shadow-[0_0_25px_rgba(0,0,0,1)]"
-                onError={(e) => { e.currentTarget.style.opacity = '0'; }}
               />
             </div>
           </div>
 
-          {/* Pasamos los stats 100% limpios */}
           <PlayerChartContainer stats={cleanStats} navStats={NAV_STATS} />
           
         </div>
       </main>
     );
   } catch (error: any) {
-    // ⚠️ EL DETECTOR DE MENTIRAS ⚠️
     return (
       <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-10 text-center">
         <h1 className="text-red-500 font-black text-3xl mb-4 uppercase tracking-tighter">Error en Jugador</h1>

@@ -6,18 +6,15 @@ export const dynamic = 'force-dynamic';
 
 export default async function TeamRosterPage(props: any) {
   try {
-    // 1. Resolvemos params de la forma más segura posible para cualquier versión de Next.js
     const params = await Promise.resolve(props.params);
     
-    // 2. Extraemos el ID con extrema precaución
     let rawId = params?.teamId;
-    if (Array.isArray(rawId)) rawId = rawId[0]; // Por si llega como array
+    if (Array.isArray(rawId)) rawId = rawId[0];
     const teamId = typeof rawId === 'string' ? rawId.trim() : "";
 
     const displayId = teamId ? teamId.toUpperCase() : "---";
     const logoId = teamId ? teamId.toLowerCase() : "";
 
-    // 3. Llamada a la base de datos blindada
     let players: any[] = [];
     if (teamId) {
         const res = await getTeamPlayers(teamId);
@@ -41,12 +38,12 @@ export default async function TeamRosterPage(props: any) {
           <div className="flex items-center gap-6 bg-[#111] border border-[#222] rounded-3xl p-6 shadow-xl relative overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-[#10b981] opacity-5 blur-[100px] rounded-full pointer-events-none" />
             
+            {/* onError BORRADO */}
             {logoId && (
               <img 
                 src={`https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/${logoId}.png`} 
                 alt={displayId} 
                 className="w-24 h-24 object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.1)] z-10"
-                onError={(e) => { e.currentTarget.style.display = 'none'; }}
               />
             )}
             
@@ -70,11 +67,11 @@ export default async function TeamRosterPage(props: any) {
                   <Link href={`/players/${player.id || ''}`} key={player.id || Math.random()} className="block no-underline">
                     <div className="bg-[#0a0a0a] border border-[#222] rounded-2xl p-4 hover:bg-[#111] hover:border-[#10b981] transition-all group flex flex-col items-center gap-4">
                       <div className="w-full h-[120px] bg-[#151515] rounded-xl flex items-end justify-center overflow-hidden border border-[#222]">
+                        {/* onError BORRADO */}
                         <img 
                           src={`https://cdn.nba.com/headshots/nba/latest/260x190/${player.id}.png`} 
                           alt={player.full_name}
                           className="h-[110%] object-cover object-bottom"
-                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
                         />
                       </div>
                       <div className="text-center w-full">
@@ -94,7 +91,6 @@ export default async function TeamRosterPage(props: any) {
       </main>
     );
   } catch (error: any) {
-    // ⚠️ SI ALGO EXPLOTA, VEREMOS ESTO EN PANTALLA EN LUGAR DEL ERROR 500 ⚠️
     return (
       <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-10 text-center">
         <h1 className="text-red-500 font-black text-3xl mb-4 uppercase tracking-tighter">Crash Detectado</h1>

@@ -72,3 +72,13 @@ model player_odds {
   under_price Float?  @db.Real
   updated_at  String? @db.VarChar(50)
 }
+model reddit_trends {
+  id          Int      @id @default(autoincrement())
+  player_name String   @unique
+  team_abbr   String?
+  mentions    Int      @default(0)
+  sentiment   String?  // Ej: "OVER", "UNDER"
+  hype_score  Int      @default(0)
+  trend       String?  // "up" o "down"
+  updated_at  DateTime @default(now())
+}

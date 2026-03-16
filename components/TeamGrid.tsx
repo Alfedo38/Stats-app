@@ -2,14 +2,13 @@
 import { useState } from 'react';
 import Link from 'next/link';
 
-// Diccionarios de conferencias (Asegúrate que coincidan con las abreviaciones de tu DB)
+// Diccionarios de conferencias
 const EAST_TEAMS = ['BOS', 'BKN', 'NYK', 'PHI', 'TOR', 'CHI', 'CLE', 'DET', 'IND', 'MIL', 'ATL', 'CHA', 'MIA', 'ORL', 'WAS'];
 const WEST_TEAMS = ['DEN', 'MIN', 'OKC', 'POR', 'UTA', 'GSW', 'LAC', 'LAL', 'PHX', 'SAC', 'DAL', 'HOU', 'MEM', 'NOP', 'SAS'];
 
 export default function TeamGrid({ teams }: { teams: any[] }) {
   const [filter, setFilter] = useState<'ALL' | 'EAST' | 'WEST'>('ALL');
 
-  // Si teams viene vacío o nulo, ponemos un array vacío para que no explote
   const safeTeams = teams || [];
 
   const filteredTeams = safeTeams.filter((team) => {
@@ -47,18 +46,20 @@ export default function TeamGrid({ teams }: { teams: any[] }) {
             className="block no-underline group"
           >
             <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-[1.2rem] p-3 hover:bg-[#111] hover:border-[#10b981]/50 transition-all flex flex-col items-center gap-2">
+              
               {/* Contenedor del Logo con tamaño fijo */}
               <div className="h-[40px] w-full flex items-center justify-center overflow-hidden">
-                {team.abbreviation ? (
+                {team.logo_url ? (
                   <img 
-                    src={`https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/${team.abbreviation.toLowerCase()}.png`} 
-                    alt={team.name} 
+                    src={team.logo_url} /* 👈 ¡MAGIA! Ahora lee directo de tu base de datos */
+                    alt={team.name || team.abbreviation} 
                     className="w-10 h-10 min-w-[40px] min-h-[40px] object-contain drop-shadow-md group-hover:scale-110 transition-transform"
                   />
                 ) : (
                   <div className="w-10 h-10 bg-[#222] rounded-full animate-pulse" />
                 )}
               </div>
+
               <h3 className="font-black text-[9px] text-[#555] group-hover:text-[#888] uppercase tracking-widest transition-colors">
                 {team.abbreviation}
               </h3>

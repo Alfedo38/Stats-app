@@ -8,57 +8,48 @@ export async function GET(request: Request) {
 
     if (!query || query.length < 2) return NextResponse.json([]);
 
-    // 1. Buscamos en la base de datos
-    const players = await prisma.players.findMany({
-      where: {
-        OR: [
-          { first_name: { contains: query, mode: 'insensitive' } },
-          { last_name: { contains: query, mode: 'insensitive' } },
-          { full_name: { contains: query, mode: 'insensitive' } }
-        ],
-      },
-      take: 100, 
-    });
+    // 1. Buscamos JUGADORES y EQUIPOS en paralelo
+    const [players, teams] = await Promise.all([
+      prisma.players.findMany({
+        where: {
+          OR: [
+            { first_name: { contains: query, mode: 'insensitive' } },
+            { last_name: { contains: query, mode: 'insensitive' } },
+            { full_name: { contains: query, mode: 'insensitive' } }
+          ],
+        },
+        take: 10,
+      }),
+      prisma.teams.findMany({
+        where: {
+          OR: [
+            { name: { contains: query, mode: 'insensitive' } },
+            { abbreviation: { contains: query, mode: 'insensitive' } }
+          ],
+        },
+        take: 5,
+      })
+    ]);
 
-    const uniqueMap = new Map();
-    
-    players.forEach(p => {
-      let cleanName = '';
-      
-      // Manejo de formato "Apellido, Nombre"
-      if (p.full_name && p.full_name.includes(',')) {
-        const parts = p.full_name.split(',');
-        cleanName = `${parts[1].trim()} ${parts[0].trim()}`;
-      } else {
-        cleanName = p.full_name || `${p.first_name || ''} ${p.last_name || ''}`.trim();
-      }
+    // 2. Formateamos los resultados para que el componente los entienda
+    const playerResults = players.map(p => ({
+      id: p.id,
+      type: 'player',
+      display_name: p.full_name?.toUpperCase() || `${p.first_name} ${p.last_name}`.toUpperCase(),
+      subtitle: 'NBA Player',
+      image: `https://cdn.nba.com/headshots/nba/latest/260x190/${p.id}.png`
+    }));
 
-      if (cleanName.length > 2) {
-        // Evitamos duplicados por nombre
-        if (!uniqueMap.has(cleanName)) {
-          uniqueMap.set(cleanName, {
-            id: p.id,
-            display_name: cleanName.toUpperCase(),
-            image: `https://cdn.nba.com/headshots/nba/latest/260x190/${p.id}.png`
-          });
-        }
-      }
-    });
+    const teamResults = teams.map(t => ({
+      id: t.abbreviation,
+      type: 'team',
+      display_name: t.name.toUpperCase(),
+      subtitle: `Team - ${t.abbreviation}`,
+      image: `https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/${t.abbreviation.toLowerCase()}.png`
+    }));
 
-    // 2. Algoritmo de relevancia: Coincidencia exacta al principio va primero
-    const sortedResults = Array.from(uniqueMap.values()).sort((a, b) => {
-      const aName = a.display_name.toLowerCase();
-      const bName = b.display_name.toLowerCase();
-      
-      const aStarts = aName.startsWith(query) || aName.includes(` ${query}`);
-      const bStarts = bName.startsWith(query) || bName.includes(` ${query}`);
-
-      if (aStarts && !bStarts) return -1;
-      if (!aStarts && bStarts) return 1;
-      return aName.localeCompare(bName);
-    });
-
-    return NextResponse.json(sortedResults.slice(0, 8));
+    // Unimos todo, poniendo los equipos primero si la búsqueda es corta
+    return NextResponse.json([...teamResults, ...playerResults]);
 
   } catch (error) {
     console.error("SEARCH_API_ERROR:", error);

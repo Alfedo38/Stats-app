@@ -24,7 +24,7 @@ password_raw = os.getenv("DB_PASSWORD")
 if not password_raw:
     raise ValueError("❌ ERROR: Falta la variable DB_PASSWORD en el archivo .env")
 
-# Conexión Segura
+# Conexión Segura (Sin pgbouncer, solo sslmode)
 db_url = URL.create(
     drivername="postgresql",
     username="postgres.xxhdctrvjsngwbagamns",
@@ -32,7 +32,7 @@ db_url = URL.create(
     host="aws-1-sa-east-1.pooler.supabase.com",
     port=6543,
     database="postgres",
-    query={"sslmode": "require"}
+    query={"sslmode": "require"} # 👈 Volvemos a dejarlo así
 )
 
 engine = create_engine(db_url, pool_pre_ping=True)
@@ -104,12 +104,14 @@ def fetch_and_save_odds():
     df = pd.DataFrame(odds_list)
     print(f"\n¡Éxito! Se descargaron {len(df)} líneas de puntos. Guardando en Supabase...")
     
+    # Aquí está la magia: Usamos 'conn' para todo dentro de este bloque, método 'multi' y 'chunksize'
     with engine.begin() as conn:
-        # 1. Limpiamos la tabla vieja (vaciamos las filas)
+        # 1. Limpiamos la tabla vieja
         conn.execute(text("TRUNCATE TABLE player_odds"))
         
-        # 2. Insertamos lo nuevo (if_exists='append' porque la tabla ya está creada y limpia)
-        df.to_sql('player_odds', engine, if_exists='append', index=False)
+        # 2. Insertamos lo nuevo suavemente en bloques de 50
+        df.to_sql('player_odds', conn, if_exists='append', index=False, method='multi', chunksize=50)
+        
     print("✅ Datos de apuestas guardados correctamente.")
 
 if __name__ == "__main__":

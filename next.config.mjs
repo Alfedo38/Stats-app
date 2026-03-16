@@ -8,6 +8,19 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // La Lista VIP para las imágenes (Logos de NBA y ESPN)
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'cdn.nba.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'a.espncdn.com',
+      },
+    ],
+  },
 };
 
 export default nextConfig;

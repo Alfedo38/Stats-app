@@ -8,7 +8,7 @@ export async function GET(request: Request) {
 
     if (!query || query.length < 2) return NextResponse.json([]);
 
-    // 1. Red de pesca gigante: traemos 200 para que ningún "Caleb" nos tape a LeBron o Alperen
+    // 1. Buscamos en la base de datos
     const players = await prisma.players.findMany({
       where: {
         OR: [
@@ -17,26 +17,25 @@ export async function GET(request: Request) {
           { full_name: { contains: query, mode: 'insensitive' } }
         ],
       },
-      take: 200, 
+      take: 100, 
     });
 
     const uniqueMap = new Map();
     
-    // 2. Limpieza de nombres y eliminación de duplicados
     players.forEach(p => {
       let cleanName = '';
       
-      // Arreglamos el formato "APELLIDO, NOMBRE" si viene así de la base de datos
+      // Manejo de formato "Apellido, Nombre"
       if (p.full_name && p.full_name.includes(',')) {
         const parts = p.full_name.split(',');
         cleanName = `${parts[1].trim()} ${parts[0].trim()}`;
       } else {
-        cleanName = `${p.first_name || ''} ${p.last_name || ''}`.trim();
+        cleanName = p.full_name || `${p.first_name || ''} ${p.last_name || ''}`.trim();
       }
 
       if (cleanName.length > 2) {
-        // Priorizamos el ID más alto si hay duplicados (suele ser el oficial de NBA)
-        if (!uniqueMap.has(cleanName) || p.id > uniqueMap.get(cleanName).id) {
+        // Evitamos duplicados por nombre
+        if (!uniqueMap.has(cleanName)) {
           uniqueMap.set(cleanName, {
             id: p.id,
             display_name: cleanName.toUpperCase(),
@@ -46,22 +45,19 @@ export async function GET(request: Request) {
       }
     });
 
-    // 3. EL TRUCO: Ordenamos para que las coincidencias exactas vayan PRIMERO
+    // 2. Algoritmo de relevancia: Coincidencia exacta al principio va primero
     const sortedResults = Array.from(uniqueMap.values()).sort((a, b) => {
       const aName = a.display_name.toLowerCase();
       const bName = b.display_name.toLowerCase();
       
-      // Chequeamos si el nombre o el apellido EMPIEZAN con la búsqueda
       const aStarts = aName.startsWith(query) || aName.includes(` ${query}`);
       const bStarts = bName.startsWith(query) || bName.includes(` ${query}`);
 
-      // Si 'a' empieza con "LEB" (LeBron) y 'b' no (Caleb), 'a' va primero
       if (aStarts && !bStarts) return -1;
       if (!aStarts && bStarts) return 1;
-      return 0; // Si ambos empatan, se quedan como están
+      return aName.localeCompare(bName);
     });
 
-    // Devolvemos solo los 8 mejores
     return NextResponse.json(sortedResults.slice(0, 8));
 
   } catch (error) {

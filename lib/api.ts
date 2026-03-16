@@ -12,34 +12,70 @@ export async function getTeams() {
   }
 }
 
-// 2. ROSTER DEL EQUIPO (Corregido y Mejorado)
+// 2. ROSTER DEL EQUIPO (Escudo Anti-Bugs por Consenso)
 export async function getTeamPlayers(teamAbbr: string) {
   try {
     if (!teamAbbr) return [];
-    
-    // Limpiamos la abreviación: quitamos espacios y pasamos a mayúsculas
     const cleanAbbr = teamAbbr.trim().toUpperCase();
 
-    const players = await prisma.player_game_logs.findMany({
-      where: { 
-        team_abbreviation: {
-          equals: cleanAbbr,
-          mode: 'insensitive' // Ignora mayúsculas/minúsculas en la DB
-        } 
-      },
+    // 1. Buscamos a los candidatos que tocaron este equipo alguna vez (aunque sea por error)
+    const candidates = await prisma.player_game_logs.findMany({
+      where: { team_abbreviation: { equals: cleanAbbr, mode: 'insensitive' } },
       distinct: ['player_id'],
-      select: { 
-        player_id: true, 
-        player_name: true, 
-        team_abbreviation: true 
-      }
+      select: { player_id: true }
     });
 
-    return players.map(p => ({
-      id: p.player_id,
-      full_name: p.player_name,
-      team: p.team_abbreviation
-    }));
+    const playerIds = candidates.map(c => c.player_id);
+    if (playerIds.length === 0) return [];
+
+    // 2. Traemos el historial reciente de esos jugadores (últimos 5 partidos)
+    const recentLogs = await prisma.player_game_logs.findMany({
+      where: { player_id: { in: playerIds } },
+      orderBy: { game_date: 'desc' }
+    });
+
+    // 3. Agrupamos los últimos 5 partidos de cada jugador
+    const logsByPlayer: Record<number, any[]> = {};
+    for (const log of recentLogs) {
+      if (!logsByPlayer[log.player_id]) logsByPlayer[log.player_id] = [];
+      if (logsByPlayer[log.player_id].length < 5) {
+        logsByPlayer[log.player_id].push(log);
+      }
+    }
+
+    const finalRoster = [];
+
+    // 4. Analizamos cuál es su equipo real basado en la mayoría (Consenso)
+    for (const [pIdStr, logs] of Object.entries(logsByPlayer)) {
+      const teamCounts: Record<string, number> = {};
+      let trueTeam = '';
+      let maxCount = 0;
+
+      for (const log of logs) {
+        const t = log.team_abbreviation?.toUpperCase();
+        if (!t) continue;
+        teamCounts[t] = (teamCounts[t] || 0) + 1;
+        
+        // El equipo que más se repite en esos 5 partidos gana
+        if (teamCounts[t] > maxCount) {
+          maxCount = teamCounts[t];
+          trueTeam = t;
+        }
+      }
+
+      // Si su equipo verdadero es el de la página actual, lo agregamos a la plantilla
+      if (trueTeam === cleanAbbr) {
+        finalRoster.push({
+          id: parseInt(pIdStr),
+          full_name: logs[0].player_name, 
+          team: trueTeam
+        });
+      }
+    }
+
+    // Ordenamos alfabéticamente para que quede profesional
+    return finalRoster.sort((a, b) => a.full_name.localeCompare(b.full_name));
+
   } catch (e) {
     console.error("Error en getTeamPlayers:", e);
     return [];

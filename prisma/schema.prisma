@@ -7,6 +7,10 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ==========================================
+// 🏀 BASQUETBOL (NBA) - INTOCABLE
+// ==========================================
+
 model teams {
   id           Int       @id @default(autoincrement())
   api_id       Int?
@@ -72,6 +76,7 @@ model player_odds {
   under_price Float?  @db.Real
   updated_at  String? @db.VarChar(50)
 }
+
 model reddit_trends {
   id          Int      @id @default(autoincrement())
   player_name String   @unique
@@ -81,4 +86,68 @@ model reddit_trends {
   hype_score  Int      @default(0)
   trend       String?  // "up" o "down"
   updated_at  DateTime @default(now())
+}
+
+// ==========================================
+// 🐉 LEAGUE OF LEGENDS (Sufijo _lol)
+// ==========================================
+
+model matches_lol {
+  id              String   @id @default(uuid())
+  game_id         String   
+  league          String   
+  date            DateTime
+  season          String   
+  
+  team_name       String
+  side            String   
+  win             Boolean
+  game_length     Int      
+  
+  // --- Mercados de Primeros Objetivos ---
+  first_blood     Boolean
+  first_tower     Boolean
+  first_dragon    Boolean
+  first_baron     Boolean
+  
+  // --- NUEVO: Mercados Over/Under Totales ---
+  towers          Int?     // Torres totales destruidas por el equipo
+  dragons         Int?     // Dragones totales asegurados
+  
+  // --- Economía y Macro Juego ---
+  team_kills      Int
+  team_deaths     Int
+  gold_diff_at_15 Int?     
+  dpm             Float?   
+  wards_placed    Int?     
+  wards_cleared   Int?
+  
+  @@unique([game_id, team_name]) 
+  @@index([league, date])
+}
+
+model player_stats_lol {
+  id                 String   @id @default(uuid())
+  game_id            String   
+  team_name          String?  // <-- NUEVO Y VITAL: Para saber a qué equipo pertenece el jugador
+  player_name        String
+  champion           String
+  position           String   
+  
+  // --- Mercados de Jugador ---
+  kills              Int
+  deaths             Int
+  assists            Int
+  creep_score        Int      
+  cs_per_min         Float?
+  damage_share       Float?   
+  gold_share         Float?   
+  vision_score       Int?
+
+  // --- NUEVO: Props de Primera Sangre ---
+  first_blood_kill   Boolean? // ¿Fue el asesino de la primera sangre?
+  first_blood_victim Boolean? // ¿Fue la víctima de la primera sangre?
+  
+  @@index([player_name, champion])
+  @@index([game_id])
 }

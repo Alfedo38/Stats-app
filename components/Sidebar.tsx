@@ -1,26 +1,40 @@
 "use client";
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-// 1. Agregamos Stethoscope al import
-import { Home, Zap, Users, Flame, MessageSquare, Stethoscope } from 'lucide-react';
+// Agregamos los íconos para LoL (Trophy, Shield, Cpu) manteniendo los tuyos de NBA
+import { Home, Zap, Users, Flame, MessageSquare, Stethoscope, Trophy, Shield, Cpu } from 'lucide-react';
 
 export default function Sidebar() {
   const pathname = usePathname();
 
-  // 2. Lo sumamos a la lista oficial para que herede todo el diseño
-  const navItems = [
+  // Detectamos inteligentemente en qué "modo" estamos basándonos en la URL
+  const isLoLMode = pathname.startsWith('/lol');
+
+  // Menú de NBA (El tuyo original)
+  const nbaItems = [
     { name: 'Dashboard', path: '/', icon: <Home size={18} /> },
     { name: 'Cerebro EV+', path: '/ev-plays', icon: <Zap size={18} /> },
     { name: 'Equipos', path: '/teams', icon: <Users size={18} /> },
     { name: 'Radar Social', path: '/reddit-hype', icon: <MessageSquare size={18} /> },
-    { name: 'Parte Médico', path: '/injuries', icon: <Stethoscope size={18} /> }, // 👈 Nuevo!
+    { name: 'Parte Médico', path: '/injuries', icon: <Stethoscope size={18} /> },
     { name: 'On Fire', path: '/trending', icon: <Flame size={18} /> },
   ];
+
+  // Menú de League of Legends (El nuevo)
+  const lolItems = [
+    { name: 'Ligas', path: '/lol', icon: <Trophy size={18} /> },
+    { name: 'Equipos', path: '/lol/teams', icon: <Shield size={18} /> },
+    { name: 'Jugadores', path: '/lol/players', icon: <Users size={18} /> },
+    { name: 'Simulador Draft', path: '/lol/draft', icon: <Cpu size={18} /> },
+  ];
+
+  // Elegimos qué menú renderizar según el modo activo
+  const activeItems = isLoLMode ? lolItems : nbaItems;
 
   return (
     <aside className="fixed top-0 left-0 h-screen w-64 bg-[#0a0a0a] border-r border-[#1a1a1a] hidden md:flex flex-col z-[200]">
       {/* Logo */}
-      <div className="p-6 border-b border-[#1a1a1a]">
+      <div className="p-6 border-b border-[#1a1a1a] flex items-center justify-between">
         <Link href="/">
           <h1 className="text-2xl font-black italic uppercase tracking-tighter text-white">
             Mosk<span className="text-[#10b981]">Props</span>
@@ -28,14 +42,45 @@ export default function Sidebar() {
         </Link>
       </div>
 
+      {/* Selector de Mundo (NBA vs LoL) */}
+      <div className="px-4 pt-6 pb-2">
+        <div className="flex bg-[#111] p-1 rounded-xl border border-[#222]">
+          <Link 
+            href="/" 
+            className={`flex-1 flex items-center justify-center py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
+              !isLoLMode 
+                ? 'bg-[#10b981] text-black shadow-[0_0_10px_rgba(16,185,129,0.3)]' 
+                : 'text-[#666] hover:text-white hover:bg-[#1a1a1a]'
+            }`}
+          >
+            NBA
+          </Link>
+          <Link 
+            href="/lol" 
+            className={`flex-1 flex items-center justify-center py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
+              isLoLMode 
+                ? 'bg-[#10b981] text-black shadow-[0_0_10px_rgba(16,185,129,0.3)]' 
+                : 'text-[#666] hover:text-white hover:bg-[#1a1a1a]'
+            }`}
+          >
+            Esports
+          </Link>
+        </div>
+      </div>
+
       {/* Navigation Links */}
-      <nav className="flex-1 px-4 py-8 space-y-2">
-        <p className="px-4 text-[10px] font-black uppercase tracking-widest text-[#444] mb-4">
-          Menú Principal
+      <nav className="flex-1 px-4 py-4 space-y-2 overflow-y-auto hide-scrollbar">
+        <p className="px-4 text-[10px] font-black uppercase tracking-widest text-[#444] mb-4 mt-2">
+          Menú {isLoLMode ? 'Esports' : 'Principal'}
         </p>
         
-        {navItems.map((item) => {
-          const isActive = pathname === item.path;
+        {activeItems.map((item) => {
+          // Lógica avanzada para saber si está activo, incluso si entramos a sub-rutas (ej: /lol/lck)
+          let isActive = false;
+          if (item.path === '/' && pathname === '/') isActive = true;
+          else if (item.path === '/lol' && (pathname === '/lol' || (pathname.startsWith('/lol/') && !pathname.includes('teams') && !pathname.includes('players') && !pathname.includes('draft')))) isActive = true;
+          else if (item.path !== '/' && item.path !== '/lol' && pathname.startsWith(item.path)) isActive = true;
+
           return (
             <Link
               key={item.name}

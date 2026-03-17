@@ -21,7 +21,7 @@ export async function GET(request: Request) {
     }
 
     // ---------------------------------------------------------
-    // NUEVO PODER: LISTA GLOBAL DE JUGADORES PARA AUTOCOMPLETAR
+    // PODER 2: LISTA GLOBAL DE JUGADORES PARA AUTOCOMPLETAR
     // ---------------------------------------------------------
     if (action === 'players') {
       const players = await prisma.player_stats_lol.findMany({
@@ -33,7 +33,7 @@ export async function GET(request: Request) {
     }
 
     // ---------------------------------------------------------
-    // PODER 2: ROSTER VACÍO
+    // PODER 3: ROSTER VACÍO
     // ---------------------------------------------------------
     if (action === 'roster') {
       const team = searchParams.get('team');
@@ -46,12 +46,28 @@ export async function GET(request: Request) {
       if (!teamExists) return NextResponse.json({ error: 'Equipo no encontrado' }, { status: 404 });
 
       return NextResponse.json({
-        TOP: '', JNG: '', MID: '', BOT: '', SUP: '' // Lo dejamos vacío para el placeholder
+        TOP: '', JNG: '', MID: '', BOT: '', SUP: '' 
       });
     }
 
     // ---------------------------------------------------------
-    // PODER 3: CALCULAR STATS (AHORA CON KILLS Y TORRES)
+    // PODER 4: OBTENER LA FECHA DEL ÚLTIMO PARTIDO EN LA BD
+    // ---------------------------------------------------------
+    if (action === 'last_update') {
+      const lastMatch = await prisma.matches_lol.findFirst({
+        orderBy: { date: 'desc' },
+        select: { date: true }
+      });
+      
+      if (!lastMatch || !lastMatch.date) return NextResponse.json({ date: 'Desconocida' });
+      
+      // Formateamos la fecha a DD/MM/YYYY
+      const formattedDate = lastMatch.date.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      return NextResponse.json({ date: formattedDate });
+    }
+
+    // ---------------------------------------------------------
+    // PODER 5: CALCULAR STATS COMPLETAS
     // ---------------------------------------------------------
     if (action === 'stats') {
       const player = searchParams.get('player');

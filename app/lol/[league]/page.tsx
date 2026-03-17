@@ -1,161 +1,128 @@
 import Link from 'next/link';
 import { PrismaClient } from '@prisma/client';
-import { ChevronLeft, Trophy, Calendar } from 'lucide-react';
+import { Trophy, Activity, Target, ChevronRight, Swords } from 'lucide-react';
 
 const prisma = new PrismaClient();
 export const revalidate = 3600;
 
-async function getLeagueStats(leagueName: string, season: string) {
-  const matches = await prisma.matches_lol.findMany({
-    where: { 
-      league: { equals: leagueName, mode: 'insensitive' },
-      season: season // Agregamos el filtro por temporada
-    },
-    select: {
-      team_name: true, win: true, first_blood: true, first_tower: true, first_dragon: true,
-      team_kills: true, team_deaths: true
-    }
+async function getLeagues() {
+  const leagues = await prisma.matches_lol.findMany({
+    distinct: ['league'],
+    select: { league: true },
+    orderBy: { league: 'asc' },
   });
 
-  if (matches.length === 0) return null;
-
-  const teamStats: Record<string, any> = {};
-
-  matches.forEach(m => {
-    if (!teamStats[m.team_name]) {
-      teamStats[m.team_name] = {
-        name: m.team_name, totalGames: 0, wins: 0, firstBloods: 0, firstTowers: 0, firstDragons: 0,
-        totalKills: 0, totalDeaths: 0
-      };
-    }
-    
-    teamStats[m.team_name].totalGames += 1;
-    teamStats[m.team_name].totalKills += m.team_kills;
-    teamStats[m.team_name].totalDeaths += m.team_deaths;
-    if (m.win) teamStats[m.team_name].wins += 1;
-    if (m.first_blood) teamStats[m.team_name].firstBloods += 1;
-    if (m.first_tower) teamStats[m.team_name].firstTowers += 1;
-    if (m.first_dragon) teamStats[m.team_name].firstDragons += 1;
-  });
-
-  return Object.values(teamStats)
-    .map(team => ({
-      ...team,
-      winRate: ((team.wins / team.totalGames) * 100).toFixed(1),
-      fbRate: ((team.firstBloods / team.totalGames) * 100).toFixed(1),
-      ftRate: ((team.firstTowers / team.totalGames) * 100).toFixed(1),
-      fdRate: ((team.firstDragons / team.totalGames) * 100).toFixed(1),
-      avgKills: (team.totalKills / team.totalGames).toFixed(1),
-      avgDeaths: (team.totalDeaths / team.totalGames).toFixed(1),
-    }))
-    .sort((a, b) => parseFloat(b.winRate) - parseFloat(a.winRate));
+  // Ligas mayores (Tier 1) para darles prioridad visual
+  const majorLeagues = ['LCK', 'LPL', 'LEC', 'LCS', 'WLDs', 'MSI'];
+  
+  return leagues
+    .map((l) => l.league)
+    .sort((a, b) => {
+      const aIsMajor = majorLeagues.includes(a);
+      const bIsMajor = majorLeagues.includes(b);
+      if (aIsMajor && !bIsMajor) return -1;
+      if (!aIsMajor && bIsMajor) return 1;
+      return 0;
+    });
 }
 
-// En Next.js 15, params y searchParams son Promesas
-export default async function LeaguePage({ 
-  params, 
-  searchParams 
-}: { 
-  params: Promise<{ league: string }>,
-  searchParams: Promise<{ season?: string }>
-}) {
-  const resolvedParams = await params;
-  const resolvedSearchParams = await searchParams;
+// Función auxiliar para darle un color a cada liga mayor
+const getLeagueColor = (league: string) => {
+  switch (league) {
+    case 'LCK': return 'text-blue-500 border-blue-500/30 bg-blue-500/10 hover:border-blue-500'; // Corea: Azul
+    case 'LPL': return 'text-red-500 border-red-500/30 bg-red-500/10 hover:border-red-500';   // China: Rojo
+    case 'LEC': return 'text-orange-500 border-orange-500/30 bg-orange-500/10 hover:border-orange-500'; // Europa: Naranja
+    case 'LCS': return 'text-indigo-500 border-indigo-500/30 bg-indigo-500/10 hover:border-indigo-500'; // NA: Indigo
+    case 'WLDs': 
+    case 'MSI': return 'text-yellow-500 border-yellow-500/50 bg-yellow-500/10 hover:border-yellow-500'; // Internacional: Dorado
+    default: return 'text-gray-400 border-[#1a1a1a] bg-[#0a0a0a] hover:border-[#10b981]/50'; // Resto
+  }
+};
+
+export default async function LolDashboard() {
+  const leagues = await getLeagues();
   
-  const leagueName = resolvedParams.league.toUpperCase();
-  const currentSeason = resolvedSearchParams.season || '2026'; // Por defecto muestra el año actual
-  
-  const stats = await getLeagueStats(leagueName, currentSeason);
-  const availableSeasons = ['2026', '2025', '2024'];
+  // Separamos las ligas Tier 1 del resto para el diseño
+  const majorLeaguesList = ['LCK', 'LPL', 'LEC', 'LCS', 'WLDs', 'MSI'];
+  const majorLeagues = leagues.filter(l => majorLeaguesList.includes(l));
+  const minorLeagues = leagues.filter(l => !majorLeaguesList.includes(l));
 
   return (
     <main className="min-h-screen bg-black text-white p-4 md:p-8 pb-20">
-      <div className="max-w-7xl mx-auto space-y-8">
+      <div className="max-w-6xl mx-auto space-y-10">
         
-        {/* Navegación y Header */}
-        <div className="flex flex-col gap-4">
-          <Link href="/lol" className="text-[#666] hover:text-white transition-colors flex items-center gap-2 text-xs font-bold uppercase tracking-widest w-fit">
-            <ChevronLeft size={14} /> Volver a Ligas
-          </Link>
-          
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-[#1a1a1a] rounded-2xl flex items-center justify-center border border-[#333]">
-                <Trophy className="text-[#10b981]" size={32} />
-              </div>
-              <div>
-                <h1 className="text-5xl font-black italic uppercase tracking-tighter">{leagueName}</h1>
-                <p className="text-[#444] text-[10px] font-bold uppercase tracking-[0.4em] mt-1">
-                  Estadísticas Globales • {currentSeason}
-                </p>
-              </div>
-            </div>
+        {/* Header (Estilo MoskProps) */}
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div>
+            <h1 className="text-4xl font-black italic uppercase tracking-tighter">
+              League of <span className="text-[#10b981]">Legends</span>
+            </h1>
+            <p className="text-[#666] text-[10px] font-bold uppercase tracking-[0.4em] mt-1">
+              MoskProps Analytics • Entorno Esports
+            </p>
+          </div>
+        </header>
 
-            {/* Selector de Temporadas */}
-            <div className="flex gap-2 bg-[#0a0a0a] p-1.5 rounded-xl border border-[#1a1a1a]">
-              {availableSeasons.map(season => (
-                <Link 
-                  key={season} 
-                  href={`/lol/${leagueName.toLowerCase()}?season=${season}`}
-                  className={`px-6 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
-                    currentSeason === season 
-                      ? 'bg-[#10b981] text-black shadow-[0_0_15px_rgba(16,185,129,0.3)]' 
-                      : 'text-[#666] hover:text-white hover:bg-[#111]'
-                  }`}
-                >
-                  {season}
-                </Link>
-              ))}
-            </div>
+        {/* Banner Superior de Stats Generales */}
+        <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-[2.5rem] p-8 relative overflow-hidden flex items-center justify-between">
+           <div className="absolute top-0 left-0 w-64 h-64 bg-blue-600 opacity-5 blur-[100px] rounded-full pointer-events-none" />
+           <div className="z-10">
+              <h2 className="text-2xl font-black uppercase tracking-tighter mb-2 flex items-center gap-3">
+                 <Swords className="text-blue-500" size={24}/>
+                 Datos Puros de Competición
+              </h2>
+              <p className="text-[#444] text-[10px] font-medium uppercase tracking-widest max-w-lg">
+                Modelos predictivos basados en diferencia de oro, control de objetivos tempranos y daño por minuto. Cero ruido social.
+              </p>
+           </div>
+        </div>
+
+        {/* Sección: Ligas Mayores (Tier 1) */}
+        <div>
+          <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-[#444] flex items-center gap-2 mb-6">
+            <Trophy size={16} className="text-yellow-500" />
+            Ligas Principales (Tier 1)
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {majorLeagues.map((league) => (
+              <Link 
+                key={league} 
+                href={`/lol/${league.toLowerCase()}`}
+                className={`group block p-6 rounded-3xl transition-all relative overflow-hidden border ${getLeagueColor(league).split(' hover:')[0]} hover:${getLeagueColor(league).split(' hover:')[1]}`}
+              >
+                <div className="flex justify-between items-start mb-6">
+                  <h2 className={`text-4xl font-black italic uppercase tracking-tighter ${getLeagueColor(league).split(' ')[0]}`}>
+                    {league}
+                  </h2>
+                  <Activity size={20} className={`${getLeagueColor(league).split(' ')[0]} opacity-50`} />
+                </div>
+                
+                <div className="flex items-center text-[10px] font-black uppercase tracking-widest mt-8 text-white group-hover:translate-x-2 transition-transform">
+                  Analizar Equipos <ChevronRight size={14} className="ml-1" />
+                </div>
+              </Link>
+            ))}
           </div>
         </div>
 
-        {/* Tabla de Estadísticas */}
-        <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-3xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-[#1a1a1a] bg-[#111]">
-                  <th className="p-6 text-[10px] font-black uppercase tracking-widest text-[#666]">Equipo</th>
-                  <th className="p-6 text-[10px] font-black uppercase tracking-widest text-[#666] text-center">PJ</th>
-                  <th className="p-6 text-[10px] font-black uppercase tracking-widest text-[#10b981] text-center">Win Rate</th>
-                  <th className="p-6 text-[10px] font-black uppercase tracking-widest text-green-400 text-center">Kills/Map</th>
-                  <th className="p-6 text-[10px] font-black uppercase tracking-widest text-red-500 text-center">Deaths/Map</th>
-                  <th className="p-6 text-[10px] font-black uppercase tracking-widest text-blue-500 text-center">1st Tower %</th>
-                  <th className="p-6 text-[10px] font-black uppercase tracking-widest text-orange-500 text-center">1st Dragon %</th>
-                </tr>
-              </thead>
-              {stats && (
-                <tbody className="divide-y divide-[#1a1a1a]">
-                  {stats.map((team, index) => (
-                    <tr key={team.name} className="hover:bg-[#111] transition-colors group">
-                      <td className="p-6">
-                        <div className="flex items-center gap-3">
-                          <span className="text-[#444] font-black text-xs w-4">{index + 1}.</span>
-                          <Link 
-                            href={`/lol/${leagueName.toLowerCase()}/${encodeURIComponent(team.name.toLowerCase())}?season=${currentSeason}`}
-                            className="font-black uppercase tracking-tight text-gray-200 group-hover:text-white group-hover:underline"
-                          >
-                            {team.name}
-                          </Link>
-                        </div>
-                      </td>
-                      <td className="p-6 text-center text-gray-400 font-medium">{team.totalGames}</td>
-                      <td className="p-6 text-center text-lg font-black text-white">{team.winRate}%</td>
-                      <td className="p-6 text-center text-green-400 font-bold">{team.avgKills}</td>
-                      <td className="p-6 text-center text-red-500 font-bold">{team.avgDeaths}</td>
-                      <td className="p-6 text-center text-gray-300 font-bold">{team.ftRate}%</td>
-                      <td className="p-6 text-center text-gray-300 font-bold">{team.fdRate}%</td>
-                    </tr>
-                  ))}
-                </tbody>
-              )}
-            </table>
-            {!stats && (
-              <div className="p-12 text-center text-[#666] font-bold uppercase tracking-widest">
-                No hay datos para la temporada {currentSeason}
-              </div>
-            )}
+        {/* Sección: Resto de Ligas */}
+        <div className="pt-8 border-t border-[#111]">
+          <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-[#444] flex items-center gap-2 mb-6">
+            <Target size={16} className="text-[#10b981]" />
+            Circuito Global
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {minorLeagues.map((league) => (
+              <Link 
+                key={league} 
+                href={`/lol/${league.toLowerCase()}`}
+                className="group block bg-[#0a0a0a] border border-[#1a1a1a] p-4 rounded-2xl hover:border-[#10b981]/50 hover:bg-[#111] transition-all flex flex-col items-center justify-center text-center"
+              >
+                <h2 className="text-xl font-black text-gray-300 group-hover:text-white transition-colors">
+                  {league}
+                </h2>
+              </Link>
+            ))}
           </div>
         </div>
 

@@ -25,6 +25,8 @@ export default function DraftSimulator() {
   const [playersList, setPlayersList] = useState<string[]>([]); 
   const [showTeamModal, setShowTeamModal] = useState<'blue' | 'red' | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  const [lastUpdate, setLastUpdate] = useState<string>('Cargando...');
 
   const [activePlayerInput, setActivePlayerInput] = useState<{ side: 'blue' | 'red', index: number } | null>(null);
 
@@ -36,6 +38,7 @@ export default function DraftSimulator() {
   useEffect(() => {
     fetch('/api/draft?action=teams').then(res => res.json()).then(data => setTeamsList(data || []));
     fetch('/api/draft?action=players').then(res => res.json()).then(data => setPlayersList(data || [])); 
+    fetch('/api/draft?action=last_update').then(res => res.json()).then(data => setLastUpdate(data.date || 'Desconocida'));
     
     const fetchDDragon = async () => {
       try {
@@ -92,12 +95,9 @@ export default function DraftSimulator() {
     setBluePicks(JSON.parse(JSON.stringify(initialPicks))); setRedPicks(JSON.parse(JSON.stringify(initialPicks)));
   };
 
-  // NUEVO: Función para invertir los lados
   const handleSwapSides = () => {
-    setBlueTeam(redTeam);
-    setRedTeam(blueTeam);
-    setBluePicks([...redPicks]);
-    setRedPicks([...bluePicks]);
+    setBlueTeam(redTeam); setRedTeam(blueTeam);
+    setBluePicks([...redPicks]); setRedPicks([...bluePicks]);
   };
 
   const calculateMetrics = () => {
@@ -136,7 +136,6 @@ export default function DraftSimulator() {
       <div className="max-w-[1400px] mx-auto space-y-8 relative z-10">
         <div className="flex flex-col items-center justify-center text-center border-b border-[#1a1a1a] pb-8 relative">
           
-          {/* BOTONES DE ACCIÓN RÁPIDA (Reset y Cambio de Lado) */}
           <div className="absolute right-0 top-0 flex items-center gap-3">
             <button onClick={handleSwapSides} className="flex items-center gap-2 text-[#666] hover:text-blue-400 transition-colors text-[10px] font-black uppercase tracking-widest bg-[#111] px-4 py-2 rounded-xl border border-[#222] hover:border-blue-500/50">
               <ArrowLeftRight size={14} /> Cambiar Lado
@@ -148,6 +147,11 @@ export default function DraftSimulator() {
 
           <div className="w-16 h-16 bg-[#1a1a1a] rounded-2xl flex items-center justify-center border border-[#333] mb-4 shadow-[0_0_30px_rgba(16,185,129,0.1)]"> <Cpu className="text-[#10b981]" size={32} /> </div>
           <h1 className="text-5xl md:text-7xl font-black italic uppercase tracking-tighter">Draft <span className="text-[#10b981]">Predictor</span></h1>
+          
+          {/* AQUÍ ESTÁ EL INDICADOR DE FECHA */}
+          <p className="text-[#666] text-[10px] md:text-xs font-bold uppercase tracking-[0.4em] mt-2 flex items-center gap-2">
+            <Activity size={14} className="text-[#10b981]" /> Motor de cálculo EV+ • BD AL: <span className="text-white">{lastUpdate}</span>
+          </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -164,7 +168,6 @@ export default function DraftSimulator() {
                     {pick.champId ? ( <img src={`https://ddragon.leagueoflegends.com/cdn/${patchVersion}/img/champion/${pick.champId}.png`} alt={pick.champion!} className="w-full h-full object-cover scale-110" /> ) : ( <span className="text-[9px] font-black text-[#444]">{pick.role}</span> )}
                   </div>
                   <div className="flex-1 w-full space-y-1 relative">
-                    {/* AUTOCOMPLETADO DE JUGADORES */}
                     <input type="text" value={pick.player} onChange={(e) => handlePlayerNameChange('blue', i, e.target.value)} onFocus={() => setActivePlayerInput({side: 'blue', index: i})} onBlur={() => setTimeout(() => setActivePlayerInput(null), 200)} placeholder="Nombre jugador..." className="w-full bg-transparent text-[10px] font-bold text-gray-300 uppercase tracking-widest placeholder:text-[#333] outline-none border-b border-transparent focus:border-[#333]" />
                     {activePlayerInput?.side === 'blue' && activePlayerInput.index === i && pick.player.length > 1 && (
                       <div className="absolute top-6 left-0 w-full z-50 bg-[#111] border border-[#333] rounded-lg shadow-xl max-h-32 overflow-y-auto">
@@ -206,7 +209,6 @@ export default function DraftSimulator() {
                     {pick.champId ? ( <img src={`https://ddragon.leagueoflegends.com/cdn/${patchVersion}/img/champion/${pick.champId}.png`} alt={pick.champion!} className="w-full h-full object-cover scale-110" /> ) : ( <span className="text-[9px] font-black text-[#444]">{pick.role}</span> )}
                   </div>
                   <div className="flex-1 w-full space-y-1 relative">
-                    {/* AUTOCOMPLETADO ROJO */}
                     <input type="text" value={pick.player} onChange={(e) => handlePlayerNameChange('red', i, e.target.value)} onFocus={() => setActivePlayerInput({side: 'red', index: i})} onBlur={() => setTimeout(() => setActivePlayerInput(null), 200)} placeholder="Nombre jugador..." className="w-full bg-transparent text-[10px] font-bold text-gray-300 uppercase tracking-widest placeholder:text-[#333] outline-none border-b border-transparent focus:border-[#333] text-right" dir="rtl" />
                     {activePlayerInput?.side === 'red' && activePlayerInput.index === i && pick.player.length > 1 && (
                       <div className="absolute top-6 right-0 w-full z-50 bg-[#111] border border-[#333] rounded-lg shadow-xl max-h-32 overflow-y-auto text-right">

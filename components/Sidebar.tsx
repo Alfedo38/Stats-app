@@ -1,8 +1,8 @@
 "use client";
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-// Agregamos los íconos para LoL (Trophy, Shield, Cpu) manteniendo los tuyos de NBA
-import { Home, Zap, Users, Flame, MessageSquare, Stethoscope, Trophy, Shield, Cpu } from 'lucide-react';
+// Agregamos el ícono "Globe" para el nuevo Dashboard
+import { Home, Zap, Users, Flame, MessageSquare, Stethoscope, Trophy, Shield, Cpu, Globe } from 'lucide-react';
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -20,9 +20,10 @@ export default function Sidebar() {
     { name: 'On Fire', path: '/trending', icon: <Flame size={18} /> },
   ];
 
-  // Menú de League of Legends (El nuevo)
+  // Menú de League of Legends (Actualizado con Dashboard y Ligas separados)
   const lolItems = [
-    { name: 'Ligas', path: '/lol', icon: <Trophy size={18} /> },
+    { name: 'Dashboard', path: '/lol', icon: <Globe size={18} /> },
+    { name: 'Ligas', path: '/lol/leagues', icon: <Trophy size={18} /> },
     { name: 'Equipos', path: '/lol/teams', icon: <Shield size={18} /> },
     { name: 'Jugadores', path: '/lol/players', icon: <Users size={18} /> },
     { name: 'Simulador Draft', path: '/lol/draft', icon: <Cpu size={18} /> },
@@ -75,10 +76,10 @@ export default function Sidebar() {
         </p>
         
         {activeItems.map((item) => {
-          // Lógica avanzada para saber si está activo, incluso si entramos a sub-rutas (ej: /lol/lck)
+          // Lógica avanzada limpia
           let isActive = false;
           if (item.path === '/' && pathname === '/') isActive = true;
-          else if (item.path === '/lol' && (pathname === '/lol' || (pathname.startsWith('/lol/') && !pathname.includes('teams') && !pathname.includes('players') && !pathname.includes('draft')))) isActive = true;
+          else if (item.path === '/lol' && pathname === '/lol') isActive = true;
           else if (item.path !== '/' && item.path !== '/lol' && pathname.startsWith(item.path)) isActive = true;
 
           return (

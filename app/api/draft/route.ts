@@ -8,9 +8,6 @@ export async function GET(request: Request) {
   const action = searchParams.get('action');
 
   try {
-    // ---------------------------------------------------------
-    // PODER 1: BUSCAR EQUIPOS
-    // ---------------------------------------------------------
     if (action === 'teams') {
       const teams = await prisma.matches_lol.findMany({
         select: { team_name: true },
@@ -20,9 +17,6 @@ export async function GET(request: Request) {
       return NextResponse.json(teams.map(t => t.team_name));
     }
 
-    // ---------------------------------------------------------
-    // PODER 2: LISTA GLOBAL DE JUGADORES PARA AUTOCOMPLETAR
-    // ---------------------------------------------------------
     if (action === 'players') {
       const players = await prisma.player_stats_lol.findMany({
         select: { player_name: true },
@@ -32,43 +26,40 @@ export async function GET(request: Request) {
       return NextResponse.json(players.map(p => p.player_name));
     }
 
-    // ---------------------------------------------------------
-    // PODER 3: ROSTER VACÍO
-    // ---------------------------------------------------------
     if (action === 'roster') {
-      const team = searchParams.get('team');
-      if (!team) return NextResponse.json({ error: 'Falta el equipo' }, { status: 400 });
+      const teamQuery = searchParams.get('team');
+      if (!teamQuery) return NextResponse.json({ error: 'Falta el equipo' }, { status: 400 });
 
-      const teamExists = await prisma.matches_lol.findFirst({
-        where: { team_name: { equals: team, mode: 'insensitive' } }
+      const cleanName = teamQuery.replace(/\b(Esports|Gaming|Club|Team|GG|Esport|Red|White|Blue)\b/gi, '').trim();
+
+      const lastGamesStats = await prisma.player_stats_lol.findMany({
+        where: { team_name: { contains: cleanName, mode: 'insensitive' } },
+        orderBy: { game_id: 'desc' },
+        take: 100 
       });
 
-      if (!teamExists) return NextResponse.json({ error: 'Equipo no encontrado' }, { status: 404 });
+      if (lastGamesStats.length === 0) {
+        return NextResponse.json({ error: 'No se encontraron jugadores para este equipo' }, { status: 404 });
+      }
 
-      return NextResponse.json({
-        TOP: '', JNG: '', MID: '', BOT: '', SUP: '' 
+      const roster: any = { TOP: '', JNG: '', MID: '', BOT: '', SUP: '' };
+      lastGamesStats.forEach(stat => {
+        const pos = stat.position.toUpperCase() as keyof typeof roster;
+        if (roster[pos] === '') roster[pos] = stat.player_name;
       });
+
+      return NextResponse.json(roster);
     }
 
-    // ---------------------------------------------------------
-    // PODER 4: OBTENER LA FECHA DEL ÚLTIMO PARTIDO EN LA BD
-    // ---------------------------------------------------------
     if (action === 'last_update') {
       const lastMatch = await prisma.matches_lol.findFirst({
         orderBy: { date: 'desc' },
         select: { date: true }
       });
-      
       if (!lastMatch || !lastMatch.date) return NextResponse.json({ date: 'Desconocida' });
-      
-      // Formateamos la fecha a DD/MM/YYYY
-      const formattedDate = lastMatch.date.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-      return NextResponse.json({ date: formattedDate });
+      return NextResponse.json({ date: lastMatch.date.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }) });
     }
 
-    // ---------------------------------------------------------
-    // PODER 5: CALCULAR STATS COMPLETAS
-    // ---------------------------------------------------------
     if (action === 'stats') {
       const player = searchParams.get('player');
       const champion = searchParams.get('champion');
@@ -85,15 +76,16 @@ export async function GET(request: Request) {
       });
 
       if (stats.length === 0) {
-        return NextResponse.json({ games: 0, winRate: 0, kda: 0, fbRate: 0, avgDragons: 0, avgGoldDiff: 0, avgTeamKills: 0, avgTowers: 0 });
+        return NextResponse.json({ games: 0, winRate: "0", kda: "0", fbRate: "0", avgDragons: "0", avgGoldDiff: 0, avgTeamKills: "0", avgTowers: "0" });
       }
 
       let kills = 0, deaths = 0, assists = 0, fbKills = 0, wins = 0;
       let totalDragons = 0, totalGoldDiff = 0, totalTeamKills = 0, totalTowers = 0, validMacroGames = 0;
       
+      const playerTeam = stats[0].team_name;
       const gameIds = stats.map(s => s.game_id);
       const matches = await prisma.matches_lol.findMany({
-        where: { game_id: { in: gameIds }, team_name: { equals: stats[0].team_name, mode: 'insensitive' } }
+        where: { game_id: { in: gameIds }, team_name: { equals: playerTeam!, mode: 'insensitive' } }
       });
       
       const matchMap = new Map();
@@ -111,9 +103,7 @@ export async function GET(request: Request) {
             validMacroGames++;
           }
         }
-        kills += s.kills;
-        deaths += s.deaths;
-        assists += s.assists;
+        kills += s.kills; deaths += s.deaths; assists += s.assists;
         if (s.first_blood_kill) fbKills++;
       });
 
@@ -131,9 +121,7 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({ error: 'Acción no válida' }, { status: 400 });
-
-  } catch (error) {
-    console.error("Error en API Draft:", error);
-    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message || 'Error interno' }, { status: 500 });
   }
 }

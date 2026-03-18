@@ -151,3 +151,17 @@ model player_stats_lol {
   @@index([player_name, champion])
   @@index([game_id])
 }
+model upcoming_matches_lol {
+  id           String   @id @default(uuid())
+  panda_id     Int      @unique
+  scheduled_at DateTime
+  league       String
+  team_a       String
+  team_b       String
+  // --- NUEVAS COLUMNAS ---
+  score_a      Int?     @default(0)
+  score_b      Int?     @default(0)
+  status       String   @default("upcoming") // "upcoming" o "finished"
+  // -----------------------
+  updated_at   DateTime @default(now())
+}

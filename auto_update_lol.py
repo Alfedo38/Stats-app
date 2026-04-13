@@ -21,7 +21,7 @@ db_url = URL.create(
 )
 engine = create_engine(db_url, pool_pre_ping=True)
 
-# 2. CONFIGURACIÓN DE GOOGLE DRIVE (¡Con tu ID real!)
+# 2. CONFIGURACIÓN DE GOOGLE DRIVE
 FILE_ID = "1hnpbrUpBMS1TZI7IovfpKeZfWJH1Aptm" 
 URL_GDRIVE = f'https://drive.google.com/uc?id={FILE_ID}'
 ARCHIVO_LOCAL = "data/2026_LoL_esports_match_data_from_OraclesElixir.csv"
@@ -29,7 +29,6 @@ ARCHIVO_LOCAL = "data/2026_LoL_esports_match_data_from_OraclesElixir.csv"
 def descargar_csv_actualizado():
     print("🌐 Descargando CSV oficial de 2026 desde Google Drive...")
     try:
-        # fuzzy=True ayuda a saltar las advertencias de archivos grandes de Google Drive
         gdown.download(URL_GDRIVE, ARCHIVO_LOCAL, quiet=False, fuzzy=True)
         print("✅ Descarga completada y guardada en la carpeta 'data'.")
         return True
@@ -49,7 +48,6 @@ def actualizar_base_de_datos():
 
     print("🧹 Borrando SOLO los datos del año 2026 en Supabase...")
     with engine.connect() as con:
-        # Borramos solo 2026 para no tocar el historial antiguo
         con.execute(text("DELETE FROM player_stats_lol WHERE game_id IN (SELECT game_id FROM matches_lol WHERE season = '2026');"))
         con.execute(text("DELETE FROM matches_lol WHERE season = '2026';"))
         con.commit()
@@ -58,7 +56,6 @@ def actualizar_base_de_datos():
     print("📊 Procesando el nuevo archivo local...")
     df = pd.read_csv(ARCHIVO_LOCAL, low_memory=False)
     
-    # Separar en Equipos y Jugadores
     df_equipos = df[df['position'] == 'team'].copy()
     df_jugadores = df[df['position'] != 'team'].copy()
 
@@ -75,6 +72,10 @@ def actualizar_base_de_datos():
             'gold_diff_at_15': pd.to_numeric(obtener_columna(df_equipos, ['gdat15', 'golddiffat15']), errors='coerce'), 'dpm': pd.to_numeric(obtener_columna(df_equipos, ['dpm', 'team_dpm']), errors='coerce'),
             'wards_placed': pd.to_numeric(obtener_columna(df_equipos, ['wardsplaced']), errors='coerce'), 'wards_cleared': pd.to_numeric(obtener_columna(df_equipos, ['wardskilled', 'wardscleared']), errors='coerce')
         }).dropna(subset=['game_id', 'team_name'])
+        
+        # EL FILTRO ANTI-CRASHEO
+        df_equipos_limpio = df_equipos_limpio.drop_duplicates(subset=['game_id', 'team_name'])
+        
         df_equipos_limpio['id'] = [str(uuid.uuid4()) for _ in range(len(df_equipos_limpio))]
         
         print(f"🚀 Subiendo {len(df_equipos_limpio)} partidas de equipos (2026)...")
@@ -93,6 +94,10 @@ def actualizar_base_de_datos():
             'gold_share': pd.to_numeric(obtener_columna(df_jugadores, ['earnedgoldshare', 'goldshare']), errors='coerce'), 'vision_score': pd.to_numeric(obtener_columna(df_jugadores, ['visionscore'], 0), errors='coerce').fillna(0).astype(int),
             'first_blood_kill': obtener_columna(df_jugadores, ['firstbloodkill'], 0) == 1.0, 'first_blood_victim': obtener_columna(df_jugadores, ['firstbloodvictim'], 0) == 1.0,
         }).dropna(subset=['game_id', 'player_name', 'team_name'])
+        
+        # EL FILTRO ANTI-CRASHEO
+        df_jugadores_limpio = df_jugadores_limpio.drop_duplicates(subset=['game_id', 'player_name'])
+
         df_jugadores_limpio['id'] = [str(uuid.uuid4()) for _ in range(len(df_jugadores_limpio))]
 
         print(f"🚀 Subiendo {len(df_jugadores_limpio)} estadísticas de jugadores (2026)...")
@@ -101,6 +106,5 @@ def actualizar_base_de_datos():
     print("🎉 ¡ACTUALIZACIÓN COMPLETADA CON ÉXITO!")
 
 if __name__ == "__main__":
-    # Primero descarga, si tiene éxito, entonces inyecta a la BD
     if descargar_csv_actualizado():
         actualizar_base_de_datos()

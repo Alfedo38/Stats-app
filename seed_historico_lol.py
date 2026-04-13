@@ -37,6 +37,9 @@ with engine.connect() as con:
     con.execute(text("TRUNCATE TABLE player_stats_lol CASCADE;"))
     con.commit()
 
+# --- NUEVO: Memoria global para evitar choques entre el archivo 2025 y 2026 ---
+registros_vistos = set()
+
 def procesar_e_insertar(archivo):
     print(f"\nProcesando EQUIPOS: {archivo}...")
     try:
@@ -54,13 +57,11 @@ def procesar_e_insertar(archivo):
             'win': df_equipos['result'] == 1,
             'game_length': df_equipos['gamelength'],
             
-            # --- PRIMEROS OBJETIVOS ---
             'first_blood': obtener_columna(df_equipos, ['firstblood', 'first_blood'], 0) == 1.0,
             'first_tower': obtener_columna(df_equipos, ['firsttower', 'first_tower'], 0) == 1.0,
             'first_dragon': obtener_columna(df_equipos, ['firstdragon', 'first_dragon'], 0) == 1.0,
             'first_baron': obtener_columna(df_equipos, ['firstbaron', 'first_baron'], 0) == 1.0,
             
-            # --- NUEVO: MERCADOS OVER/UNDER (TOTALES) ---
             'towers': pd.to_numeric(obtener_columna(df_equipos, ['towkills', 'towers', 'team_towers']), errors='coerce'),
             'dragons': pd.to_numeric(obtener_columna(df_equipos, ['dragons', 'team_dragons']), errors='coerce'),
             
@@ -73,10 +74,24 @@ def procesar_e_insertar(archivo):
         })
         
         df_limpio = df_limpio.dropna(subset=['game_id', 'team_name'])
+        
+        # --- NUEVO: FILTRO DE DUPLICADOS ---
+        # 1. Filtramos duplicados que vengan dentro del mismo archivo CSV
+        df_limpio = df_limpio.drop_duplicates(subset=['game_id', 'team_name'])
+        
+        # 2. Filtramos duplicados si el partido ya se guardó en un CSV de un año anterior
+        mask = df_limpio.apply(lambda row: (row['game_id'], row['team_name']) not in registros_vistos, axis=1)
+        df_limpio = df_limpio[mask]
+        
+        # 3. Guardamos los nuevos en la memoria para el futuro
+        for _, row in df_limpio.iterrows():
+            registros_vistos.add((row['game_id'], row['team_name']))
+
         df_limpio['id'] = [str(uuid.uuid4()) for _ in range(len(df_limpio))]
 
         print(f"Subiendo {len(df_limpio)} equipos...")
-        df_limpio.to_sql('matches_lol', engine, if_exists='append', index=False, schema='public')
+        if not df_limpio.empty:
+            df_limpio.to_sql('matches_lol', engine, if_exists='append', index=False, schema='public')
         
     except Exception as e:
         print(f"❌ Error: {e}")

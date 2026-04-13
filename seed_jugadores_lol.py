@@ -30,6 +30,9 @@ def obtener_columna(df, opciones, valor_por_defecto=None):
         if col in df.columns: return df[col]
     return pd.Series(valor_por_defecto, index=df.index)
 
+# --- NUEVO: Memoria global para evitar choques de jugadores duplicados ---
+registros_vistos = set()
+
 def procesar_e_insertar(archivo):
     print(f"\nProcesando JUGADORES: {archivo}...")
     try:
@@ -39,7 +42,7 @@ def procesar_e_insertar(archivo):
         
         df_limpio = pd.DataFrame({
             'game_id': df_jugadores['gameid'],
-            'team_name': df_jugadores['teamname'], # <-- EL ESLABÓN PERDIDO AÑADIDO
+            'team_name': df_jugadores['teamname'], 
             'player_name': df_jugadores['playername'],
             'champion': df_jugadores['champion'],
             'position': df_jugadores['position'],
@@ -54,16 +57,29 @@ def procesar_e_insertar(archivo):
             'gold_share': pd.to_numeric(obtener_columna(df_jugadores, ['earnedgoldshare', 'goldshare']), errors='coerce'),
             'vision_score': pd.to_numeric(obtener_columna(df_jugadores, ['visionscore'], 0), errors='coerce').fillna(0).astype(int),
 
-            # --- NUEVO: FIRST BLOOD PROPS ---
             'first_blood_kill': obtener_columna(df_jugadores, ['firstbloodkill'], 0) == 1.0,
             'first_blood_victim': obtener_columna(df_jugadores, ['firstbloodvictim'], 0) == 1.0,
         })
         
         df_limpio = df_limpio.dropna(subset=['game_id', 'player_name', 'team_name'])
+
+        # --- NUEVO: FILTRO DE DUPLICADOS PARA JUGADORES ---
+        # 1. Filtramos duplicados que vengan dentro del mismo archivo CSV
+        df_limpio = df_limpio.drop_duplicates(subset=['game_id', 'player_name'])
+        
+        # 2. Filtramos duplicados si el jugador en este partido ya se guardó antes
+        mask = df_limpio.apply(lambda row: (row['game_id'], row['player_name']) not in registros_vistos, axis=1)
+        df_limpio = df_limpio[mask]
+        
+        # 3. Guardamos los nuevos en la memoria para el futuro
+        for _, row in df_limpio.iterrows():
+            registros_vistos.add((row['game_id'], row['player_name']))
+
         df_limpio['id'] = [str(uuid.uuid4()) for _ in range(len(df_limpio))]
 
         print(f"Subiendo {len(df_limpio)} jugadores...")
-        df_limpio.to_sql('player_stats_lol', engine, if_exists='append', index=False, schema='public')
+        if not df_limpio.empty:
+            df_limpio.to_sql('player_stats_lol', engine, if_exists='append', index=False, schema='public')
         
     except Exception as e:
         print(f"❌ Error: {e}")
@@ -71,3 +87,4 @@ def procesar_e_insertar(archivo):
 if __name__ == "__main__":
     for archivo in archivos_csv:
         if os.path.exists(archivo): procesar_e_insertar(archivo)
+        

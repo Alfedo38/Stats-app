@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 
@@ -26,21 +28,31 @@ export async function GET(request: Request) {
       return NextResponse.json(players.map(p => p.player_name));
     }
 
+    // --- CORRECCIÓN DEL ROSTER (Ahora 100% cronológico) ---
     if (action === 'roster') {
       const teamQuery = searchParams.get('team');
       if (!teamQuery) return NextResponse.json({ error: 'Falta el equipo' }, { status: 400 });
 
       const cleanName = teamQuery.replace(/\b(Esports|Gaming|Club|Team|GG|Esport|Red|White|Blue)\b/gi, '').trim();
 
-      const lastGamesStats = await prisma.player_stats_lol.findMany({
+      // 1. Buscamos el último partido REAL que jugó el equipo ordenado por FECHA
+      const lastMatch = await prisma.matches_lol.findFirst({
         where: { team_name: { contains: cleanName, mode: 'insensitive' } },
-        orderBy: { game_id: 'desc' },
-        take: 100 
+        orderBy: { date: 'desc' },
+        select: { game_id: true }
       });
 
-      if (lastGamesStats.length === 0) {
-        return NextResponse.json({ error: 'No se encontraron jugadores para este equipo' }, { status: 404 });
+      if (!lastMatch) {
+        return NextResponse.json({ error: 'No se encontraron partidos para este equipo' }, { status: 404 });
       }
+
+      // 2. Traemos a los 5 jugadores EXACTOS de ese último partido
+      const lastGamesStats = await prisma.player_stats_lol.findMany({
+        where: { 
+            game_id: lastMatch.game_id,
+            team_name: { contains: cleanName, mode: 'insensitive' } 
+        }
+      });
 
       const roster: any = { TOP: '', JNG: '', MID: '', BOT: '', SUP: '' };
       lastGamesStats.forEach(stat => {

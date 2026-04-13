@@ -29,16 +29,16 @@ function DraftSimulatorContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [lastUpdate, setLastUpdate] = useState<string>('Cargando...');
   const [activePlayerInput, setActivePlayerInput] = useState<{ side: 'blue' | 'red', index: number } | null>(null);
-  const [patchVersion, setPatchVersion] = useState<string>('14.4.1');
+  const [patchVersion, setPatchVersion] = useState<string>('14.5.1');
   const [championsList, setChampionsList] = useState<any[]>([]);
   const [showChampModal, setShowChampModal] = useState<{ side: 'blue' | 'red', index: number } | null>(null);
   const [champSearchQuery, setChampSearchQuery] = useState('');
 
-  // 1. CARGA INICIAL DE DATOS
+  // 1. CARGA INICIAL DE DATOS (NO CACHÉ)
   useEffect(() => {
-    fetch('/api/draft?action=teams').then(res => res.json()).then(data => setTeamsList(data || []));
-    fetch('/api/draft?action=players').then(res => res.json()).then(data => setPlayersList(data || [])); 
-    fetch('/api/draft?action=last_update').then(res => res.json()).then(data => setLastUpdate(data.date || 'Desconocida'));
+    fetch('/api/draft?action=teams', { cache: 'no-store' }).then(res => res.json()).then(data => setTeamsList(data || []));
+    fetch('/api/draft?action=players', { cache: 'no-store' }).then(res => res.json()).then(data => setPlayersList(data || [])); 
+    fetch('/api/draft?action=last_update', { cache: 'no-store' }).then(res => res.json()).then(data => setLastUpdate(data.date || 'Desconocida'));
     
     const fetchDDragon = async () => {
       try {
@@ -54,37 +54,22 @@ function DraftSimulatorContent() {
     fetchDDragon();
   }, []);
 
-  // 2. LÓGICA DE AUTO-CARGA DESDE URL
   useEffect(() => {
     const tA = searchParams.get('teamA');
     const tB = searchParams.get('teamB');
-
-    if (tA) {
-      setBlueTeam(tA);
-      autoLoadRoster(tA, 'blue');
-    }
-    if (tB) {
-      setRedTeam(tB);
-      autoLoadRoster(tB, 'red');
-    }
+    if (tA) { setBlueTeam(tA); autoLoadRoster(tA, 'blue'); }
+    if (tB) { setRedTeam(tB); autoLoadRoster(tB, 'red'); }
   }, [searchParams]);
 
   const autoLoadRoster = async (teamName: string, side: 'blue' | 'red') => {
     try {
-      const res = await fetch(`/api/draft?action=roster&team=${encodeURIComponent(teamName)}`);
+      const res = await fetch(`/api/draft?action=roster&team=${encodeURIComponent(teamName)}`, { cache: 'no-store' });
       const roster = await res.json();
-      
       if (roster && !roster.error) {
-        const newPicks = initialPicks.map(p => ({
-          ...p,
-          player: roster[p.role] || ''
-        }));
-        if (side === 'blue') setBluePicks(newPicks);
-        else setRedPicks(newPicks);
+        const newPicks = initialPicks.map(p => ({ ...p, player: roster[p.role] || '' }));
+        if (side === 'blue') setBluePicks(newPicks); else setRedPicks(newPicks);
       }
-    } catch (error) {
-      console.error("Error cargando roster:", error);
-    }
+    } catch (error) { console.error("Error cargando roster:", error); }
   };
 
   const handleSelectTeam = async (teamName: string) => {
@@ -108,13 +93,11 @@ function DraftSimulatorContent() {
     const picks = side === 'blue' ? [...bluePicks] : [...redPicks];
     const pick = picks[index];
 
-    if (pick.player.trim() === '') {
-        alert("Escribe el nombre del jugador primero."); return;
-    }
+    if (pick.player.trim() === '') { alert("Escribe el nombre del jugador primero."); return; }
 
     setShowChampModal(null); setChampSearchQuery('');
     try {
-      const res = await fetch(`/api/draft?action=stats&player=${encodeURIComponent(pick.player.trim())}&champion=${encodeURIComponent(champName)}`);
+      const res = await fetch(`/api/draft?action=stats&player=${encodeURIComponent(pick.player.trim())}&champion=${encodeURIComponent(champName)}`, { cache: 'no-store' });
       const stats = await res.json();
       picks[index] = { ...pick, champion: champName, champId: champId, locked: true, stats };
       if (side === 'blue') setBluePicks(picks); else setRedPicks(picks);
@@ -127,10 +110,8 @@ function DraftSimulatorContent() {
   };
 
   const handleSwapSides = () => {
-    const tempTeam = blueTeam;
-    setBlueTeam(redTeam); setRedTeam(tempTeam);
-    const tempPicks = [...bluePicks];
-    setBluePicks([...redPicks]); setRedPicks(tempPicks);
+    setBlueTeam(redTeam); setRedTeam(blueTeam);
+    setBluePicks([...redPicks]); setRedPicks([...bluePicks]);
   };
 
   const calculateMetrics = () => {
@@ -192,15 +173,12 @@ function DraftSimulatorContent() {
 
           <div className="w-16 h-16 bg-[#1a1a1a] rounded-2xl flex items-center justify-center border border-[#333] mb-4 shadow-[0_0_30px_rgba(16,185,129,0.1)]"> <Cpu className="text-[#10b981]" size={32} /> </div>
           <h1 className="text-5xl md:text-7xl font-black italic uppercase tracking-tighter">Draft <span className="text-[#10b981]">Predictor</span></h1>
-          
           <p className="text-[#666] text-[10px] md:text-xs font-bold uppercase tracking-[0.4em] mt-2 flex items-center gap-2">
             <Activity size={14} className="text-[#10b981]" /> Motor de cálculo EV+ • BD AL: <span className="text-white">{lastUpdate}</span>
           </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          
-          {/* LADO AZUL */}
           <div className="lg:col-span-4 space-y-4">
             <div className="bg-blue-950/20 border border-blue-900/50 rounded-2xl p-4 flex items-center justify-between">
               <div> 
@@ -212,7 +190,7 @@ function DraftSimulatorContent() {
             </div>
             <div className="space-y-2">
               {bluePicks.map((pick, i) => (
-                <div key={i} className="h-24 bg-[#0a0a0a] border border-[#1a1a1a] border-l-4 border-l-blue-500 rounded-xl p-3 flex items-center gap-4 hover:border-blue-500/50 transition-colors relative group">
+                <div key={i} className={`h-24 bg-[#0a0a0a] border ${pick.locked ? 'border-blue-500/50 bg-blue-950/10' : 'border-[#1a1a1a]'} border-l-4 border-l-blue-500 rounded-xl p-3 flex items-center gap-4 transition-colors relative group`}>
                   <div className="w-12 h-12 bg-[#111] rounded-lg border border-[#222] flex items-center justify-center shrink-0 overflow-hidden relative">
                     {pick.champId ? ( <img src={`https://ddragon.leagueoflegends.com/cdn/${patchVersion}/img/champion/${pick.champId}.png`} alt={pick.champion!} className="w-full h-full object-cover scale-110" /> ) : ( <span className="text-[9px] font-black text-[#444]">{pick.role}</span> )}
                   </div>
@@ -225,11 +203,10 @@ function DraftSimulatorContent() {
                         ))}
                       </div>
                     )}
-                    
                     <button onClick={() => setShowChampModal({side:'blue', index: i})} className="w-full text-left">
                       <p className={`text-lg font-black uppercase tracking-tight ${pick.locked ? 'text-blue-400' : 'text-gray-600 group-hover:text-blue-400'}`}>{pick.champion || '+ ELEGIR CHAMP'}</p>
                     </button>
-                    {pick.stats && pick.stats.games > 0 && <p className="text-[9px] font-bold text-gray-500 pt-0.5">{pick.stats.winRate}% WR • {pick.stats.kda} KDA</p>}
+                    {pick.stats && pick.stats.games > 0 && <p className="text-[9px] font-bold text-gray-500 pt-0.5">{pick.stats.winRate}% WR • {pick.stats.kda} KDA • {pick.stats.games} PJ</p>}
                   </div>
                 </div>
               ))}
@@ -282,7 +259,7 @@ function DraftSimulatorContent() {
             </div>
             <div className="space-y-2">
               {redPicks.map((pick, i) => (
-                <div key={i} className="h-24 bg-[#0a0a0a] border border-[#1a1a1a] border-r-4 border-r-red-500 rounded-xl p-3 flex items-center gap-4 hover:border-red-500/50 transition-colors flex-row-reverse text-right relative group">
+                <div key={i} className={`h-24 bg-[#0a0a0a] border ${pick.locked ? 'border-red-500/50 bg-red-950/10' : 'border-[#1a1a1a]'} border-r-4 border-r-red-500 rounded-xl p-3 flex items-center gap-4 flex-row-reverse text-right relative group transition-colors`}>
                   <div className="w-12 h-12 bg-[#111] rounded-lg border border-[#222] flex items-center justify-center shrink-0 overflow-hidden relative">
                     {pick.champId ? ( <img src={`https://ddragon.leagueoflegends.com/cdn/${patchVersion}/img/champion/${pick.champId}.png`} alt={pick.champion!} className="w-full h-full object-cover scale-110" /> ) : ( <span className="text-[9px] font-black text-[#444]">{pick.role}</span> )}
                   </div>
@@ -295,11 +272,10 @@ function DraftSimulatorContent() {
                         ))}
                       </div>
                     )}
-
                     <button onClick={() => setShowChampModal({side:'red', index: i})} className="w-full text-right">
                       <p className={`text-lg font-black uppercase tracking-tight ${pick.locked ? 'text-red-400' : 'text-gray-600 group-hover:text-red-400'}`}>{pick.champion || '+ ELEGIR CHAMP'}</p>
                     </button>
-                    {pick.stats && pick.stats.games > 0 && <p className="text-[9px] font-bold text-gray-500 pt-0.5">{pick.stats.winRate}% WR • {pick.stats.kda} KDA</p>}
+                    {pick.stats && pick.stats.games > 0 && <p className="text-[9px] font-bold text-gray-500 pt-0.5">{pick.stats.games} PJ • {pick.stats.kda} KDA • {pick.stats.winRate}% WR</p>}
                   </div>
                 </div>
               ))}
@@ -315,7 +291,6 @@ function DraftSimulatorContent() {
   );
 }
 
-// WRAPPER PRINCIPAL CON SUSPENSE
 export default function DraftPredictor() {
   return (
     <Suspense fallback={<div className="min-h-screen bg-black flex items-center justify-center text-white font-black uppercase tracking-[0.5em]">Inicializando Cerebro...</div>}>

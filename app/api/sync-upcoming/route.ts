@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 
@@ -10,30 +12,31 @@ export async function GET() {
       return NextResponse.json({ error: "Falta PANDASCORE_TOKEN en el .env" }, { status: 500 });
     }
 
-    // Traemos los últimos 20 partidos (mezcla de pasados y futuros) para tener agenda y resultados
-    const response = await fetch(
-      "https://api.pandascore.co/lol/matches?sort=-scheduled_at&per_page=20",
-      {
-        headers: { 
-          'Authorization': `Bearer ${PANDA_TOKEN}`,
-          'Accept': 'application/json'
-        }
-      }
-    );
+    const headers = { 
+      'Authorization': `Bearer ${PANDA_TOKEN}`,
+      'Accept': 'application/json'
+    };
 
-    const matches = await response.json();
+    // 1. Traemos 30 EN VIVO y PRÓXIMOS (Ordenados del más urgente al más lejano)
+    const upcomingRes = await fetch("https://api.pandascore.co/lol/matches?filter[status]=running,upcoming&sort=scheduled_at&per_page=30", { headers });
+    const upcomingData = await upcomingRes.json();
 
-    if (!Array.isArray(matches)) {
-      return NextResponse.json({ error: "Respuesta de API inválida", matches }, { status: 500 });
-    }
+    // 2. Traemos los últimos 30 TERMINADOS (Ordenados del más reciente al más antiguo)
+    const pastRes = await fetch("https://api.pandascore.co/lol/matches?filter[status]=finished&sort=-scheduled_at&per_page=30", { headers });
+    const pastData = await pastRes.json();
+
+    // Unimos todo en un solo mega-array
+    const matches = [
+      ...(Array.isArray(upcomingData) ? upcomingData : []), 
+      ...(Array.isArray(pastData) ? pastData : [])
+    ];
 
     let actualizados = 0;
 
     for (const match of matches) {
-      // Solo procesamos si hay dos equipos definidos
+      // Solo procesamos si hay dos equipos reales confirmados (Ignora los TBD vs TBD)
       if (match.opponents && match.opponents.length === 2) {
         
-        // Extraemos los scores finales de la serie
         const sA = match.results.find((r: any) => r.team_id === match.opponents[0].opponent.id)?.score || 0;
         const sB = match.results.find((r: any) => r.team_id === match.opponents[1].opponent.id)?.score || 0;
 
@@ -46,7 +49,7 @@ export async function GET() {
             team_b: match.opponents[1].opponent.name,
             score_a: sA,
             score_b: sB,
-            status: match.status, // "finished", "upcoming", "running"
+            status: match.status, 
           },
           create: {
             panda_id: match.id,
@@ -63,7 +66,7 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json({ success: true, mensaje: `Sincronizados ${actualizados} partidos.` });
+    return NextResponse.json({ success: true, mensaje: `Sincronizados ${actualizados} partidos reales (sin contar TBD).` });
 
   } catch (error: any) {
     console.error("Error Sync:", error);

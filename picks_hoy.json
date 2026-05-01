@@ -16,11 +16,11 @@
                         "odds": 1.44,
                         "proj": 1.3,
                         "edge": 160.0,
-                        "analysis": "OVER. Wade (24.4 min, 5.2 FGA) tiene 8/10 overs recientes. Toronto es 28º en 3PA permitidos, facilitando su volumen de tiros externos. La tendencia y debilidad defensiva rival justifican el OVER.",
+                        "analysis": "OVER 0.5 3PT Wade. Récord 5/5, 8/10 confirma tendencia. Promedia 24.4 min y 5.2 FGA. TOR sufre contra stretch-forwards, concediendo perímetro fácilmente. Oportunidad clara pese al 0.1% Usage.",
                         "safe_line": 0.5,
-                        "safe_odds": 1.15,
-                        "safe_prob": 92.1,
-                        "hit_rate": "5/5 | 8/10 Overs",
+                        "safe_odds": 1.44,
+                        "safe_prob": 80.0,
+                        "hit_rate": "5/5 | 8/10",
                         "injuries": ""
                     },
                     {
@@ -32,11 +32,11 @@
                         "odds": 1.37,
                         "proj": 4.9,
                         "edge": 96.0,
-                        "analysis": "OVER 2.5 REB. Mamukelashvili ha cubierto la línea en 9/10 ocasiones. Sus 16.1 minutos y 8.6 rebotes potenciales son robustos. Cleveland, al forzar fallos (muchos FGA), genera más oportunidades de rebote. Su bajo 0.1% de uso prioriza esta labor.",
-                        "safe_line": 1.5,
-                        "safe_odds": 1.15,
-                        "safe_prob": 89.5,
-                        "hit_rate": "4/5 | 9/10 Overs",
+                        "analysis": "OVER 2.5 REB. Histórico 9/10 y 8.6 rebotes potenciales en 16.1 min. Su bajo 0.1% usage libera para el rebote. CLE, al priorizar la pintura, cede rebotes largos, explotable para Mamu.",
+                        "safe_line": 2.5,
+                        "safe_odds": 1.37,
+                        "safe_prob": 90.0,
+                        "hit_rate": "4/5 | 9/10",
                         "injuries": ""
                     }
                 ]
@@ -54,11 +54,11 @@
                         "odds": 1.38,
                         "proj": 3.9,
                         "edge": 56.0,
-                        "analysis": "OVER 2.5 REB Wade. Récord 9/10 aciertos, 7.0 rebotes potenciales y 24.4 min con 0.1% Usage consolidan. TOR, con defensa activa, concede rebotes largos, explotando su volumen de oportunidades.",
-                        "safe_line": 1.5,
-                        "safe_odds": 1.15,
-                        "safe_prob": 92.5,
-                        "hit_rate": "5/5 | 9/10 Overs",
+                        "analysis": "OVER 2.5 REB: 9/10 aciertos y 7.0 potenciales rebotes justifican. 24.4 min garantizan oportunidades. Toronto, con su defensa que cede alto volumen de rebotes a aleros, facilita el acierto.",
+                        "safe_line": 2.5,
+                        "safe_odds": 1.38,
+                        "safe_prob": 90.0,
+                        "hit_rate": "5/5 | 9/10",
                         "injuries": ""
                     },
                     {
@@ -70,19 +70,35 @@
                         "odds": 1.33,
                         "proj": 7.0,
                         "edge": 55.6,
-                        "analysis": "OVER. 8/10 overs recientes validan. Sus 20.2 min y 4.8 FGA por partido garantizan volumen. Toronto, vulnerable al tirador off-ball, explotará esta producción, haciendo intrascendente su perfil de baja creación.",
-                        "safe_line": 3.5,
-                        "safe_odds": 1.35,
-                        "safe_prob": 73.9,
-                        "hit_rate": "4/5 | 8/10 Overs",
+                        "analysis": "Merrill OVER 4.5 PTS. Récord 8/10, 20.2 min y 4.8 FGA compensan 0.1% Usage. Toronto permite alto volumen de triples spot-up. Posición técnica clara.",
+                        "safe_line": 4.5,
+                        "safe_odds": 1.33,
+                        "safe_prob": 80.0,
+                        "hit_rate": "4/5 | 8/10",
                         "injuries": ""
                     }
                 ]
             },
             {
                 "name": "X2 - OPCIÓN 3",
-                "total_odds": 2.09,
+                "total_odds": 2.38,
                 "plays": [
+                    {
+                        "player": "Dean Wade",
+                        "team": "CLE",
+                        "type": "OVER",
+                        "line": 4.5,
+                        "prop": "PTS",
+                        "odds": 1.76,
+                        "proj": 6.5,
+                        "edge": 44.4,
+                        "analysis": "OVER 4.5 PTS. Wade (5/5, 8/10) registra 24.4 min, 5.2 FGA (0.1% Usage). Explotará la defensa de TOR, que concede tiros abiertos o rebotes ofensivos a jugadores secundarios por su excesiva ayuda en el perímetro.",
+                        "safe_line": 2.5,
+                        "safe_odds": 1.3,
+                        "safe_prob": 80.0,
+                        "hit_rate": "5/5 | 8/10",
+                        "injuries": ""
+                    },
                     {
                         "player": "James Harden",
                         "team": "CLE",
@@ -92,13 +108,19 @@
                         "odds": 1.35,
                         "proj": 22.1,
                         "edge": 33.9,
-                        "analysis": "OVER 16.5 PTS. Historial impecable (10/10 Overs) y 35.6 minutos. Sus 14.4 FGA constantes y el perfil de Toronto, vulnerable a volumen de creación individual, justifican la superación.",
-                        "safe_line": 15.5,
-                        "safe_odds": 1.15,
-                        "safe_prob": 95.6,
-                        "hit_rate": "5/5 | 10/10 Overs",
+                        "analysis": "OVER. 10/10 aciertos recientes, con 14.4 FGA y 35.6 min. Pese al 0.3% de uso, su volumen y racha son claros. Toronto sufre la penetración perimetral y el P&R, lo que Harden explota.",
+                        "safe_line": 16.5,
+                        "safe_odds": 1.35,
+                        "safe_prob": 100.0,
+                        "hit_rate": "5/5 | 10/10",
                         "injuries": ""
-                    },
+                    }
+                ]
+            },
+            {
+                "name": "X2 - OPCIÓN 4",
+                "total_odds": 2.4,
+                "plays": [
                     {
                         "player": "Sandro Mamukelashvili",
                         "team": "TOR",
@@ -108,19 +130,13 @@
                         "odds": 1.55,
                         "proj": 11.1,
                         "edge": 30.6,
-                        "analysis": "OVER 8.5 PR. Histórico 9/10 Overs. Con 16.1 min, 5.2 FGA y 8.6 rebotes potenciales, tiene volumen. CLE, con su defensa interior, puede generar rebotes ofensivos; esto favorece su aporte en segundas oportunidades.",
-                        "safe_line": 6.5,
-                        "safe_odds": 1.32,
-                        "safe_prob": 75.8,
-                        "hit_rate": "4/5 | 9/10 Overs",
+                        "analysis": "OVER 8.5 PR. Historial 9/10 y 4/5 indica fiabilidad. 5.2 FGA y 8.6 rebotes potenciales sostienen volumen. CLE sufre conteniendo rebote ofensivo, explotable por Mamukelashvili. Descartamos Usage 0.1% por inconsistencia con FGA y aciertos.",
+                        "safe_line": 8.5,
+                        "safe_odds": 1.55,
+                        "safe_prob": 90.0,
+                        "hit_rate": "4/5 | 9/10",
                         "injuries": ""
-                    }
-                ]
-            },
-            {
-                "name": "X2 - OPCIÓN 4",
-                "total_odds": 2.37,
-                "plays": [
+                    },
                     {
                         "player": "Sandro Mamukelashvili",
                         "team": "TOR",
@@ -130,27 +146,11 @@
                         "odds": 1.55,
                         "proj": 12.4,
                         "edge": 30.5,
-                        "analysis": "OVER 9.5 PRA. 9/10 Overs. Sus 5.2 FGA y 8.6 rebotes potenciales en 16.1 min anulan el 0.1% de uso. CLE, enfocado en la pintura, cede segundos esfuerzos que él explota.",
-                        "safe_line": 7.5,
-                        "safe_odds": 1.33,
-                        "safe_prob": 75.1,
-                        "hit_rate": "4/5 | 9/10 Overs",
-                        "injuries": ""
-                    },
-                    {
-                        "player": "Donovan Mitchell",
-                        "team": "CLE",
-                        "type": "OVER",
-                        "line": 7.5,
-                        "prop": "RA",
-                        "odds": 1.53,
-                        "proj": 9.2,
-                        "edge": 22.7,
-                        "analysis": "OVER 7.5 RA. Acierto 8/10. Con 33.9 min, 8.8 rebotes potenciales y 34.8 pases, su volumen es alto. La defensa de Toronto presiona perimetrales, generando rebotes y forzando pases clave que explotan su producción.",
-                        "safe_line": 6.5,
-                        "safe_odds": 1.15,
-                        "safe_prob": 92.5,
-                        "hit_rate": "4/5 | 8/10 Overs",
+                        "analysis": "OVER 9.5 PRA. Aciertos 9/10 y volumen (5.2 FGA, 16.6 pases) verifican. 0.1% uso es dato inconsistente, desestimado. CLE cede puntos de segunda oportunidad.",
+                        "safe_line": 8.5,
+                        "safe_odds": 1.41,
+                        "safe_prob": 90.0,
+                        "hit_rate": "4/5 | 9/10",
                         "injuries": ""
                     }
                 ]
@@ -174,11 +174,11 @@
                         "odds": 1.36,
                         "proj": 14.4,
                         "edge": 38.7,
-                        "analysis": "UNDER 23.5 PTS. Precedente 8/10 Unders. Su 11.6 FGA y 0.2% Usage son insuficientes para la línea. La defensa perimetral de Cleveland, reconocida por limitar volumen ofensivo, mermará sus ya escasas oportunidades de anotación.",
-                        "safe_line": 24.5,
-                        "safe_odds": 1.2,
-                        "safe_prob": 83.6,
-                        "hit_rate": "5/5 | 8/10 Unders",
+                        "analysis": "UNDER 23.5 pts Ingram. Aciertos 5/5. Su 0.2% Usage con 11.6 FGA es insuficiente. Cleveland, con Allen y Mobley, cierra la pintura, limitando su ataque interior. Datos duros mandan.",
+                        "safe_line": 23.5,
+                        "safe_odds": 1.36,
+                        "safe_prob": 80.0,
+                        "hit_rate": "5/5 | 8/10",
                         "injuries": ""
                     },
                     {
@@ -190,11 +190,11 @@
                         "odds": 1.47,
                         "proj": 4.3,
                         "edge": 33.8,
-                        "analysis": "UNDER 6.5 AST Shead. 8/10 Unders y un 0.1% Usage justifican. Cleveland restringe la creación en media cancha, ahogando sus 50.8 pases y limitando sus oportunidades claras de asistencia.",
-                        "safe_line": 7.5,
-                        "safe_odds": 1.15,
-                        "safe_prob": 88.5,
-                        "hit_rate": "4/5 | 8/10 Unders",
+                        "analysis": "UNDER 6.5 AST Shead. 8/10 y 4/5 recientes UNDERs. 0.1% de Usage minimiza su rol creador. CLE explota limitando asistencias rivales al forzar aislamiento. 50.8 pases no compensan. UNDER firme.",
+                        "safe_line": 6.5,
+                        "safe_odds": 1.47,
+                        "safe_prob": 80.0,
+                        "hit_rate": "4/5 | 8/10",
                         "injuries": ""
                     }
                 ]
@@ -212,11 +212,11 @@
                         "odds": 1.35,
                         "proj": 5.7,
                         "edge": 32.9,
-                        "analysis": "La tendencia es clara: 8/10 Unders. Barnes solo tiene 10.8 rebotes potenciales. La sólida defensa interior de CLE (Mobley/Allen) reduce significativamente sus oportunidades de rebotes ofensivos y disputados. UNDER 8.5.",
-                        "safe_line": 9.5,
-                        "safe_odds": 1.15,
-                        "safe_prob": 88.4,
-                        "hit_rate": "4/5 | 8/10 Unders",
+                        "analysis": "Aciertos 8/10 sub-8.5. CLE domina rebote defensivo con Mobley/Allen, limitando potenciales (10.8). Su 0.3% Usage y 52.4 pases lo alejan del aro. UNDER.",
+                        "safe_line": 8.5,
+                        "safe_odds": 1.35,
+                        "safe_prob": 80.0,
+                        "hit_rate": "4/5 | 8/10",
                         "injuries": ""
                     },
                     {
@@ -228,11 +228,11 @@
                         "odds": 1.33,
                         "proj": 17.3,
                         "edge": 29.4,
-                        "analysis": "UNDER 24.5 PRA. Historial muestra 8/10 Unders. Con 26.4 min y 0.1% Usage, su volumen (6.0 FGA, 15.2 pases) es bajo. Toronto, táctica, limita rebotes a centers rivales, reprimiendo su PRA.",
-                        "safe_line": 25.5,
-                        "safe_odds": 1.15,
-                        "safe_prob": 92.6,
-                        "hit_rate": "5/5 | 8/10 Unders",
+                        "analysis": "UNDER 24.5 PRA. Aciertos 5/5 y 8/10 validan. Con 26.4 min, uso 0.1% y 6.0 FGA, su volumen ofensivo es muy bajo. Toronto limita puntos de pívots por su ágil rotación defensiva.",
+                        "safe_line": 24.5,
+                        "safe_odds": 1.33,
+                        "safe_prob": 80.0,
+                        "hit_rate": "5/5 | 8/10",
                         "injuries": ""
                     }
                 ]
@@ -256,11 +256,11 @@
                         "odds": 1.37,
                         "proj": 14.2,
                         "edge": 158.2,
-                        "analysis": "OVER 5.5 PTS. Kennard registra 8/10 Overs con 10 FGA en 37.8 min. Aunque su Usage es 0.2%, HOU concede tiros abiertos de 3, explotando su volumen de intentos. La tendencia histórica es clara.",
-                        "safe_line": 4.5,
-                        "safe_odds": 1.15,
-                        "safe_prob": 87.8,
-                        "hit_rate": "4/5 | 8/10 Overs",
+                        "analysis": "OVER 5.5 PTS. Su 8/10 recientes, 37.8 min y 10 FGA justifican la línea. HOU concede 40% 3P a catch-and-shoot. Esto, pese al 0.2% Usage, garantiza oportunidades de scoring eficiente.",
+                        "safe_line": 5.5,
+                        "safe_odds": 1.37,
+                        "safe_prob": 80.0,
+                        "hit_rate": "4/5 | 8/10",
                         "injuries": ""
                     },
                     {
@@ -272,11 +272,11 @@
                         "odds": 1.37,
                         "proj": 6.1,
                         "edge": 144.0,
-                        "analysis": "OVER 2.5 AST Smart: 8/10 Overs, con 35.1 min y 58.4 pases. Houston, vulnerable a la circulación de balón y pases desde el perímetro, favorece sus asistencias.",
-                        "safe_line": 1.5,
-                        "safe_odds": 1.15,
-                        "safe_prob": 93.0,
-                        "hit_rate": "4/5 | 8/10 Overs",
+                        "analysis": "OVER 2.5 AST Smart. 8/10 aciertos y 35.1 min son sólidos. Sus 58.4 pases diarios son alto volumen para asistencias. Houston cede alto flujo de asistencias a bases rivales.",
+                        "safe_line": 2.5,
+                        "safe_odds": 1.37,
+                        "safe_prob": 80.0,
+                        "hit_rate": "4/5 | 8/10",
                         "injuries": ""
                     }
                 ]
@@ -294,11 +294,11 @@
                         "odds": 1.33,
                         "proj": 21.9,
                         "edge": 108.6,
-                        "analysis": "OVER 10.5 PRA Kennard. Historial 8/10 OVER (80%). Elevado tiempo en cancha (37.8 min) y volumen (10 FGA, 8.8 rebotes potenciales, 37.4 pases) es consistente. HOU es 26º en % de rebotes defensivos, favoreciendo su PRA.",
-                        "safe_line": 9.5,
-                        "safe_odds": 1.18,
-                        "safe_prob": 84.7,
-                        "hit_rate": "4/5 | 8/10 Overs",
+                        "analysis": "OVER 10.5 PRA. Éxito 8/10. Juega 37.8 min. El 0.2% Usage es bajo, pero sus 10 FGA, 8.8 reb. potenciales y 37.4 pases garantizan oportunidades PRA. HOU sufre en rebote defensivo y concede asistencias.",
+                        "safe_line": 10.5,
+                        "safe_odds": 1.33,
+                        "safe_prob": 80.0,
+                        "hit_rate": "4/5 | 8/10",
                         "injuries": ""
                     },
                     {
@@ -310,11 +310,11 @@
                         "odds": 1.55,
                         "proj": 19.1,
                         "edge": 101.1,
-                        "analysis": "OVER 9.5 PR. Su 8/10 overs y 37.8 min son determinantes. Pese al 0.2% de uso, sus 10 FGA y 8.8 rebotes potenciales son robustos. Houston facilita rebotes, aprovechando su volumen.",
-                        "safe_line": 8.5,
-                        "safe_odds": 1.19,
-                        "safe_prob": 84.4,
-                        "hit_rate": "4/5 | 8/10 Overs",
+                        "analysis": "OVER 9.5 PR. 8/10 aciertos, 37.8 min, 10 FGA y 8.8 rebotes potenciales justifican la línea. HOU concede tiros perimetrales y sufre el rebote. Valor.",
+                        "safe_line": 9.5,
+                        "safe_odds": 1.55,
+                        "safe_prob": 80.0,
+                        "hit_rate": "4/5 | 8/10",
                         "injuries": ""
                     }
                 ]
@@ -332,11 +332,11 @@
                         "odds": 1.34,
                         "proj": 2.8,
                         "edge": 86.7,
-                        "analysis": "**OVER 1.5 AST.** Su 9/10 éxitos y 37.8 min/37.4 pases/partido con 0.2% Usage confirman su rol de distribuidor. HOU presiona tiradores, forzando pases, potenciando sus oportunidades de asistencia.",
-                        "safe_line": 0.5,
-                        "safe_odds": 1.35,
-                        "safe_prob": 74.3,
-                        "hit_rate": "5/5 | 9/10 Overs",
+                        "analysis": "OVER. Acierto 9/10. 37.8 min, 0.2% Usage pero 37.4 pases/partido. HOU vulnerable a rotación exterior; Kennard facilita extra-passes y kicks, explotando fallas defensivas.",
+                        "safe_line": 1.5,
+                        "safe_odds": 1.34,
+                        "safe_prob": 90.0,
+                        "hit_rate": "5/5 | 9/10",
                         "injuries": ""
                     },
                     {
@@ -348,11 +348,11 @@
                         "odds": 1.39,
                         "proj": 26.2,
                         "edge": 80.7,
-                        "analysis": "OVER 14.5 PRA. Smart supera la línea 8/10 veces, 5 consecutivas. 35.1 min, 9.8 FGA, 8.2 reb. pot., 58.4 pases. La defensa laxa de HOU potencia su volumen en asistencias y rebotes.",
-                        "safe_line": 13.5,
-                        "safe_odds": 1.15,
-                        "safe_prob": 91.1,
-                        "hit_rate": "5/5 | 8/10 Overs",
+                        "analysis": "OVER Smart 14.5 PRA. 5/5, 8/10 aciertos. 35.1 min garantizan volumen: 9.8 FGA, 8.2 reb. pot., 58.4 pases. HOU permite 2º más asistencias a guards. OVER justificado.",
+                        "safe_line": 14.5,
+                        "safe_odds": 1.39,
+                        "safe_prob": 80.0,
+                        "hit_rate": "5/5 | 8/10",
                         "injuries": ""
                     }
                 ]
@@ -370,11 +370,11 @@
                         "odds": 1.33,
                         "proj": 13.8,
                         "edge": 62.4,
-                        "analysis": "Rui Hachimura: Su tendencia del 100% en Overs es clave. Con 38.8 minutos y 11 FGA, el volumen ofensivo es sólido. Houston cede puntos fáciles en la pintura. OVER.",
-                        "safe_line": 7.5,
-                        "safe_odds": 1.15,
-                        "safe_prob": 93.2,
-                        "hit_rate": "5/5 | 10/10 Overs",
+                        "analysis": "OVER 8.5 PTS. 10/10 éxitos. 38.8 min y 11.0 FGA aseguran el volumen. HOU sufre en la pintura ante aleros en cortes. Uso 0.1% es inconsistente y se descarta por FGA.",
+                        "safe_line": 8.5,
+                        "safe_odds": 1.33,
+                        "safe_prob": 100.0,
+                        "hit_rate": "5/5 | 10/10",
                         "injuries": ""
                     },
                     {
@@ -386,11 +386,11 @@
                         "odds": 1.85,
                         "proj": 10.3,
                         "edge": 58.5,
-                        "analysis": "OVER 6.5 RA Smart. Histórico 8/10. Juega 35.1 min, con 8.2 rebotes potenciales y 58.4 pases. HOU permite elevada actividad a guards, explotando su volumen de asistencias y rebotes. Datos claros.",
-                        "safe_line": 5.5,
-                        "safe_odds": 1.15,
-                        "safe_prob": 91.3,
-                        "hit_rate": "5/5 | 8/10 Overs",
+                        "analysis": "OVER 6.5 RA. Smart 5/5, 8/10. 35.1 min, 8.2 rebotes potenciales, 58.4 pases. HOU sufre rebote defensivo perimetral y concesión de asistencias. Uso 0.2% no afecta RA.",
+                        "safe_line": 6.5,
+                        "safe_odds": 1.85,
+                        "safe_prob": 80.0,
+                        "hit_rate": "5/5 | 8/10",
                         "injuries": ""
                     }
                 ]
@@ -414,11 +414,11 @@
                         "odds": 1.52,
                         "proj": 0.6,
                         "edge": 60.0,
-                        "analysis": "UNDER 1.5 AST es firme. Holiday promedia 11.0 min y 0.2% Usage, con solo 10.8 pases/partido. Histórico 8/10 Unders. La defensa de LAL restringe a creadores secundarios, minimizando su bajo volumen. Proyección UNDER robusta.",
-                        "safe_line": 2.5,
-                        "safe_odds": 1.15,
-                        "safe_prob": 92.6,
-                        "hit_rate": "5/5 | 8/10 Unders",
+                        "analysis": "UNDER 1.5 AST Holiday. 11.0 min, 0.2% Usage. Histórico 8/10. Su enfoque (4.2 FGA, 2.3 rebotes pot.) no es facilitar. LAL, defensa sólida, reduce pases de calidad. Pases (10.8) ineficaces.",
+                        "safe_line": 1.5,
+                        "safe_odds": 1.52,
+                        "safe_prob": 80.0,
+                        "hit_rate": "5/5 | 8/10",
                         "injuries": ""
                     },
                     {
@@ -430,11 +430,11 @@
                         "odds": 1.35,
                         "proj": 0.3,
                         "edge": 40.0,
-                        "analysis": "UNDER 0.5 3PT: LaRavia promedia 14.8 min con 0.2% Usage y solo 3.0 FGA. Su rol es pase/rebote. La defensa de HOU no potencia su nulo volumen ofensivo. Es un under técnico.",
-                        "safe_line": 1.5,
-                        "safe_odds": 1.21,
-                        "safe_prob": 82.8,
-                        "hit_rate": "5/5 | 8/10 Unders",
+                        "analysis": "**POSTURA TÉCNICA: UNDER 0.5 3PT.**\n\nSu 0.2% Usage y 3.0 FGA en 14.8 min limitan volumen. Aciertos (5/5 | 8/10) en otras métricas no compensan. HOU cierra el perímetro a rol players. Valor en UNDER.",
+                        "safe_line": 0.5,
+                        "safe_odds": 1.35,
+                        "safe_prob": 80.0,
+                        "hit_rate": "5/5 | 8/10",
                         "injuries": ""
                     }
                 ]
@@ -452,11 +452,11 @@
                         "odds": 1.43,
                         "proj": 2.9,
                         "edge": 35.6,
-                        "analysis": "80% under en últimos 10 juegos. 15.8 min y 5.6 rebotes potenciales limitan su volumen. Houston es sólida en el rebote, no concederá a su 0.1% de uso. Under 4.5, alta probabilidad.",
-                        "safe_line": 5.5,
-                        "safe_odds": 1.17,
-                        "safe_prob": 85.5,
-                        "hit_rate": "5/5 | 8/10 Unders",
+                        "analysis": "Hayes: UNDER 4.5 REB. Sus 5/5 y 8/10 UNDERs son sólidos. 15.8 min, 0.1% Usage y 2.6 FGA limitan oportunidades. 5.6 rebotes potenciales es marginal. HOU es 5º en rebote defensivo, reduciendo segundas oportunidades.",
+                        "safe_line": 4.5,
+                        "safe_odds": 1.43,
+                        "safe_prob": 80.0,
+                        "hit_rate": "5/5 | 8/10",
                         "injuries": ""
                     },
                     {
@@ -468,11 +468,11 @@
                         "odds": 1.34,
                         "proj": 4.9,
                         "edge": 34.7,
-                        "analysis": "UNDERCUT 7.5 PTS. Historial 8/10 Unders valida. Sus 11.0 min, 0.2% Usage y 4.2 FGA limitan drásticamente el volumen. LAL comprime el rol de manejadores secundarios, suprimiendo puntos de banca.",
-                        "safe_line": 8.5,
-                        "safe_odds": 1.26,
-                        "safe_prob": 79.5,
-                        "hit_rate": "4/5 | 8/10 Unders",
+                        "analysis": "Minutos (11.0) y Usage (0.2%) son ínfimos. Con 4.2 FGA y LAL defendiendo bien la pintura, es improbable. Históricamente, 8/10 veces Holiday no supera los 7.5 puntos.",
+                        "safe_line": 7.5,
+                        "safe_odds": 1.34,
+                        "safe_prob": 80.0,
+                        "hit_rate": "4/5 | 8/10",
                         "injuries": ""
                     }
                 ]
@@ -496,11 +496,11 @@
                         "odds": 1.29,
                         "proj": 10.6,
                         "edge": 63.1,
-                        "analysis": "OVER. 10/10 sobrepasando la línea, 27.9 min y 8.2 FGA validan volumen. Pese a uso mínimo (0.1%), Orlando concede triples a tiradores estáticos si rotan lento, explotando su perfil. ¡Confirmado!",
-                        "safe_line": 5.5,
-                        "safe_odds": 1.15,
-                        "safe_prob": 87.7,
-                        "hit_rate": "5/5 | 10/10 Overs",
+                        "analysis": "**OVER 6.5 PTS.** Histórico 10/10 con 8.2 FGA en 27.9 min. Pese al 0.1% de Usage anómalo, su volumen de tiro es sólido. Orlando permite alta frecuencia de triples, sufriendo contra tiradores puros.",
+                        "safe_line": 6.5,
+                        "safe_odds": 1.29,
+                        "safe_prob": 100.0,
+                        "hit_rate": "5/5 | 10/10",
                         "injuries": ""
                     },
                     {
@@ -512,11 +512,11 @@
                         "odds": 1.39,
                         "proj": 2.3,
                         "edge": 53.3,
-                        "analysis": "OVER. 8/10 overs, 27.9 min. Promedia 8.2 FGA, su rol de especialista es consistente. Orlando prioriza la pintura, abriendo ángulos para el volumen de tiradores perimetrales.",
-                        "safe_line": 0.5,
-                        "safe_odds": 1.15,
-                        "safe_prob": 97.1,
-                        "hit_rate": "4/5 | 8/10 Overs",
+                        "analysis": "OVER 1.5 3PT. Robinson acierta 8/10 reciente. Con 27.9 min y 8.2 FGA, su volumen de tiro es alto. Orlando defiende la pintura, cediendo tiros de 3 a especialistas sin balón. Valor claro.",
+                        "safe_line": 1.5,
+                        "safe_odds": 1.39,
+                        "safe_prob": 80.0,
+                        "hit_rate": "4/5 | 8/10",
                         "injuries": ""
                     }
                 ]
@@ -534,11 +534,11 @@
                         "odds": 1.36,
                         "proj": 15.5,
                         "edge": 34.8,
-                        "analysis": "OVER 11.5 PRA. Robinson promedia 27.9 min y 8.2 FGA. A pesar de su 0.1% Usage, ha superado la línea 9/10 veces. Orlando concede triples por su énfasis en la pintura, abriendo el volumen de tiro para PRA.",
-                        "safe_line": 10.5,
-                        "safe_odds": 1.2,
-                        "safe_prob": 83.0,
-                        "hit_rate": "4/5 | 9/10 Overs",
+                        "analysis": "OVER. Acierto 9/10 (4/5). 27.9 min y 8.2 FGA soportan el volumen. ORL rota lento en el perímetro, exponiendo a tiradores. El usage 0.1% es anómalo; se interpreta como especialista de alto volumen de tiro.",
+                        "safe_line": 11.5,
+                        "safe_odds": 1.36,
+                        "safe_prob": 90.0,
+                        "hit_rate": "4/5 | 9/10",
                         "injuries": ""
                     },
                     {
@@ -550,11 +550,11 @@
                         "odds": 1.31,
                         "proj": 8.5,
                         "edge": 30.8,
-                        "analysis": "OVER. Historial 8/10. Con 38.1 min y 15.4 rebotes potenciales, Banchero maximiza volumen. DET, al conceder muchos tiros, amplifica sus chances. Explotación segura.",
-                        "safe_line": 5.5,
-                        "safe_odds": 1.2,
-                        "safe_prob": 83.5,
-                        "hit_rate": "4/5 | 8/10 Overs",
+                        "analysis": "OVER 6.5 REB es sólido. Banchero acierta 8/10, juega 38.1 min y posee 15.4 rebotes potenciales. DET es 29º en % Rebotes Defensivos, lo que favorece su captura.",
+                        "safe_line": 6.5,
+                        "safe_odds": 1.31,
+                        "safe_prob": 80.0,
+                        "hit_rate": "4/5 | 8/10",
                         "injuries": ""
                     }
                 ]
@@ -572,11 +572,11 @@
                         "odds": 1.41,
                         "proj": 9.4,
                         "edge": 25.3,
-                        "analysis": "OVER 7.5 REB Duren. Ha superado en 8/10. Sus 30.1 min y 18.8 rebotes potenciales son clave. Orlando fuerza tiros disputados, maximizando sus oportunidades de rebote.",
-                        "safe_line": 6.5,
-                        "safe_odds": 1.15,
-                        "safe_prob": 93.2,
-                        "hit_rate": "4/5 | 8/10 Overs",
+                        "analysis": "OVER 7.5 REB. Éxito reciente (4/5, 8/10) y 18.8 rebotes potenciales en 30.1 min/juego garantizan volumen. Orlando (22º en FG%) genera alta frecuencia de rebotes defensivos para Duren.",
+                        "safe_line": 7.5,
+                        "safe_odds": 1.41,
+                        "safe_prob": 80.0,
+                        "hit_rate": "4/5 | 8/10",
                         "injuries": ""
                     },
                     {
@@ -588,11 +588,11 @@
                         "odds": 1.56,
                         "proj": 12.5,
                         "edge": 19.0,
-                        "analysis": "OVER 10.5 PA. Historial +90%. Con 27.9 min y 8.2 FGA, su bajo uso (0.1%) es de tirador puro. ORL cede perímetro al proteger pintura, táctica que él explota. VALIDADO.",
-                        "safe_line": 9.5,
-                        "safe_odds": 1.35,
-                        "safe_prob": 74.1,
-                        "hit_rate": "4/5 | 9/10 Overs",
+                        "analysis": "Posición: OVER 10.5 PA. Robinson tiene 4/5 y 9/10 recientes sobre línea. Juega 27.9 min, con 8.2 FGA y 21.4 pases. ORL defiende la pintura, cediendo espacio exterior. Alto volumen y tendencia validan.",
+                        "safe_line": 10.5,
+                        "safe_odds": 1.56,
+                        "safe_prob": 90.0,
+                        "hit_rate": "4/5 | 9/10",
                         "injuries": ""
                     }
                 ]
@@ -616,11 +616,11 @@
                         "odds": 1.33,
                         "proj": 0.5,
                         "edge": 66.7,
-                        "analysis": "UNDER 1.5 3PT. Consistente 9/10 Unders. Su 0.2% Usage en 15.8 min y solo 4.0 FGA evidencian rol periférico sin volumen ofensivo. La defensa de DET no explotará su nulo impacto en tiros lejanos.",
-                        "safe_line": 2.5,
-                        "safe_odds": 1.15,
-                        "safe_prob": 99.8,
-                        "hit_rate": "5/5 | 9/10 Unders",
+                        "analysis": "Cain promedia 0.2% Usage y 15.8 min; sus 4.0 FGA son bajos. DET concede pocos 3PT a suplentes. Aciertos UNDER 5/5 y 9/10 confirman la nula propensión a superar la línea. UNDER estricto.",
+                        "safe_line": 1.5,
+                        "safe_odds": 1.33,
+                        "safe_prob": 90.0,
+                        "hit_rate": "5/5 | 9/10",
                         "injuries": ""
                     },
                     {
@@ -632,11 +632,11 @@
                         "odds": 1.32,
                         "proj": 0.7,
                         "edge": 53.3,
-                        "analysis": "UNDER 1.5 AST. Su histórico 8/10 unders y 5/5 aciertos es concluyente. Promedia 15.8 min con 0.2% Usage y solo 10 pases/partido. Detroit no incentiva su bajo volumen de pases. El dato duro respalda el UNDER.",
-                        "safe_line": 2.5,
-                        "safe_odds": 1.15,
-                        "safe_prob": 98.6,
-                        "hit_rate": "5/5 | 8/10 Unders",
+                        "analysis": "UNDER 1.5 AST Cain: Promedia 8/10 bajo línea. 15.8 min, 0.2% Usage, 10 pases/partido es insuficiente. Detroit, aunque débil, limita asistencias a no-generadores.",
+                        "safe_line": 1.5,
+                        "safe_odds": 1.32,
+                        "safe_prob": 80.0,
+                        "hit_rate": "5/5 | 8/10",
                         "injuries": ""
                     }
                 ]
@@ -654,11 +654,11 @@
                         "odds": 1.32,
                         "proj": 5.4,
                         "edge": 53.0,
-                        "analysis": "Con 9/10 Unders, Cain promedia 15.8 minutos y un 0.2% Usage, realizando solo 4.0 tiros. La defensa de DET no infla el volumen de roles secundarios. Su bajo rol ofensivo dicta el UNDER.",
-                        "safe_line": 12.5,
-                        "safe_odds": 1.15,
-                        "safe_prob": 90.5,
-                        "hit_rate": "5/5 | 9/10 Unders",
+                        "analysis": "UNDER 11.5 PTS Cain. 5/5, 9/10 UNDER histórico. Su 0.2% Usage y 4 FGA promedian volumen ofensivo nulo. DET es débil, pero Cain carece de rol anotador. UNDER claro.",
+                        "safe_line": 11.5,
+                        "safe_odds": 1.32,
+                        "safe_prob": 90.0,
+                        "hit_rate": "5/5 | 9/10",
                         "injuries": ""
                     },
                     {
@@ -670,11 +670,11 @@
                         "odds": 1.44,
                         "proj": 1.8,
                         "edge": 48.6,
-                        "analysis": "Histórico 10/10 Unders. Su 0.1% Usage y 33.6 pases/partido en 25.9 min evidencian rol no creador. La defensa laxa de DET no explota su volumen para asistencias.",
-                        "safe_line": 4.5,
-                        "safe_odds": 1.15,
-                        "safe_prob": 99.4,
-                        "hit_rate": "5/5 | 10/10 Unders",
+                        "analysis": "UNDER 3.5 AST. Su 0.1% Usage y 10/10 aciertos unders validan. Pese a 33.6 pases, Black no es facilitador principal. DET, aunque concede, su caótica defensa no canaliza asistencias a jugadores de tan bajo uso.",
+                        "safe_line": 3.5,
+                        "safe_odds": 1.44,
+                        "safe_prob": 100.0,
+                        "hit_rate": "5/5 | 10/10",
                         "injuries": ""
                     }
                 ]

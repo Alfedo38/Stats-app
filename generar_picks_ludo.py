@@ -4,7 +4,6 @@ import math
 import time
 import pandas as pd
 import numpy as np
-from scipy.stats import norm
 from sqlalchemy import create_engine
 from sqlalchemy.engine import URL
 import joblib
@@ -56,11 +55,11 @@ def obtener_bajas_equipo(team_abbr, df_inj):
     return f"🚑 OUT: {', '.join(bajas[:2])}{'...' if len(bajas) > 2 else ''}"
 
 def obtener_datos():
-    print("📡 1. Extrayendo líneas CORE y de VOLUMEN de Supabase...")
+    print("📡 1. Extrayendo líneas reales de Supabase...")
     query_stats = "'PTS', 'REB', 'AST', '3PT', 'PRA', 'PR', 'PA', 'RA', 'FGM', 'FGA', 'FG3A', 'FTM', 'FTA'"
     df_odds = pd.read_sql(f"SELECT player_name, prop_type, matchup, line, over_price, under_price FROM player_odds WHERE prop_type IN ({query_stats})", engine)
     
-    if df_odds.empty: return None, None, None
+    if df_odds.empty: return None, None, None, None
 
     def get_abbr(matchup):
         try:
@@ -79,18 +78,12 @@ def obtener_datos():
         FROM player_game_logs pgl JOIN players p ON pgl.player_id = p.id
     """
     df_logs = pd.read_sql(query_logs, engine)
-    
     df_l10 = df_logs[df_logs['rn'] <= 10].copy()
     
     for col, parts in {'pra': ['pts','reb','ast'], 'pr': ['pts','reb'], 'pa': ['pts','ast'], 'ra': ['reb','ast']}.items():
         df_l10[col] = sum(df_l10[p] for p in parts)
     
-    df_l10.rename(columns={
-        'pts':'PTS','reb':'REB','ast':'AST','fg3m':'3PT',
-        'pra':'PRA','pr':'PR','pa':'PA','ra':'RA',
-        'fgm':'FGM', 'fga':'FGA', 'fg3a':'FG3A', 'ftm':'FTM', 'fta':'FTA'
-    }, inplace=True)
-
+    df_l10.rename(columns={'pts':'PTS','reb':'REB','ast':'AST','fg3m':'3PT','pra':'PRA','pr':'PR','pa':'PA','ra':'RA','fgm':'FGM', 'fga':'FGA', 'fg3a':'FG3A', 'ftm':'FTM', 'fta':'FTA'}, inplace=True)
     df_l5 = df_l10[df_l10['rn'] <= 5].copy()
 
     df_stats = df_l5.groupby('player_name').agg({
@@ -114,26 +107,22 @@ def obtener_datos():
     df_cruce['opp'] = df_cruce.apply(lambda r: r['home_team'] if r['team_abbreviation']==r['away_team'] else r['away_team'], axis=1)
     df_cruce = pd.merge(df_cruce, df_dvp, left_on=['opp','position'], right_on=['team','position'], how='left').fillna(0)
 
-    return df_cruce, df_l10, df_inj
+    # 🚀 ENVIAMOS TAMBIÉN EL df_odds ORIGINAL PARA CAZAR LAS LÍNEAS ALTERNATIVAS
+    return df_cruce, df_l10, df_inj, df_odds
 
-def ludo_engine(df_cruce, df_logs_10, df_inj):
+def ludo_engine(df_cruce, df_logs_10, df_inj, df_odds_raw):
     if df_cruce is None or df_cruce.empty: return
+    df_cruce = df_cruce.copy()
     print("🧠 4. Activando Cerebros AI y purgando líneas basura...")
     
-    # 🔥 PISOS LÓGICOS: Erradicamos las líneas fantasma
     PISOS_LOGICOS = {
-        'PTS': 4.5, 'REB': 2.5, 'AST': 1.5,
-        'PRA': 9.5, 'PR': 7.5, 'PA': 6.5, 'RA': 4.5,
+        'PTS': 4.5, 'REB': 2.5, 'AST': 1.5, 'PRA': 9.5, 'PR': 7.5, 'PA': 6.5, 'RA': 4.5,
         '3PT': 0.5, 'FGM': 1.5, 'FGA': 3.5, 'FTM': 1.5, 'FTA': 1.5
     }
     df_cruce['piso_minimo'] = df_cruce['prop_type'].map(PISOS_LOGICOS).fillna(0.5)
     df_cruce = df_cruce[df_cruce['line'] >= df_cruce['piso_minimo']]
 
-    mercados = {
-        'PTS': 'puntos', 'REB': 'rebotes', 'AST': 'asistencias', '3PT': 'triples',
-        'FGM': 'tiros_anotados', 'FGA': 'tiros_intentados', 'FG3A': 'triples_intentados',
-        'FTM': 'libres_anotados', 'FTA': 'libres_intentados'
-    }
+    mercados = {'PTS': 'puntos', 'REB': 'rebotes', 'AST': 'asistencias', '3PT': 'triples', 'FGM': 'tiros_anotados', 'FGA': 'tiros_intentados', 'FG3A': 'triples_intentados', 'FTM': 'libres_anotados', 'FTA': 'libres_intentados'}
     models = {k: joblib.load(f'modelos_ai/ludogallina_{v}.pkl') for k, v in mercados.items()}
 
     for k, m in models.items():
@@ -146,7 +135,6 @@ def ludo_engine(df_cruce, df_logs_10, df_inj):
         elif k == 'FG3A': cols = ['min_L5', 'usage_pct_L5', 'fg3a_L5']
         elif k == 'FTM': cols = ['min_L5', 'usage_pct_L5', 'fta_L5', 'ftm_L5']
         elif k == 'FTA': cols = ['min_L5', 'usage_pct_L5', 'fta_L5']
-        
         df_cruce[f'pred_{k.lower()}'] = m.predict(df_cruce[cols])
 
     def get_proj(r):
@@ -163,43 +151,57 @@ def ludo_engine(df_cruce, df_logs_10, df_inj):
     df_cruce['edge'] = (df_cruce['diff'].abs() / df_cruce['line']) * 100
     df_cruce['price'] = df_cruce.apply(lambda r: r['over_price'] if r['diff'] > 0 else r['under_price'], axis=1)
 
-    def get_safe(r):
-        mu, prop = r['proj'], r['prop_type']
-        logs_l10 = df_logs_10[df_logs_10['player_name'] == r['player_name']]
-        logs_l5 = logs_l10[logs_l10['rn'] <= 5]
-        
-        std = logs_l10[prop].std() if not logs_l10.empty and prop in logs_l10.columns else 2.0
-        std = 1.5 if pd.isna(std) or std == 0 else std
+    # 🛡️ NUEVA FUNCIÓN: CAZADOR DE ALT LINES (Cero invenciones)
+    def get_real_safe_alt(r):
+        prop, player = r['prop_type'], r['player_name']
         is_over = r['diff'] > 0
         
+        # Filtramos todas las líneas que Stake ofreció para este jugador y mercado
+        alts = df_odds_raw[(df_odds_raw['player_name'] == player) & (df_odds_raw['prop_type'] == prop)]
+        
         if is_over:
-            safe = max(0.5, math.floor(norm.ppf(0.25, loc=mu, scale=std)) + 0.5)
-            if safe >= r['line']: safe = max(0.5, r['line'] - 1)
-            prob = 1 - norm.cdf(safe, loc=mu, scale=std)
-            hit_count_l5 = (logs_l5[prop] > r['line']).sum()
-            hit_count_l10 = (logs_l10[prop] > r['line']).sum()
+            # Buscamos una línea menor disponible en la casa de apuestas
+            safer = alts[alts['line'] < r['line']]
+            if not safer.empty:
+                best = safer.loc[safer['line'].idxmin()] # La línea más baja real
+                s_line, s_odds = best['line'], best['over_price']
+            else:
+                s_line, s_odds = r['line'], r['over_price'] # Si no hay, repite la original
         else:
-            safe = math.floor(norm.ppf(0.75, loc=mu, scale=std)) + 0.5
-            if safe <= r['line']: safe = r['line'] + 1
-            prob = norm.cdf(safe, loc=mu, scale=std)
-            hit_count_l5 = (logs_l5[prop] < r['line']).sum()
-            hit_count_l10 = (logs_l10[prop] < r['line']).sum()
+            # Buscamos una línea mayor disponible en la casa de apuestas
+            safer = alts[alts['line'] > r['line']]
+            if not safer.empty:
+                best = safer.loc[safer['line'].idxmax()] # La línea más alta real
+                s_line, s_odds = best['line'], best['under_price']
+            else:
+                s_line, s_odds = r['line'], r['under_price']
+                
+        # Calculamos los aciertos reales para esa línea segura
+        logs_l10 = df_logs_10[df_logs_10['player_name'] == player]
+        logs_l5 = logs_l10[logs_l10['rn'] <= 5]
+        
+        if is_over:
+            hit_count_l5 = (logs_l5[prop] > s_line).sum() if prop in logs_l5.columns else 0
+            hit_count_l10 = (logs_l10[prop] > s_line).sum() if prop in logs_l10.columns else 0
+        else:
+            hit_count_l5 = (logs_l5[prop] < s_line).sum() if prop in logs_l5.columns else 0
+            hit_count_l10 = (logs_l10[prop] < s_line).sum() if prop in logs_l10.columns else 0
             
-        odds = max(1.15, min(1/prob if prob > 0.01 else 99, 1.80))
-        return pd.Series({'s_line': safe, 's_odds': round(odds, 2), 's_prob': round(prob*100, 1), 
-                          'hr': f"{hit_count_l5}/5 | {hit_count_l10}/10 {'Overs' if is_over else 'Unders'}", 
-                          'hit_count_l5': hit_count_l5, 'hit_count_l10': hit_count_l10})
+        return pd.Series({'s_line': s_line, 's_odds': s_odds, 's_prob': hit_count_l10 * 10.0, 'hr': f"{hit_count_l5}/5 | {hit_count_l10}/10", 'hit_count_l5': hit_count_l5, 'hit_count_l10': hit_count_l10})
 
-    df_cruce = df_cruce.copy()
-    df_cruce[['s_line','s_odds','s_prob','hr','hit_count_l5', 'hit_count_l10']] = df_cruce.apply(get_safe, axis=1)
+    df_cruce[['s_line','s_odds','s_prob','hr','hit_count_l5', 'hit_count_l10']] = df_cruce.apply(get_real_safe_alt, axis=1)
     
-    print("⚖️ 5. Aplicando Filtro Doble (>= 4/5 Y >= 8/10)...")
-    df_cruce = df_cruce[(df_cruce['hit_count_l5'] >= 4) & (df_cruce['hit_count_l10'] >= 8)]
+    print("⚖️ 5. Aplicando Filtro Doble (Ajustado por Mercado)...")
+    mercados_volumen = ['FGA', 'FG3A', 'FTA', 'FGM', 'FTM']
     
+    condicion_tradicional = ((~df_cruce['prop_type'].isin(mercados_volumen)) & (df_cruce['hit_count_l5'] >= 4) & (df_cruce['hit_count_l10'] >= 8) & (df_cruce['edge'] >= 10))
+    condicion_volumen = ((df_cruce['prop_type'].isin(mercados_volumen)) & (df_cruce['hit_count_l5'] >= 4) & (df_cruce['hit_count_l10'] >= 7) & (df_cruce['edge'] >= 5))
+    
+    df_cruce = df_cruce[condicion_tradicional | condicion_volumen]
     df_cruce['is_over'] = df_cruce['diff'] > 0
     df_cruce = df_cruce.sort_values('edge', ascending=False).drop_duplicates(subset=['player_name', 'prop_type', 'is_over'])
 
-    bombas = df_cruce[df_cruce['edge'] >= 10].copy()
+    bombas = df_cruce.copy()
     sin_saldo = False
 
     for partido in bombas['matchup'].unique():
@@ -220,21 +222,20 @@ def ludo_engine(df_cruce, df_logs_10, df_inj):
                 for _, j in pair.iterrows():
                     analisis = ""
                     if sin_saldo:
-                        analisis = f"Análisis Técnico: Proyección {j['proj']} vs línea {j['s_line']}. Hit Rate de {j['hr']}."
+                        analisis = f"Análisis Técnico: Proyección {j['proj']} vs línea {j['line']}. Hit Rate de {j['hr']}."
                     else:
                         for intento in range(2):
                             try:
                                 time.sleep(0.5) 
-                                # 🔥 PROMPT QUANT: Análisis forense con volumen de tiro y rebotes potenciales
                                 prompt = (
                                     f"Actúa como un analista Quant (apuestas deportivas) de la NBA muy estricto. "
                                     f"Responde ESTRICTAMENTE en español, en un máximo de 35 palabras. Cero introducciones. "
                                     f"Justifica tu postura técnica sobre el {guion} de la línea de {j['line']} {j['prop_type']} para {j['player_name']}. "
-                                    f"DATOS DUROS OBLIGATORIOS PARA ANALIZAR (No los repitas textual, úsalos para justificar): "
+                                    f"DATOS DUROS OBLIGATORIOS PARA ANALIZAR: "
                                     f"1. Aciertos: {j['hr']}. "
                                     f"2. Minutos y Uso: Promedia {round(j['min_L5'], 1)} min con un Usage del {round(j['usage_pct_L5'], 1)}%. "
                                     f"3. Volumen: Realiza {round(j['fga_L5'], 1)} tiros (FGA), tiene {round(j['rebound_chances_L5'], 1)} rebotes potenciales y hace {round(j['passes_made_L5'], 1)} pases por partido. "
-                                    f"4. Rival: Menciona un dato táctico de cómo su volumen explota o sufre la defensa de {j['opp']}."
+                                    f"4. Rival: Menciona un dato táctico de cómo explota o sufre la defensa de {j['opp']}."
                                 )
                                 res = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
                                 if res and res.text:
@@ -246,10 +247,10 @@ def ludo_engine(df_cruce, df_logs_10, df_inj):
                                 if "429" in error_msg and ("depleted" in error_msg.lower() or "billing" in error_msg.lower() or "credits" in error_msg.lower()):
                                     print(f"\n    ❌ SALDO AGOTADO: Activando modo matemático...")
                                     sin_saldo = True 
-                                    analisis = f"Análisis Técnico: Proyección {j['proj']} vs línea {j['s_line']}. Hit Rate de {j['hr']}."
+                                    analisis = f"Análisis Técnico: Proyección {j['proj']} vs línea {j['line']}. Hit Rate de {j['hr']}."
                                     break 
                                 else:
-                                    analisis = f"Análisis Técnico: Proyección {j['proj']} vs línea {j['s_line']}. Hit Rate de {j['hr']}."
+                                    analisis = f"Análisis Técnico: Proyección {j['proj']} vs línea {j['line']}. Hit Rate de {j['hr']}."
                                     break
 
                     plays.append({
@@ -267,8 +268,8 @@ def ludo_engine(df_cruce, df_logs_10, df_inj):
 
     with open('picks_hoy.json', 'w', encoding='utf-8') as f:
         json.dump(TICKETS_JSON, f, ensure_ascii=False, indent=4)
-    print("\n✅ Proceso completado. Archivo JSON exportado y purgado de basura.")
+    print("\n✅ Proceso completado. Archivo JSON exportado con Alt Lines reales.")
 
 if __name__ == "__main__":
-    c, l, i = obtener_datos()
-    ludo_engine(c, l, i)
+    c, l, i, o = obtener_datos()
+    ludo_engine(c, l, i, o)

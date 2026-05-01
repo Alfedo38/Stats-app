@@ -52,6 +52,7 @@ model player_game_logs {
   matchup           String?   @db.VarChar(50)
   home_away         String?   @db.VarChar(50)
   opponent_abbr     String?   @db.VarChar(50)
+  opponent_team     String?   @db.VarChar(50) // 🔥 CLAVE PARA EL CARA A CARA (Agregado explícitamente para H2H)
   wl                String?   @db.VarChar(50)
   min               Float?    @db.Real
   stl               Float?    @db.Real
@@ -65,16 +66,39 @@ model player_game_logs {
   updated_at        String?   @db.VarChar(50)
   pulled_for_date   String?   @db.VarChar(50)
   players           players?  @relation(fields: [player_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  // ==========================================
+  // 🔥 MÉTRICAS SHARP (Agregadas para el Modelo Avanzado)
+  // ==========================================
+  ftm               Float?    // Tiros libres anotados (Free Throws Made)
+  fta               Float?    // Tiros libres intentados (Free Throws Attempted)
+  usage_pct         Float?    // Porcentaje de Uso (Usage %)
+  touches           Float?    // Veces que tocó la pelota
+  rebound_chances   Float?    // Chances reales de rebote (reboundChancesTotal)
+  passes_made       Float?    // Pases totales realizados
+  potential_ast     Float?    // Asistencias potenciales (reservado para futuro)
 }
 
 model player_odds {
-  player_name String  @id
-  prop_type   String?
+  player_name String
+  prop_type   String
   line        Float?
   matchup     String?
   over_price  Float?  @db.Real
   under_price Float?  @db.Real
   updated_at  String? @db.VarChar(50)
+
+  @@id([player_name, prop_type]) // Ahora permite tener Puntos, Rebotes y Asistencias del mismo jugador
+}
+
+model game_odds {
+  event_id   String  @id
+  matchup    String
+  home_team  String?
+  away_team  String?
+  spread     Float?  // Hándicap (Ej: -6.5 para el favorito)
+  total      Float?  // Over/Under del partido (Ej: 224.5)
+  updated_at String?
 }
 
 model reddit_trends {
@@ -86,6 +110,33 @@ model reddit_trends {
   hype_score  Int      @default(0)
   trend       String?  // "up" o "down"
   updated_at  DateTime @default(now())
+}
+
+// ==========================================
+// 🏥 PARTE MÉDICO (INJURY REPORT)
+// ==========================================
+model player_injuries {
+  player_name String  @id
+  team        String?
+  position    String?
+  status      String? // "Out", "Day-To-Day", "Expected to be out"
+  description String?
+  updated_at  String?
+}
+
+// ==========================================
+// 🛡️ DEFENSA VS. POSICIÓN (DvP)
+// ==========================================
+model team_dvp {
+  team         String  // Ej: "LAL" (Los Angeles Lakers)
+  position     String  // Ej: "PG" (Point Guard), "C" (Center)
+  pts_allowed  Float   // Promedio de puntos permitidos a esa posición
+  reb_allowed  Float   // Promedio de rebotes permitidos
+  ast_allowed  Float   // Promedio de asistencias permitidas
+  threes_allow Float   // Promedio de triples permitidos
+  updated_at   String?
+
+  @@id([team, position]) // Identificador único: Equipo + Posición
 }
 
 // ==========================================
@@ -151,6 +202,7 @@ model player_stats_lol {
   @@index([player_name, champion])
   @@index([game_id])
 }
+
 model upcoming_matches_lol {
   id           String   @id @default(uuid())
   panda_id     Int      @unique

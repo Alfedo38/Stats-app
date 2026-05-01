@@ -1,6 +1,6 @@
 import PlayerChartContainer from '@/components/PlayerChartContainer';
 import { getPlayerData } from '@/lib/api';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Zap, Target, MousePointer2, GitMerge } from 'lucide-react';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -12,77 +12,92 @@ const NAV_STATS = [
   { id: 'fgm', label: 'FGM' }, { id: 'fga', label: 'FGA' }, { id: 'fg3m', label: '3PTM' },
   { id: 'fg3a', label: '3PTA' }, { id: 'blk', label: 'BLK' }, { id: 'stl', label: 'STL' },
   { id: 'stl+blk', label: 'STL+BLK' }, { id: 'tov', label: 'TO' }, { id: 'pf', label: 'PF' },
+  // 👇 ACÁ AGREGÁS LAS NUEVAS
+  { id: 'usage_pct', label: 'USG%' }, 
+  { id: 'potential_ast', label: 'POT AST' }, 
+  { id: 'rebound_chances', label: 'REB CH' },
+  { id: 'touches', label: 'TOUCHES' }
 ];
 
 export default async function PlayerPage(props: any) {
   try {
     const params = await Promise.resolve(props.params);
-    let rawId = params?.playerId;
-    if (Array.isArray(rawId)) rawId = rawId[0];
-    const playerId = typeof rawId === 'string' ? rawId.trim() : "";
-
-    if (!playerId) {
-      throw new Error("El ID del jugador es nulo o inválido.");
-    }
-
+    const playerId = params?.playerId;
     const data = await getPlayerData(playerId);
-
-    if (!data || !data.player) {
-      return (
-        <div className="min-h-screen bg-black flex flex-col items-center justify-center gap-4">
-          <div className="text-[#10b981] font-black uppercase tracking-[0.3em] text-xs animate-pulse">
-            Jugador no encontrado ({playerId})
-          </div>
-          <Link href="/" className="text-[#444] hover:text-white text-[10px] font-black uppercase tracking-widest border border-[#222] px-4 py-2 rounded-lg transition-all">
-            Volver al Inicio
-          </Link>
-        </div>
-      );
-    }
+    if (!data || !data.player) return null;
 
     const { player, stats } = data;
 
-    const cleanStats = Array.isArray(stats) ? stats.map(s => {
-      return {
+    const cleanStats = Array.isArray(stats) ? stats.map(s => ({
         ...s,
         game_date: s.game_date ? String(s.game_date) : null,
-        pts: Number(s.pts) || 0,
-        ast: Number(s.ast) || 0,
-        reb: Number(s.reb) || 0,
-      }
-    }) : [];
+        usage_pct: Number(s.usage_pct) || 0,
+        potential_ast: Number(s.potential_ast) || 0,
+        rebound_chances: Number(s.rebound_chances) || 0,
+        touches: Number(s.touches) || 0,
+    })).sort((a, b) => new Date(b.game_date).getTime() - new Date(a.game_date).getTime()) : [];
+
+    // Cálculos para la barra horizontal (Last 5)
+    const last5 = cleanStats.slice(0, 5);
+    const calcAvg = (key: string) => last5.length ? (last5.reduce((acc, curr) => acc + (curr[key] || 0), 0) / last5.length).toFixed(1) : "0.0";
 
     return (
-      <main className="min-h-screen bg-black text-white font-sans pb-20 selection:bg-[#10b981]/30">
-        
-        <nav className="border-b border-[#111] bg-black/90 backdrop-blur-md sticky top-0 z-50 overflow-hidden">
-          <div className="px-6 py-4 flex items-center border-b border-[#111]">
-            <Link href="/" className="text-[#666] hover:text-white transition-colors flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.2em]">
+      <main className="min-h-screen bg-black text-white font-sans pb-20">
+        <nav className="border-b border-[#111] bg-black/90 backdrop-blur-md sticky top-0 z-50 px-6 py-4">
+            <Link href="/" className="text-[#444] hover:text-white transition-colors flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
               <ArrowLeft size={14} /> Back to Dashboard
             </Link>
-          </div>
         </nav>
 
-        <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6 md:space-y-8">
+        <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-4">
           
-          <div className="relative bg-[#0a0a0a] border border-[#171717] rounded-[2rem] p-6 md:p-10 shadow-2xl overflow-hidden flex justify-between items-end h-[200px] md:h-[280px]">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-[#10b981] opacity-[0.03] blur-[120px] rounded-full pointer-events-none" />
-            
-            <div className="relative z-20 flex flex-col justify-end h-full">
-              <h1 className="text-5xl md:text-7xl font-black italic tracking-tighter leading-[0.85] uppercase drop-shadow-xl">
-                {player.first_name || 'Nombre'} <br/>
-                <span className="text-[#10b981]">{player.last_name || 'Desconocido'}</span>
+          {/* HEADER COMPACTO */}
+          <div className="relative bg-[#0a0a0a] border border-[#171717] rounded-[2.5rem] p-8 md:p-12 overflow-hidden flex justify-between items-end h-[220px] md:h-[300px]">
+            <div className="relative z-20">
+              <p className="text-[#10b981] text-[10px] font-black uppercase tracking-[0.4em] mb-2">NBA Professional Scouting</p>
+              <h1 className="text-6xl md:text-8xl font-black italic tracking-tighter leading-[0.8] uppercase">
+                {player.first_name}<br/>
+                <span className="text-[#10b981]">{player.last_name}</span>
               </h1>
             </div>
+            <img 
+              src={`https://cdn.nba.com/headshots/nba/latest/1040x760/${player.id}.png`} 
+              className="absolute -right-10 bottom-0 w-[300px] md:w-[450px] z-10 grayscale hover:grayscale-0 transition-all duration-500"
+            />
+          </div>
 
-            <div className="absolute -right-4 md:right-10 bottom-0 w-[240px] md:w-[380px] pointer-events-none z-10">
-              <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/80 to-transparent z-20"></div>
-              {/* onError BORRADO */}
-              <img 
-                src={`https://cdn.nba.com/headshots/nba/latest/1040x760/${player.id}.png`} 
-                alt={player.full_name || 'Jugador'}
-                className="w-full h-auto object-cover object-bottom drop-shadow-[0_0_25px_rgba(0,0,0,1)]"
-              />
+          {/* 🔥 BARRA DE ANÁLISIS SHARP (Sustituye a las tarjetas) */}
+          <div className="bg-[#0a0a0a] border border-[#171717] rounded-2xl p-4 flex flex-wrap items-center justify-around gap-6 shadow-xl">
+            <div className="flex items-center gap-3">
+              <Zap size={18} className="text-[#10b981]" />
+              <div>
+                <p className="text-[8px] font-black text-[#444] uppercase tracking-widest">Usage Rate</p>
+                <p className="text-xl font-black italic">{(Number(calcAvg('usage_pct')) * 100).toFixed(1)}%</p>
+              </div>
+            </div>
+            <div className="w-[1px] h-8 bg-[#1a1a1a] hidden md:block" />
+            <div className="flex items-center gap-3">
+              <GitMerge size={18} className="text-blue-500" />
+              <div>
+                <p className="text-[8px] font-black text-[#444] uppercase tracking-widest">Pot. Assists</p>
+                <p className="text-xl font-black italic">{calcAvg('potential_ast')}</p>
+              </div>
+            </div>
+            <div className="w-[1px] h-8 bg-[#1a1a1a] hidden md:block" />
+            <div className="flex items-center gap-3">
+              <Target size={18} className="text-red-500" />
+              <div>
+                <p className="text-[8px] font-black text-[#444] uppercase tracking-widest">Reb. Chances</p>
+                <p className="text-xl font-black italic">{calcAvg('rebound_chances')}</p>
+              </div>
+            </div>
+            <div className="w-[1px] h-8 bg-[#1a1a1a] hidden md:block" />
+            <div className="flex items-center gap-3">
+              <MousePointer2 size={18} className="text-orange-500" />
+              <div>
+                <p className="text-[8px] font-black text-[#444] uppercase tracking-widest">Ball Touches</p>
+                <p className="text-xl font-black italic">{calcAvg('touches')}</p>
+              </div>
             </div>
           </div>
 

@@ -1,0 +1,684 @@
+[
+    {
+        "matchup": "Houston Rockets @ Los Angeles Lakers (🔥)",
+        "guion": "OVER",
+        "tickets": [
+            {
+                "name": "X2 - OPCIÓN 1",
+                "total_odds": 1.75,
+                "plays": [
+                    {
+                        "player": "Jake LaRavia",
+                        "team": "LAL",
+                        "type": "OVER",
+                        "line": 0.5,
+                        "prop": "PTS",
+                        "odds": 1.28,
+                        "proj": 4.8,
+                        "edge": 860.0,
+                        "analysis": "¡Absolutamente! Aquí mi análisis:\n\n**Justificación OVER 0.5 PTS:**\nLaRavia casi siempre anota. Su historial de 9/10 overs demuestra una consistencia fundamental. Es una apuesta de alta probabilidad.\n\n**Dato Táctico vs. HOU:**\nLa defensa agresiva de Houston a menudo concede tiros abiertos de esquina, un punto fuerte para LaRavia si encuentra su posición.",
+                        "safe_line": 0.5,
+                        "safe_odds": 1.28,
+                        "safe_prob": 78.2,
+                        "hit_rate": "4/5 | 9/10 Overs",
+                        "injuries": ""
+                    },
+                    {
+                        "player": "Luke Kennard",
+                        "team": "LAL",
+                        "type": "OVER",
+                        "line": 5.5,
+                        "prop": "PTS",
+                        "odds": 1.37,
+                        "proj": 14.2,
+                        "edge": 158.2,
+                        "analysis": "¡Claro que sí! Como analista, aquí tienes mi evaluación:\n\nKennard (4/5 | 8/10 Overs) consistentemente supera la línea baja. Su rol de tirador puro es fiable; dos triples bastan para el OVER 5.5 PTS.\n\n**Dato táctico vs HOU:** Los Clippers buscarán explotar las pérdidas de balón de los Rockets y su inexperiencia en la defensa de transición para sumar puntos fáciles.",
+                        "safe_line": 4.5,
+                        "safe_odds": 1.15,
+                        "safe_prob": 87.8,
+                        "hit_rate": "4/5 | 8/10 Overs",
+                        "injuries": ""
+                    }
+                ]
+            },
+            {
+                "name": "X2 - OPCIÓN 2",
+                "total_odds": 1.89,
+                "plays": [
+                    {
+                        "player": "Jake LaRavia",
+                        "team": "LAL",
+                        "type": "OVER",
+                        "line": 3.5,
+                        "prop": "PRA",
+                        "odds": 1.38,
+                        "proj": 8.7,
+                        "edge": 148.6,
+                        "analysis": "¡Absolutamente!\n\nLaRavia muestra una sólida tendencia (9/10 overs). Con más minutos y rol en Memphis, su producción de PRA excederá 3.5 fácilmente.\n\n**Dato táctico vs. HOU:** La defensa agresiva de Houston a menudo genera rebotes largos y descuidos en el cristal, LaRavia puede capitalizar.",
+                        "safe_line": 2.5,
+                        "safe_odds": 1.26,
+                        "safe_prob": 79.3,
+                        "hit_rate": "4/5 | 9/10 Overs",
+                        "injuries": ""
+                    },
+                    {
+                        "player": "Marcus Smart",
+                        "team": "LAL",
+                        "type": "OVER",
+                        "line": 2.5,
+                        "prop": "AST",
+                        "odds": 1.37,
+                        "proj": 6.1,
+                        "edge": 144.0,
+                        "analysis": "**Justificación Smart (OVER 2.5 AST):**\nEl rendimiento reciente de Smart (8/10 overs) demuestra su rol expandido como facilitador principal, haciendo esta apuesta muy sólida.\n\n**Dato Táctico vs. HOU:**\nLa agresiva defensa de Houston, propensa a rotaciones lentas, abre carriles para que Smart encuentre fácilmente a cortadores o *shooters* en el *pick-and-roll*.",
+                        "safe_line": 1.5,
+                        "safe_odds": 1.15,
+                        "safe_prob": 93.0,
+                        "hit_rate": "4/5 | 8/10 Overs",
+                        "injuries": ""
+                    }
+                ]
+            },
+            {
+                "name": "X2 - OPCIÓN 3",
+                "total_odds": 2.02,
+                "plays": [
+                    {
+                        "player": "Jake LaRavia",
+                        "team": "LAL",
+                        "type": "OVER",
+                        "line": 2.5,
+                        "prop": "PA",
+                        "odds": 1.52,
+                        "proj": 6.0,
+                        "edge": 140.0,
+                        "analysis": "¡Absolutamente! Aquí tienes el análisis:\n\nLaRavia demuestra una sólida tendencia al OVER (9/10), asumiendo un rol de pase más activo con mayores minutos y posesiones.\n\n**Dato Táctico HOU:** Houston presiona mucho el perímetro, a menudo dejando espacios para pases a cortadores o a la segunda línea ofensiva de LaRavia.",
+                        "safe_line": 1.5,
+                        "safe_odds": 1.31,
+                        "safe_prob": 76.3,
+                        "hit_rate": "4/5 | 9/10 Overs",
+                        "injuries": ""
+                    },
+                    {
+                        "player": "Luke Kennard",
+                        "team": "LAL",
+                        "type": "OVER",
+                        "line": 10.5,
+                        "prop": "PRA",
+                        "odds": 1.33,
+                        "proj": 21.9,
+                        "edge": 108.6,
+                        "analysis": "Kennard, con 8/10 overs, es clave. Su rol de tirador fiable explotará la blanda defensa perimetral de Houston, que cede muchos triples. ¡OVER sólido!",
+                        "safe_line": 9.5,
+                        "safe_odds": 1.18,
+                        "safe_prob": 84.7,
+                        "hit_rate": "4/5 | 8/10 Overs",
+                        "injuries": ""
+                    }
+                ]
+            },
+            {
+                "name": "X2 - OPCIÓN 4",
+                "total_odds": 2.08,
+                "plays": [
+                    {
+                        "player": "Luke Kennard",
+                        "team": "LAL",
+                        "type": "OVER",
+                        "line": 9.5,
+                        "prop": "PR",
+                        "odds": 1.55,
+                        "proj": 19.1,
+                        "edge": 101.1,
+                        "analysis": "Kennard promedia 8/10 overs por su puntería y rebotes oportunistas. Su excelente racha y rol garantizan superar los 9.5 PR.\n\n**Dato Táctico:** Houston concede muchos triples a tiradores estacionarios, especialmente en la esquina, donde Kennard es letal.",
+                        "safe_line": 8.5,
+                        "safe_odds": 1.19,
+                        "safe_prob": 84.4,
+                        "hit_rate": "4/5 | 8/10 Overs",
+                        "injuries": ""
+                    },
+                    {
+                        "player": "Luke Kennard",
+                        "team": "LAL",
+                        "type": "OVER",
+                        "line": 1.5,
+                        "prop": "AST",
+                        "odds": 1.34,
+                        "proj": 2.8,
+                        "edge": 86.7,
+                        "analysis": "¡Absolutamente!\n\nKennard es un OVER fiable (5/5, 9/10). Su IQ, movimiento sin balón y gravedad crean pases sencillos para compañeros abiertos. ¡Sólido!\n\n**Dato táctico:** La defensa de Houston a menudo rota de forma lenta en el perímetro, permitiendo a Kennard encontrar tiradores tras atraer defensores.",
+                        "safe_line": 0.5,
+                        "safe_odds": 1.35,
+                        "safe_prob": 74.3,
+                        "hit_rate": "5/5 | 9/10 Overs",
+                        "injuries": ""
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "matchup": "Houston Rockets @ Los Angeles Lakers (🧊)",
+        "guion": "UNDER",
+        "tickets": [
+            {
+                "name": "X2 - OPCIÓN 1",
+                "total_odds": 2.05,
+                "plays": [
+                    {
+                        "player": "Aaron Holiday",
+                        "team": "HOU",
+                        "type": "UNDER",
+                        "line": 1.5,
+                        "prop": "AST",
+                        "odds": 1.52,
+                        "proj": 0.6,
+                        "edge": 60.0,
+                        "analysis": "Aaron Holiday no genera juego (8/10 Unders, 5/5 recientes). Su rol de tiro/anotación limita asistencias. El UNDER 1.5 AST es sólido.\n\nTáctico LAL: La defensa angelina presiona balones primarios y protege pintura, reduciendo pases de jugadores secundarios como Holiday.",
+                        "safe_line": 2.5,
+                        "safe_odds": 1.15,
+                        "safe_prob": 92.6,
+                        "hit_rate": "5/5 | 8/10 Unders",
+                        "injuries": ""
+                    },
+                    {
+                        "player": "Jake LaRavia",
+                        "team": "LAL",
+                        "type": "UNDER",
+                        "line": 0.5,
+                        "prop": "3PT",
+                        "odds": 1.35,
+                        "proj": 0.3,
+                        "edge": 40.0,
+                        "analysis": "LaRavia rara vez anota un triple; ha cubierto el UNDER en 8 de 10 juegos. Su rol limitado y bajo volumen de tiro lo confirman.\n\nDato táctico: Houston defiende el perímetro con intensidad, limitando los tiros de rol.",
+                        "safe_line": 1.5,
+                        "safe_odds": 1.21,
+                        "safe_prob": 82.8,
+                        "hit_rate": "5/5 | 8/10 Unders",
+                        "injuries": ""
+                    }
+                ]
+            },
+            {
+                "name": "X2 - OPCIÓN 2",
+                "total_odds": 1.92,
+                "plays": [
+                    {
+                        "player": "Jaxson Hayes",
+                        "team": "LAL",
+                        "type": "UNDER",
+                        "line": 4.5,
+                        "prop": "REB",
+                        "odds": 1.43,
+                        "proj": 2.9,
+                        "edge": 35.6,
+                        "analysis": "¡Analista experto al habla!\n\n**Justificación UNDER 4.5 REB para Jaxson Hayes:**\nHistorial muestra 5/5 unders en 4.5 rebotes. Minutos limitados y rol ofensivo restringen su impacto en el rebote, haciéndolo una apuesta sólida.\n\n**Dato Táctico vs. HOU:**\nHouston juega a ritmo rápido y sus interiores, como Sengun, son fuertes reboteadores, limitando aún más las oportunidades para Hayes.",
+                        "safe_line": 5.5,
+                        "safe_odds": 1.17,
+                        "safe_prob": 85.5,
+                        "hit_rate": "5/5 | 8/10 Unders",
+                        "injuries": ""
+                    },
+                    {
+                        "player": "Aaron Holiday",
+                        "team": "HOU",
+                        "type": "UNDER",
+                        "line": 7.5,
+                        "prop": "PTS",
+                        "odds": 1.34,
+                        "proj": 4.9,
+                        "edge": 34.7,
+                        "analysis": "Aaron Holiday (8/10 unders) raramente anota. LAL defenderá priorizando estrellas, relegando sus tiros a baja prioridad y facilitando este UNDER.",
+                        "safe_line": 8.5,
+                        "safe_odds": 1.26,
+                        "safe_prob": 79.5,
+                        "hit_rate": "4/5 | 8/10 Unders",
+                        "injuries": ""
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "matchup": "Toronto Raptors @ Cleveland Cavaliers (🔥)",
+        "guion": "OVER",
+        "tickets": [
+            {
+                "name": "X2 - OPCIÓN 1",
+                "total_odds": 2.07,
+                "plays": [
+                    {
+                        "player": "Jaylon Tyson",
+                        "team": "CLE",
+                        "type": "OVER",
+                        "line": 0.5,
+                        "prop": "AST",
+                        "odds": 1.59,
+                        "proj": 1.4,
+                        "edge": 180.0,
+                        "analysis": "¡Absolutamente!\n\nSu consistencia es innegable (9/10 y 4/5 overs). Tyson casi siempre consigue al menos una asistencia, haciendo el OVER muy probable.\n\n**Dato Táctico:** Toronto permite muchas penetraciones, forzando rotaciones y creando oportunidades de asistencia.",
+                        "safe_line": 0.5,
+                        "safe_odds": 1.29,
+                        "safe_prob": 77.4,
+                        "hit_rate": "4/5 | 9/10 Overs",
+                        "injuries": ""
+                    },
+                    {
+                        "player": "Dean Wade",
+                        "team": "CLE",
+                        "type": "OVER",
+                        "line": 2.5,
+                        "prop": "PTS",
+                        "odds": 1.3,
+                        "proj": 6.5,
+                        "edge": 160.0,
+                        "analysis": "¡Analicemos!\n\nWade está en racha, superando la línea consistentemente (8/10). Su rol de tirador abierto favorece el OVER con un solo triple, dada su eficiencia reciente.\n\n**Dato táctico vs. TOR:** Toronto a menudo prioriza defender la pintura y presionar a las estrellas, concediendo tiros abiertos desde el perímetro a jugadores como Wade.",
+                        "safe_line": 1.5,
+                        "safe_odds": 1.15,
+                        "safe_prob": 97.2,
+                        "hit_rate": "5/5 | 8/10 Overs",
+                        "injuries": ""
+                    }
+                ]
+            },
+            {
+                "name": "X2 - OPCIÓN 2",
+                "total_odds": 2.03,
+                "plays": [
+                    {
+                        "player": "Sandro Mamukelashvili",
+                        "team": "TOR",
+                        "type": "OVER",
+                        "line": 0.5,
+                        "prop": "AST",
+                        "odds": 1.41,
+                        "proj": 1.3,
+                        "edge": 160.0,
+                        "analysis": "¡Absolutamente! Como analista, aquí tienes mi justificación y dato táctico:\n\n**Justificación OVER 0.5 AST Sandro Mamukelashvili:**\nMamu ha superado 0.5 AST en 9 de 10 (4/5 recientes). Su visión como pasador y la línea baja lo hacen una apuesta sólida.\n\n**Dato Táctico vs. CLE:**\nCleveland domina la pintura. Spurs necesitará pases de descarga (kick-outs) de sus interiores para encontrar tiradores abiertos, aprovechando la visión de Mamu.",
+                        "safe_line": 0.5,
+                        "safe_odds": 1.35,
+                        "safe_prob": 74.2,
+                        "hit_rate": "4/5 | 9/10 Overs",
+                        "injuries": ""
+                    },
+                    {
+                        "player": "Dean Wade",
+                        "team": "CLE",
+                        "type": "OVER",
+                        "line": 0.5,
+                        "prop": "3PT",
+                        "odds": 1.44,
+                        "proj": 1.3,
+                        "edge": 160.0,
+                        "analysis": "¡Entendido! Aquí tienes el análisis:\n\nWade: 5/5 y 8/10 OVER 0.5 3PT. Su rol de catch-and-shoot garantiza volumen y oportunidades. Es una apuesta muy sólida.\n\nDato táctico: La defensa de media cancha élite de Cleveland buscará sofocar la ofensiva inconsistente de Toronto, forzando malos tiros.",
+                        "safe_line": 0.5,
+                        "safe_odds": 1.15,
+                        "safe_prob": 92.1,
+                        "hit_rate": "5/5 | 8/10 Overs",
+                        "injuries": ""
+                    }
+                ]
+            },
+            {
+                "name": "X2 - OPCIÓN 3",
+                "total_odds": 1.79,
+                "plays": [
+                    {
+                        "player": "Sandro Mamukelashvili",
+                        "team": "TOR",
+                        "type": "OVER",
+                        "line": 2.5,
+                        "prop": "REB",
+                        "odds": 1.37,
+                        "proj": 4.9,
+                        "edge": 96.0,
+                        "analysis": "¡Absolutamente! Aquí tienes el análisis:\n\nLa sólida racha de Mamu (9/10 overs) y su actividad constante en minutos. Su rol de reboteador oportunista justifica el OVER 2.5 REB.\n\n**Dato táctico vs. CLE:** Frente a la defensa interior de CLE, Mamu buscará rebotes largos tras tiros exteriores, o aprovechará si Mobley/Allen son alejados del canasto.",
+                        "safe_line": 1.5,
+                        "safe_odds": 1.15,
+                        "safe_prob": 89.5,
+                        "hit_rate": "4/5 | 9/10 Overs",
+                        "injuries": ""
+                    },
+                    {
+                        "player": "Dean Wade",
+                        "team": "CLE",
+                        "type": "OVER",
+                        "line": 6.5,
+                        "prop": "PRA",
+                        "odds": 1.31,
+                        "proj": 11.7,
+                        "edge": 80.0,
+                        "analysis": "Dean Wade es un pick sólido porque ha superado los 6.5 PRA en 8 de 10 partidos, explotando su rol de tirador y reboteador. La línea es muy baja para su volumen de minutos.\n\nDato táctico: Toronto es uno de los peores equipos defendiendo el rebote ofensivo, lo que dará a Wade más oportunidades.",
+                        "safe_line": 5.5,
+                        "safe_odds": 1.15,
+                        "safe_prob": 96.6,
+                        "hit_rate": "5/5 | 8/10 Overs",
+                        "injuries": ""
+                    }
+                ]
+            },
+            {
+                "name": "X2 - OPCIÓN 4",
+                "total_odds": 1.84,
+                "plays": [
+                    {
+                        "player": "Dean Wade",
+                        "team": "CLE",
+                        "type": "OVER",
+                        "line": 2.5,
+                        "prop": "REB",
+                        "odds": 1.38,
+                        "proj": 3.9,
+                        "edge": 56.0,
+                        "analysis": "**OVER 2.5 REB Dean Wade (5/5 | 9/10 Overs):**\n\nLa línea OVER es sólida por su rol y minutos ascendentes, asegurando su activa participación en el rebote en ambos lados de la cancha. Tácticamente, los Raptors, con su ritmo rápido y tiros erráticos, ofrecen numerosas oportunidades de rebote.",
+                        "safe_line": 1.5,
+                        "safe_odds": 1.15,
+                        "safe_prob": 92.5,
+                        "hit_rate": "5/5 | 9/10 Overs",
+                        "injuries": ""
+                    },
+                    {
+                        "player": "Sam Merrill",
+                        "team": "CLE",
+                        "type": "OVER",
+                        "line": 4.5,
+                        "prop": "PTS",
+                        "odds": 1.33,
+                        "proj": 7.0,
+                        "edge": 55.6,
+                        "analysis": "Merrill, tirador puro, superó 4.5 PTS en 8/10 (4/5 recientes). Su rol de especialista en triples asegura volumen suficiente para el OVER.\n\nDato táctico: La defensa agresiva de Toronto a menudo concede triples de esquina por rotaciones tardías, ideal para Merrill.",
+                        "safe_line": 3.5,
+                        "safe_odds": 1.35,
+                        "safe_prob": 73.9,
+                        "hit_rate": "4/5 | 8/10 Overs",
+                        "injuries": ""
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "matchup": "Toronto Raptors @ Cleveland Cavaliers (🧊)",
+        "guion": "UNDER",
+        "tickets": [
+            {
+                "name": "X2 - OPCIÓN 1",
+                "total_odds": 2.0,
+                "plays": [
+                    {
+                        "player": "Brandon Ingram",
+                        "team": "TOR",
+                        "type": "UNDER",
+                        "line": 23.5,
+                        "prop": "PTS",
+                        "odds": 1.36,
+                        "proj": 14.4,
+                        "edge": 38.7,
+                        "analysis": "La clara tendencia de Ingram al under (8/10, 5/5 recientes) y su intermitencia ofensiva hacen del 23.5 PTS un under sólido.\n\n**Dato Táctico:** Cleveland, con su *length* (Mobley/Allen) y la defensa de Okoro, limitará los *drives* y la media distancia de Ingram, sus zonas predilectas.",
+                        "safe_line": 24.5,
+                        "safe_odds": 1.2,
+                        "safe_prob": 83.6,
+                        "hit_rate": "5/5 | 8/10 Unders",
+                        "injuries": ""
+                    },
+                    {
+                        "player": "Jamal Shead",
+                        "team": "TOR",
+                        "type": "UNDER",
+                        "line": 6.5,
+                        "prop": "AST",
+                        "odds": 1.47,
+                        "proj": 4.3,
+                        "edge": 33.8,
+                        "analysis": "Shead rara vez supera 6.5 AST (8/10 Unders). La defensa perimetral asfixiante de CLE limitará sus oportunidades de asistencias claras.",
+                        "safe_line": 7.5,
+                        "safe_odds": 1.15,
+                        "safe_prob": 88.5,
+                        "hit_rate": "4/5 | 8/10 Unders",
+                        "injuries": ""
+                    }
+                ]
+            },
+            {
+                "name": "X2 - OPCIÓN 2",
+                "total_odds": 1.8,
+                "plays": [
+                    {
+                        "player": "Scottie Barnes",
+                        "team": "TOR",
+                        "type": "UNDER",
+                        "line": 8.5,
+                        "prop": "REB",
+                        "odds": 1.35,
+                        "proj": 5.7,
+                        "edge": 32.9,
+                        "analysis": "Barnes raramente supera los 8.5 rebotes. Su tendencia reciente (4/5, 8/10 unders) respalda el UNDER como apuesta sólida.\n\n**Dato táctico CLE:** Cleveland domina el rebote defensivo con Mobley y Allen, limitando fuertemente las oportunidades de Barnes en la pintura.",
+                        "safe_line": 9.5,
+                        "safe_odds": 1.15,
+                        "safe_prob": 88.4,
+                        "hit_rate": "4/5 | 8/10 Unders",
+                        "injuries": ""
+                    },
+                    {
+                        "player": "Jarrett Allen",
+                        "team": "CLE",
+                        "type": "UNDER",
+                        "line": 24.5,
+                        "prop": "PRA",
+                        "odds": 1.33,
+                        "proj": 17.3,
+                        "edge": 29.4,
+                        "analysis": "Allen rara vez supera 24.5 PRA; 8/10 unders y su rol no ofensivo lo confirman. Su producción es inconsistente para este total.\n\nDato táctico: Toronto defiende la pintura físicamente, con cambios que pueden limitar los pases a Allen en el rol y dificultar rebotes ofensivos.",
+                        "safe_line": 25.5,
+                        "safe_odds": 1.15,
+                        "safe_prob": 92.6,
+                        "hit_rate": "5/5 | 8/10 Unders",
+                        "injuries": ""
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "matchup": "Orlando Magic @ Detroit Pistons (🔥)",
+        "guion": "OVER",
+        "tickets": [
+            {
+                "name": "X2 - OPCIÓN 1",
+                "total_odds": 1.79,
+                "plays": [
+                    {
+                        "player": "Duncan Robinson",
+                        "team": "DET",
+                        "type": "OVER",
+                        "line": 6.5,
+                        "prop": "PTS",
+                        "odds": 1.29,
+                        "proj": 10.6,
+                        "edge": 63.1,
+                        "analysis": "¡Claro que sí! Aquí tienes mi análisis:\n\nDuncan Robinson lleva 10 overs seguidos. Su rol crucial de tirador en el sistema del Heat asegura el volumen necesario para superar los 6.5 puntos.\n\n**Dato Táctico vs. ORL:** La zona de Miami buscará anular la penetración de Banchero/Wagner, forzando a Orlando a tiros exteriores, su punto débil.",
+                        "safe_line": 5.5,
+                        "safe_odds": 1.15,
+                        "safe_prob": 87.7,
+                        "hit_rate": "5/5 | 10/10 Overs",
+                        "injuries": ""
+                    },
+                    {
+                        "player": "Duncan Robinson",
+                        "team": "DET",
+                        "type": "OVER",
+                        "line": 1.5,
+                        "prop": "3PT",
+                        "odds": 1.39,
+                        "proj": 2.3,
+                        "edge": 53.3,
+                        "analysis": "¡Absolutamente! Aquí mi análisis:\n\n**Justificación:**\nRobinson es un tirador de volumen con gran confianza. Su rol ofensivo y la consistencia reciente (8/10 Overs) hacen el OVER de 1.5 triples una apuesta muy sólida.\n\n**Dato Táctico:**\nOrlando prioriza proteger la pintura; esto abre espacios para tiradores como Robinson en esquinas o tras pantallas, que Miami explotará con fluidez ofensiva.",
+                        "safe_line": 0.5,
+                        "safe_odds": 1.15,
+                        "safe_prob": 97.1,
+                        "hit_rate": "4/5 | 8/10 Overs",
+                        "injuries": ""
+                    }
+                ]
+            },
+            {
+                "name": "X2 - OPCIÓN 2",
+                "total_odds": 1.78,
+                "plays": [
+                    {
+                        "player": "Duncan Robinson",
+                        "team": "DET",
+                        "type": "OVER",
+                        "line": 11.5,
+                        "prop": "PRA",
+                        "odds": 1.36,
+                        "proj": 15.5,
+                        "edge": 34.8,
+                        "analysis": "¡Absolutamente!\n\n**Justificación PRA OVER 11.5:**\nDuncan Robinson está encendido (4/5, 9/10 Overs). Su rol anotador y de espaciador es vital. Con Herro fuera, su volumen de tiros garantiza superar la línea.\n\n**Dato Táctico vs. ORL:**\nOrlando defiende élite la pintura (4º menos puntos permitidos), forzando más triples, lo que favorece directamente el rol de Robinson como tirador principal.",
+                        "safe_line": 10.5,
+                        "safe_odds": 1.2,
+                        "safe_prob": 83.0,
+                        "hit_rate": "4/5 | 9/10 Overs",
+                        "injuries": ""
+                    },
+                    {
+                        "player": "Paolo Banchero",
+                        "team": "ORL",
+                        "type": "OVER",
+                        "line": 6.5,
+                        "prop": "REB",
+                        "odds": 1.31,
+                        "proj": 8.5,
+                        "edge": 30.8,
+                        "analysis": "Paolo está en racha: ha superado los 6.5 rebotes en 8 de sus últimos 10 partidos. Su volumen de minutos y rol central garantizan oportunidades.\n\nTÁCTICO: Detroit es un equipo de alto ritmo con tiros ineficientes, generando abundantes oportunidades de rebote defensivo para Banchero.",
+                        "safe_line": 5.5,
+                        "safe_odds": 1.2,
+                        "safe_prob": 83.5,
+                        "hit_rate": "4/5 | 8/10 Overs",
+                        "injuries": ""
+                    }
+                ]
+            },
+            {
+                "name": "X2 - OPCIÓN 3",
+                "total_odds": 2.2,
+                "plays": [
+                    {
+                        "player": "Jalen Duren",
+                        "team": "DET",
+                        "type": "OVER",
+                        "line": 7.5,
+                        "prop": "REB",
+                        "odds": 1.41,
+                        "proj": 9.4,
+                        "edge": 25.3,
+                        "analysis": "Analizando a Jalen Duren, el OVER de 7.5 rebotes es sólido porque promedia alto y superó la línea 8/10 veces. Su físico dominante y rol en la pintura aseguran un alto volumen de rebotes.\n\n**Dato táctico vs. Orlando:** El Magic es un equipo físico que fuerza muchos tiros fallados, creando abundantes oportunidades de rebote defensivo para Duren.",
+                        "safe_line": 6.5,
+                        "safe_odds": 1.15,
+                        "safe_prob": 93.2,
+                        "hit_rate": "4/5 | 8/10 Overs",
+                        "injuries": ""
+                    },
+                    {
+                        "player": "Duncan Robinson",
+                        "team": "DET",
+                        "type": "OVER",
+                        "line": 10.5,
+                        "prop": "PA",
+                        "odds": 1.56,
+                        "proj": 12.5,
+                        "edge": 19.0,
+                        "analysis": "Duncan Robinson está en racha (9/10 Overs). Miami le da volumen y Orlando, priorizando la pintura, le cederá tiros abiertos. ¡OVER sólido!\n\nDato táctico: La defensa interior de Orlando deja espacios en la periferia, especialmente si sus grandes no cierran rápido tras pantallas.",
+                        "safe_line": 9.5,
+                        "safe_odds": 1.35,
+                        "safe_prob": 74.1,
+                        "hit_rate": "4/5 | 9/10 Overs",
+                        "injuries": ""
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "matchup": "Orlando Magic @ Detroit Pistons (🧊)",
+        "guion": "UNDER",
+        "tickets": [
+            {
+                "name": "X2 - OPCIÓN 1",
+                "total_odds": 1.76,
+                "plays": [
+                    {
+                        "player": "Jamal Cain",
+                        "team": "ORL",
+                        "type": "UNDER",
+                        "line": 1.5,
+                        "prop": "3PT",
+                        "odds": 1.33,
+                        "proj": 0.5,
+                        "edge": 66.7,
+                        "analysis": "Analista NBA aquí.\n\n**Jamal Cain UNDER 1.5 3PT:**\nCain no es un tirador primario. Su rol de energía y defensa, sumado a 9/10 unders (5/5 recientes), lo hace un UNDER sólido.\n\n**Dato Táctico MIA vs. DET:**\nMiami explotará el pick-and-roll de Butler/Adebayo contra la defensa interior de Detroit.",
+                        "safe_line": 2.5,
+                        "safe_odds": 1.15,
+                        "safe_prob": 99.8,
+                        "hit_rate": "5/5 | 9/10 Unders",
+                        "injuries": ""
+                    },
+                    {
+                        "player": "Jamal Cain",
+                        "team": "ORL",
+                        "type": "UNDER",
+                        "line": 1.5,
+                        "prop": "AST",
+                        "odds": 1.32,
+                        "proj": 0.7,
+                        "edge": 53.3,
+                        "analysis": "Jamal Cain es un alero de rol, no un creador de juego. Su 8/10 unders recientes subraya su mínima implicación en asistencias. Apuesta sólida.\n\nTáctico vs DET: Miami buscará explotar las pérdidas de balón de Detroit con defensa agresiva y contragolpes, donde Cain aporta energía y rebotes, no pases.",
+                        "safe_line": 2.5,
+                        "safe_odds": 1.15,
+                        "safe_prob": 98.6,
+                        "hit_rate": "5/5 | 8/10 Unders",
+                        "injuries": ""
+                    }
+                ]
+            },
+            {
+                "name": "X2 - OPCIÓN 2",
+                "total_odds": 1.9,
+                "plays": [
+                    {
+                        "player": "Jamal Cain",
+                        "team": "ORL",
+                        "type": "UNDER",
+                        "line": 11.5,
+                        "prop": "PTS",
+                        "odds": 1.32,
+                        "proj": 5.4,
+                        "edge": 53.0,
+                        "analysis": "Jamal Cain (9/10 Unders) tiene un rol ofensivo muy limitado. Táctico: Detroit protege la pintura, desviando la ofensiva de Miami hacia otras opciones, reduciendo las de Cain.",
+                        "safe_line": 12.5,
+                        "safe_odds": 1.15,
+                        "safe_prob": 90.5,
+                        "hit_rate": "5/5 | 9/10 Unders",
+                        "injuries": ""
+                    },
+                    {
+                        "player": "Anthony Black",
+                        "team": "ORL",
+                        "type": "UNDER",
+                        "line": 3.5,
+                        "prop": "AST",
+                        "odds": 1.44,
+                        "proj": 1.8,
+                        "edge": 48.6,
+                        "analysis": "Analista NBA aquí.\n\nBlack tiene un rol limitado en la creación ofensiva. Su baja utilización y la racha de 10/10 UNDER en asistencias hacen el *under* muy sólido.\n\n**Dato Táctico vs. DET:** Orlando explota la defensa débil de Detroit con ataques directos, sin pasar por Black como iniciador secundario.",
+                        "safe_line": 4.5,
+                        "safe_odds": 1.15,
+                        "safe_prob": 99.4,
+                        "hit_rate": "5/5 | 10/10 Unders",
+                        "injuries": ""
+                    }
+                ]
+            }
+        ]
+    }
+]

@@ -14,19 +14,17 @@ export default function PlayerChartContainer({ stats, navStats }: PlayerChartCon
   const [lastN, setLastN] = useState(10);
   const [lineValue, setLineValue] = useState(18.5);
 
-  // 1. FILTRO ANTI-DUPLICADOS (El escudo protector)
-  // Revisa la lista y se queda solo con un partido por fecha
+  // 1. FILTRO ANTI-DUPLICADOS (Tu escudo protector intacto)
   const uniqueStats = Array.from(
     new Map(
       (stats || []).map((s: any) => {
-        // Cortamos la fecha para usar solo "YYYY-MM-DD" como llave única
         const fechaUnica = s.game_date ? String(s.game_date).split('T')[0] : (s.date || s.id);
         return [fechaUnica, s];
       })
     ).values()
   );
 
-  // 2. Cálculo de la línea sugerida (usando los datos limpios)
+  // 2. Cálculo de la línea sugerida (Ahora entiende porcentajes y decimales)
   useEffect(() => {
     if (uniqueStats.length > 0) {
       const recent = uniqueStats.slice(0, 10);
@@ -36,30 +34,44 @@ export default function PlayerChartContainer({ stats, navStats }: PlayerChartCon
           const parts = activeStat.split('+');
           total += parts.reduce((acc, part) => acc + (Number(s[part]) || 0), 0);
         } else {
-          total += (Number(s[activeStat]) || 0);
+          // FIX: Multiplicamos USG% por 100 para que no sea 0.25
+          let val = Number(s[activeStat]) || 0;
+          if (activeStat === 'usage_pct') val = val * 100;
+          total += val;
         }
       });
       const avg = total / (recent.length || 1);
-      setLineValue(Math.floor(avg) + 0.5);
+      
+      // FIX: Si son métricas sharp, no sumamos el 0.5 de las apuestas
+      if (['usage_pct', 'potential_ast', 'rebound_chances'].includes(activeStat)) {
+        setLineValue(Number(avg.toFixed(1)));
+      } else {
+        setLineValue(Math.floor(avg) + 0.5);
+      }
     }
-  }, [activeStat, stats]); // Usamos stats como dependencia para que reaccione, pero operamos con uniqueStats
+  }, [activeStat, stats]);
 
-  // 3. Procesamos los datos según la stat activa (PTS, AST, REB+AST, etc.)
+  // 3. Procesamos los datos según la stat activa (Tus sumas combinadas están a salvo)
   const processedStats = uniqueStats.map((s: any) => {
     let val = 0;
     if (activeStat.includes('+')) {
       const parts = activeStat.split('+');
       val = parts.reduce((acc, part) => acc + (Number(s[part]) || 0), 0);
     } else {
-      val = Number(s[activeStat]) || 0;
+      let rawVal = Number(s[activeStat]) || 0;
+      val = activeStat === 'usage_pct' ? rawVal * 100 : rawVal;
     }
-    return { ...s, value: val };
+    
+    // Le pasamos is_percentage al gráfico para que sepa si dibujar el símbolo %
+    return { 
+      ...s, 
+      value: Number(val.toFixed(1)), 
+      is_percentage: activeStat === 'usage_pct' 
+    };
   });
 
-  // Filtramos por L5, L10, L20 y lo invertimos para la gráfica (de viejo a nuevo)
   const visibleStats = processedStats.slice(0, lastN).reverse();
 
-  // Cálculos de la tarjeta de resumen (AVG y Hit Rate)
   const avgValue = visibleStats.length > 0 
     ? (visibleStats.reduce((a, b) => a + b.value, 0) / visibleStats.length).toFixed(1) 
     : "0.0";
@@ -114,7 +126,9 @@ export default function PlayerChartContainer({ stats, navStats }: PlayerChartCon
           <div className="bg-[#222] w-[1px] h-10 hidden md:block" />
           
           <div className="flex flex-col items-end min-w-[70px]">
-            <span className="text-[8px] text-[#888] font-black uppercase tracking-[0.2em] mb-1">AVG: {avgValue}</span>
+            <span className="text-[8px] text-[#888] font-black uppercase tracking-[0.2em] mb-1">
+              AVG: {avgValue}{activeStat === 'usage_pct' ? '%' : ''}
+            </span>
             <span className={`text-3xl font-black tabular-nums leading-none ${Number(hitRate) >= 50 ? 'text-[#10b981]' : 'text-red-500'}`}>
               {hitRate}%
             </span>

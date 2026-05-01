@@ -1,4 +1,6 @@
 import prisma from './prisma';
+import fs from 'fs';
+import path from 'path';
 
 // 1. OBTENER TODOS LOS EQUIPOS
 export async function getTeams() {
@@ -155,69 +157,63 @@ export async function getTrendingPlayers() {
   }
 }
 
-// 5. CEREBRO EV+ (Expected Value Avanzado + Gráfico)
+// 5. CEREBRO EV+ LUDOGALLINA (Lee JSON y Etiqueta por Fecha)
 export async function getEvPlays() {
   try {
-    const odds = await prisma.player_odds.findMany();
-    if (!odds || odds.length === 0) return [];
+    const filePath = path.join(process.cwd(), 'picks_hoy.json');
+    
+    if (!fs.existsSync(filePath)) {
+      console.warn("⚠️ No se encontró picks_hoy.json.");
+      return [];
+    }
 
-    const playerNames = odds.map(o => o.player_name);
+    const fileContents = fs.readFileSync(filePath, 'utf8');
+    const data = JSON.parse(fileContents);
 
-    const logs = await prisma.player_game_logs.findMany({
-      where: { player_name: { in: playerNames } },
-      orderBy: { game_date: 'desc' }
+    // Le preguntamos a ESPN quién juega HOY
+    const todayGames = await getTodayScoreboard();
+
+    if (!todayGames || todayGames.length === 0) {
+      // Si falla ESPN, asumimos que todos son de hoy para no romper la web
+      return data.map((b: any) => ({ ...b, is_today: true }));
+    }
+
+    const equiposDeHoy = new Set<string>();
+    todayGames.forEach((game: any) => {
+      if (game.competitions && game.competitions[0].competitors) {
+        game.competitions[0].competitors.forEach((comp: any) => {
+          equiposDeHoy.add(comp.team.displayName);
+        });
+      }
     });
 
-    const plays = odds.map(odd => {
-      const pLogs = logs.filter(l => l.player_name === odd.player_name).slice(0, 10);
+    // En vez de filtrar, MAPÉAMOS y agregamos la etiqueta "is_today"
+    const dataConFechas = data.map((bloque: any) => {
+      let esDeHoy = false;
+      equiposDeHoy.forEach((equipo) => {
+        if (bloque.matchup.includes(equipo)) esDeHoy = true;
+      });
       
-      if (pLogs.length < 5) return null; 
+      return {
+        ...bloque,
+        is_today: esDeHoy
+      };
+    });
 
-      const totalStats = pLogs.reduce((acc, curr) => acc + (curr.pts || 0), 0);
-      const avg = totalStats / pLogs.length;
-
-      const hits = pLogs.filter(l => (l.pts || 0) > odd.line).length;
-      const hitRate = (hits / pLogs.length) * 100;
-
-      const edge = ((avg - odd.line) / odd.line) * 100;
-
-      if (avg > odd.line && hitRate >= 60) {
-        return {
-          player_id: pLogs[0].player_id,
-          player_name: odd.player_name,
-          team: pLogs[0].team_abbreviation,
-          matchup: odd.matchup,
-          line: odd.line,
-          avg_last_10: avg.toFixed(1),
-          over_hits: hits,
-          games_played: pLogs.length,
-          hit_rate: hitRate.toFixed(0),
-          edge: edge.toFixed(1),
-          recent_logs: pLogs.map(l => ({
-            game_date: l.game_date ? l.game_date.toISOString() : null,
-            matchup: l.matchup,
-            value: l.pts || 0 
-          }))
-        };
-      }
-      return null;
-    }).filter(Boolean); 
-
-    return plays
-      .sort((a: any, b: any) => parseFloat(b.edge) - parseFloat(a.edge))
-      .slice(0, 8);
+    return dataConFechas;
 
   } catch (e) { 
     console.error("Error en el Cerebro EV+:", e);
     return []; 
   }
 }
+
 // 6. RADAR SOCIAL (Tendencias de Reddit)
 export async function getRedditTrends() {
   try {
     const trends = await prisma.reddit_trends.findMany({
-      orderBy: { hype_score: 'desc' }, // Los más calientes arriba
-      take: 12 // Traemos el Top 12
+      orderBy: { hype_score: 'desc' }, 
+      take: 12 
     });
     return trends;
   } catch (e) {
@@ -225,11 +221,12 @@ export async function getRedditTrends() {
     return [];
   }
 }
+
 // 7. CARTELERA DE HOY (ESPN)
 export async function getTodayScoreboard() {
   try {
     const res = await fetch('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard', {
-      next: { revalidate: 60 } // Se actualiza cada 1 minuto
+      next: { revalidate: 60 } 
     });
     const data = await res.json();
     return data.events || [];
@@ -238,11 +235,12 @@ export async function getTodayScoreboard() {
     return [];
   }
 }
+
 // 8. REPORTE DE LESIONES (ESPN)
 export async function getNBAInjuries() {
   try {
     const res = await fetch('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/injuries', {
-      next: { revalidate: 300 } // Se actualiza cada 5 minutos
+      next: { revalidate: 300 } 
     });
     const data = await res.json();
     return data.teams || [];
@@ -251,17 +249,16 @@ export async function getNBAInjuries() {
     return [];
   }
 }
+
 // 9. ESCÁNER DE RENDIMIENTO PURO (PTS, REB, AST, PRA)
 export async function getTopPerformers() {
   try {
-    // 1. Lesionados (ESPN)
     const teamsWithInjuries = await getNBAInjuries();
     const outPlayers = teamsWithInjuries.flatMap((t: any) => 
       t.injuries.filter((i: any) => i.status.toLowerCase().includes('out'))
                 .map((i: any) => i.athlete.displayName)
     );
 
-    // 2. Traemos jugadores y sus últimos 10 partidos de la tabla 'players'
     const playersWithLogs = await prisma.players.findMany({
       include: {
         player_game_logs: {
@@ -271,7 +268,6 @@ export async function getTopPerformers() {
       }
     });
 
-    // 3. Filtramos y calculamos promedios
     const processedPlayers = playersWithLogs
       .filter(p => !outPlayers.includes(`${p.first_name} ${p.last_name}`))
       .map(p => {
@@ -288,7 +284,6 @@ export async function getTopPerformers() {
         };
       });
 
-    // 4. Devolvemos los mejores por categoría
     return {
       puntos: [...processedPlayers].sort((a, b) => b.pts_avg - a.pts_avg).slice(0, 3),
       rebotes: [...processedPlayers].sort((a, b) => b.reb_avg - a.reb_avg).slice(0, 3),

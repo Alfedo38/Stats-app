@@ -1,20 +1,20 @@
 "use client";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, Cell } from 'recharts';
 
-// 1. TOOLTIP PREMIUM PERSONALIZADO (Corregido para Supabase)
+// 1. TOOLTIP PREMIUM PERSONALIZADO
 const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
     
-    // Formatear fecha: de "2026-03-12T00:00:00" a "Mar 12"
     const dateObj = new Date(data.game_date);
     const formattedDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     
-    // EXTRAER RIVAL: Si el matchup es "MIN @ GSW", el rival es el que NO es el equipo del jugador
-    // O simplemente tomamos la última palabra del matchup
     const matchupParts = data.matchup ? data.matchup.split(' ') : [];
     const oppTeam = matchupParts.length > 0 ? matchupParts[matchupParts.length - 1] : 'NBA';
     const logoId = oppTeam.toLowerCase();
+
+    // Mostramos el porcentaje si el contenedor nos avisa que es USG%
+    const displayValue = data.is_percentage ? `${payload[0].value}%` : payload[0].value;
 
     return (
       <div className="bg-[#0a0a0a] border border-[#222] p-4 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.8)] flex flex-col gap-2 min-w-[140px]">
@@ -33,7 +33,7 @@ const CustomTooltip = ({ active, payload }: any) => {
             />
             <span className="text-white font-black text-sm uppercase">{oppTeam}</span>
           </div>
-          <span className="text-white font-black text-2xl tabular-nums">{payload[0].value}</span>
+          <span className="text-white font-black text-2xl tabular-nums">{displayValue}</span>
         </div>
       </div>
     );
@@ -41,20 +41,15 @@ const CustomTooltip = ({ active, payload }: any) => {
   return null;
 };
 
-// 2. EL EJE X DE DOS LÍNEAS (Corregido)
+// 2. EL EJE X DE DOS LÍNEAS
 const CustomXAxisTick = ({ x, y, index, dataArray }: any) => {
   const item = dataArray[index];
   if (!item) return null;
 
-  // Fecha: Extraer MM/DD del ISO string
   const dateObj = new Date(item.game_date);
   const shortDate = `${dateObj.getMonth() + 1}/${dateObj.getDate()}`;
-
-  // Matchup: Detectar si es local o visitante
   const isAway = item.matchup?.includes('@');
   const oppPrefix = isAway ? '@' : 'vs';
-  
-  // Extraer el nombre del rival del matchup (ej: "MIN @ GSW" -> "GSW")
   const matchupParts = item.matchup ? item.matchup.split(' ') : [];
   const oppTeam = matchupParts.length > 0 ? matchupParts[matchupParts.length - 1] : '---';
 
@@ -77,7 +72,6 @@ export default function PlayerChart({ data, statKey = "pts", lineValue = 24.5 }:
     </div>
   );
 
-  // Ordenamos por fecha para que el gráfico sea cronológico (de más viejo a más nuevo)
   const sortedData = [...data].sort((a, b) => new Date(a.game_date).getTime() - new Date(b.game_date).getTime());
 
   return (
@@ -108,6 +102,7 @@ export default function PlayerChart({ data, statKey = "pts", lineValue = 24.5 }:
             axisLine={false} 
             tickLine={false} 
             dx={-10}
+            tickFormatter={(value) => sortedData[0]?.is_percentage ? `${value}%` : value}
           />
           
           <Tooltip content={<CustomTooltip />} cursor={{ fill: '#ffffff', opacity: 0.05 }} />

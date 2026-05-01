@@ -7,9 +7,9 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL
-from nba_api.stats.endpoints import playergamelogs
 
-# Cargar las variables del archivo .env
+from nba_api.stats.endpoints import playergamelogs, boxscoreadvancedv3, boxscoreplayertrackv3
+
 load_dotenv()
 
 # =========================================================
@@ -20,7 +20,6 @@ password_raw = os.getenv("DB_PASSWORD")
 if not password_raw:
     raise ValueError("❌ ERROR: Falta la variable DB_PASSWORD en el archivo .env")
 
-# Dejamos que SQLAlchemy arme la URL de forma segura
 db_url = URL.create(
     drivername="postgresql",
     username="postgres.xxhdctrvjsngwbagamns",
@@ -113,6 +112,59 @@ def fetch_logs_for_date(date_str: str, season: str, season_type: str):
             if attempt == MAX_RETRIES: raise
             backoff_sleep(attempt)
 
+def fetch_game_sharp_metrics(game_id: str):
+    """Busca métricas de tracking y avanzadas con escudo anti-errores de columnas faltantes."""
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            # 1. Advanced Stats (Usage %)
+            adv_stats = boxscoreadvancedv3.BoxScoreAdvancedV3(game_id=game_id, headers=HEADERS, timeout=REQUEST_TIMEOUT)
+            df_adv = adv_stats.get_data_frames()[0]
+            if not df_adv.empty and 'personId' in df_adv.columns:
+                df_adv = df_adv[['personId', 'usagePercentage']]
+            else:
+                df_adv = pd.DataFrame(columns=['personId', 'usagePercentage'])
+
+            random_sleep()
+
+            # 2. Player Tracking
+            track_stats = boxscoreplayertrackv3.BoxScorePlayerTrackV3(game_id=game_id, headers=HEADERS, timeout=REQUEST_TIMEOUT)
+            df_track = track_stats.get_data_frames()[0]
+            
+            if not df_track.empty and 'personId' in df_track.columns:
+                # 🛡️ ESCUDO ANTI-CRASH
+                expected_cols = ['personId', 'touches', 'potentialAst', 'reboundChancesTotal', 'passes']
+                for col in expected_cols:
+                    if col not in df_track.columns:
+                        df_track[col] = 0.0 # Si la NBA no la mandó, le ponemos 0.0 temporalmente
+                
+                df_track = df_track[expected_cols]
+            else:
+                df_track = pd.DataFrame(columns=['personId', 'touches', 'potentialAst', 'reboundChancesTotal', 'passes'])
+
+            if df_adv.empty and df_track.empty:
+                return pd.DataFrame()
+
+            df_merged = pd.merge(df_adv, df_track, on='personId', how='outer')
+            
+            df_merged.rename(columns={
+                'personId': 'player_id',
+                'usagePercentage': 'usage_pct',
+                'potentialAst': 'potential_ast', 
+                'reboundChancesTotal': 'rebound_chances',
+                'passes': 'passes_made'
+            }, inplace=True)
+            
+            df_merged['game_id_str'] = game_id 
+            df_merged['player_id'] = df_merged['player_id'].astype(int)
+
+            return df_merged
+            
+        except Exception as e:
+            print(f"   X Error en métricas avanzadas (Game {game_id}): {e}")
+            if attempt == MAX_RETRIES: return pd.DataFrame()
+            backoff_sleep(attempt)
+    return pd.DataFrame()
+
 def main():
     target_date, date_str = get_target_date()
     season = infer_season_from_date(target_date)
@@ -138,7 +190,35 @@ def main():
 
     final_df = pd.concat(new_parts, ignore_index=True)
     
-    # === AUTO-REGISTRADOR DE JUGADORES FALTANTES ===
+    print("\n🔥 Descargando Métricas Sharp (Tracking & Advanced) por partido...")
+    final_df['game_id_str'] = final_df['game_id'].astype(str).str.zfill(10)
+    unique_games = final_df['game_id_str'].unique()
+    
+    sharp_dfs = []
+    for idx, gid in enumerate(unique_games):
+        print(f"   -> Escaneando partido {idx+1}/{len(unique_games)} (ID: {gid})")
+        df_sharp = fetch_game_sharp_metrics(gid)
+        if not df_sharp.empty:
+            sharp_dfs.append(df_sharp)
+        random_sleep()
+        
+    if sharp_dfs:
+        all_sharp_df = pd.concat(sharp_dfs, ignore_index=True)
+        final_df['player_id'] = final_df['player_id'].astype(int)
+        
+        final_df = pd.merge(
+            final_df, 
+            all_sharp_df, 
+            how='left', 
+            on=['game_id_str', 'player_id']
+        )
+        print("✅ Métricas Sharp fusionadas exitosamente.")
+    else:
+        print("⚠️ No se pudieron obtener métricas Sharp.")
+        
+    if 'game_id_str' in final_df.columns:
+        final_df.drop(columns=['game_id_str'], inplace=True)
+
     print("\nVerificando si hay jugadores nuevos que no estén en la base de datos...")
     try:
         unique_players = final_df[['player_id', 'player_name']].drop_duplicates()
@@ -158,8 +238,10 @@ def main():
             new_players_df.to_sql('players', engine, if_exists='append', index=False)
             print("Jugadores registrados correctamente.")
     except Exception as e:
-        print(f"Aviso: No se pudo auto-registrar jugadores (Puede que la tabla players tenga reglas estrictas). Detalle: {e}")
-    # ===============================================
+        print(f"Aviso: No se pudo auto-registrar jugadores. Detalle: {e}")
+
+    valid_cols = get_db_columns(TABLE_NAME)
+    final_df = final_df[[c for c in final_df.columns if c in valid_cols]]
 
     try:
         with engine.begin() as conn:

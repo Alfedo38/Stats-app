@@ -56,8 +56,7 @@ def obtener_bajas_equipo(team_abbr, df_inj):
     return f"🚑 OUT: {', '.join(bajas[:2])}{'...' if len(bajas) > 2 else ''}"
 
 def obtener_datos():
-    print("📡 1. Extrayendo líneas CORE y de VOLUMEN (Tiros) de Supabase...")
-    # 🔥 Agregamos FGM, FGA, FG3A, FTM, FTA al filtro de mercados
+    print("📡 1. Extrayendo líneas CORE y de VOLUMEN de Supabase...")
     query_stats = "'PTS', 'REB', 'AST', '3PT', 'PRA', 'PR', 'PA', 'RA', 'FGM', 'FGA', 'FG3A', 'FTM', 'FTA'"
     df_odds = pd.read_sql(f"SELECT player_name, prop_type, matchup, line, over_price, under_price FROM player_odds WHERE prop_type IN ({query_stats})", engine)
     
@@ -71,7 +70,7 @@ def obtener_datos():
     
     df_odds[['away_team', 'home_team']] = df_odds.apply(lambda r: get_abbr(r['matchup']), axis=1, result_type='expand')
 
-    print("📊 2. Analizando historial reciente (L10)...")
+    print("📊 2. Analizando historial reciente (L10) y Tracking de NBA...")
     query_logs = """
         SELECT pgl.player_name, pgl.team_abbreviation, p.position, pgl.game_date,
                pgl.min, pgl.usage_pct, pgl.touches, pgl.rebound_chances, pgl.passes_made,
@@ -119,9 +118,17 @@ def obtener_datos():
 
 def ludo_engine(df_cruce, df_logs_10, df_inj):
     if df_cruce is None or df_cruce.empty: return
-    print("🧠 4. Activando los 13 Cerebros (Stats Base + Tiros)...")
+    print("🧠 4. Activando Cerebros AI y purgando líneas basura...")
     
-    # 🔥 Agregamos los cerebros de tiros que ya entrenaste
+    # 🔥 PISOS LÓGICOS: Erradicamos las líneas fantasma
+    PISOS_LOGICOS = {
+        'PTS': 4.5, 'REB': 2.5, 'AST': 1.5,
+        'PRA': 9.5, 'PR': 7.5, 'PA': 6.5, 'RA': 4.5,
+        '3PT': 0.5, 'FGM': 1.5, 'FGA': 3.5, 'FTM': 1.5, 'FTA': 1.5
+    }
+    df_cruce['piso_minimo'] = df_cruce['prop_type'].map(PISOS_LOGICOS).fillna(0.5)
+    df_cruce = df_cruce[df_cruce['line'] >= df_cruce['piso_minimo']]
+
     mercados = {
         'PTS': 'puntos', 'REB': 'rebotes', 'AST': 'asistencias', '3PT': 'triples',
         'FGM': 'tiros_anotados', 'FGA': 'tiros_intentados', 'FG3A': 'triples_intentados',
@@ -193,7 +200,6 @@ def ludo_engine(df_cruce, df_logs_10, df_inj):
     df_cruce = df_cruce.sort_values('edge', ascending=False).drop_duplicates(subset=['player_name', 'prop_type', 'is_over'])
 
     bombas = df_cruce[df_cruce['edge'] >= 10].copy()
-    
     sin_saldo = False
 
     for partido in bombas['matchup'].unique():
@@ -219,11 +225,16 @@ def ludo_engine(df_cruce, df_logs_10, df_inj):
                         for intento in range(2):
                             try:
                                 time.sleep(0.5) 
+                                # 🔥 PROMPT QUANT: Análisis forense con volumen de tiro y rebotes potenciales
                                 prompt = (
-                                    f"Actúa como un analista experto de la NBA. Responde ESTRICTAMENTE en español. "
-                                    f"En máximo 25 palabras, justifica por qué el {guion} "
-                                    f"de la línea de {j['line']} {j['prop_type']} es una apuesta sólida para {j['player_name']} (Tiene {j['hr']}). "
-                                    f"Aporta un dato táctico del enfrentamiento contra {j['opp']}."
+                                    f"Actúa como un analista Quant (apuestas deportivas) de la NBA muy estricto. "
+                                    f"Responde ESTRICTAMENTE en español, en un máximo de 35 palabras. Cero introducciones. "
+                                    f"Justifica tu postura técnica sobre el {guion} de la línea de {j['line']} {j['prop_type']} para {j['player_name']}. "
+                                    f"DATOS DUROS OBLIGATORIOS PARA ANALIZAR (No los repitas textual, úsalos para justificar): "
+                                    f"1. Aciertos: {j['hr']}. "
+                                    f"2. Minutos y Uso: Promedia {round(j['min_L5'], 1)} min con un Usage del {round(j['usage_pct_L5'], 1)}%. "
+                                    f"3. Volumen: Realiza {round(j['fga_L5'], 1)} tiros (FGA), tiene {round(j['rebound_chances_L5'], 1)} rebotes potenciales y hace {round(j['passes_made_L5'], 1)} pases por partido. "
+                                    f"4. Rival: Menciona un dato táctico de cómo su volumen explota o sufre la defensa de {j['opp']}."
                                 )
                                 res = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
                                 if res and res.text:
@@ -256,7 +267,7 @@ def ludo_engine(df_cruce, df_logs_10, df_inj):
 
     with open('picks_hoy.json', 'w', encoding='utf-8') as f:
         json.dump(TICKETS_JSON, f, ensure_ascii=False, indent=4)
-    print("\n✅ Proceso completado. Archivo JSON exportado incluyendo mercados de volumen y filtro Doble Check.")
+    print("\n✅ Proceso completado. Archivo JSON exportado y purgado de basura.")
 
 if __name__ == "__main__":
     c, l, i = obtener_datos()

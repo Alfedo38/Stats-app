@@ -204,22 +204,19 @@ def ludo_engine(df_cruce, df_logs_10, df_inj, df_odds_raw):
     df_cruce = df_cruce[filtro_final]
     df_cruce = df_cruce.sort_values('edge', ascending=False).drop_duplicates(subset=['player_name', 'prop_type', 'is_over'])
 
-# ---------------------------------------------------------
-    # 🤖 6. BATCHING: MODO PREVIEW & JSON BLINDADO (FIX CLAVES)
     # ---------------------------------------------------------
-    print("🤖 6. Consultando a Gemini (gemini-3-flash-preview)...")
+    # 🤖 6. BATCHING POR LOTES (CHUNKING) PARA EVITAR PEREZA
+    # ---------------------------------------------------------
+    print("🤖 6. Consultando a Gemini (Por Lotes)...")
     
     datos_para_gemini = {}
     for _, j in df_cruce.iterrows():
         guion = "OVER" if j['diff'] > 0 else "UNDER"
         prop = j['prop_type']
-        
-        # 1. CREAMOS LA CLAVE ÚNICA PARA QUE NO SE PISEN LOS MERCADOS
         clave_unica = f"{j['player_name']}_{prop}"
         
         vol_str = f"FGA: {round(j['fga_L5'],1)}"
         dvp_val = round(j.get('dvp_pts',0),1)
-        # 2. ESCUDO ANTI-0.0: Si no hay data del rival, no le pasamos el 0.0 a la IA
         dvp_str = f"Rival permite: {dvp_val} PTS" if dvp_val > 0 else "Matchup neutral"
         
         if prop in ['REB', 'RA']:
@@ -237,141 +234,173 @@ def ludo_engine(df_cruce, df_logs_10, df_inj, df_odds_raw):
 
         datos_para_gemini[clave_unica] = f"Línea: {guion} {j['line']} {prop} | Pos: {j['position']} | HR: {j['hr']} | {round(j['min_L5'],1)}min, Uso {round(j['usage_pct_L5'],1)}% | {vol_str} | {dvp_str}"
 
-    # 👉 ¡ACÁ ESTÁ EL SECRETO! Calculamos la cantidad justo ANTES del prompt
-    cantidad_picks = len(datos_para_gemini)
-
-    prompt_masivo = f"""
-    Analista Quant NBA. Responde SOLO con un objeto JSON.
-    REGLA 1 (VITAL): Hay {cantidad_picks} picks en los datos. DEBES devolver EXACTAMENTE {cantidad_picks} elementos en tu JSON. No omitas ninguno.
-    REGLA 2: Mantén la clave EXACTAMENTE igual a la provista (Ej: "Nombre_Prop").
-    REGLA 3: Justificación técnica (15 a 20 palabras) conectando volumen del jugador con debilidad del rival.
-    CERO markdown. CERO saltos de línea. CERO comillas dobles internas.
-    Datos: {json.dumps(datos_para_gemini)}
-    """
-# Le contamos cuántos jugadores hay para obligarlo a hacerlos todos
-    cantidad_picks = len(datos_para_gemini)
+    items_totales = list(datos_para_gemini.items())
+    tamaño_lote = 15
+    lotes = [dict(items_totales[i:i + tamaño_lote]) for i in range(0, len(items_totales), tamaño_lote)]
+    
     analisis_dict = {}
-    try:
-        res = client.models.generate_content(
-            model="gemini-3-flash-preview", 
-            contents=prompt_masivo,
-            config=types.GenerateContentConfig(
-                max_output_tokens=8000, 
-                temperature=0.1,
-                safety_settings=[
-                    types.SafetySetting(category=types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold=types.HarmBlockThreshold.BLOCK_NONE),
-                ]
-            )
-        )
-        
-        if res and res.text:
-            texto_limpio = res.text.replace('```json', '').replace('```', '').strip()
-            
-            if not texto_limpio.endswith("}"):
-                print("    🔧 Detectado JSON incompleto, amputando último registro...")
-                ultima_coma = texto_limpio.rfind(',')
-                if ultima_coma != -1:
-                    texto_limpio = texto_limpio[:ultima_coma] + "}"
-                else:
-                    texto_limpio += "}"
-                
-            analisis_dict = json.loads(texto_limpio, strict=False)
-            
-            # 🕵️‍♂️ EL AUDITOR: Esto te va a imprimir en consola cuántos analizó realmente
-            print(f"    ✅ IA analizó {len(analisis_dict)} de los {cantidad_picks} picks solicitados.")
-            if len(analisis_dict) < cantidad_picks:
-                print("    ⚠️ ¡La IA se puso vaga y omitió algunos jugadores!")
-            
-    except Exception as e:
-        print(f"    ⚠️ Error en Gemini: {e}")
 
+    print(f"    📦 Dividiendo {len(items_totales)} picks en {len(lotes)} lotes para procesar...")
+
+    for idx, lote in enumerate(lotes):
+        cantidad_picks = len(lote)
+        print(f"    ⏳ Procesando lote {idx+1}/{len(lotes)} ({cantidad_picks} picks)...")
+        
+        prompt_masivo = f"""
+        Analista Quant NBA. Responde SOLO con un objeto JSON.
+        REGLA 1 (VITAL): Hay {cantidad_picks} picks en los datos. DEBES devolver EXACTAMENTE {cantidad_picks} elementos en tu JSON. No omitas ninguno.
+        REGLA 2: Mantén la clave EXACTAMENTE igual a la provista (Ej: "Nombre_Prop").
+        REGLA 3: Justificación técnica (15 a 20 palabras) conectando volumen del jugador con debilidad del rival.
+        CERO markdown. CERO saltos de línea. CERO comillas dobles internas.
+        Datos: {json.dumps(lote)}
+        """
+
+        try:
+            res = client.models.generate_content(
+                model="gemini-3-flash-preview", 
+                contents=prompt_masivo,
+                config=types.GenerateContentConfig(
+                    max_output_tokens=8000, 
+                    temperature=0.1,
+                    safety_settings=[
+                        types.SafetySetting(category=types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold=types.HarmBlockThreshold.BLOCK_NONE),
+                        types.SafetySetting(category=types.HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold=types.HarmBlockThreshold.BLOCK_NONE),
+                        types.SafetySetting(category=types.HarmCategory.HARM_CATEGORY_HARASSMENT, threshold=types.HarmBlockThreshold.BLOCK_NONE),
+                        types.SafetySetting(category=types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold=types.HarmBlockThreshold.BLOCK_NONE),
+                    ]
+                )
+            )
+            
+            if res and res.text:
+                texto_limpio = res.text.replace('```json', '').replace('```', '').strip()
+                
+                if not texto_limpio.endswith("}"):
+                    print("        🔧 JSON incompleto en este lote, amputando...")
+                    ultima_coma = texto_limpio.rfind(',')
+                    if ultima_coma != -1:
+                        texto_limpio = texto_limpio[:ultima_coma] + "}"
+                    else:
+                        texto_limpio += "}"
+                    
+                lote_dict = json.loads(texto_limpio, strict=False)
+                analisis_dict.update(lote_dict) 
+                
+                import time
+                time.sleep(2)
+                
+        except Exception as e:
+            print(f"        ⚠️ Error en lote {idx+1}: {e}")
+
+    print(f"    ✅ IA analizó exitosamente {len(analisis_dict)} de los {len(items_totales)} picks totales.")
+# ---------------------------------------------------------
+    # 🧹 FILTRO ANTI-PASADO (CORTAFUEGOS)
     # ---------------------------------------------------------
-    # 🎫 7. ARMADO DE TICKETS (X2 SEGURAS + BOMBAS MULTI-PARTIDO)
+    print("🧹 Limpiando partidos viejos de la cartelera...")
+    from datetime import datetime
+    
+    # Buscamos la fecha de hoy
+    hoy_str = datetime.now().strftime('%Y-%m-%d')
+    
+    # Escudo protector: verificamos cómo se llama tu columna de fecha
+    if 'game_date' in df_cruce.columns:
+        df_cruce = df_cruce[df_cruce['game_date'] >= hoy_str]
+    elif 'date' in df_cruce.columns:
+        df_cruce = df_cruce[df_cruce['date'] >= hoy_str]
+    else:
+        print("    ⚠️ Ojo: No encontré la columna de fecha en df_cruce. Mostrando todo.")
+    # ---------------------------------------------------------
+    # 🎫 7. ARMADO DE TICKETS (SEPARADOS OVER/UNDER + GLOBALES)
     # ---------------------------------------------------------
     TICKETS_JSON = []
 
-    # --- FASE 1: TICKETS X2 POR PARTIDO (LÍNEAS SEGURAS) ---
+    # --- FASE 1: TICKETS POR PARTIDO (X2, X3, X5) ---
     for partido in df_cruce['matchup'].unique():
         for guion in ['OVER', 'UNDER']:
+            # Filtramos por partido Y por guion
             mask = (df_cruce['matchup'] == partido) & (df_cruce['diff'] > 0 if guion == 'OVER' else df_cruce['diff'] < 0)
-            df_p = df_cruce[mask]
+            df_match = df_cruce[mask].sort_values('edge', ascending=False)
             
-            # Para los X2 ordenamos por la probabilidad de la línea segura
-            top = df_p.sort_values('s_prob', ascending=False).head(8) 
-            
-            if len(top) < 2: continue
-            
+            if len(df_match) < 2:
+                continue
+                
             tickets = []
-            for i in range(0, len(top), 2):
-                pair = top.iloc[i:i+2]
+            
+            # 1A. TICKETS X2 (LÍNEAS SEGURAS)
+            df_seguras = df_match.sort_values('s_prob', ascending=False)
+            
+            for i in range(0, min(len(df_seguras), 4), 2): 
+                pair = df_seguras.iloc[i:i+2]
                 if len(pair) < 2: break
+                
                 plays = []
                 for _, j in pair.iterrows():
                     clave_unica = f"{j['player_name']}_{j['prop_type']}"
-                    analisis_ia = analisis_dict.get(clave_unica, f"Análisis: Proy {j['proj']} vs {j['line']}. HR: {j['hr']}.")
+                    analisis_ia = analisis_dict.get(clave_unica, f"Proyección IA: {j['proj']} vs Línea: {j['line']}. HR: {j['hr']}.")
+                    pid_seguro = int(j.get('player_id', 0)) if 'player_id' in j and pd.notnull(j['player_id']) else 0
 
                     plays.append({
-                        "player": j['player_name'], "team": j['team_abbreviation'], "type": guion,
-                        # 🔥 CLAVE: En el X2 forzamos la línea SEGURA como principal
-                        "line": float(j['s_line']), "prop": j['prop_type'], "odds": float(j['s_odds']),
+                        "player_id": pid_seguro, "player": j['player_name'], "team": j['team_abbreviation'], "type": guion,
+                        "line": float(j['s_line']), "prop": j['prop_type'], "odds": float(j['s_odds']), 
                         "proj": float(j['proj']), "edge": round(float(j['edge']), 1),
                         "analysis": analisis_ia, "safe_line": float(j['s_line']), 
                         "safe_odds": float(j['s_odds']), "safe_prob": float(j['s_prob']),
                         "hit_rate": j['hr'], "injuries": obtener_bajas_equipo(j['team_abbreviation'], df_inj),
-                        "stake": 1.0 # Stake sólido para las seguras
+                        "stake": 1.0
                     })
-                
-                # Usamos s_odds para calcular la cuota total del parley X2
-                tickets.append({"name": f"X2 SEGURO - OPCIÓN {len(tickets)+1}", "total_odds": round(pair['s_odds'].prod(), 2), "plays": plays})
-            
+                tickets.append({"name": f"🛡️ X2 SEGURO", "total_odds": round(pair['s_odds'].prod(), 2), "plays": plays})
+
+            # FUNCIÓN AUXILIAR PARA BOMBAS
+            def armar_bomba(nombre, df_subset, tipo_guion):
+                plays = []
+                for _, j in df_subset.iterrows():
+                    clave_unica = f"{j['player_name']}_{j['prop_type']}"
+                    analisis_ia = analisis_dict.get(clave_unica, f"Proyección IA: {j['proj']} vs Línea: {j['line']}. HR: {j['hr']}.")
+                    pid_seguro = int(j.get('player_id', 0)) if 'player_id' in j and pd.notnull(j['player_id']) else 0
+
+                    plays.append({
+                        "player_id": pid_seguro, "player": j['player_name'], "team": j['team_abbreviation'], "type": tipo_guion,
+                        "line": float(j['line']), "prop": j['prop_type'], "odds": float(j['price']), # Línea estándar
+                        "proj": float(j['proj']), "edge": round(float(j['edge']), 1),
+                        "analysis": analisis_ia, "safe_line": float(j['s_line']), 
+                        "safe_odds": float(j['s_odds']), "safe_prob": float(j['s_prob']),
+                        "hit_rate": j['hr'], "injuries": obtener_bajas_equipo(j['team_abbreviation'], df_inj),
+                        "stake": 0.5
+                    })
+                cuota_total = math.prod([p['odds'] for p in plays])
+                return {"name": nombre, "total_odds": round(cuota_total, 2), "plays": plays}
+
+            # 1B. BOMBAS DEL MISMO PARTIDO (X3 y X5)
+            if len(df_match) >= 3:
+                tickets.append(armar_bomba("🧨 SGP X3", df_match.head(3), guion))
+            if len(df_match) >= 5:
+                tickets.append(armar_bomba("💣 SGP X5", df_match.head(5), guion))
+
             if tickets:
-                TICKETS_JSON.append({"matchup": f"{partido} ({'🛡️' if guion=='OVER' else '🧊'})", "guion": guion, "tickets": tickets})
+                icono = '🔥' if guion == 'OVER' else '🧊'
+                TICKETS_JSON.append({"matchup": f"{partido} ({icono})", "guion": guion, "tickets": tickets})
 
-    # --- FASE 2: COMBINADAS GLOBALES (LÍNEAS ESTÁNDAR / BOMBAS) ---
-    todas_las_jugadas = []
-    # Ordenamos toda la cartelera por Edge (Mayor valor/riesgo)
-    df_global = df_cruce.sort_values('edge', ascending=False)
+    # --- FASE 2: LOTERÍAS GLOBALES (TODA LA JORNADA MEZCLADA) ---
+    df_global_overs = df_cruce[df_cruce['diff'] > 0].sort_values('edge', ascending=False)
+    df_global_unders = df_cruce[df_cruce['diff'] < 0].sort_values('edge', ascending=False)
 
-    for _, j in df_global.iterrows():
-        clave_unica = f"{j['player_name']}_{j['prop_type']}"
-        analisis_ia = analisis_dict.get(clave_unica, f"Análisis: Proy {j['proj']} vs {j['line']}. HR: {j['hr']}.")
-        guion = "OVER" if j['diff'] > 0 else "UNDER"
-        
-        todas_las_jugadas.append({
-            "player": j['player_name'], "team": j['team_abbreviation'], "type": guion,
-            # 🔥 CLAVE: En las bombas usamos la línea ESTÁNDAR (más riesgo, más cuota)
-            "line": float(j['line']), "prop": j['prop_type'], "odds": float(j['price']),
-            "proj": float(j['proj']), "edge": round(float(j['edge']), 1),
-            "analysis": analisis_ia, "safe_line": float(j['s_line']), 
-            "safe_odds": float(j['s_odds']), "safe_prob": float(j['s_prob']),
-            "hit_rate": j['hr'], "injuries": obtener_bajas_equipo(j['team_abbreviation'], df_inj),
-            "stake": 0.5 # Stake bajo (modo lotería)
-        })
-
-    # Función auxiliar para no repetir código al armar los tickets
-    def crear_ticket_bomba(nombre, jugadas):
-        cuota_total = math.prod([p['odds'] for p in jugadas])
-        return {"name": nombre, "total_odds": round(cuota_total, 2), "plays": jugadas}
-
-    bombas_tickets = []
+    tickets_globales = []
     
-    if len(todas_las_jugadas) >= 5:
-        bombas_tickets.append(crear_ticket_bomba("🧨 BOMBA X5 (Valor Medio)", todas_las_jugadas[:5]))
-    
-    if len(todas_las_jugadas) >= 10:
-        bombas_tickets.append(crear_ticket_bomba("💣 MEGA BOMBA X10 (Alto Riesgo)", todas_las_jugadas[:10]))
-        
-    if len(todas_las_jugadas) >= 20:
-        bombas_tickets.append(crear_ticket_bomba("🎰 LOTERÍA X20 (Modo Degenerado)", todas_las_jugadas[:20]))
+    # Mejores 10 y 20 OVERS de toda la liga
+    if len(df_global_overs) >= 10:
+        tickets_globales.append(armar_bomba("🤯 MEGA X10 OVERS", df_global_overs.head(10), "OVER"))
+    if len(df_global_overs) >= 20:
+        tickets_globales.append(armar_bomba("🎰 LOTERÍA X20 OVERS", df_global_overs.head(20), "OVER"))
 
-    if bombas_tickets:
-        # Agregamos esta sección especial al final del JSON
+    # Mejores 10 y 20 UNDERS de toda la liga
+    if len(df_global_unders) >= 10:
+        tickets_globales.append(armar_bomba("🥶 MEGA X10 UNDERS", df_global_unders.head(10), "UNDER"))
+
+    if tickets_globales:
         TICKETS_JSON.append({
-            "matchup": "🔥 COMBINADAS DE LA JORNADA", 
+            "matchup": "🌎 COMBINADAS GLOBALES DE LA FECHA", 
             "guion": "MIX", 
-            "tickets": bombas_tickets
+            "tickets": tickets_globales
         })
-
     # ---------------------------------------------------------
     # 💾 8. GUARDAR EN SUPABASE
     # ---------------------------------------------------------

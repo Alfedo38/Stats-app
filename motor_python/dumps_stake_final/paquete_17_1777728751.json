@@ -1,0 +1,16 @@
+{
+    "data": {
+        "swishSportByTournamentSlug": {
+            "customBetAvailable": true,
+            "liveCustomBetAvailable": true,
+            "tournamentSlugs": [
+                "nba",
+                "nba-in-season-tournament"
+            ],
+            "livePropsAvailable": true,
+            "preMatchPropsAvailable": true,
+            "atBatPropsAvailable": false,
+            "preMatchPrebuiltMultisAvailable": true
+        }
+    }
+}

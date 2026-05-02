@@ -1,0 +1,1061 @@
+{
+    "data": {
+        "slugFixture": {
+            "id": "0f45c30e-d388-4a0a-b5d5-3342a46ce027",
+            "betradarStream": {
+                "exists": true
+            },
+            "imgArenaStream": {
+                "exists": false
+            },
+            "abiosStream": null,
+            "geniussportsStream": {
+                "exists": false
+            },
+            "statsPerformStream": {
+                "isAvailable": false,
+                "geoBlocked": false
+            },
+            "liveStream": {
+                "data": null
+            },
+            "slug": "46467912-winner-of-w2-w7-winner-of-w3-w6",
+            "extId": "sr:match:70504952",
+            "status": "active",
+            "name": "San Antonio Spurs - Minnesota Timberwolves",
+            "provider": "betradar",
+            "widgetUrl": null,
+            "liveWidgetUrl": null,
+            "customBetAvailable": false,
+            "swishGame": null,
+            "eventStatus": {
+                "__typename": "SportFixtureEventStatusData",
+                "homeScore": null,
+                "awayScore": null,
+                "matchStatus": "No Iniciado",
+                "clock": {
+                    "matchTime": null,
+                    "remainingTime": null
+                },
+                "periodScores": null,
+                "currentTeamServing": null,
+                "homeGameScore": null,
+                "awayGameScore": null,
+                "statistic": {
+                    "yellowCards": {
+                        "away": null,
+                        "home": null
+                    },
+                    "redCards": {
+                        "away": null,
+                        "home": null
+                    },
+                    "corners": {
+                        "home": null,
+                        "away": null
+                    }
+                }
+            },
+            "data": {
+                "startTime": "Mon, 04 May 2026 23:00:00 GMT",
+                "competitors": [
+                    {
+                        "name": "San Antonio Spurs",
+                        "defaultName": "San Antonio Spurs",
+                        "extId": "sr:competitor:3429",
+                        "countryCode": "US",
+                        "abbreviation": "SAS",
+                        "iconPath": null
+                    },
+                    {
+                        "name": "Minnesota Timberwolves",
+                        "defaultName": "Minnesota Timberwolves",
+                        "extId": "sr:competitor:3426",
+                        "countryCode": "US",
+                        "abbreviation": "MIN",
+                        "iconPath": null
+                    }
+                ],
+                "teams": [
+                    {
+                        "name": "San Antonio Spurs",
+                        "qualifier": "home"
+                    },
+                    {
+                        "name": "Minnesota Timberwolves",
+                        "qualifier": "away"
+                    }
+                ],
+                "tvChannels": null,
+                "__typename": "SportFixtureDataMatch"
+            },
+            "contentNotes": [],
+            "tournament": {
+                "id": "eedee767-a2c7-4242-9d4c-5a01eb03df00",
+                "name": "NBA",
+                "slug": "nba",
+                "contentNotes": [
+                    {
+                        "id": "c0910bc5-ac60-4e15-aad2-7ded68f7ea5b",
+                        "createdAt": "Mon, 27 Oct 2025 00:43:51 GMT",
+                        "publishAt": "Wed, 01 Oct 2025 01:37:00 GMT",
+                        "expireAt": "Tue, 30 Jun 2026 01:37:00 GMT",
+                        "linkText": "Se aplican los T\u00e9rminos y Condiciones.",
+                        "linkUrl": "https://stake.com/promotions/promotion/nba-half-time-payout",
+                        "message": "\u2b50Pago por medio tiempo: Obt\u00e9n el pago si el equipo por el que apuestas lidera por +12 durante el Medio Tiempo pero pierde.",
+                        "locale": "en",
+                        "ref": {
+                            "id": "eedee767-a2c7-4242-9d4c-5a01eb03df00",
+                            "name": "NBA",
+                            "category": {
+                                "name": "Estados Unidos",
+                                "sport": {
+                                    "name": "Baloncesto"
+                                }
+                            }
+                        }
+                    }
+                ],
+                "category": {
+                    "id": "5e40323b-2d79-48d2-955f-3b0692d759c1",
+                    "name": "Estados Unidos",
+                    "slug": "usa",
+                    "contentNotes": [],
+                    "sport": {
+                        "id": "285d2c11-61ff-4d65-97e8-1bad9fdfa2c0",
+                        "name": "Baloncesto",
+                        "slug": "basketball",
+                        "contentNotes": []
+                    }
+                },
+                "frontRowSeatEvent": null
+            },
+            "groups": [
+                {
+                    "id": "907d3845-6483-4df3-b533-7dff48070a11",
+                    "name": "main",
+                    "translation": "Principal",
+                    "rank": 13
+                },
+                {
+                    "id": "5be00d57-0132-4c40-8623-26fd700249f1",
+                    "name": "combo",
+                    "translation": "Combinaci\u00f3n",
+                    "rank": 12.5
+                },
+                {
+                    "id": "a5078b8c-cf2f-413c-b337-43df2cfad13a",
+                    "name": "half",
+                    "translation": "Mitad",
+                    "rank": 12
+                },
+                {
+                    "id": "54b0eccd-1591-4f75-a2c4-030acb051b39",
+                    "name": "quarters",
+                    "translation": "Cuartos",
+                    "rank": 10.5
+                },
+                {
+                    "id": "6742aae6-124c-4d87-82b8-b3f873b6efab",
+                    "name": "points",
+                    "translation": "Puntos",
+                    "rank": 9
+                },
+                {
+                    "id": "cc1eb50c-ebfc-4557-b235-1383161d7b3d",
+                    "name": "threeway",
+                    "translation": "Tres V\u00edas",
+                    "rank": 0
+                },
+                {
+                    "id": "2bb97c08-0c55-4b9f-96e0-b52f3c569596",
+                    "name": "winner",
+                    "translation": "Ganador",
+                    "rank": 0
+                },
+                {
+                    "id": "60d16bdf-fa5e-461b-9727-e404994b8ead",
+                    "name": "Total",
+                    "translation": "Total",
+                    "rank": 0
+                },
+                {
+                    "id": "00f67eb7-eb9f-4073-9b0c-a398210a1c50",
+                    "name": "Handicap",
+                    "translation": "H\u00e1ndicap",
+                    "rank": 0
+                }
+            ],
+            "maps": [],
+            "frontRowSeatFight": null,
+            "group": [
+                {
+                    "name": "main",
+                    "translation": "Principal",
+                    "rank": 13,
+                    "templates": [
+                        {
+                            "id": "ada38053-ff54-4340-88c5-bc8bc9e45fa0",
+                            "extId": "219",
+                            "rank": 12,
+                            "name": "Ganador (incl. pr\u00f3rroga)",
+                            "markets": [
+                                {
+                                    "id": "a9cb24ab-9dee-402b-b038-7dc69ca5a87c",
+                                    "name": "Ganador (incl. pr\u00f3rroga)",
+                                    "status": "active",
+                                    "extId": "219",
+                                    "specifiers": "",
+                                    "customBetAvailable": false,
+                                    "provider": "betradar",
+                                    "outcomes": [
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "66202622-3911-493a-95f8-c8a3e3147065",
+                                            "active": true,
+                                            "odds": 1.11,
+                                            "name": "San Antonio Spurs",
+                                            "customBetAvailable": false,
+                                            "extId": "4"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "a59be88a-c1f7-4eaf-b991-9be05e1e8a9c",
+                                            "active": true,
+                                            "odds": 6.4,
+                                            "name": "Minnesota Timberwolves",
+                                            "customBetAvailable": false,
+                                            "extId": "5"
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "id": "e448c3a7-ecce-4621-80a0-96dbf840df68",
+                            "extId": "223",
+                            "rank": 11,
+                            "name": "H\u00e1ndicap (incl. pr\u00f3rroga)",
+                            "markets": [
+                                {
+                                    "id": "af416fe5-fed0-4743-b4d4-5bf6d0c28669",
+                                    "name": "H\u00e1ndicap (incl. pr\u00f3rroga)",
+                                    "status": "active",
+                                    "extId": "223",
+                                    "specifiers": "hcp=-11.5",
+                                    "customBetAvailable": false,
+                                    "provider": "betradar",
+                                    "outcomes": [
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "13c9a49c-15f7-466b-b2d9-bcdc953151d7",
+                                            "active": true,
+                                            "odds": 1.64,
+                                            "name": "San Antonio Spurs (-11.5)",
+                                            "customBetAvailable": false,
+                                            "extId": "1714"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "a707710a-a8b1-4507-b36a-d248732313df",
+                                            "active": true,
+                                            "odds": 2.22,
+                                            "name": "Minnesota Timberwolves (11.5)",
+                                            "customBetAvailable": false,
+                                            "extId": "1715"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "7af6f8d7-d89d-4a4b-8ea0-21eb8d83617f",
+                                    "name": "H\u00e1ndicap (incl. pr\u00f3rroga)",
+                                    "status": "active",
+                                    "extId": "223",
+                                    "specifiers": "hcp=-12.5",
+                                    "customBetAvailable": false,
+                                    "provider": "betradar",
+                                    "outcomes": [
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "6a4726f9-7688-4472-8004-88cf69c0c6c8",
+                                            "active": true,
+                                            "odds": 1.75,
+                                            "name": "San Antonio Spurs (-12.5)",
+                                            "customBetAvailable": false,
+                                            "extId": "1714"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "2239f3b0-7768-4e3a-b354-616977912a56",
+                                            "active": true,
+                                            "odds": 2.05,
+                                            "name": "Minnesota Timberwolves (12.5)",
+                                            "customBetAvailable": false,
+                                            "extId": "1715"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "936d552d-67f4-421c-83ba-70f1f280165f",
+                                    "name": "H\u00e1ndicap (incl. pr\u00f3rroga)",
+                                    "status": "active",
+                                    "extId": "223",
+                                    "specifiers": "hcp=-13.5",
+                                    "customBetAvailable": false,
+                                    "provider": "betradar",
+                                    "outcomes": [
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "7b89517b-522e-4501-aca8-f7b1669d38d6",
+                                            "active": true,
+                                            "odds": 1.86,
+                                            "name": "San Antonio Spurs (-13.5)",
+                                            "customBetAvailable": false,
+                                            "extId": "1714"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "61cbf164-a258-4b09-b9f8-ccf28e717269",
+                                            "active": true,
+                                            "odds": 1.91,
+                                            "name": "Minnesota Timberwolves (13.5)",
+                                            "customBetAvailable": false,
+                                            "extId": "1715"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "346b9386-5c1c-4c1d-9f70-864346c7f799",
+                                    "name": "H\u00e1ndicap (incl. pr\u00f3rroga)",
+                                    "status": "active",
+                                    "extId": "223",
+                                    "specifiers": "hcp=-14.5",
+                                    "customBetAvailable": false,
+                                    "provider": "betradar",
+                                    "outcomes": [
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "0d4a9687-ad0d-4c4b-b0af-df4d5e8c29f6",
+                                            "active": true,
+                                            "odds": 1.97,
+                                            "name": "San Antonio Spurs (-14.5)",
+                                            "customBetAvailable": false,
+                                            "extId": "1714"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "b54f9c60-d7a8-46bd-bab0-b8fcbd69539c",
+                                            "active": true,
+                                            "odds": 1.81,
+                                            "name": "Minnesota Timberwolves (14.5)",
+                                            "customBetAvailable": false,
+                                            "extId": "1715"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "8df1590a-d9b3-48f6-b8d8-e4f75ca19318",
+                                    "name": "H\u00e1ndicap (incl. pr\u00f3rroga)",
+                                    "status": "active",
+                                    "extId": "223",
+                                    "specifiers": "hcp=-15.5",
+                                    "customBetAvailable": false,
+                                    "provider": "betradar",
+                                    "outcomes": [
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "661994ae-d9fc-49b6-b412-86012d64883e",
+                                            "active": true,
+                                            "odds": 2.08,
+                                            "name": "San Antonio Spurs (-15.5)",
+                                            "customBetAvailable": false,
+                                            "extId": "1714"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "bc6b1f4a-a396-4bc4-9149-542204054845",
+                                            "active": true,
+                                            "odds": 1.73,
+                                            "name": "Minnesota Timberwolves (15.5)",
+                                            "customBetAvailable": false,
+                                            "extId": "1715"
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "id": "806b496b-4f5a-4b7b-9e27-219af08597b0",
+                            "extId": "225",
+                            "rank": 10,
+                            "name": "Total (incl. pr\u00f3rroga)",
+                            "markets": [
+                                {
+                                    "id": "a5595100-59ec-455f-9b86-6c185e5126ef",
+                                    "name": "Total (incl. pr\u00f3rroga)",
+                                    "status": "active",
+                                    "extId": "225",
+                                    "specifiers": "total=214.5",
+                                    "customBetAvailable": false,
+                                    "provider": "betradar",
+                                    "outcomes": [
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "5ba976db-dd51-485d-a114-30e69909200d",
+                                            "active": true,
+                                            "odds": 1.72,
+                                            "name": "m\u00e1s de 214.5",
+                                            "customBetAvailable": false,
+                                            "extId": "12"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "e87dd42f-9122-4dee-ac32-805a6c08367b",
+                                            "active": true,
+                                            "odds": 2.09,
+                                            "name": "menos de 214.5",
+                                            "customBetAvailable": false,
+                                            "extId": "13"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "419aa420-6047-446e-9c8b-50dce67d0327",
+                                    "name": "Total (incl. pr\u00f3rroga)",
+                                    "status": "active",
+                                    "extId": "225",
+                                    "specifiers": "total=215.5",
+                                    "customBetAvailable": false,
+                                    "provider": "betradar",
+                                    "outcomes": [
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "c72944dc-0152-4b7d-8b4f-886d5a31b64b",
+                                            "active": true,
+                                            "odds": 1.79,
+                                            "name": "m\u00e1s de 215.5",
+                                            "customBetAvailable": false,
+                                            "extId": "12"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "09dabfcb-6043-4049-9b38-c634844bd01c",
+                                            "active": true,
+                                            "odds": 1.99,
+                                            "name": "menos de 215.5",
+                                            "customBetAvailable": false,
+                                            "extId": "13"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "1d264edf-ac6a-4f91-a4b5-1092ee4682d5",
+                                    "name": "Total (incl. pr\u00f3rroga)",
+                                    "status": "active",
+                                    "extId": "225",
+                                    "specifiers": "total=216.5",
+                                    "customBetAvailable": false,
+                                    "provider": "betradar",
+                                    "outcomes": [
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "153d0340-0014-42fd-8c8c-b5db7d3e5385",
+                                            "active": true,
+                                            "odds": 1.87,
+                                            "name": "m\u00e1s de 216.5",
+                                            "customBetAvailable": false,
+                                            "extId": "12"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "0aefaee3-1659-41db-911c-bcfc4b3e2427",
+                                            "active": true,
+                                            "odds": 1.9,
+                                            "name": "menos de 216.5",
+                                            "customBetAvailable": false,
+                                            "extId": "13"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "a8b34eeb-a4e1-4785-b624-f8fc2d157eb4",
+                                    "name": "Total (incl. pr\u00f3rroga)",
+                                    "status": "active",
+                                    "extId": "225",
+                                    "specifiers": "total=217.5",
+                                    "customBetAvailable": false,
+                                    "provider": "betradar",
+                                    "outcomes": [
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "ab887d68-a5d3-41e6-98c4-470d422aa9f9",
+                                            "active": true,
+                                            "odds": 1.96,
+                                            "name": "m\u00e1s de 217.5",
+                                            "customBetAvailable": false,
+                                            "extId": "12"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "edbd1db3-5598-40e7-bcaa-6f40218f446f",
+                                            "active": true,
+                                            "odds": 1.82,
+                                            "name": "menos de 217.5",
+                                            "customBetAvailable": false,
+                                            "extId": "13"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "a1c64532-01e7-4485-8fe7-5d889ba5c230",
+                                    "name": "Total (incl. pr\u00f3rroga)",
+                                    "status": "active",
+                                    "extId": "225",
+                                    "specifiers": "total=218.5",
+                                    "customBetAvailable": false,
+                                    "provider": "betradar",
+                                    "outcomes": [
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "7025f871-f6ba-479d-9c1c-3a06950a7e7e",
+                                            "active": true,
+                                            "odds": 2.05,
+                                            "name": "m\u00e1s de 218.5",
+                                            "customBetAvailable": false,
+                                            "extId": "12"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "ad250f8c-5ad5-481b-86e4-f8db42690d57",
+                                            "active": true,
+                                            "odds": 1.75,
+                                            "name": "menos de 218.5",
+                                            "customBetAvailable": false,
+                                            "extId": "13"
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "id": "016a1bab-6fd4-4d15-88db-bcd7fdb435b0",
+                            "extId": "227",
+                            "rank": 8.03125,
+                            "name": "{$competitor1} total (incl. pr\u00f3rroga)",
+                            "markets": [
+                                {
+                                    "id": "82772662-1376-4ce0-8c44-102afec55dfe",
+                                    "name": "San Antonio Spurs total (incl. pr\u00f3rroga)",
+                                    "status": "active",
+                                    "extId": "227",
+                                    "specifiers": "total=113.5",
+                                    "customBetAvailable": false,
+                                    "provider": "betradar",
+                                    "outcomes": [
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "ab49d92a-8ec9-45e6-ae9f-2feea05d60e3",
+                                            "active": true,
+                                            "odds": 1.65,
+                                            "name": "m\u00e1s de 113.5",
+                                            "customBetAvailable": false,
+                                            "extId": "12"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "30a43faa-93ca-4a61-a73b-b66202a71395",
+                                            "active": true,
+                                            "odds": 2.19,
+                                            "name": "menos de 113.5",
+                                            "customBetAvailable": false,
+                                            "extId": "13"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "b09cced0-f2a7-4ad0-a4c9-2e7967fff7eb",
+                                    "name": "San Antonio Spurs total (incl. pr\u00f3rroga)",
+                                    "status": "active",
+                                    "extId": "227",
+                                    "specifiers": "total=114.5",
+                                    "customBetAvailable": false,
+                                    "provider": "betradar",
+                                    "outcomes": [
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "4c29d30e-4d5f-4b15-9526-c49fd363dad9",
+                                            "active": true,
+                                            "odds": 1.76,
+                                            "name": "m\u00e1s de 114.5",
+                                            "customBetAvailable": false,
+                                            "extId": "12"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "605a6303-27df-49ab-a00b-e1b7da59d1eb",
+                                            "active": true,
+                                            "odds": 2.03,
+                                            "name": "menos de 114.5",
+                                            "customBetAvailable": false,
+                                            "extId": "13"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "e40762c6-606c-4042-a902-afb6a4fe81ca",
+                                    "name": "San Antonio Spurs total (incl. pr\u00f3rroga)",
+                                    "status": "active",
+                                    "extId": "227",
+                                    "specifiers": "total=115.5",
+                                    "customBetAvailable": false,
+                                    "provider": "betradar",
+                                    "outcomes": [
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "6d8b0e42-f7c5-45ba-b7b2-e3fab9356010",
+                                            "active": true,
+                                            "odds": 1.88,
+                                            "name": "m\u00e1s de 115.5",
+                                            "customBetAvailable": false,
+                                            "extId": "12"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "4f562cf5-e83a-4d7d-aa6e-d5025f193270",
+                                            "active": true,
+                                            "odds": 1.89,
+                                            "name": "menos de 115.5",
+                                            "customBetAvailable": false,
+                                            "extId": "13"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "f88478ee-c9e6-4171-b348-8262f175095e",
+                                    "name": "San Antonio Spurs total (incl. pr\u00f3rroga)",
+                                    "status": "active",
+                                    "extId": "227",
+                                    "specifiers": "total=116.5",
+                                    "customBetAvailable": false,
+                                    "provider": "betradar",
+                                    "outcomes": [
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "2b514d62-8bd4-4a66-9975-4abf33a31ccd",
+                                            "active": true,
+                                            "odds": 2.02,
+                                            "name": "m\u00e1s de 116.5",
+                                            "customBetAvailable": false,
+                                            "extId": "12"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "cbb1b92e-11cd-4760-a635-e069643a4fe5",
+                                            "active": true,
+                                            "odds": 1.77,
+                                            "name": "menos de 116.5",
+                                            "customBetAvailable": false,
+                                            "extId": "13"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "2e12a74f-abcf-47bf-909f-bb731c9b0927",
+                                    "name": "San Antonio Spurs total (incl. pr\u00f3rroga)",
+                                    "status": "active",
+                                    "extId": "227",
+                                    "specifiers": "total=117.5",
+                                    "customBetAvailable": false,
+                                    "provider": "betradar",
+                                    "outcomes": [
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "5ea6d035-f8c4-4549-b4d5-318c0124aa76",
+                                            "active": true,
+                                            "odds": 2.18,
+                                            "name": "m\u00e1s de 117.5",
+                                            "customBetAvailable": false,
+                                            "extId": "12"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "0c134565-c984-4b9c-80eb-2fd9b88d97e2",
+                                            "active": true,
+                                            "odds": 1.67,
+                                            "name": "menos de 117.5",
+                                            "customBetAvailable": false,
+                                            "extId": "13"
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "id": "ef6ae46c-e02d-48fe-ab8e-b55d42ec6f60",
+                            "extId": "228",
+                            "rank": 7.046875,
+                            "name": "{$competitor2} total (incl. pr\u00f3rroga)",
+                            "markets": [
+                                {
+                                    "id": "5fdfdd6c-2b4a-4f58-9c58-1d288c5bc909",
+                                    "name": "Minnesota Timberwolves total (incl. pr\u00f3rroga)",
+                                    "status": "active",
+                                    "extId": "228",
+                                    "specifiers": "total=100.5",
+                                    "customBetAvailable": false,
+                                    "provider": "betradar",
+                                    "outcomes": [
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "2ba28e36-11a0-49db-ac7b-5e2472078f39",
+                                            "active": true,
+                                            "odds": 1.81,
+                                            "name": "m\u00e1s de 100.5",
+                                            "customBetAvailable": false,
+                                            "extId": "12"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "9d7e226c-5325-48c2-aeb1-d33b3ec4ee8f",
+                                            "active": true,
+                                            "odds": 1.97,
+                                            "name": "menos de 100.5",
+                                            "customBetAvailable": false,
+                                            "extId": "13"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "319b6929-e58b-4d59-91ac-a7b061b3f744",
+                                    "name": "Minnesota Timberwolves total (incl. pr\u00f3rroga)",
+                                    "status": "active",
+                                    "extId": "228",
+                                    "specifiers": "total=101.5",
+                                    "customBetAvailable": false,
+                                    "provider": "betradar",
+                                    "outcomes": [
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "3a11df4d-f7eb-4018-ac24-fa7a6dd125ed",
+                                            "active": true,
+                                            "odds": 1.95,
+                                            "name": "m\u00e1s de 101.5",
+                                            "customBetAvailable": false,
+                                            "extId": "12"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "24f20b86-85fe-4747-af0e-844132292af1",
+                                            "active": true,
+                                            "odds": 1.83,
+                                            "name": "menos de 101.5",
+                                            "customBetAvailable": false,
+                                            "extId": "13"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "b9fd26a9-fc39-4da2-b36d-a3b8c5a0ade5",
+                                    "name": "Minnesota Timberwolves total (incl. pr\u00f3rroga)",
+                                    "status": "active",
+                                    "extId": "228",
+                                    "specifiers": "total=102.5",
+                                    "customBetAvailable": false,
+                                    "provider": "betradar",
+                                    "outcomes": [
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "0187e3f9-ac14-4fb4-8318-15f02f88dfa3",
+                                            "active": true,
+                                            "odds": 2.1,
+                                            "name": "m\u00e1s de 102.5",
+                                            "customBetAvailable": false,
+                                            "extId": "12"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "848cedaa-4428-4cd7-8c37-78b45785c6e3",
+                                            "active": true,
+                                            "odds": 1.71,
+                                            "name": "menos de 102.5",
+                                            "customBetAvailable": false,
+                                            "extId": "13"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "5edfb6a5-52ca-4caf-ab67-4de2714f6de0",
+                                    "name": "Minnesota Timberwolves total (incl. pr\u00f3rroga)",
+                                    "status": "active",
+                                    "extId": "228",
+                                    "specifiers": "total=103.5",
+                                    "customBetAvailable": false,
+                                    "provider": "betradar",
+                                    "outcomes": [
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "5270257c-44ec-42ed-9d66-b5cd4891ab2a",
+                                            "active": true,
+                                            "odds": 2.29,
+                                            "name": "m\u00e1s de 103.5",
+                                            "customBetAvailable": false,
+                                            "extId": "12"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "e0c41d02-f4ed-41cd-bb1e-caf84299f742",
+                                            "active": true,
+                                            "odds": 1.61,
+                                            "name": "menos de 103.5",
+                                            "customBetAvailable": false,
+                                            "extId": "13"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "5b1bd06a-357a-4804-ba00-300c39b8d30e",
+                                    "name": "Minnesota Timberwolves total (incl. pr\u00f3rroga)",
+                                    "status": "active",
+                                    "extId": "228",
+                                    "specifiers": "total=99.5",
+                                    "customBetAvailable": false,
+                                    "provider": "betradar",
+                                    "outcomes": [
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "a14a47a0-7f28-4915-bc27-8d330efc44d4",
+                                            "active": true,
+                                            "odds": 1.69,
+                                            "name": "m\u00e1s de 99.5",
+                                            "customBetAvailable": false,
+                                            "extId": "12"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "ffa41739-acbc-4381-9fdb-7129633bbcb6",
+                                            "active": true,
+                                            "odds": 2.14,
+                                            "name": "menos de 99.5",
+                                            "customBetAvailable": false,
+                                            "extId": "13"
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "id": "f217317d-d32a-40f6-ab8d-b892646ee551",
+                            "extId": "47",
+                            "rank": 6.0625,
+                            "name": "Mitad de Tiempo/Tiempo Completo",
+                            "markets": [
+                                {
+                                    "id": "4d39f39f-668d-436f-8781-ce2cee771db3",
+                                    "name": "Mitad de Tiempo/Tiempo Completo",
+                                    "status": "active",
+                                    "extId": "47",
+                                    "specifiers": "",
+                                    "customBetAvailable": false,
+                                    "provider": "betradar",
+                                    "outcomes": [
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "cc5b9a46-4e31-4c90-87f6-4529a99828d3",
+                                            "active": true,
+                                            "odds": 1.23,
+                                            "name": "San Antonio Spurs/San Antonio Spurs",
+                                            "customBetAvailable": false,
+                                            "extId": "418"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "c4572c40-e896-4251-b522-38cc2fe46452",
+                                            "active": true,
+                                            "odds": 35,
+                                            "name": "San Antonio Spurs/empate",
+                                            "customBetAvailable": false,
+                                            "extId": "420"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "f382d114-6d7d-407a-9327-d44aa9557104",
+                                            "active": true,
+                                            "odds": 14,
+                                            "name": "San Antonio Spurs/Minnesota Timberwolves",
+                                            "customBetAvailable": false,
+                                            "extId": "422"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "781ddd82-9d20-492a-87cd-b0699ff8d85f",
+                                            "active": true,
+                                            "odds": 30,
+                                            "name": "empate/San Antonio Spurs",
+                                            "customBetAvailable": false,
+                                            "extId": "424"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "08c360d6-4cd2-48d6-aa41-a77828e2fb78",
+                                            "active": true,
+                                            "odds": 101,
+                                            "name": "empate/empate",
+                                            "customBetAvailable": false,
+                                            "extId": "426"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "e08526e0-7537-4136-8091-f0751b24dc3d",
+                                            "active": true,
+                                            "odds": 101,
+                                            "name": "empate/Minnesota Timberwolves",
+                                            "customBetAvailable": false,
+                                            "extId": "428"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "e132572b-b681-435f-9385-f970fa1ed231",
+                                            "active": true,
+                                            "odds": 6,
+                                            "name": "Minnesota Timberwolves/San Antonio Spurs",
+                                            "customBetAvailable": false,
+                                            "extId": "430"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "4b88c4e1-1cbf-43c3-a319-b40f9a55d543",
+                                            "active": true,
+                                            "odds": 50,
+                                            "name": "Minnesota Timberwolves/empate",
+                                            "customBetAvailable": false,
+                                            "extId": "432"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "371b94f1-a1de-4b04-9b3b-f29acde7a6f4",
+                                            "active": true,
+                                            "odds": 10,
+                                            "name": "Minnesota Timberwolves/Minnesota Timberwolves",
+                                            "customBetAvailable": false,
+                                            "extId": "434"
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "id": "dbc81bdd-1526-40df-a74e-5a8de4d3c4f0",
+                            "extId": "290",
+                            "rank": 4.5625,
+                            "name": "Margen de vitoria (incl. pr\u00f3rroga)",
+                            "markets": [
+                                {
+                                    "id": "97e3b64c-10fc-43b0-b451-a820697a9aa3",
+                                    "name": "Margen de vitoria (incl. pr\u00f3rroga)",
+                                    "status": "active",
+                                    "extId": "290",
+                                    "specifiers": "variant=sr:winning_margin_no_draw:11+",
+                                    "customBetAvailable": false,
+                                    "provider": "betradar",
+                                    "outcomes": [
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "7790c624-a19c-46fc-8e64-9cc57946bf71",
+                                            "active": true,
+                                            "odds": 1.48,
+                                            "name": "San Antonio Spurs por 11+",
+                                            "customBetAvailable": false,
+                                            "extId": "sr:winning_margin_no_draw:11+:137"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "28f0ef03-5450-440f-9fae-5b1945004c27",
+                                            "active": true,
+                                            "odds": 4.61,
+                                            "name": "San Antonio Spurs por 6-10",
+                                            "customBetAvailable": false,
+                                            "extId": "sr:winning_margin_no_draw:11+:138"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "dd14d741-f5dc-4934-b6fc-4bfb72bd982f",
+                                            "active": true,
+                                            "odds": 7.97,
+                                            "name": "San Antonio Spurs by 1-5",
+                                            "customBetAvailable": false,
+                                            "extId": "sr:winning_margin_no_draw:11+:139"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "eec4d799-ab91-41ec-820b-90e704240155",
+                                            "active": true,
+                                            "odds": 12.87,
+                                            "name": "Minnesota Timberwolves por 1-5",
+                                            "customBetAvailable": false,
+                                            "extId": "sr:winning_margin_no_draw:11+:140"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "a3626f82-5649-477c-a950-e0fbb95e27a5",
+                                            "active": true,
+                                            "odds": 20.12,
+                                            "name": "Minnesota Timberwolves por 6-10",
+                                            "customBetAvailable": false,
+                                            "extId": "sr:winning_margin_no_draw:11+:141"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "599fab00-5540-4a28-a56b-909ab778568c",
+                                            "active": true,
+                                            "odds": 28.86,
+                                            "name": "Minnesota Timberwolves por 11+",
+                                            "customBetAvailable": false,
+                                            "extId": "sr:winning_margin_no_draw:11+:142"
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "id": "cd335ef7-3867-41a7-9016-ad2413805877",
+                            "extId": "220",
+                            "rank": 4.125,
+                            "name": "Habr\u00e1 pr\u00f3rroga",
+                            "markets": [
+                                {
+                                    "id": "bd31fbcf-8493-48a8-8ddf-072ebc7bf8f9",
+                                    "name": "Habr\u00e1 pr\u00f3rroga",
+                                    "status": "active",
+                                    "extId": "220",
+                                    "specifiers": "",
+                                    "customBetAvailable": false,
+                                    "provider": "betradar",
+                                    "outcomes": [
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "6e77e9b6-0884-492a-88a7-3c3c55944cbe",
+                                            "active": true,
+                                            "odds": 25,
+                                            "name": "S\u00ed",
+                                            "customBetAvailable": false,
+                                            "extId": "74"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "c35373d3-22e5-4b34-9a73-39ab6998413a",
+                                            "active": true,
+                                            "odds": 1.01,
+                                            "name": "no",
+                                            "customBetAvailable": false,
+                                            "extId": "76"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}

@@ -1,0 +1,821 @@
+{
+    "data": {
+        "highrollerSportBets": [
+            {
+                "id": "d9d4aab4-e7c6-4e09-8cb2-ea7604067960",
+                "iid": "sport:573852474",
+                "bet": {
+                    "__typename": "SportBet",
+                    "id": "d9d4aab4-e7c6-4e09-8cb2-ea7604067960",
+                    "customBet": false,
+                    "updatedAt": "Sat, 02 May 2026 13:33:15 GMT",
+                    "createdAt": "Sat, 02 May 2026 13:33:03 GMT",
+                    "potentialMultiplier": 1.0710000000000002,
+                    "amount": 0.02095323,
+                    "currency": "btc",
+                    "user": null,
+                    "outcomes": [
+                        {
+                            "id": "053bb420-9b3f-4a07-a6bf-b1310328f673",
+                            "odds": 1.02,
+                            "fixtureAbreviation": "VIL - LEV",
+                            "fixtureName": "Villarreal CF - Levante UD",
+                            "fixture": {
+                                "id": "258eb9d7-0d7b-47bd-b974-767cb6a4c35c",
+                                "tournament": {
+                                    "id": "656ef645-5872-4645-ae8c-001d74d9ce58",
+                                    "category": {
+                                        "id": "5cb1d329-9e74-4205-b8ee-aa706a0afa8a",
+                                        "sport": {
+                                            "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                            "slug": "soccer"
+                                        }
+                                    }
+                                },
+                                "status": "live",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Villarreal CF",
+                                            "abbreviation": "VIL"
+                                        },
+                                        {
+                                            "name": "Levante UD",
+                                            "abbreviation": "LEV"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "053bb420-9b3f-4a07-a6bf-b1310328f673",
+                                "odds": 1.02,
+                                "name": "Villarreal CF"
+                            },
+                            "market": {
+                                "id": "a08fe0dd-dc48-42e7-acb7-ca9a48a2d0b4",
+                                "name": "1x2",
+                                "status": "active"
+                            }
+                        },
+                        {
+                            "id": "278215bb-9b08-4566-b06a-b644ed30a640",
+                            "odds": 1.05,
+                            "fixtureAbreviation": "NAN - OM",
+                            "fixtureName": "FC Nantes - Olympique Marsella",
+                            "fixture": {
+                                "id": "87b551fb-5a89-474f-8bff-353c1753bd1c",
+                                "tournament": {
+                                    "id": "4ec37b6b-a7f8-456a-b18b-e127f06d52b7",
+                                    "category": {
+                                        "id": "2b4b95e5-ef93-4d72-8ea2-f0c138c9632a",
+                                        "sport": {
+                                            "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                            "slug": "soccer"
+                                        }
+                                    }
+                                },
+                                "status": "live",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "FC Nantes",
+                                            "abbreviation": "NAN"
+                                        },
+                                        {
+                                            "name": "Olympique Marsella",
+                                            "abbreviation": "OM"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "278215bb-9b08-4566-b06a-b644ed30a640",
+                                "odds": 1.05,
+                                "name": "menos de 1.5"
+                            },
+                            "market": {
+                                "id": "013e3fb6-4ea5-4d2e-80fa-8342cbc10963",
+                                "name": "1\u00ba Mitad - total",
+                                "status": "active"
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "f63aa863-cdda-45d0-b38b-a305cbc6060f",
+                "iid": "sport:573852465",
+                "bet": {
+                    "__typename": "SportBet",
+                    "id": "f63aa863-cdda-45d0-b38b-a305cbc6060f",
+                    "customBet": false,
+                    "updatedAt": "Sat, 02 May 2026 13:33:11 GMT",
+                    "createdAt": "Sat, 02 May 2026 13:33:03 GMT",
+                    "potentialMultiplier": 1.9375,
+                    "amount": 2480,
+                    "currency": "usdt",
+                    "user": null,
+                    "outcomes": [
+                        {
+                            "id": "6cbbc610-a6fc-4e05-90f8-78c010830ccc",
+                            "odds": 1.25,
+                            "fixtureAbreviation": "EIN - SVH",
+                            "fixtureName": "Eintracht Frankfurt - Hamburgo",
+                            "fixture": {
+                                "id": "de447e17-8aef-492c-9af2-aca823057e87",
+                                "tournament": {
+                                    "id": "1add4a75-3be9-4f08-b8f8-b33d903faf74",
+                                    "category": {
+                                        "id": "92c38c7a-12a7-4477-8454-7b151196f68c",
+                                        "sport": {
+                                            "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                            "slug": "soccer"
+                                        }
+                                    }
+                                },
+                                "status": "live",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Eintracht Frankfurt",
+                                            "abbreviation": "EIN"
+                                        },
+                                        {
+                                            "name": "Hamburgo",
+                                            "abbreviation": "SVH"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "6cbbc610-a6fc-4e05-90f8-78c010830ccc",
+                                "odds": 1.25,
+                                "name": "m\u00e1s de 0.5"
+                            },
+                            "market": {
+                                "id": "daa4bc15-4887-4160-8268-8afebc9585ce",
+                                "name": "1\u00ba Mitad - total",
+                                "status": "active"
+                            }
+                        },
+                        {
+                            "id": "92547feb-52da-4f83-9f54-86a7cc8cc2ba",
+                            "odds": 1.55,
+                            "fixtureAbreviation": "VIL - LEV",
+                            "fixtureName": "Villarreal CF - Levante UD",
+                            "fixture": {
+                                "id": "258eb9d7-0d7b-47bd-b974-767cb6a4c35c",
+                                "tournament": {
+                                    "id": "656ef645-5872-4645-ae8c-001d74d9ce58",
+                                    "category": {
+                                        "id": "5cb1d329-9e74-4205-b8ee-aa706a0afa8a",
+                                        "sport": {
+                                            "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                            "slug": "soccer"
+                                        }
+                                    }
+                                },
+                                "status": "live",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Villarreal CF",
+                                            "abbreviation": "VIL"
+                                        },
+                                        {
+                                            "name": "Levante UD",
+                                            "abbreviation": "LEV"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "92547feb-52da-4f83-9f54-86a7cc8cc2ba",
+                                "odds": 1.55,
+                                "name": "m\u00e1s de 4.5"
+                            },
+                            "market": {
+                                "id": "a5d7788f-01f9-4f40-8109-d429e245d3fa",
+                                "name": "Totales asi\u00e1ticos",
+                                "status": "active"
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "c84f2fe1-cc9f-41f0-b385-a3183faee86c",
+                "iid": "sport:573852329",
+                "bet": {
+                    "__typename": "SportBet",
+                    "id": "c84f2fe1-cc9f-41f0-b385-a3183faee86c",
+                    "customBet": false,
+                    "updatedAt": "Sat, 02 May 2026 13:32:55 GMT",
+                    "createdAt": "Sat, 02 May 2026 13:32:55 GMT",
+                    "potentialMultiplier": 1.92,
+                    "amount": 4595,
+                    "currency": "usdt",
+                    "user": null,
+                    "outcomes": [
+                        {
+                            "id": "ed2c878e-16aa-40df-ab51-9cb8d79fc8d2",
+                            "odds": 1.92,
+                            "fixtureAbreviation": "BRE - WHU",
+                            "fixtureName": "Brentford FC - West Ham United FC",
+                            "fixture": {
+                                "id": "5f7f4fd7-a8c5-4f26-bad0-3c905b8f8eef",
+                                "tournament": {
+                                    "id": "c94f5db7-4fd2-4407-a4fc-9a4e807f0ea1",
+                                    "category": {
+                                        "id": "a6b53401-44c7-4e13-a560-ed1de8189773",
+                                        "sport": {
+                                            "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                            "slug": "soccer"
+                                        }
+                                    }
+                                },
+                                "status": "active",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Brentford FC",
+                                            "abbreviation": "BRE"
+                                        },
+                                        {
+                                            "name": "West Ham United FC",
+                                            "abbreviation": "WHU"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "ed2c878e-16aa-40df-ab51-9cb8d79fc8d2",
+                                "odds": 1.92,
+                                "name": "Brentford FC"
+                            },
+                            "market": {
+                                "id": "8cf93765-1c02-45a1-a968-7e930e6d5434",
+                                "name": "1x2",
+                                "status": "active"
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "4caa3abb-9111-41f8-bb53-f84fb1024e31",
+                "iid": "sport:573852302",
+                "bet": {
+                    "__typename": "SportBet",
+                    "id": "4caa3abb-9111-41f8-bb53-f84fb1024e31",
+                    "customBet": false,
+                    "updatedAt": "Sat, 02 May 2026 13:32:54 GMT",
+                    "createdAt": "Sat, 02 May 2026 13:32:53 GMT",
+                    "potentialMultiplier": 1.98,
+                    "amount": 3.17995203,
+                    "currency": "eth",
+                    "user": null,
+                    "outcomes": [
+                        {
+                            "id": "63fc7b6b-10f3-45d4-b0ab-49c839572029",
+                            "odds": 1.98,
+                            "fixtureAbreviation": "DEL - PRA",
+                            "fixtureName": "Jack Della Maddalena - Carlos Prates",
+                            "fixture": {
+                                "id": "6186beee-89eb-43b5-ad63-4abfe0a45400",
+                                "tournament": {
+                                    "id": "332dd74e-0713-471d-9dea-40ea33a5d09c",
+                                    "category": {
+                                        "id": "242c5b7a-11e6-4c09-a846-99c891f64d37",
+                                        "sport": {
+                                            "id": "5c6b950d-68fe-43d1-abab-f2c5892043ac",
+                                            "slug": "mma"
+                                        }
+                                    }
+                                },
+                                "status": "active",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Jack Della Maddalena",
+                                            "abbreviation": "DEL"
+                                        },
+                                        {
+                                            "name": "Carlos Prates",
+                                            "abbreviation": "PRA"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "63fc7b6b-10f3-45d4-b0ab-49c839572029",
+                                "odds": 1.98,
+                                "name": "Carlos Prates"
+                            },
+                            "market": {
+                                "id": "dcaff609-fef3-45ef-82a1-9dd86e54be7f",
+                                "name": "Ganador",
+                                "status": "active"
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "ab58f3b2-bc34-470b-8047-23eff159c98d",
+                "iid": "sport:573852016",
+                "bet": {
+                    "__typename": "SportBet",
+                    "id": "ab58f3b2-bc34-470b-8047-23eff159c98d",
+                    "customBet": false,
+                    "updatedAt": "Sat, 02 May 2026 13:32:42 GMT",
+                    "createdAt": "Sat, 02 May 2026 13:32:38 GMT",
+                    "potentialMultiplier": 2.65,
+                    "amount": 2000,
+                    "currency": "usdc",
+                    "user": null,
+                    "outcomes": [
+                        {
+                            "id": "7eccb068-71a6-4c67-b03b-09881264eadf",
+                            "odds": 2.65,
+                            "fixtureAbreviation": "UNI - COL",
+                            "fixtureName": "Union Berlin - 1. FC Colonia",
+                            "fixture": {
+                                "id": "fa740d5d-61a8-434c-bcd9-ec2c955ed916",
+                                "tournament": {
+                                    "id": "1add4a75-3be9-4f08-b8f8-b33d903faf74",
+                                    "category": {
+                                        "id": "92c38c7a-12a7-4477-8454-7b151196f68c",
+                                        "sport": {
+                                            "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                            "slug": "soccer"
+                                        }
+                                    }
+                                },
+                                "status": "live",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Union Berlin",
+                                            "abbreviation": "UNI"
+                                        },
+                                        {
+                                            "name": "1. FC Colonia",
+                                            "abbreviation": "COL"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "7eccb068-71a6-4c67-b03b-09881264eadf",
+                                "odds": 2.7,
+                                "name": "Union Berlin"
+                            },
+                            "market": {
+                                "id": "0d623712-3bda-44ca-8661-47a3ff458608",
+                                "name": "1x2",
+                                "status": "active"
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "e0f70398-cfe1-4fca-af96-bf49acd30da5",
+                "iid": "sport:573851951",
+                "bet": {
+                    "__typename": "SportBet",
+                    "id": "e0f70398-cfe1-4fca-af96-bf49acd30da5",
+                    "customBet": false,
+                    "updatedAt": "Sat, 02 May 2026 13:32:34 GMT",
+                    "createdAt": "Sat, 02 May 2026 13:32:34 GMT",
+                    "potentialMultiplier": 1.98,
+                    "amount": 5300,
+                    "currency": "usdc",
+                    "user": null,
+                    "outcomes": [
+                        {
+                            "id": "63fc7b6b-10f3-45d4-b0ab-49c839572029",
+                            "odds": 1.98,
+                            "fixtureAbreviation": "DEL - PRA",
+                            "fixtureName": "Jack Della Maddalena - Carlos Prates",
+                            "fixture": {
+                                "id": "6186beee-89eb-43b5-ad63-4abfe0a45400",
+                                "tournament": {
+                                    "id": "332dd74e-0713-471d-9dea-40ea33a5d09c",
+                                    "category": {
+                                        "id": "242c5b7a-11e6-4c09-a846-99c891f64d37",
+                                        "sport": {
+                                            "id": "5c6b950d-68fe-43d1-abab-f2c5892043ac",
+                                            "slug": "mma"
+                                        }
+                                    }
+                                },
+                                "status": "active",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Jack Della Maddalena",
+                                            "abbreviation": "DEL"
+                                        },
+                                        {
+                                            "name": "Carlos Prates",
+                                            "abbreviation": "PRA"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "63fc7b6b-10f3-45d4-b0ab-49c839572029",
+                                "odds": 1.98,
+                                "name": "Carlos Prates"
+                            },
+                            "market": {
+                                "id": "dcaff609-fef3-45ef-82a1-9dd86e54be7f",
+                                "name": "Ganador",
+                                "status": "active"
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "365dc512-ac6e-44f5-9571-4f5e6093196d",
+                "iid": "sport:573851515",
+                "bet": {
+                    "__typename": "SportBet",
+                    "id": "365dc512-ac6e-44f5-9571-4f5e6093196d",
+                    "customBet": false,
+                    "updatedAt": "Sat, 02 May 2026 13:32:29 GMT",
+                    "createdAt": "Sat, 02 May 2026 13:32:15 GMT",
+                    "potentialMultiplier": 1.1,
+                    "amount": 5000,
+                    "currency": "usdc",
+                    "user": null,
+                    "outcomes": [
+                        {
+                            "id": "baa86751-e8a7-4101-949a-7bb68801d225",
+                            "odds": 1.1,
+                            "fixtureAbreviation": "BM - HEI",
+                            "fixtureName": "Bayern M\u00fanich - 1. FC Heidenheim 1846",
+                            "fixture": {
+                                "id": "e0d105fe-5050-4970-93f2-0e9261142330",
+                                "tournament": {
+                                    "id": "1add4a75-3be9-4f08-b8f8-b33d903faf74",
+                                    "category": {
+                                        "id": "92c38c7a-12a7-4477-8454-7b151196f68c",
+                                        "sport": {
+                                            "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                            "slug": "soccer"
+                                        }
+                                    }
+                                },
+                                "status": "live",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Bayern M\u00fanich",
+                                            "abbreviation": "BM"
+                                        },
+                                        {
+                                            "name": "1. FC Heidenheim 1846",
+                                            "abbreviation": "HEI"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "baa86751-e8a7-4101-949a-7bb68801d225",
+                                "odds": 1.1,
+                                "name": "Bayern M\u00fanich o empate"
+                            },
+                            "market": {
+                                "id": "bc4f5af1-2d6c-4445-8155-c263cd25b5e9",
+                                "name": "Doble Oportunidad",
+                                "status": "active"
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "201e20d6-ee6c-410e-a019-f05e0295b5e8",
+                "iid": "sport:573851728",
+                "bet": {
+                    "__typename": "SportBet",
+                    "id": "201e20d6-ee6c-410e-a019-f05e0295b5e8",
+                    "customBet": false,
+                    "updatedAt": "Sat, 02 May 2026 13:32:26 GMT",
+                    "createdAt": "Sat, 02 May 2026 13:32:26 GMT",
+                    "potentialMultiplier": 1.98,
+                    "amount": 0.02166201,
+                    "currency": "btc",
+                    "user": null,
+                    "outcomes": [
+                        {
+                            "id": "63fc7b6b-10f3-45d4-b0ab-49c839572029",
+                            "odds": 1.98,
+                            "fixtureAbreviation": "DEL - PRA",
+                            "fixtureName": "Jack Della Maddalena - Carlos Prates",
+                            "fixture": {
+                                "id": "6186beee-89eb-43b5-ad63-4abfe0a45400",
+                                "tournament": {
+                                    "id": "332dd74e-0713-471d-9dea-40ea33a5d09c",
+                                    "category": {
+                                        "id": "242c5b7a-11e6-4c09-a846-99c891f64d37",
+                                        "sport": {
+                                            "id": "5c6b950d-68fe-43d1-abab-f2c5892043ac",
+                                            "slug": "mma"
+                                        }
+                                    }
+                                },
+                                "status": "active",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Jack Della Maddalena",
+                                            "abbreviation": "DEL"
+                                        },
+                                        {
+                                            "name": "Carlos Prates",
+                                            "abbreviation": "PRA"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "63fc7b6b-10f3-45d4-b0ab-49c839572029",
+                                "odds": 1.98,
+                                "name": "Carlos Prates"
+                            },
+                            "market": {
+                                "id": "dcaff609-fef3-45ef-82a1-9dd86e54be7f",
+                                "name": "Ganador",
+                                "status": "active"
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "6a445438-d7b4-464f-85d2-2c86944de235",
+                "iid": "sport:573851371",
+                "bet": {
+                    "__typename": "SportBet",
+                    "id": "6a445438-d7b4-464f-85d2-2c86944de235",
+                    "customBet": false,
+                    "updatedAt": "Sat, 02 May 2026 13:32:21 GMT",
+                    "createdAt": "Sat, 02 May 2026 13:32:05 GMT",
+                    "potentialMultiplier": 1.25,
+                    "amount": 0.01912941,
+                    "currency": "btc",
+                    "user": null,
+                    "outcomes": [
+                        {
+                            "id": "d60ff8c7-29ee-44d3-9dd7-71ca41e94e09",
+                            "odds": 1.25,
+                            "fixtureAbreviation": "BM - HEI",
+                            "fixtureName": "Bayern M\u00fanich - 1. FC Heidenheim 1846",
+                            "fixture": {
+                                "id": "e0d105fe-5050-4970-93f2-0e9261142330",
+                                "tournament": {
+                                    "id": "1add4a75-3be9-4f08-b8f8-b33d903faf74",
+                                    "category": {
+                                        "id": "92c38c7a-12a7-4477-8454-7b151196f68c",
+                                        "sport": {
+                                            "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                            "slug": "soccer"
+                                        }
+                                    }
+                                },
+                                "status": "live",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Bayern M\u00fanich",
+                                            "abbreviation": "BM"
+                                        },
+                                        {
+                                            "name": "1. FC Heidenheim 1846",
+                                            "abbreviation": "HEI"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "d60ff8c7-29ee-44d3-9dd7-71ca41e94e09",
+                                "odds": 1.25,
+                                "name": "Bayern M\u00fanich"
+                            },
+                            "market": {
+                                "id": "06aafcd4-a5d1-41c4-a78f-2e27ada5757b",
+                                "name": "1x2",
+                                "status": "active"
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "46549dbe-09a4-47c7-807c-ff78aff7affd",
+                "iid": "sport:573851453",
+                "bet": {
+                    "__typename": "SportBet",
+                    "id": "46549dbe-09a4-47c7-807c-ff78aff7affd",
+                    "customBet": false,
+                    "updatedAt": "Sat, 02 May 2026 13:32:18 GMT",
+                    "createdAt": "Sat, 02 May 2026 13:32:11 GMT",
+                    "potentialMultiplier": 5.1968000000000005,
+                    "amount": 3021.99985676,
+                    "currency": "trx",
+                    "user": null,
+                    "outcomes": [
+                        {
+                            "id": "235f3161-43cb-4ec0-b79a-cd1f71e15196",
+                            "odds": 1.6,
+                            "fixtureAbreviation": "FCZ - DUK",
+                            "fixtureName": "FC Fastav Zlin - Dukla Prague",
+                            "fixture": {
+                                "id": "84cb32db-5284-4e47-85a3-987a941ebb2b",
+                                "tournament": {
+                                    "id": "75e37056-417a-4692-a121-f805c10d8194",
+                                    "category": {
+                                        "id": "f2dc7263-096a-4c8b-a468-b48bfd60d73c",
+                                        "sport": {
+                                            "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                            "slug": "soccer"
+                                        }
+                                    }
+                                },
+                                "status": "live",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "FC Fastav Zlin",
+                                            "abbreviation": "FCZ"
+                                        },
+                                        {
+                                            "name": "FK Dukla Prague",
+                                            "abbreviation": "DUK"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "235f3161-43cb-4ec0-b79a-cd1f71e15196",
+                                "odds": 1,
+                                "name": "m\u00e1s de 2.25"
+                            },
+                            "market": {
+                                "id": "63f4c656-829c-4124-810d-c5bb6d2ad5ed",
+                                "name": "Totales asi\u00e1ticos",
+                                "status": "deactivated"
+                            }
+                        },
+                        {
+                            "id": "3c0a5191-7b7d-40eb-90f0-84914cbaa869",
+                            "odds": 1.4,
+                            "fixtureAbreviation": "COR - BUY",
+                            "fixtureName": "Corum FK - Erzurumspor FK",
+                            "fixture": {
+                                "id": "91239224-36f7-42b5-8bac-9280f34f4a86",
+                                "tournament": {
+                                    "id": "5eb05022-718f-4987-a585-e82f0a5be95d",
+                                    "category": {
+                                        "id": "d80ddfff-3071-4913-9b0c-542cf52bffb6",
+                                        "sport": {
+                                            "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                            "slug": "soccer"
+                                        }
+                                    }
+                                },
+                                "status": "live",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Corum FK",
+                                            "abbreviation": "COR"
+                                        },
+                                        {
+                                            "name": "Buyuksehir Belediye Erzurumspor",
+                                            "abbreviation": "BUY"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "3c0a5191-7b7d-40eb-90f0-84914cbaa869",
+                                "odds": 1.4,
+                                "name": "m\u00e1s de 2.5"
+                            },
+                            "market": {
+                                "id": "833f1a39-bbc0-4f9e-8500-a277d1c3a5e2",
+                                "name": "Totales asi\u00e1ticos",
+                                "status": "active"
+                            }
+                        },
+                        {
+                            "id": "ce6b70d7-e587-4715-bee5-b568470a4511",
+                            "odds": 1.6,
+                            "fixtureAbreviation": "BOH - SIG",
+                            "fixtureName": "Bohemians Praga - SK Sigma Olomouc",
+                            "fixture": {
+                                "id": "b0a11c58-54d4-4fee-b0a1-c4b326da81e0",
+                                "tournament": {
+                                    "id": "75e37056-417a-4692-a121-f805c10d8194",
+                                    "category": {
+                                        "id": "f2dc7263-096a-4c8b-a468-b48bfd60d73c",
+                                        "sport": {
+                                            "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                            "slug": "soccer"
+                                        }
+                                    }
+                                },
+                                "status": "live",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Bohemians Prague 1905",
+                                            "abbreviation": "BOH"
+                                        },
+                                        {
+                                            "name": "SK Sigma Olomouc",
+                                            "abbreviation": "SIG"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "ce6b70d7-e587-4715-bee5-b568470a4511",
+                                "odds": 1.6,
+                                "name": "m\u00e1s de 1.25"
+                            },
+                            "market": {
+                                "id": "5c9da3b9-746d-4f06-aab6-1804f7fa3f5d",
+                                "name": "Totales asi\u00e1ticos",
+                                "status": "active"
+                            }
+                        },
+                        {
+                            "id": "e4165c45-673f-441a-977d-2401f8b2e900",
+                            "odds": 1.45,
+                            "fixtureAbreviation": "BAS - SIV",
+                            "fixtureName": "Bandirmaspor - Sivasspor",
+                            "fixture": {
+                                "id": "c0cb5cea-9f4f-47f2-93ee-683ba1ce1889",
+                                "tournament": {
+                                    "id": "5eb05022-718f-4987-a585-e82f0a5be95d",
+                                    "category": {
+                                        "id": "d80ddfff-3071-4913-9b0c-542cf52bffb6",
+                                        "sport": {
+                                            "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                            "slug": "soccer"
+                                        }
+                                    }
+                                },
+                                "status": "live",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Bandirmaspor",
+                                            "abbreviation": "BAS"
+                                        },
+                                        {
+                                            "name": "Sivasspor",
+                                            "abbreviation": "SIV"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "e4165c45-673f-441a-977d-2401f8b2e900",
+                                "odds": 1.5,
+                                "name": "m\u00e1s de 2.5"
+                            },
+                            "market": {
+                                "id": "c599b74a-70b1-46c9-a9c6-f5cfbc60eca7",
+                                "name": "Totales asi\u00e1ticos",
+                                "status": "active"
+                            }
+                        }
+                    ]
+                }
+            }
+        ]
+    }
+}

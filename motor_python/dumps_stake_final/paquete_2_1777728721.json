@@ -1,0 +1,14 @@
+{
+    "data": {
+        "featureFlag": {
+            "id": "21489dde-db5f-485b-ad60-051d3620f87b",
+            "config": {
+                "enabled": false,
+                "type": "booleanConfig"
+            },
+            "name": "sports_bet_confirmation_flag",
+            "createdAt": "Thu, 27 Feb 2025 00:53:27 GMT",
+            "__typename": "FeatureFlag"
+        }
+    }
+}

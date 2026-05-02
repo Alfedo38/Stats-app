@@ -1,0 +1,500 @@
+{
+    "data": {
+        "info": {
+            "currencies": [
+                {
+                    "name": "eth",
+                    "sportBetMin": {
+                        "value": "0.000002817329812"
+                    }
+                },
+                {
+                    "name": "btc",
+                    "sportBetMin": {
+                        "value": "0.0000001571043449"
+                    }
+                },
+                {
+                    "name": "ltc",
+                    "sportBetMin": {
+                        "value": "0.0001226398844"
+                    }
+                },
+                {
+                    "name": "doge",
+                    "sportBetMin": {
+                        "value": "0.06518899787"
+                    }
+                },
+                {
+                    "name": "bch",
+                    "sportBetMin": {
+                        "value": "0.00002515612516"
+                    }
+                },
+                {
+                    "name": "xrp",
+                    "sportBetMin": {
+                        "value": "0.01689639132"
+                    }
+                },
+                {
+                    "name": "trx",
+                    "sportBetMin": {
+                        "value": "0.0877"
+                    }
+                },
+                {
+                    "name": "eos",
+                    "sportBetMin": {
+                        "value": "0.009807708637"
+                    }
+                },
+                {
+                    "name": "bnb",
+                    "sportBetMin": {
+                        "value": "0.00002541938564"
+                    }
+                },
+                {
+                    "name": "ape",
+                    "sportBetMin": {
+                        "value": "0.00483444747"
+                    }
+                },
+                {
+                    "name": "busd",
+                    "sportBetMin": {
+                        "value": "0.009"
+                    }
+                },
+                {
+                    "name": "cro",
+                    "sportBetMin": {
+                        "value": "0.06786925389"
+                    }
+                },
+                {
+                    "name": "dai",
+                    "sportBetMin": {
+                        "value": "0.009"
+                    }
+                },
+                {
+                    "name": "link",
+                    "sportBetMin": {
+                        "value": "0.0005296495116"
+                    }
+                },
+                {
+                    "name": "pol",
+                    "sportBetMin": {
+                        "value": "0.009732251472"
+                    }
+                },
+                {
+                    "name": "sand",
+                    "sportBetMin": {
+                        "value": "0.01569915118"
+                    }
+                },
+                {
+                    "name": "shib",
+                    "sportBetMin": {
+                        "value": "299.2706646"
+                    }
+                },
+                {
+                    "name": "sol",
+                    "sportBetMin": {
+                        "value": "0.00020000"
+                    }
+                },
+                {
+                    "name": "trump",
+                    "sportBetMin": {
+                        "value": "0.0001"
+                    }
+                },
+                {
+                    "name": "uni",
+                    "sportBetMin": {
+                        "value": "0.001366"
+                    }
+                },
+                {
+                    "name": "usdc",
+                    "sportBetMin": {
+                        "value": "0.009"
+                    }
+                },
+                {
+                    "name": "usdt",
+                    "sportBetMin": {
+                        "value": "0.009"
+                    }
+                },
+                {
+                    "name": "aed",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "ars",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "bam",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "bdt",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "bhd",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "bob",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "brl",
+                    "sportBetMin": {
+                        "value": "0.05"
+                    }
+                },
+                {
+                    "name": "cad",
+                    "sportBetMin": {
+                        "value": "0.01"
+                    }
+                },
+                {
+                    "name": "clp",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "cny",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "crc",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "dkk",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "egp",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "eur",
+                    "sportBetMin": {
+                        "value": "0.04"
+                    }
+                },
+                {
+                    "name": "ghs",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "gtq",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "huf",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "inr",
+                    "sportBetMin": {
+                        "value": "0.1"
+                    }
+                },
+                {
+                    "name": "ils",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "idr",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "isk",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "jod",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "jpy",
+                    "sportBetMin": {
+                        "value": "0.01"
+                    }
+                },
+                {
+                    "name": "kes",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "khr",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "krw",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "kwd",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "kzt",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "mad",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "mxn",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "mwk",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "myr",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "ngn",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "nok",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "nzd",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "omr",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "pen",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "php",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "pkr",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "pln",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "qar",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "rub",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "rwf",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "sar",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "sgd",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "tnd",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "thb",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "try",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "twd",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "tzs",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "ugx",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "usd",
+                    "sportBetMin": {
+                        "value": "0.04"
+                    }
+                },
+                {
+                    "name": "uzs",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "vnd",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "xaf",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "xof",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "zar",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "zmw",
+                    "sportBetMin": {
+                        "value": "1"
+                    }
+                },
+                {
+                    "name": "gold",
+                    "sportBetMin": {
+                        "value": "0.04"
+                    }
+                },
+                {
+                    "name": "sweeps",
+                    "sportBetMin": {
+                        "value": "0.04"
+                    }
+                }
+            ]
+        }
+    }
+}

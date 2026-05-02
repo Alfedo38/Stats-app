@@ -1,0 +1,641 @@
+{
+    "data": {
+        "slugFixture": {
+            "id": "0f45c30e-d388-4a0a-b5d5-3342a46ce027",
+            "betradarStream": {
+                "exists": true
+            },
+            "imgArenaStream": {
+                "exists": false
+            },
+            "abiosStream": null,
+            "geniussportsStream": {
+                "exists": false
+            },
+            "statsPerformStream": {
+                "isAvailable": false,
+                "geoBlocked": false
+            },
+            "liveStream": {
+                "data": null
+            },
+            "slug": "46467912-winner-of-w2-w7-winner-of-w3-w6",
+            "extId": "sr:match:70504952",
+            "status": "active",
+            "name": "San Antonio Spurs - Minnesota Timberwolves",
+            "provider": "betradar",
+            "widgetUrl": null,
+            "liveWidgetUrl": null,
+            "customBetAvailable": false,
+            "swishGame": null,
+            "eventStatus": {
+                "__typename": "SportFixtureEventStatusData",
+                "homeScore": null,
+                "awayScore": null,
+                "matchStatus": "No Iniciado",
+                "clock": {
+                    "matchTime": null,
+                    "remainingTime": null
+                },
+                "periodScores": null,
+                "currentTeamServing": null,
+                "homeGameScore": null,
+                "awayGameScore": null,
+                "statistic": {
+                    "yellowCards": {
+                        "away": null,
+                        "home": null
+                    },
+                    "redCards": {
+                        "away": null,
+                        "home": null
+                    },
+                    "corners": {
+                        "home": null,
+                        "away": null
+                    }
+                }
+            },
+            "data": {
+                "startTime": "Mon, 04 May 2026 23:00:00 GMT",
+                "competitors": [
+                    {
+                        "name": "San Antonio Spurs",
+                        "defaultName": "San Antonio Spurs",
+                        "extId": "sr:competitor:3429",
+                        "countryCode": "US",
+                        "abbreviation": "SAS",
+                        "iconPath": null
+                    },
+                    {
+                        "name": "Minnesota Timberwolves",
+                        "defaultName": "Minnesota Timberwolves",
+                        "extId": "sr:competitor:3426",
+                        "countryCode": "US",
+                        "abbreviation": "MIN",
+                        "iconPath": null
+                    }
+                ],
+                "teams": [
+                    {
+                        "name": "San Antonio Spurs",
+                        "qualifier": "home"
+                    },
+                    {
+                        "name": "Minnesota Timberwolves",
+                        "qualifier": "away"
+                    }
+                ],
+                "tvChannels": null,
+                "__typename": "SportFixtureDataMatch"
+            },
+            "contentNotes": [],
+            "tournament": {
+                "id": "eedee767-a2c7-4242-9d4c-5a01eb03df00",
+                "name": "NBA",
+                "slug": "nba",
+                "contentNotes": [
+                    {
+                        "id": "c0910bc5-ac60-4e15-aad2-7ded68f7ea5b",
+                        "createdAt": "Mon, 27 Oct 2025 00:43:51 GMT",
+                        "publishAt": "Wed, 01 Oct 2025 01:37:00 GMT",
+                        "expireAt": "Tue, 30 Jun 2026 01:37:00 GMT",
+                        "linkText": "Se aplican los T\u00e9rminos y Condiciones.",
+                        "linkUrl": "https://stake.com/promotions/promotion/nba-half-time-payout",
+                        "message": "\u2b50Pago por medio tiempo: Obt\u00e9n el pago si el equipo por el que apuestas lidera por +12 durante el Medio Tiempo pero pierde.",
+                        "locale": "en",
+                        "ref": {
+                            "id": "eedee767-a2c7-4242-9d4c-5a01eb03df00",
+                            "name": "NBA",
+                            "category": {
+                                "name": "Estados Unidos",
+                                "sport": {
+                                    "name": "Baloncesto"
+                                }
+                            }
+                        }
+                    }
+                ],
+                "category": {
+                    "id": "5e40323b-2d79-48d2-955f-3b0692d759c1",
+                    "name": "Estados Unidos",
+                    "slug": "usa",
+                    "contentNotes": [],
+                    "sport": {
+                        "id": "285d2c11-61ff-4d65-97e8-1bad9fdfa2c0",
+                        "name": "Baloncesto",
+                        "slug": "basketball",
+                        "contentNotes": []
+                    }
+                },
+                "frontRowSeatEvent": null
+            },
+            "groups": [
+                {
+                    "id": "907d3845-6483-4df3-b533-7dff48070a11",
+                    "name": "main",
+                    "translation": "Principal",
+                    "rank": 13
+                },
+                {
+                    "id": "5be00d57-0132-4c40-8623-26fd700249f1",
+                    "name": "combo",
+                    "translation": "Combinaci\u00f3n",
+                    "rank": 12.5
+                },
+                {
+                    "id": "a5078b8c-cf2f-413c-b337-43df2cfad13a",
+                    "name": "half",
+                    "translation": "Mitad",
+                    "rank": 12
+                },
+                {
+                    "id": "54b0eccd-1591-4f75-a2c4-030acb051b39",
+                    "name": "quarters",
+                    "translation": "Cuartos",
+                    "rank": 10.5
+                },
+                {
+                    "id": "6742aae6-124c-4d87-82b8-b3f873b6efab",
+                    "name": "points",
+                    "translation": "Puntos",
+                    "rank": 9
+                },
+                {
+                    "id": "cc1eb50c-ebfc-4557-b235-1383161d7b3d",
+                    "name": "threeway",
+                    "translation": "Tres V\u00edas",
+                    "rank": 0
+                },
+                {
+                    "id": "2bb97c08-0c55-4b9f-96e0-b52f3c569596",
+                    "name": "winner",
+                    "translation": "Ganador",
+                    "rank": 0
+                },
+                {
+                    "id": "60d16bdf-fa5e-461b-9727-e404994b8ead",
+                    "name": "Total",
+                    "translation": "Total",
+                    "rank": 0
+                },
+                {
+                    "id": "00f67eb7-eb9f-4073-9b0c-a398210a1c50",
+                    "name": "Handicap",
+                    "translation": "H\u00e1ndicap",
+                    "rank": 0
+                }
+            ],
+            "maps": [],
+            "frontRowSeatFight": null,
+            "group": [
+                {
+                    "name": "combo",
+                    "translation": "Combinaci\u00f3n",
+                    "rank": 12.5,
+                    "templates": [
+                        {
+                            "id": "decbee81-2cd3-4504-ac25-9cb3934cb9fb",
+                            "extId": "292",
+                            "rank": 1.5,
+                            "name": "Ganador y total (incl. pr\u00f3rroga)",
+                            "markets": [
+                                {
+                                    "id": "bbd70752-8eb1-42ae-9b65-a138c8ba896b",
+                                    "name": "Ganador y total (incl. pr\u00f3rroga)",
+                                    "status": "active",
+                                    "extId": "292",
+                                    "specifiers": "total=216.5",
+                                    "customBetAvailable": false,
+                                    "provider": "betradar",
+                                    "outcomes": [
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "9acbc539-5a3e-4301-9532-7350e9cf0392",
+                                            "active": true,
+                                            "odds": 2.03,
+                                            "name": "San Antonio Spurs y m\u00e1s de 216.5",
+                                            "customBetAvailable": false,
+                                            "extId": "973"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "e1664177-1d68-47da-a922-0bfc93174063",
+                                            "active": true,
+                                            "odds": 14,
+                                            "name": "Minnesota Timberwolves y m\u00e1s de 216.5",
+                                            "customBetAvailable": false,
+                                            "extId": "974"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "0dd01b63-efb6-4a5b-bf26-08ddb874a421",
+                                            "active": true,
+                                            "odds": 2.08,
+                                            "name": "San Antonio Spurs y menos de 216.5",
+                                            "customBetAvailable": false,
+                                            "extId": "975"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "15e6a42a-f57b-4216-9058-488ad36b5214",
+                                            "active": true,
+                                            "odds": 13,
+                                            "name": "Minnesota Timberwolves y menos de 216.5",
+                                            "customBetAvailable": false,
+                                            "extId": "976"
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "id": "7d5e4079-79f6-4fb6-89d3-fc6e8078f449",
+                            "extId": "1174",
+                            "rank": 1,
+                            "name": "H\u00e1ndicap (Pr\u00f3rroga incluida) y Total  (Pr\u00f3rroga incluida)",
+                            "markets": [
+                                {
+                                    "id": "e8dc36aa-4a9a-430d-ba32-a881011ddaed",
+                                    "name": "H\u00e1ndicap (Pr\u00f3rroga incluida) y Total  (Pr\u00f3rroga incluida)",
+                                    "status": "active",
+                                    "extId": "1174",
+                                    "specifiers": "total=216.5|hcp=-13.5",
+                                    "customBetAvailable": false,
+                                    "provider": "betradar",
+                                    "outcomes": [
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "81816a95-c6dd-49d9-8b41-2c56fe9d6ee8",
+                                            "active": true,
+                                            "odds": 3.38,
+                                            "name": "San Antonio Spurs (-13.5) y m\u00e1s de 216.5",
+                                            "customBetAvailable": false,
+                                            "extId": "2035"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "676e5d60-ab2e-4105-8d84-25785bb069ed",
+                                            "active": true,
+                                            "odds": 3.7,
+                                            "name": "San Antonio Spurs (-13.5) y menos de 216.5",
+                                            "customBetAvailable": false,
+                                            "extId": "2036"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "4b0a1193-97fd-4721-8fe3-3e66dd3f73df",
+                                            "active": true,
+                                            "odds": 3.75,
+                                            "name": "Minnesota Timberwolves (13.5) y m\u00e1s de 216.5",
+                                            "customBetAvailable": false,
+                                            "extId": "2037"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "f846f8e7-231c-4ca7-bdc6-0fc469715a2a",
+                                            "active": true,
+                                            "odds": 3.5,
+                                            "name": "Minnesota Timberwolves (13.5) y menos de 216.5",
+                                            "customBetAvailable": false,
+                                            "extId": "2038"
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "id": "9150332b-22c7-413b-ae64-e93e27468dc1",
+                            "extId": "37",
+                            "rank": 0.875,
+                            "name": "1x2 y total",
+                            "markets": [
+                                {
+                                    "id": "bfb94906-e57d-40f8-8a96-49d47e2f2184",
+                                    "name": "1x2 y total",
+                                    "status": "active",
+                                    "extId": "37",
+                                    "specifiers": "total=216.5",
+                                    "customBetAvailable": false,
+                                    "provider": "betradar",
+                                    "outcomes": [
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "73762f54-5a3b-43a0-bff1-79da31e0d9c3",
+                                            "active": true,
+                                            "odds": 2.04,
+                                            "name": "San Antonio Spurs y menos de 216.5",
+                                            "customBetAvailable": false,
+                                            "extId": "794"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "e23b07b0-b8ee-40a2-8e5b-994a5c7f2dfb",
+                                            "active": true,
+                                            "odds": 2.08,
+                                            "name": "San Antonio Spurs y m\u00e1s de 216.5",
+                                            "customBetAvailable": false,
+                                            "extId": "796"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "9bfb0a15-6d33-48fd-bfbc-32e5ebfb96a5",
+                                            "active": true,
+                                            "odds": 45,
+                                            "name": "empate y menos de 216.5",
+                                            "customBetAvailable": false,
+                                            "extId": "798"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "1c9dec70-c98c-4720-8e0d-6f86421a190c",
+                                            "active": true,
+                                            "odds": 55,
+                                            "name": "empate y m\u00e1s de 216.5",
+                                            "customBetAvailable": false,
+                                            "extId": "800"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "ad77ee8f-b4fd-4f7b-8cce-b41f4f0311c1",
+                                            "active": true,
+                                            "odds": 13.5,
+                                            "name": "Minnesota Timberwolves & menos de 216.5",
+                                            "customBetAvailable": false,
+                                            "extId": "802"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "63f987fe-90da-4f18-be98-afcf288eb178",
+                                            "active": true,
+                                            "odds": 15,
+                                            "name": "Minnesota Timberwolves & m\u00e1s de 216.5",
+                                            "customBetAvailable": false,
+                                            "extId": "804"
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "id": "6aad1d15-0de8-4294-babf-9aefcc0c1bee",
+                            "extId": "1177",
+                            "rank": 0.75,
+                            "name": "1\u00aa mitad 1x2 y 1\u00aa mitad total",
+                            "markets": [
+                                {
+                                    "id": "aa9a5740-fc69-4205-9b11-5df25a626ac1",
+                                    "name": "1\u00aa mitad 1x2 y 1\u00aa mitad total",
+                                    "status": "active",
+                                    "extId": "1177",
+                                    "specifiers": "total=105.5",
+                                    "customBetAvailable": false,
+                                    "provider": "betradar",
+                                    "outcomes": [
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "57f0caeb-6497-40d4-9e3a-0fff73447a5b",
+                                            "active": true,
+                                            "odds": 2.18,
+                                            "name": "San Antonio Spurs y menos de 105.5",
+                                            "customBetAvailable": false,
+                                            "extId": "794"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "42888a05-45dd-4399-8b0f-1adc47481922",
+                                            "active": true,
+                                            "odds": 2.19,
+                                            "name": "San Antonio Spurs y m\u00e1s de 105.5",
+                                            "customBetAvailable": false,
+                                            "extId": "796"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "994117df-be26-48b3-9c64-2125be4e065a",
+                                            "active": true,
+                                            "odds": 55,
+                                            "name": "empate y menos de 105.5",
+                                            "customBetAvailable": false,
+                                            "extId": "798"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "3f7e30be-e6bb-4d4c-9414-5ff394e2a1b2",
+                                            "active": true,
+                                            "odds": 59,
+                                            "name": "empate y m\u00e1s de 105.5",
+                                            "customBetAvailable": false,
+                                            "extId": "800"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "0a38857d-45c2-4859-89f0-b7f6d34a2a8f",
+                                            "active": true,
+                                            "odds": 8.2,
+                                            "name": "Minnesota Timberwolves & menos de 105.5",
+                                            "customBetAvailable": false,
+                                            "extId": "802"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "e60008b1-b363-49de-b7f1-c67d743d3a1d",
+                                            "active": true,
+                                            "odds": 9.2,
+                                            "name": "Minnesota Timberwolves & m\u00e1s de 105.5",
+                                            "customBetAvailable": false,
+                                            "extId": "804"
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "id": "bec4eb35-d9cd-4719-8a87-53682a780ef8",
+                            "extId": "1178",
+                            "rank": 0.625,
+                            "name": "1\u00aa mitad h\u00e1ndicap 1x2 y 1\u00aa mitad total",
+                            "markets": [
+                                {
+                                    "id": "acb23bfe-474c-4d0e-9d92-32072e76a3a4",
+                                    "name": "1\u00aa mitad h\u00e1ndicap 1x2 y 1\u00aa mitad total",
+                                    "status": "active",
+                                    "extId": "1178",
+                                    "specifiers": "total=105.5|hcp=-8.5",
+                                    "customBetAvailable": false,
+                                    "provider": "betradar",
+                                    "outcomes": [
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "99252ebd-9e7d-4687-8d42-fce0c53129c8",
+                                            "active": true,
+                                            "odds": 3.3,
+                                            "name": "San Antonio Spurs (-8.5) y m\u00e1s de 105.5",
+                                            "customBetAvailable": false,
+                                            "extId": "2035"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "7651bbd5-cc6e-4b6e-b632-d73c55d66c8a",
+                                            "active": true,
+                                            "odds": 3.55,
+                                            "name": "San Antonio Spurs (-8.5) y menos de 105.5",
+                                            "customBetAvailable": false,
+                                            "extId": "2036"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "4065f88b-4e6e-46b3-ad04-91f4ae394f8d",
+                                            "active": true,
+                                            "odds": 3.7,
+                                            "name": "Minnesota Timberwolves (8.5) y m\u00e1s de 105.5",
+                                            "customBetAvailable": false,
+                                            "extId": "2037"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "cf19db03-7828-49fa-a2bb-775ca7679e74",
+                                            "active": true,
+                                            "odds": 3.28,
+                                            "name": "Minnesota Timberwolves (8.5) y menos de 105.5",
+                                            "customBetAvailable": false,
+                                            "extId": "2038"
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "id": "99862bdc-7f0f-4c74-8847-d8eb4458d420",
+                            "extId": "1175",
+                            "rank": 0.5625,
+                            "name": "1\u00ba cuarto 1x2 y 1\u00ba cuarto total",
+                            "markets": [
+                                {
+                                    "id": "400b9de5-f72e-46db-850a-01d575546db6",
+                                    "name": "1\u00ba cuarto 1x2 y 1\u00ba cuarto total",
+                                    "status": "active",
+                                    "extId": "1175",
+                                    "specifiers": "total=52.5",
+                                    "customBetAvailable": false,
+                                    "provider": "betradar",
+                                    "outcomes": [
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "42691f82-7cdb-40d4-96cd-fd73a8641d03",
+                                            "active": true,
+                                            "odds": 2.42,
+                                            "name": "San Antonio Spurs y menos de 52.5",
+                                            "customBetAvailable": false,
+                                            "extId": "794"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "8e069b95-e76e-4639-a0b5-2ed59bdeee51",
+                                            "active": true,
+                                            "odds": 2.32,
+                                            "name": "San Antonio Spurs y m\u00e1s de 52.5",
+                                            "customBetAvailable": false,
+                                            "extId": "796"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "acef8d2e-3d3f-4a2a-8af9-4fa0d6c8ef35",
+                                            "active": true,
+                                            "odds": 33,
+                                            "name": "empate y menos de 52.5",
+                                            "customBetAvailable": false,
+                                            "extId": "798"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "c2168b81-7079-473c-9a8d-034c80730c72",
+                                            "active": true,
+                                            "odds": 43,
+                                            "name": "empate y m\u00e1s de 52.5",
+                                            "customBetAvailable": false,
+                                            "extId": "800"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "7ba63693-7ba2-4867-89ee-10574cc67185",
+                                            "active": true,
+                                            "odds": 6.8,
+                                            "name": "Minnesota Timberwolves & menos de 52.5",
+                                            "customBetAvailable": false,
+                                            "extId": "802"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "364c2e41-0efc-407f-9b3f-d2881f94e381",
+                                            "active": true,
+                                            "odds": 7.4,
+                                            "name": "Minnesota Timberwolves & m\u00e1s de 52.5",
+                                            "customBetAvailable": false,
+                                            "extId": "804"
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "id": "0d4db23b-a7c5-4c5d-b14d-486b028d343a",
+                            "extId": "1176",
+                            "rank": 0.53125,
+                            "name": "1\u00ba cuarto h\u00e1ndicap 1x2 y 1\u00ba cuarto total",
+                            "markets": [
+                                {
+                                    "id": "75a2b20c-e1c8-4316-ace6-1f9c7e65d458",
+                                    "name": "1\u00ba cuarto h\u00e1ndicap 1x2 y 1\u00ba cuarto total",
+                                    "status": "active",
+                                    "extId": "1176",
+                                    "specifiers": "total=52.5|hcp=-5.5",
+                                    "customBetAvailable": false,
+                                    "provider": "betradar",
+                                    "outcomes": [
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "a962783d-23e2-471c-a7e7-06942c4f6db2",
+                                            "active": true,
+                                            "odds": 3.38,
+                                            "name": "San Antonio Spurs (-5.5) y m\u00e1s de 52.5",
+                                            "customBetAvailable": false,
+                                            "extId": "2035"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "ed671554-7475-4ef2-a8d5-fd9173534f9d",
+                                            "active": true,
+                                            "odds": 3.85,
+                                            "name": "San Antonio Spurs (-5.5) y menos de 52.5",
+                                            "customBetAvailable": false,
+                                            "extId": "2036"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "b17477a7-6ecc-4f05-9f8c-f1c6f53fa4ba",
+                                            "active": true,
+                                            "odds": 3.5,
+                                            "name": "Minnesota Timberwolves (5.5) y m\u00e1s de 52.5",
+                                            "customBetAvailable": false,
+                                            "extId": "2037"
+                                        },
+                                        {
+                                            "__typename": "SportMarketOutcome",
+                                            "id": "6bf501ea-080d-4f11-b566-1e8de5a0581f",
+                                            "active": true,
+                                            "odds": 3.14,
+                                            "name": "Minnesota Timberwolves (5.5) y menos de 52.5",
+                                            "customBetAvailable": false,
+                                            "extId": "2038"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}

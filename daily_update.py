@@ -113,7 +113,7 @@ def fetch_logs_for_date(date_str: str, season: str, season_type: str):
             backoff_sleep(attempt)
 
 def fetch_game_sharp_metrics(game_id: str):
-    """Busca métricas de tracking y avanzadas con escudo anti-errores de columnas faltantes."""
+    """Busca métricas de tracking y avanzadas con escudo INTELIGENTE de columnas."""
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             # 1. Advanced Stats (Usage %)
@@ -131,15 +131,21 @@ def fetch_game_sharp_metrics(game_id: str):
             df_track = track_stats.get_data_frames()[0]
             
             if not df_track.empty and 'personId' in df_track.columns:
-                # 🛡️ ESCUDO ANTI-CRASH
-                expected_cols = ['personId', 'touches', 'potentialAst', 'reboundChancesTotal', 'passes']
-                for col in expected_cols:
-                    if col not in df_track.columns:
-                        df_track[col] = 0.0 # Si la NBA no la mandó, le ponemos 0.0 temporalmente
+                # 🛡️ ESCUDO INTELIGENTE: Buscamos las columnas sin importar cómo se llamen hoy
+                col_ast = next((c for c in df_track.columns if 'potentialast' in c.lower() or 'potentialassists' in c.lower()), None)
+                col_reb = next((c for c in df_track.columns if 'reboundchances' in c.lower()), None)
+                col_tch = next((c for c in df_track.columns if 'touches' in c.lower()), None)
+                col_pass = next((c for c in df_track.columns if 'passes' in c.lower() and 'made' not in c.lower()), None)
+
+                # Asignamos los valores encontrados o 0.0 si la NBA no los mandó
+                df_track['potential_ast'] = df_track[col_ast] if col_ast else 0.0
+                df_track['rebound_chances'] = df_track[col_reb] if col_reb else 0.0
+                df_track['touches'] = df_track[col_tch] if col_tch else 0.0
+                df_track['passes_made'] = df_track[col_pass] if col_pass else 0.0
                 
-                df_track = df_track[expected_cols]
+                df_track = df_track[['personId', 'touches', 'potential_ast', 'rebound_chances', 'passes_made']]
             else:
-                df_track = pd.DataFrame(columns=['personId', 'touches', 'potentialAst', 'reboundChancesTotal', 'passes'])
+                df_track = pd.DataFrame(columns=['personId', 'touches', 'potential_ast', 'rebound_chances', 'passes_made'])
 
             if df_adv.empty and df_track.empty:
                 return pd.DataFrame()
@@ -149,9 +155,6 @@ def fetch_game_sharp_metrics(game_id: str):
             df_merged.rename(columns={
                 'personId': 'player_id',
                 'usagePercentage': 'usage_pct',
-                'potentialAst': 'potential_ast', 
-                'reboundChancesTotal': 'rebound_chances',
-                'passes': 'passes_made'
             }, inplace=True)
             
             df_merged['game_id_str'] = game_id 
@@ -243,16 +246,21 @@ def main():
     valid_cols = get_db_columns(TABLE_NAME)
     final_df = final_df[[c for c in final_df.columns if c in valid_cols]]
 
+    # ==========================================
+    # 🩹 EL FIX PARA EL TIMEOUT DE SUPABASE
+    # ==========================================
     try:
         with engine.begin() as conn:
             delete_query = text(f"DELETE FROM {TABLE_NAME} WHERE DATE(game_date) = :target_date")
             conn.execute(delete_query, {"target_date": target_date})
             
-            final_df.to_sql(TABLE_NAME, engine, if_exists='append', index=False)
+            # 🔥 Agregamos chunksize=100 para que envíe los datos de a poco y Supabase no corte la conexión
+            print("💾 Guardando datos en Supabase (en lotes para evitar Timeout)...")
+            final_df.to_sql(TABLE_NAME, engine, if_exists='append', index=False, chunksize=100, method='multi')
             
         print(f"\n✅ ¡Éxito Total! Se guardaron {len(final_df)} estadísticas del {date_str} en Supabase.")
     except Exception as e:
-        print(f"\nError al guardar en la base de datos: {e}")
+        print(f"\n❌ Error al guardar en la base de datos: {e}")
 
 if __name__ == "__main__":
     main()

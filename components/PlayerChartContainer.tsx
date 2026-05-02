@@ -14,7 +14,7 @@ export default function PlayerChartContainer({ stats, navStats }: PlayerChartCon
   const [lastN, setLastN] = useState(10);
   const [lineValue, setLineValue] = useState(18.5);
 
-  // 1. FILTRO ANTI-DUPLICADOS (Tu escudo protector intacto)
+  // 1. FILTRO ANTI-DUPLICADOS
   const uniqueStats = Array.from(
     new Map(
       (stats || []).map((s: any) => {
@@ -24,7 +24,7 @@ export default function PlayerChartContainer({ stats, navStats }: PlayerChartCon
     ).values()
   );
 
-  // 2. Cálculo de la línea sugerida (Ahora entiende porcentajes y decimales)
+  // 2. Cálculo de la línea sugerida (Fijando el .5)
   useEffect(() => {
     if (uniqueStats.length > 0) {
       const recent = uniqueStats.slice(0, 10);
@@ -34,7 +34,6 @@ export default function PlayerChartContainer({ stats, navStats }: PlayerChartCon
           const parts = activeStat.split('+');
           total += parts.reduce((acc, part) => acc + (Number(s[part]) || 0), 0);
         } else {
-          // FIX: Multiplicamos USG% por 100 para que no sea 0.25
           let val = Number(s[activeStat]) || 0;
           if (activeStat === 'usage_pct') val = val * 100;
           total += val;
@@ -42,16 +41,16 @@ export default function PlayerChartContainer({ stats, navStats }: PlayerChartCon
       });
       const avg = total / (recent.length || 1);
       
-      // FIX: Si son métricas sharp, no sumamos el 0.5 de las apuestas
       if (['usage_pct', 'potential_ast', 'rebound_chances'].includes(activeStat)) {
         setLineValue(Number(avg.toFixed(1)));
       } else {
+        // Clavamos la línea sugerida inicial siempre en .5
         setLineValue(Math.floor(avg) + 0.5);
       }
     }
   }, [activeStat, stats]);
 
-  // 3. Procesamos los datos según la stat activa (Tus sumas combinadas están a salvo)
+  // 3. Procesamos los datos según la stat activa
   const processedStats = uniqueStats.map((s: any) => {
     let val = 0;
     if (activeStat.includes('+')) {
@@ -62,7 +61,6 @@ export default function PlayerChartContainer({ stats, navStats }: PlayerChartCon
       val = activeStat === 'usage_pct' ? rawVal * 100 : rawVal;
     }
     
-    // Le pasamos is_percentage al gráfico para que sepa si dibujar el símbolo %
     return { 
       ...s, 
       value: Number(val.toFixed(1)), 
@@ -112,15 +110,34 @@ export default function PlayerChartContainer({ stats, navStats }: PlayerChartCon
             <span className="text-[8px] text-[#666] font-black uppercase tracking-[0.2em] flex items-center gap-1 mb-1">
               <Sparkles size={10} className="text-[#10b981]"/> Custom Line
             </span>
-            <div className="flex items-center gap-2 bg-black px-3 py-1 rounded-lg border border-[#222]">
-              <Target size={14} className="text-red-500" />
+            
+            {/* 🔥 NUEVO COMPONENTE DE LÍNEA CUSTOM (+ / -) */}
+            <div className="flex items-center bg-black px-2 py-1 rounded-lg border border-[#222]">
+              <Target size={14} className="text-red-500 ml-2" />
+              
+              <button 
+                onClick={() => setLineValue(prev => Number((prev - 1).toFixed(1)))}
+                className="px-3 text-[#666] hover:text-white font-black text-xl transition-colors select-none"
+              >
+                -
+              </button>
+
               <input 
                 type="number" step="0.5" 
                 value={lineValue} 
                 onChange={(e) => setLineValue(parseFloat(e.target.value) || 0)}
-                className="bg-transparent border-none text-2xl font-black w-16 md:w-20 text-right focus:outline-none text-white p-0 tabular-nums" 
+                // Clases especiales de Tailwind para ocultar las flechitas nativas del navegador
+                className="bg-transparent border-none text-2xl font-black w-14 text-center focus:outline-none text-white p-0 tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
               />
+              
+              <button 
+                onClick={() => setLineValue(prev => Number((prev + 1).toFixed(1)))}
+                className="px-3 text-[#666] hover:text-white font-black text-xl transition-colors select-none"
+              >
+                +
+              </button>
             </div>
+
           </div>
           
           <div className="bg-[#222] w-[1px] h-10 hidden md:block" />

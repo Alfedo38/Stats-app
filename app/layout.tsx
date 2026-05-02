@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Inter, Oswald } from 'next/font/google';
 import './globals.css';
 import Sidebar from '@/components/Sidebar';
+import Footer from '@/components/Footer'; // 🔥 1. Importamos el Footer
 
 const inter = Inter({ 
   subsets: ['latin'], 
@@ -32,12 +33,20 @@ export default function RootLayout({
         {/* Aquí inyectamos el Sidebar */}
         <Sidebar />
 
-        {/* El contenedor principal del contenido. 
-          Usamos md:pl-64 para empujar el contenido hacia la derecha 
-          y dejarle espacio al menú lateral en pantallas grandes.
+        {/* 
+          🔥 2. Le agregamos 'flex flex-col' al contenedor principal 
+          para que pueda empujar el Footer hacia abajo.
         */}
-        <div className="flex-1 md:pl-64 min-h-screen">
-          {children}
+       <div className="flex-1 md:pl-64 pt-16 md:pt-0 min-h-screen flex flex-col">
+          
+          {/* 🔥 3. Envolvemos a los children con 'flex-grow' */}
+          <div className="flex-grow">
+            {children}
+          </div>
+
+          {/* 🔥 4. Inyectamos el Footer al final de la columna */}
+          <Footer />
+          
         </div>
 
       </body>

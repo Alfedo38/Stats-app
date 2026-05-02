@@ -126,9 +126,9 @@ export default function EVDashboard({ plays }: { plays: any[] }) {
 
                     <div className="p-4 flex-grow space-y-4">
                       {ticket.plays.map((play: any, pIdx: number) => (
-                        <div key={pIdx} className="space-y-2 border-b border-[#222] pb-3 last:border-0 last:pb-0">
+                        <div key={pIdx} className="space-y-2 border-b border-[#222] pb-4 last:border-0 last:pb-0">
                           
-                          <div className="flex justify-between items-start">
+                          <div className="flex justify-between items-start mb-2">
                             <div>
                               <p className="font-black text-white text-sm leading-none">
                                 {play.player} <span className="text-[10px] text-[#666] ml-1">{play.team}</span>
@@ -146,58 +146,66 @@ export default function EVDashboard({ plays }: { plays: any[] }) {
                             </div>
                           </div>
 
-                          {/* Datos Sharp (Con decimales arreglados) */}
-                          <div className="flex gap-4 items-center bg-black p-2 rounded-xl">
+                          {/* Datos Sharp */}
+                          <div className="flex gap-4 items-center bg-black p-2 rounded-xl border border-[#222]">
                             <div className="flex-1 text-center border-r border-[#222]">
                                <p className="text-[9px] uppercase tracking-widest text-[#666]">Proy IA</p>
                                <p className="text-xs font-bold text-white">{play.proj}</p>
                              </div>
                              <div className="flex-1 text-center border-r border-[#222]">
                                <p className="text-[9px] uppercase tracking-widest text-[#666]">Edge</p>
-                               <p className="text-xs font-bold text-[#10b981]">+{Number(play.edge).toFixed(1)}%</p>
+                               <p className={`text-xs font-bold ${Number(play.edge) > 20 ? 'text-[#10b981]' : 'text-yellow-500'}`}>
+                                 +{Number(play.edge).toFixed(1)}%
+                               </p>
                              </div>
                              <div className="flex-1 text-center">
                                <p className="text-[9px] uppercase tracking-widest text-[#666]">Acierto L5</p>
                                <p className="text-xs font-bold text-white">
-  {play.hit_rate ? play.hit_rate.split(' ')[0] : '0/5'}
-</p>
+                                  {play.hit_rate ? play.hit_rate.split(' ')[0] : '0/5'}
+                               </p>
                              </div>
                           </div>
 
+                          {/* Efecto Dominó / Lesiones */}
                           {play.injuries && (
-     <p className="text-[10px] text-red-400 font-bold uppercase tracking-wider mt-2">{play.injuries}</p>
-  )}
-  
-  {/* 🛡️ CAJA DE ALTERNATIVA SEGURA Y EXPLICACIÓN */}
-  {(play.safe_line && play.safe_odds !== 99) && (
-    <div className="mt-4 bg-[#10b981]/5 border border-[#10b981]/20 rounded-xl p-3 relative overflow-hidden">
-      {/* Resplandor de fondo */}
-      <div className="absolute -right-4 -top-4 w-12 h-12 bg-[#10b981] opacity-10 blur-xl rounded-full" />
-      
-      <div className="flex items-center justify-between mb-1.5 relative z-10">
-        <div className="flex items-center gap-1.5">
-          <span className="text-sm">🛡️</span>
-          <p className="text-[10px] font-black uppercase tracking-widest text-[#10b981]">Opción Segura</p>
-        </div>
-        <p className="font-mono text-white text-xs font-bold bg-black/50 px-2 py-0.5 rounded border border-[#333]">
-          Cuota {play.safe_odds?.toFixed(2)}
-        </p>
-      </div>
-      
-      <p className="text-sm font-black text-white mb-2 relative z-10">
-        <span className={play.type === 'OVER' ? 'text-orange-500' : 'text-cyan-500'}>{play.type}</span> {play.safe_line} {play.prop}
-      </p>
-      
-     {/* EL "POR QUÉ" DEL ANALISTA */}
-<div className="border-t border-[#10b981]/10 pt-2 relative z-10">
-  <p className="text-[10px] text-[#888] leading-relaxed">
-    <strong className="text-[#aaa]">Análisis Pro:</strong> {play.analysis || `La IA proyecta ${play.proj} ${play.prop}. Al ajustar la línea a ${play.safe_line}, neutralizamos la varianza.`}
-  </p>
-</div>
-    </div>
-  )}
+                             <div className="mt-2 flex items-center gap-1.5 bg-red-500/10 px-2 py-1 rounded border border-red-500/20">
+                               <span className="text-red-500 text-xs">⚠️</span>
+                               <p className="text-[10px] text-red-400 font-bold uppercase tracking-wider">{play.injuries}</p>
+                             </div>
+                          )}
+                          
+                          {/* 🛡️ CAJA DE ALTERNATIVA SEGURA Y EXPLICACIÓN */}
+                          {(play.safe_line && play.safe_odds !== 99) && (
+                            <div className="mt-3 bg-[#10b981]/5 border border-[#10b981]/20 rounded-xl p-3 relative overflow-hidden">
+                              <div className="absolute -right-4 -top-4 w-12 h-12 bg-[#10b981] opacity-10 blur-xl rounded-full" />
+                              
+                              <div className="flex items-center justify-between mb-1.5 relative z-10">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-sm">🛡️</span>
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-[#10b981]">Opción Segura</p>
+                                </div>
+                                <p className="font-mono text-white text-xs font-bold bg-black/50 px-2 py-0.5 rounded border border-[#333]">
+                                  Cuota {play.safe_odds?.toFixed(2)}
+                                </p>
+                              </div>
+                              
+                              <p className="text-sm font-black text-white mb-2 relative z-10">
+                                <span className={play.type === 'OVER' ? 'text-orange-500' : 'text-cyan-500'}>{play.type}</span> {play.safe_line} {play.prop}
+                              </p>
+                              
+                              {/* EL "POR QUÉ" DEL ANALISTA (Estilo Terminal) */}
+                              <div className="border-t border-[#10b981]/10 pt-2 mt-2 relative z-10">
+                                <div className="flex items-start gap-1">
+                                  <span className="text-[#10b981] text-[10px] mt-0.5">▶</span>
+                                  <p className="text-[10px] text-[#888] leading-relaxed font-mono">
+                                    <strong className="text-[#10b981]">Scouting_AI:</strong> {play.analysis || `Proyección quant de ${play.proj} ${play.prop}. Línea ajustada a ${play.safe_line} para neutralizar varianza de minutos.`}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
 
-</div>
+                        </div>
                       ))}
                     </div>
                   </div>

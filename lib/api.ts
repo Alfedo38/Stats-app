@@ -1,6 +1,10 @@
 import prisma from './prisma';
-import fs from 'fs';
-import path from 'path';
+import { createClient } from '@supabase/supabase-js';
+
+// 🔌 CONEXIÓN A SUPABASE (Usa tu .env)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // 1. OBTENER TODOS LOS EQUIPOS
 export async function getTeams() {
@@ -157,20 +161,25 @@ export async function getTrendingPlayers() {
   }
 }
 
-// 5. CEREBRO EV+ LUDOGALLINA (Lee JSON y Etiqueta por Fecha)
+// 5. CEREBRO EV+ LUDOGALLINA (Ahora lee de Supabase en vez de local)
 export async function getEvPlays() {
   try {
-    const filePath = path.join(process.cwd(), 'picks_hoy.json');
-    
-    if (!fs.existsSync(filePath)) {
-      console.warn("⚠️ No se encontró picks_hoy.json.");
+    // 💾 Traemos la cartelera fresca desde Supabase
+    const { data: dbData, error } = await supabase
+      .from('ludo_picks')
+      .select('json_data')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error || !dbData) {
+      console.warn("⚠️ No se encontraron picks en Supabase o hubo un error:", error);
       return [];
     }
 
-    const fileContents = fs.readFileSync(filePath, 'utf8');
-    const data = JSON.parse(fileContents);
+    const data = dbData.json_data;
 
-    // Le preguntamos a ESPN quién juega HOY
+    // 📡 Mantenemos intacta tu lógica de ESPN para las pestañas de HOY / MAÑANA
     const todayGames = await getTodayScoreboard();
 
     if (!todayGames || todayGames.length === 0) {
@@ -187,7 +196,6 @@ export async function getEvPlays() {
       }
     });
 
-    // En vez de filtrar, MAPÉAMOS y agregamos la etiqueta "is_today"
     const dataConFechas = data.map((bloque: any) => {
       let esDeHoy = false;
       equiposDeHoy.forEach((equipo) => {

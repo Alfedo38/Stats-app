@@ -1,0 +1,735 @@
+{
+    "data": {
+        "highrollerSportBets": [
+            {
+                "id": "4ef71f1d-78f9-4691-ba5a-cb3c0a7c1d3b",
+                "iid": "sport:575033182",
+                "bet": {
+                    "__typename": "SportBet",
+                    "id": "4ef71f1d-78f9-4691-ba5a-cb3c0a7c1d3b",
+                    "customBet": false,
+                    "updatedAt": "Sun, 03 May 2026 16:07:27 GMT",
+                    "createdAt": "Sun, 03 May 2026 16:07:15 GMT",
+                    "potentialMultiplier": 1.2,
+                    "amount": 3402.27826,
+                    "currency": "usdt",
+                    "user": null,
+                    "outcomes": [
+                        {
+                            "id": "474fa819-cad6-43d8-b4a1-5d35af99b271",
+                            "odds": 1.2,
+                            "fixtureAbreviation": "JUV - VER",
+                            "fixtureName": "Juventus Tur\u00edn - Hellas Verona",
+                            "fixture": {
+                                "id": "f1ec78f3-1ea8-4bfc-a6a6-76515daf87a5",
+                                "tournament": {
+                                    "id": "969e3a56-169a-49dc-8583-7e5127d1a13d",
+                                    "category": {
+                                        "id": "8088bbb8-8f69-4663-ad63-358165d90d99",
+                                        "sport": {
+                                            "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                            "slug": "soccer"
+                                        }
+                                    }
+                                },
+                                "status": "live",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Juventus Tur\u00edn",
+                                            "abbreviation": "JUV"
+                                        },
+                                        {
+                                            "name": "Hellas Verona",
+                                            "abbreviation": "VER"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "474fa819-cad6-43d8-b4a1-5d35af99b271",
+                                "odds": 1.18,
+                                "name": "Juventus Tur\u00edn"
+                            },
+                            "market": {
+                                "id": "8ab850c7-eeae-40d2-a785-d1c8373fb96b",
+                                "name": "1x2",
+                                "status": "active"
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "3ed49dd2-861d-4f54-8a43-2fa4852ee106",
+                "iid": "sport:575033173",
+                "bet": {
+                    "__typename": "SportBet",
+                    "id": "3ed49dd2-861d-4f54-8a43-2fa4852ee106",
+                    "customBet": false,
+                    "updatedAt": "Sun, 03 May 2026 16:07:27 GMT",
+                    "createdAt": "Sun, 03 May 2026 16:07:15 GMT",
+                    "potentialMultiplier": 1.2,
+                    "amount": 6210,
+                    "currency": "usdc",
+                    "user": null,
+                    "outcomes": [
+                        {
+                            "id": "474fa819-cad6-43d8-b4a1-5d35af99b271",
+                            "odds": 1.2,
+                            "fixtureAbreviation": "JUV - VER",
+                            "fixtureName": "Juventus Tur\u00edn - Hellas Verona",
+                            "fixture": {
+                                "id": "f1ec78f3-1ea8-4bfc-a6a6-76515daf87a5",
+                                "tournament": {
+                                    "id": "969e3a56-169a-49dc-8583-7e5127d1a13d",
+                                    "category": {
+                                        "id": "8088bbb8-8f69-4663-ad63-358165d90d99",
+                                        "sport": {
+                                            "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                            "slug": "soccer"
+                                        }
+                                    }
+                                },
+                                "status": "live",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Juventus Tur\u00edn",
+                                            "abbreviation": "JUV"
+                                        },
+                                        {
+                                            "name": "Hellas Verona",
+                                            "abbreviation": "VER"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "474fa819-cad6-43d8-b4a1-5d35af99b271",
+                                "odds": 1.18,
+                                "name": "Juventus Tur\u00edn"
+                            },
+                            "market": {
+                                "id": "8ab850c7-eeae-40d2-a785-d1c8373fb96b",
+                                "name": "1x2",
+                                "status": "active"
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "77742927-1ae0-4db2-80af-287ee4358112",
+                "iid": "sport:575033205",
+                "bet": {
+                    "__typename": "SportBet",
+                    "id": "77742927-1ae0-4db2-80af-287ee4358112",
+                    "customBet": false,
+                    "updatedAt": "Sun, 03 May 2026 16:07:21 GMT",
+                    "createdAt": "Sun, 03 May 2026 16:07:16 GMT",
+                    "potentialMultiplier": 1.7,
+                    "amount": 6000,
+                    "currency": "usdt",
+                    "user": null,
+                    "outcomes": [
+                        {
+                            "id": "6fb313ee-81c5-4adb-92f2-6d8524b80ed0",
+                            "odds": 1.7,
+                            "fixtureAbreviation": "GUJ - PBKS",
+                            "fixtureName": "Gujarat Titans - Punjab Kings",
+                            "fixture": {
+                                "id": "d9e2c521-6577-40bb-8e89-71910d6c205c",
+                                "tournament": {
+                                    "id": "105ec870-26ba-490d-aaa7-50033259e4a1",
+                                    "category": {
+                                        "id": "0b34d188-9e7c-4689-9d31-a7d463061029",
+                                        "sport": {
+                                            "id": "83ce6112-ddd8-46a6-b2d1-ed6d2b5e9010",
+                                            "slug": "cricket"
+                                        }
+                                    }
+                                },
+                                "status": "live",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Gujarat Titans",
+                                            "abbreviation": "GUJ"
+                                        },
+                                        {
+                                            "name": "Punjab Kings",
+                                            "abbreviation": "PBKS"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "6fb313ee-81c5-4adb-92f2-6d8524b80ed0",
+                                "odds": 1.7,
+                                "name": "menos de 9.5"
+                            },
+                            "market": {
+                                "id": "35c451f2-bca5-4f51-b9cf-960387a5f03f",
+                                "name": "1st innings over 2 - Gujarat Titans total",
+                                "status": "active"
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "fdf6b4bd-891c-48a0-884a-c3b04324a2c1",
+                "iid": "sport:575032740",
+                "bet": {
+                    "__typename": "SportBet",
+                    "id": "fdf6b4bd-891c-48a0-884a-c3b04324a2c1",
+                    "customBet": false,
+                    "updatedAt": "Sun, 03 May 2026 16:06:52 GMT",
+                    "createdAt": "Sun, 03 May 2026 16:06:52 GMT",
+                    "potentialMultiplier": 1.25,
+                    "amount": 1100.9,
+                    "currency": "usdt",
+                    "user": null,
+                    "outcomes": [
+                        {
+                            "id": "55434a6e-9924-4113-83d4-0ea257018041",
+                            "odds": 1.25,
+                            "fixtureAbreviation": "MNU - LFC",
+                            "fixtureName": "Manchester United FC - Liverpool FC",
+                            "fixture": {
+                                "id": "93fa2396-a6b0-4395-89c7-5c21da8f27c8",
+                                "tournament": {
+                                    "id": "c94f5db7-4fd2-4407-a4fc-9a4e807f0ea1",
+                                    "category": {
+                                        "id": "a6b53401-44c7-4e13-a560-ed1de8189773",
+                                        "sport": {
+                                            "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                            "slug": "soccer"
+                                        }
+                                    }
+                                },
+                                "status": "live",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Manchester United FC",
+                                            "abbreviation": "MNU"
+                                        },
+                                        {
+                                            "name": "Liverpool FC",
+                                            "abbreviation": "LFC"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "55434a6e-9924-4113-83d4-0ea257018041",
+                                "odds": 1.25,
+                                "name": "empate o Liverpool FC"
+                            },
+                            "market": {
+                                "id": "24213ed7-17fe-4898-b6fc-228d532ce39b",
+                                "name": "Doble Oportunidad",
+                                "status": "active"
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "06d62703-746a-4aba-a960-b746dccc45ba",
+                "iid": "sport:575031869",
+                "bet": {
+                    "__typename": "SportBet",
+                    "id": "06d62703-746a-4aba-a960-b746dccc45ba",
+                    "customBet": false,
+                    "updatedAt": "Sun, 03 May 2026 16:06:22 GMT",
+                    "createdAt": "Sun, 03 May 2026 16:06:16 GMT",
+                    "potentialMultiplier": 1.8,
+                    "amount": 4500,
+                    "currency": "usdt",
+                    "user": null,
+                    "outcomes": [
+                        {
+                            "id": "ba9eb684-4de1-4fd3-b32c-55c13cb21516",
+                            "odds": 1.8,
+                            "fixtureAbreviation": "GUJ - PBKS",
+                            "fixtureName": "Gujarat Titans - Punjab Kings",
+                            "fixture": {
+                                "id": "d9e2c521-6577-40bb-8e89-71910d6c205c",
+                                "tournament": {
+                                    "id": "105ec870-26ba-490d-aaa7-50033259e4a1",
+                                    "category": {
+                                        "id": "0b34d188-9e7c-4689-9d31-a7d463061029",
+                                        "sport": {
+                                            "id": "83ce6112-ddd8-46a6-b2d1-ed6d2b5e9010",
+                                            "slug": "cricket"
+                                        }
+                                    }
+                                },
+                                "status": "live",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Gujarat Titans",
+                                            "abbreviation": "GUJ"
+                                        },
+                                        {
+                                            "name": "Punjab Kings",
+                                            "abbreviation": "PBKS"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "ba9eb684-4de1-4fd3-b32c-55c13cb21516",
+                                "odds": 1.8,
+                                "name": "m\u00e1s de 58.5"
+                            },
+                            "market": {
+                                "id": "d6affefe-99a5-4599-8731-b31144e626fc",
+                                "name": "1st innings overs 0 to 6 - Gujarat Titans total",
+                                "status": "deactivated"
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "3fb76573-0ea6-4edc-9fcf-47064b4d251c",
+                "iid": "sport:575031037",
+                "bet": {
+                    "__typename": "SportBet",
+                    "id": "3fb76573-0ea6-4edc-9fcf-47064b4d251c",
+                    "customBet": false,
+                    "updatedAt": "Sun, 03 May 2026 16:05:47 GMT",
+                    "createdAt": "Sun, 03 May 2026 16:05:32 GMT",
+                    "potentialMultiplier": 2.05,
+                    "amount": 1210,
+                    "currency": "usdc",
+                    "user": null,
+                    "outcomes": [
+                        {
+                            "id": "bbd22519-521a-45cd-97d2-e725b2771ec9",
+                            "odds": 2.05,
+                            "fixtureAbreviation": "AZA - TWE",
+                            "fixtureName": "AZ Alkmar - FC Twente Enschede",
+                            "fixture": {
+                                "id": "93526ba8-bfd6-4150-9e9c-db39842a4c74",
+                                "tournament": {
+                                    "id": "fa620e8f-b3a9-4c09-aef0-7c7d830818db",
+                                    "category": {
+                                        "id": "016910ec-ea23-4b22-9a1c-c2f3cae93b69",
+                                        "sport": {
+                                            "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                            "slug": "soccer"
+                                        }
+                                    }
+                                },
+                                "status": "live",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "AZ Alkmar",
+                                            "abbreviation": "AZA"
+                                        },
+                                        {
+                                            "name": "FC Twente Enschede",
+                                            "abbreviation": "TWE"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "bbd22519-521a-45cd-97d2-e725b2771ec9",
+                                "odds": 2.1,
+                                "name": "FC Twente Enschede (-1)"
+                            },
+                            "market": {
+                                "id": "68558895-5033-4d2c-8fa5-f23242da91cf",
+                                "name": "H\u00e1ndicap asi\u00e1ticos",
+                                "status": "active"
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "9e171ef2-5cea-465c-baf9-300e1a6ea1f4",
+                "iid": "sport:575030999",
+                "bet": {
+                    "__typename": "SportBet",
+                    "id": "9e171ef2-5cea-465c-baf9-300e1a6ea1f4",
+                    "customBet": false,
+                    "updatedAt": "Sun, 03 May 2026 16:05:42 GMT",
+                    "createdAt": "Sun, 03 May 2026 16:05:30 GMT",
+                    "potentialMultiplier": 4.47456,
+                    "amount": 30000,
+                    "currency": "usdt",
+                    "user": null,
+                    "outcomes": [
+                        {
+                            "id": "66d131bb-96ed-4c62-baf1-d2533b901f1b",
+                            "odds": 1.58,
+                            "fixtureAbreviation": "BET - OVI",
+                            "fixtureName": "Real Betis Balompi\u00e9 - Real Oviedo",
+                            "fixture": {
+                                "id": "e30d48be-9bea-4d81-bc9b-50be12bfb4a5",
+                                "tournament": {
+                                    "id": "656ef645-5872-4645-ae8c-001d74d9ce58",
+                                    "category": {
+                                        "id": "5cb1d329-9e74-4205-b8ee-aa706a0afa8a",
+                                        "sport": {
+                                            "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                            "slug": "soccer"
+                                        }
+                                    }
+                                },
+                                "status": "active",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Real Betis Balompi\u00e9",
+                                            "abbreviation": "BET"
+                                        },
+                                        {
+                                            "name": "Real Oviedo",
+                                            "abbreviation": "OVI"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "66d131bb-96ed-4c62-baf1-d2533b901f1b",
+                                "odds": 1.58,
+                                "name": "Real Betis Balompi\u00e9 (-0.5)"
+                            },
+                            "market": {
+                                "id": "2275f154-85c7-4563-8e23-74e60ae134b6",
+                                "name": "H\u00e1ndicap asi\u00e1ticos",
+                                "status": "active"
+                            }
+                        },
+                        {
+                            "id": "67042d58-41c7-4a56-ac30-780699125ce3",
+                            "odds": 1.77,
+                            "fixtureAbreviation": "INT - PAR",
+                            "fixtureName": "Inter Mil\u00e1n - Parma Calcio",
+                            "fixture": {
+                                "id": "20d11b63-aaea-4c65-8dfd-cd85acb301ce",
+                                "tournament": {
+                                    "id": "969e3a56-169a-49dc-8583-7e5127d1a13d",
+                                    "category": {
+                                        "id": "8088bbb8-8f69-4663-ad63-358165d90d99",
+                                        "sport": {
+                                            "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                            "slug": "soccer"
+                                        }
+                                    }
+                                },
+                                "status": "active",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Inter Mil\u00e1n",
+                                            "abbreviation": "INT"
+                                        },
+                                        {
+                                            "name": "Parma Calcio",
+                                            "abbreviation": "PAR"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "67042d58-41c7-4a56-ac30-780699125ce3",
+                                "odds": 1.77,
+                                "name": "Inter Mil\u00e1n (-1.75)"
+                            },
+                            "market": {
+                                "id": "6556024c-535a-4351-9217-d379dc65f9b3",
+                                "name": "H\u00e1ndicap asi\u00e1ticos",
+                                "status": "active"
+                            }
+                        },
+                        {
+                            "id": "6e0593ad-feff-4619-b0d8-0e19540fdbc2",
+                            "odds": 1.6,
+                            "fixtureAbreviation": "JUV - VER",
+                            "fixtureName": "Juventus Tur\u00edn - Hellas Verona",
+                            "fixture": {
+                                "id": "f1ec78f3-1ea8-4bfc-a6a6-76515daf87a5",
+                                "tournament": {
+                                    "id": "969e3a56-169a-49dc-8583-7e5127d1a13d",
+                                    "category": {
+                                        "id": "8088bbb8-8f69-4663-ad63-358165d90d99",
+                                        "sport": {
+                                            "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                            "slug": "soccer"
+                                        }
+                                    }
+                                },
+                                "status": "live",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Juventus Tur\u00edn",
+                                            "abbreviation": "JUV"
+                                        },
+                                        {
+                                            "name": "Hellas Verona",
+                                            "abbreviation": "VER"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "6e0593ad-feff-4619-b0d8-0e19540fdbc2",
+                                "odds": 1.6,
+                                "name": "Juventus Tur\u00edn (-1.5)"
+                            },
+                            "market": {
+                                "id": "4a48d85f-42b5-4e0a-9772-b90ab4dad0ea",
+                                "name": "H\u00e1ndicap asi\u00e1ticos",
+                                "status": "active"
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "b26c2090-6b58-49a9-81e5-0cdb16bb5098",
+                "iid": "sport:575031144",
+                "bet": {
+                    "__typename": "SportBet",
+                    "id": "b26c2090-6b58-49a9-81e5-0cdb16bb5098",
+                    "customBet": false,
+                    "updatedAt": "Sun, 03 May 2026 16:05:37 GMT",
+                    "createdAt": "Sun, 03 May 2026 16:05:37 GMT",
+                    "potentialMultiplier": 8.393,
+                    "amount": 1125,
+                    "currency": "usdt",
+                    "user": null,
+                    "outcomes": [
+                        {
+                            "id": "b57f09e9-54bc-4217-a9b5-8a482432c92b",
+                            "odds": 3.85,
+                            "fixtureAbreviation": "AST - TOT",
+                            "fixtureName": "Aston Villa - Tottenham Hotspur FC",
+                            "fixture": {
+                                "id": "e8bdbd1e-19dc-44f8-bcf5-70ec0ec55524",
+                                "tournament": {
+                                    "id": "c94f5db7-4fd2-4407-a4fc-9a4e807f0ea1",
+                                    "category": {
+                                        "id": "a6b53401-44c7-4e13-a560-ed1de8189773",
+                                        "sport": {
+                                            "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                            "slug": "soccer"
+                                        }
+                                    }
+                                },
+                                "status": "active",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Aston Villa",
+                                            "abbreviation": "AST"
+                                        },
+                                        {
+                                            "name": "Tottenham Hotspur FC",
+                                            "abbreviation": "TOT"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "b57f09e9-54bc-4217-a9b5-8a482432c92b",
+                                "odds": 3.85,
+                                "name": "Tottenham Hotspur FC"
+                            },
+                            "market": {
+                                "id": "0d2d6ff0-98e5-42f0-a751-b537d3fa3319",
+                                "name": "1\u00ba Mitad - 1x2",
+                                "status": "active"
+                            }
+                        },
+                        {
+                            "id": "d3594bc4-1b82-4324-a7c8-c5d18696f41a",
+                            "odds": 2.18,
+                            "fixtureAbreviation": "ESP - RM",
+                            "fixtureName": "RCD Espanyol Barcelona - Real Madrid CF",
+                            "fixture": {
+                                "id": "42223a1a-0de3-4c75-8950-4b2ed4472662",
+                                "tournament": {
+                                    "id": "656ef645-5872-4645-ae8c-001d74d9ce58",
+                                    "category": {
+                                        "id": "5cb1d329-9e74-4205-b8ee-aa706a0afa8a",
+                                        "sport": {
+                                            "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                            "slug": "soccer"
+                                        }
+                                    }
+                                },
+                                "status": "active",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "RCD Espanyol Barcelona",
+                                            "abbreviation": "ESP"
+                                        },
+                                        {
+                                            "name": "Real Madrid CF",
+                                            "abbreviation": "RM"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "d3594bc4-1b82-4324-a7c8-c5d18696f41a",
+                                "odds": 2.18,
+                                "name": "Real Madrid CF"
+                            },
+                            "market": {
+                                "id": "1cdec82b-eefa-4be8-b51c-b6a0a0cb8f74",
+                                "name": "1\u00ba Mitad - 1x2",
+                                "status": "active"
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "6c6c18f3-bee3-42c6-8e19-2fda566824ca",
+                "iid": "sport:575030535",
+                "bet": {
+                    "__typename": "SportBet",
+                    "id": "6c6c18f3-bee3-42c6-8e19-2fda566824ca",
+                    "customBet": false,
+                    "updatedAt": "Sun, 03 May 2026 16:05:20 GMT",
+                    "createdAt": "Sun, 03 May 2026 16:05:06 GMT",
+                    "potentialMultiplier": 1.03,
+                    "amount": 1344,
+                    "currency": "usdt",
+                    "user": null,
+                    "outcomes": [
+                        {
+                            "id": "eed90bd5-93fa-4bd4-9110-bafaf67f81b5",
+                            "odds": 1.03,
+                            "fixtureAbreviation": "SIN - ZVE",
+                            "fixtureName": "Sinner, Jannik - Zverev, Alexander",
+                            "fixture": {
+                                "id": "04bec9f9-f102-4275-896c-58f200da6e83",
+                                "tournament": {
+                                    "id": "e83e1f53-b918-4cf3-9214-732f3ceb78da",
+                                    "category": {
+                                        "id": "5102f1bc-58c5-435e-aff4-d9c71c0ad30c",
+                                        "sport": {
+                                            "id": "8c7aea57-e9b1-414f-a095-206740716b4f",
+                                            "slug": "tennis"
+                                        }
+                                    }
+                                },
+                                "status": "live",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Sinner, Jannik",
+                                            "abbreviation": "SIN"
+                                        },
+                                        {
+                                            "name": "Zverev, Alexander",
+                                            "abbreviation": "ZVE"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "eed90bd5-93fa-4bd4-9110-bafaf67f81b5",
+                                "odds": 1.03,
+                                "name": "Sinner, Jannik"
+                            },
+                            "market": {
+                                "id": "2b1ad97c-3c68-45b5-8858-1a11314a4a68",
+                                "name": "2nd set juego 8 - ganador",
+                                "status": "active"
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "23e677e1-cffc-44e2-b987-b9c2e19e1979",
+                "iid": "sport:575030650",
+                "bet": {
+                    "__typename": "SportBet",
+                    "id": "23e677e1-cffc-44e2-b987-b9c2e19e1979",
+                    "customBet": false,
+                    "updatedAt": "Sun, 03 May 2026 16:05:16 GMT",
+                    "createdAt": "Sun, 03 May 2026 16:05:12 GMT",
+                    "potentialMultiplier": 1.14,
+                    "amount": 1822,
+                    "currency": "usdt",
+                    "user": null,
+                    "outcomes": [
+                        {
+                            "id": "28d50ed7-4b1a-4f61-8b0e-8f48cee8ab6c",
+                            "odds": 1.14,
+                            "fixtureAbreviation": "SIN - ZVE",
+                            "fixtureName": "Sinner, Jannik - Zverev, Alexander",
+                            "fixture": {
+                                "id": "04bec9f9-f102-4275-896c-58f200da6e83",
+                                "tournament": {
+                                    "id": "e83e1f53-b918-4cf3-9214-732f3ceb78da",
+                                    "category": {
+                                        "id": "5102f1bc-58c5-435e-aff4-d9c71c0ad30c",
+                                        "sport": {
+                                            "id": "8c7aea57-e9b1-414f-a095-206740716b4f",
+                                            "slug": "tennis"
+                                        }
+                                    }
+                                },
+                                "status": "live",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Sinner, Jannik",
+                                            "abbreviation": "SIN"
+                                        },
+                                        {
+                                            "name": "Zverev, Alexander",
+                                            "abbreviation": "ZVE"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "28d50ed7-4b1a-4f61-8b0e-8f48cee8ab6c",
+                                "odds": 1.02,
+                                "name": "menos de 9.5"
+                            },
+                            "market": {
+                                "id": "531cef99-7631-4a30-a830-1183c5ecc340",
+                                "name": "2nd set - total juegos",
+                                "status": "active"
+                            }
+                        }
+                    ]
+                }
+            }
+        ]
+    }
+}

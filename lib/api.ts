@@ -91,10 +91,26 @@ export async function getPlayerData(playerId: string) {
       where: { id: id }
     });
 
+    // 1. Traemos las stats del partido completo usando Prisma
     const stats = await prisma.player_game_logs.findMany({
       where: { player_id: id },
       orderBy: { game_date: 'desc' }
     });
+
+    // 🟢 2. NUEVO: Traemos las stats del Q1 usando Supabase directo
+    const { data: q1Data } = await supabase
+      .from('player_q1_stats')
+      .select('game_id, q1_pts, q1_reb, q1_ast, q1_oreb, q1_dreb')
+      .eq('player_id', id);
+
+    // 3. Armamos un diccionario para cruzar los datos ultra rápido
+    const q1Dict: Record<number, any> = {};
+    if (q1Data) {
+      q1Data.forEach((q1: any) => {
+        // Usamos Number() para matar los ceros a la izquierda y evitar el bug
+        q1Dict[Number(q1.game_id)] = q1;
+      });
+    }
     
     if (!player && stats.length > 0) {
       const fullName = stats[0].player_name || "Jugador";
@@ -113,10 +129,22 @@ export async function getPlayerData(playerId: string) {
       } as any;
     }
 
-    const serializedStats = stats.map(s => ({
-      ...s,
-      game_date: s.game_date ? s.game_date.toISOString() : null
-    }));
+    // 4. Serializamos e INYECTAMOS los datos del Q1 en los logs
+    const serializedStats = stats.map(s => {
+      // Buscamos el partido en nuestro diccionario (convirtiendo el ID a número)
+      const q1 = q1Dict[Number(s.game_id)] || {};
+      
+      return {
+        ...s,
+        game_date: s.game_date ? s.game_date.toISOString() : null,
+        // Agregamos las columnas Q1 (si el partido no tiene, mandamos 0)
+        q1_pts: q1.q1_pts || 0,
+        q1_reb: q1.q1_reb || 0,
+        q1_ast: q1.q1_ast || 0,
+        q1_oreb: q1.q1_oreb || 0,
+        q1_dreb: q1.q1_dreb || 0,
+      };
+    });
 
     return { player, stats: serializedStats };
   } catch (e) {
@@ -124,7 +152,6 @@ export async function getPlayerData(playerId: string) {
     return { player: null, stats: [] };
   }
 }
-
 // 4. JUGADORES ON FIRE (Trending)
 export async function getTrendingPlayers() {
   try {

@@ -79,32 +79,19 @@ def calcular_rolling_dvp(df):
 
 
 def kelly_fraccional(edge_pct, odds, fraccion=0.25):
-    """
-    Kelly Criterion fraccional matemáticamente correcto.
-
-    El Edge NO es la probabilidad de ganar — es el retorno esperado
-    por encima del 100%. Para ganar en cuota 1.91 necesitás al menos
-    52.4% de p_win (breakeven). Con edge=10% y odds=1.91:
-        p_win = (0.10 + 1.0) / 1.91 = 0.5759  → 57.6% ✅
-
-    edge_pct : ventaja sobre el mercado (ej: 10 = 10% de EV positivo)
-    odds     : cuota decimal (ej: -110 americano → 1.909)
-    fraccion : fracción del Kelly completo a usar (0.25 = Kelly/4,
-               más conservador y estándar en fondos quant)
-    Retorna  : stake sugerido como fracción del bankroll (0.0 a 0.20)
-    """
+    """Kelly Criterion fraccional matemáticamente correcto."""
     if odds <= 1 or edge_pct <= 0:
         return 0.0
 
     ev    = edge_pct / 100.0
-    p_win = (ev + 1.0) / odds          # probabilidad implícita real
-    p_win = min(p_win, 0.99)           # cap de seguridad
+    p_win = (ev + 1.0) / odds
+    p_win = min(p_win, 0.99)
     p_lose = 1.0 - p_win
-    b      = odds - 1.0                # ganancia neta por $1 apostado
+    b      = odds - 1.0
 
     kelly = (b * p_win - p_lose) / b
-    kelly = max(0.0, kelly)            # nunca apostar en contra
-    return round(min(kelly * fraccion, 0.20), 4)  # cap de 20% del bankroll
+    kelly = max(0.0, kelly)
+    return round(min(kelly * fraccion, 0.20), 4)
 
 
 def feature_importance_report(modelo, features, stat_name):
@@ -118,14 +105,22 @@ def feature_importance_report(modelo, features, stat_name):
 # 3. CARGA Y PREPARACIÓN DE DATOS
 # -------------------------------------------------------------------
 def cargar_datos():
-    print("📡 1. Descargando historial (Temporada Actual, min >= 10)...")
+    print("📡 1. Descargando historial y cruzando con datos de Q1...")
     query = text("""
         SELECT pgl.player_id, p.position, pgl.team_abbreviation, pgl.game_date, pgl.matchup,
                pgl.min, pgl.usage_pct, pgl.touches, pgl.rebound_chances, pgl.passes_made,
                pgl.potential_ast, pgl.rebound_off, pgl.rebound_def,
-               pgl.pts, pgl.reb, pgl.ast, pgl.fgm, pgl.fga, pgl.fg3m, pgl.fg3a, pgl.ftm, pgl.fta
+               pgl.pts, pgl.reb, pgl.ast, pgl.fgm, pgl.fga, pgl.fg3m, pgl.fg3a, pgl.ftm, pgl.fta,
+               COALESCE(q1.q1_pts, 0) as q1_pts, 
+               COALESCE(q1.q1_reb, 0) as q1_reb, 
+               COALESCE(q1.q1_ast, 0) as q1_ast,
+               COALESCE(q1.q1_oreb, 0) as q1_oreb,
+               COALESCE(q1.q1_dreb, 0) as q1_dreb
         FROM player_game_logs pgl
         JOIN players p ON pgl.player_id = p.id
+        LEFT JOIN player_q1_stats q1 
+               ON CAST(pgl.game_id AS INTEGER) = CAST(q1.game_id AS INTEGER) 
+               AND pgl.player_id = q1.player_id
         WHERE pgl.game_date >= '2025-10-01'
           AND pgl.min >= 10
           AND (
@@ -146,71 +141,59 @@ def cargar_datos():
 
 
 def preparar_features(df):
-    print("⏳ 2. Preparando features...")
+    print("⏳ 2. Preparando features y extrayendo momentum...")
 
     df['game_date'] = pd.to_datetime(df['game_date'])
     df = df.sort_values(['player_id', 'game_date'])
 
-    # ── Encoding de posición ──────────────────────────────────────────
     df['pos_enc'] = df['position'].map(POSICION_ENCODING).fillna(3)
-
-    # ── Opp ───────────────────────────────────────────────────────────
     df['opp'] = df.apply(get_opp, axis=1)
 
-    # ── Home/Away ─────────────────────────────────────────────────────
-    df['is_home'] = df['matchup'].apply(lambda x: 0 if '@' in str(x) and str(x).strip().startswith(df['team_abbreviation'].iloc[0] if False else '') else 1)
-    # Forma más robusta: si el team aparece DESPUÉS del @, es visitante
     df['is_home'] = df.apply(
         lambda r: 0 if str(r['matchup']).split('@')[-1].strip().startswith(r['team_abbreviation']) else 1
         if '@' in str(r['matchup']) else 1, axis=1
     )
 
-    # ── Back-to-Back ──────────────────────────────────────────────────
     df['rest_days'] = df.groupby('player_id')['game_date'].diff().dt.days.fillna(3).clip(upper=7)
     df['is_b2b']    = (df['rest_days'] <= 1).astype(int)
 
-    # ── Imputar nulos de tracking con 0 ───────────────────────────────
     cols_tracking = ['touches', 'rebound_chances', 'passes_made', 'potential_ast', 'rebound_off', 'rebound_def']
     for col in cols_tracking:
         df[col] = df[col].fillna(0)
 
-    # ── Rolling L5 y L10 ──────────────────────────────────────────────
     cols_to_roll = [
         'min', 'usage_pct', 'touches', 'rebound_chances', 'passes_made',
         'potential_ast', 'rebound_off', 'rebound_def',
-        'pts', 'reb', 'ast', 'fgm', 'fga', 'fg3m', 'fg3a', 'ftm', 'fta'
+        'pts', 'reb', 'ast', 'fgm', 'fga', 'fg3m', 'fg3a', 'ftm', 'fta',
+        'q1_pts', 'q1_reb', 'q1_ast'
     ]
 
     for col in cols_to_roll:
-        shifted = df.groupby('player_id')[col].transform(lambda x: x.shift(1))
-        df[f'{col}_L5']  = df.groupby('player_id')[col].transform(
-            lambda x: x.shift(1).rolling(window=5,  min_periods=1).mean()
-        )
-        df[f'{col}_L10'] = df.groupby('player_id')[col].transform(
-            lambda x: x.shift(1).rolling(window=10, min_periods=1).mean()
-        )
-        # Season average hasta ese momento
-        df[f'{col}_season'] = df.groupby('player_id')[col].transform(
-            lambda x: x.shift(1).expanding(min_periods=1).mean()
-        )
+        df[f'{col}_L5']  = df.groupby('player_id')[col].transform(lambda x: x.shift(1).rolling(window=5,  min_periods=1).mean())
+        df[f'{col}_L10'] = df.groupby('player_id')[col].transform(lambda x: x.shift(1).rolling(window=10, min_periods=1).mean())
+        df[f'{col}_season'] = df.groupby('player_id')[col].transform(lambda x: x.shift(1).expanding(min_periods=1).mean())
 
-    # ── Eficiencia por minuto ─────────────────────────────────────────
+    df['pts_momentum'] = df['pts_L5'] - df['pts_season']
+    df['reb_momentum'] = df['reb_L5'] - df['reb_season']
+    df['ast_momentum'] = df['ast_L5'] - df['ast_season']
+
+    df['q1_pts_pct_L5'] = np.where(df['pts_L5'] > 0, df['q1_pts_L5'] / df['pts_L5'], 0)
+    df['q1_reb_pct_L5'] = np.where(df['reb_L5'] > 0, df['q1_reb_L5'] / df['reb_L5'], 0)
+    df['q1_ast_pct_L5'] = np.where(df['ast_L5'] > 0, df['q1_ast_L5'] / df['ast_L5'], 0)
+
     df['ppm_L5']    = np.where(df['min_L5'] > 0, df['pts_L5']  / df['min_L5'], 0)
     df['fga_pm_L5'] = np.where(df['min_L5'] > 0, df['fga_L5']  / df['min_L5'], 0)
     df['ast_pm_L5'] = np.where(df['min_L5'] > 0, df['ast_L5']  / df['min_L5'], 0)
     df['reb_pm_L5'] = np.where(df['min_L5'] > 0, df['reb_L5']  / df['min_L5'], 0)
 
-    # ── Rolling DvP sin Data Leakage ──────────────────────────────────
     df_dvp_roll = calcular_rolling_dvp(df)
     df = pd.merge(df, df_dvp_roll, on=['game_date', 'opp', 'position'], how='left')
 
-    # Fallback: si no hay rolling DvP (primeros partidos), usar media global
     for col in ['dvp_pts', 'dvp_reb', 'dvp_ast', 'dvp_3pt']:
         global_mean = df[col].mean()
         df[col] = df[col].fillna(global_mean)
 
     df = df.fillna(0)
-
     print(f"    ✅ Features listos. {len(df)} filas × {len(df.columns)} columnas.")
     return df
 
@@ -219,10 +202,12 @@ def preparar_features(df):
 # 4. CONFIGURACIÓN DE MODELOS
 # -------------------------------------------------------------------
 MODELOS_CONFIG = {
+    # ── MODELOS CLÁSICOS (PARTIDO COMPLETO) ──
     'PTS': (
         'puntos',
         ['min_L5', 'min_L10', 'usage_pct_L5', 'usage_pct_L10', 'fga_L5', 'fga_L10',
          'pts_L5', 'pts_L10', 'pts_season', 'touches_L5', 'ppm_L5',
+         'pts_momentum', 'q1_pts_L5', 'q1_pts_pct_L5', 
          'dvp_pts', 'rest_days', 'is_b2b', 'is_home', 'pos_enc'],
         'pts', 'reg:squarederror'
     ),
@@ -230,7 +215,9 @@ MODELOS_CONFIG = {
         'rebotes',
         ['min_L5', 'min_L10', 'rebound_chances_L5', 'rebound_chances_L10',
          'rebound_off_L5', 'rebound_def_L5', 'reb_L5', 'reb_L10', 'reb_season',
-         'touches_L5', 'reb_pm_L5', 'dvp_reb', 'rest_days', 'is_b2b', 'is_home', 'pos_enc'],
+         'touches_L5', 'reb_pm_L5', 
+         'reb_momentum', 'q1_reb_L5', 'q1_reb_pct_L5', 
+         'dvp_reb', 'rest_days', 'is_b2b', 'is_home', 'pos_enc'],
         'reb', 'reg:squarederror'
     ),
     'AST': (
@@ -238,6 +225,7 @@ MODELOS_CONFIG = {
         ['min_L5', 'min_L10', 'passes_made_L5', 'passes_made_L10',
          'potential_ast_L5', 'potential_ast_L10', 'ast_L5', 'ast_L10', 'ast_season',
          'touches_L5', 'usage_pct_L5', 'ast_pm_L5',
+         'ast_momentum', 'q1_ast_L5', 'q1_ast_pct_L5', 
          'dvp_ast', 'rest_days', 'is_b2b', 'is_home', 'pos_enc'],
         'ast', 'reg:squarederror'
     ),
@@ -246,7 +234,7 @@ MODELOS_CONFIG = {
         ['min_L5', 'min_L10', 'usage_pct_L5', 'fg3a_L5', 'fg3a_L10',
          'fg3m_L5', 'fg3m_L10', 'fg3m_season',
          'dvp_3pt', 'rest_days', 'is_b2b', 'is_home', 'pos_enc'],
-        'fg3m', 'count:poisson'     # Conteo discreto → Poisson
+        'fg3m', 'count:poisson'     
     ),
     'FGM': (
         'tiros_anotados',
@@ -264,7 +252,7 @@ MODELOS_CONFIG = {
         'triples_intentados',
         ['min_L5', 'usage_pct_L5', 'fg3a_L5', 'fg3a_L10', 'fg3a_season',
          'dvp_3pt', 'rest_days', 'is_b2b', 'is_home', 'pos_enc'],
-        'fg3a', 'count:poisson'     # Conteo discreto → Poisson
+        'fg3a', 'count:poisson'     
     ),
     'FTM': (
         'libres_anotados',
@@ -277,6 +265,26 @@ MODELOS_CONFIG = {
         ['min_L5', 'usage_pct_L5', 'fta_L5', 'fta_L10', 'fta_season',
          'rest_days', 'is_b2b', 'is_home', 'pos_enc'],
         'fta', 'reg:squarederror'
+    ),
+    
+    # ── NUEVOS MODELOS (EXCLUSIVOS PRIMER CUARTO) ──
+    'Q1_PTS': (
+        'q1_puntos',
+        ['min_L5', 'usage_pct_L5', 'q1_pts_L5', 'q1_pts_L10', 'q1_pts_season',
+         'pts_L5', 'q1_pts_pct_L5', 'dvp_pts', 'is_b2b', 'is_home', 'pos_enc'],
+        'q1_pts', 'reg:squarederror'
+    ),
+    'Q1_REB': (
+        'q1_rebotes',
+        ['min_L5', 'q1_reb_L5', 'q1_reb_L10', 'q1_reb_season',
+         'reb_L5', 'dvp_reb', 'is_b2b', 'is_home', 'pos_enc'],
+        'q1_reb', 'reg:squarederror'
+    ),
+    'Q1_AST': (
+        'q1_asistencias',
+        ['min_L5', 'usage_pct_L5', 'q1_ast_L5', 'q1_ast_L10', 'q1_ast_season',
+         'ast_L5', 'dvp_ast', 'is_b2b', 'is_home', 'pos_enc'],
+        'q1_ast', 'reg:squarederror'
     ),
 }
 
@@ -369,12 +377,7 @@ def entrenar_modelos():
         ruta = f'modelos_ai/ludogallina_{nombre_archivo}.pkl'
         joblib.dump(modelo_final, ruta)
 
-        # Ejemplo de Kelly para este stat
-        ejemplo_edge  = 10.0   # 10% de ventaja ejemplo
-        ejemplo_odds  = 1.909  # -110 americano
-        ejemplo_kelly = kelly_fraccional(ejemplo_edge, ejemplo_odds)
-
-        print(f"   ✅ {stat.ljust(4)} | "
+        print(f"   ✅ {stat.ljust(6)} | "
               f"MAE CV: {mae_cv_mean:.2f} ±{mae_cv_std:.2f} | "
               f"MAE Final: {mae_final:.2f} | "
               f"Árboles: {modelo_final.best_iteration} | "
@@ -395,21 +398,9 @@ def entrenar_modelos():
     df_res = pd.DataFrame(resumen).sort_values('mae_cv')
     for _, r in df_res.iterrows():
         barra = '█' * int(r['mae_cv'] * 3)
-        print(f"   {r['stat'].ljust(4)} | MAE={r['mae_cv']:.2f} ±{r['mae_cv_std']:.2f} | {barra}")
+        print(f"   {r['stat'].ljust(6)} | MAE={r['mae_cv']:.2f} ±{r['mae_cv_std']:.2f} | {barra}")
 
-    print("\n📐 Kelly Criterion — verificación matemática:")
-    casos = [
-        (5,  1.91, "stake esperado ~0.5%"),
-        (10, 1.91, "stake esperado ~2.7%"),
-        (20, 1.91, "stake esperado ~8.9%"),
-        (10, 2.50, "stake esperado ~3.3%"),
-    ]
-    for edge, odds, descripcion in casos:
-        stake = kelly_fraccional(edge, odds)
-        p_win = round(((edge / 100) + 1) / odds * 100, 1)
-        print(f"   Edge {str(edge).ljust(2)}%, odds {odds} → p_win={p_win}% | stake={stake} ({descripcion})")
-
-    print(f"\n✅ Modelos guardados en modelos_ai/")
+    print(f"\n✅ 12 Modelos (9 Full Game + 3 Primer Cuarto) guardados en modelos_ai/")
     return resumen
 
 

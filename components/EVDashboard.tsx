@@ -1,18 +1,18 @@
 "use client";
 import { useState, useEffect } from 'react';
 import { AlertCircle } from 'lucide-react';
+import PickHorizontal from './PickHorizontal';
 
 export default function EVDashboard({ plays }: { plays: any[] }) {
-  // Estado para la pestaña activa
   const [activeTab, setActiveTab] = useState<'HOY' | 'FUTUROS'>('HOY');
-  
-  // Filtramos los bloques según la pestaña
   const filteredPlays = plays?.filter(p => activeTab === 'HOY' ? p.is_today : !p.is_today) || [];
-
-  // Seleccionamos por defecto el primer bloque de la lista filtrada
+  
   const [selectedBlock, setSelectedBlock] = useState<any | null>(null);
+  
+  // 🟢 NUEVO ESTADO: Controla qué ticket (X2, X5, etc.) estamos viendo adentro del partido
+  const [activeTicketIdx, setActiveTicketIdx] = useState<number>(0);
 
-  // Si cambiamos de pestaña, auto-seleccionamos el primer partido de esa pestaña
+  // Auto-seleccionar el primer partido al cambiar de pestaña
   useEffect(() => {
     if (filteredPlays.length > 0) {
       setSelectedBlock(filteredPlays[0]);
@@ -20,6 +20,11 @@ export default function EVDashboard({ plays }: { plays: any[] }) {
       setSelectedBlock(null);
     }
   }, [activeTab, plays]);
+
+  // 🟢 MAGIA: Si el usuario cambia de partido, reseteamos el menú interno al primer ticket (X2)
+  useEffect(() => {
+    setActiveTicketIdx(0);
+  }, [selectedBlock]);
 
   if (!plays || plays.length === 0) {
     return (
@@ -33,14 +38,12 @@ export default function EVDashboard({ plays }: { plays: any[] }) {
   return (
     <div className="flex flex-col gap-6">
       
-      {/* 🗂️ SISTEMA DE PESTAÑAS (TABS) */}
+      {/* TABS PRINCIPALES */}
       <div className="flex gap-4 border-b border-[#222] pb-0">
         <button 
           onClick={() => setActiveTab('HOY')}
           className={`pb-3 px-2 text-xs font-black uppercase tracking-widest transition-all ${
-            activeTab === 'HOY' 
-              ? 'text-[#10b981] border-b-2 border-[#10b981]' 
-              : 'text-[#666] hover:text-[#aaa]'
+            activeTab === 'HOY' ? 'text-[#10b981] border-b-2 border-[#10b981]' : 'text-[#666] hover:text-[#aaa]'
           }`}
         >
           Cartelera de Hoy
@@ -48,9 +51,7 @@ export default function EVDashboard({ plays }: { plays: any[] }) {
         <button 
           onClick={() => setActiveTab('FUTUROS')}
           className={`pb-3 px-2 text-xs font-black uppercase tracking-widest transition-all ${
-            activeTab === 'FUTUROS' 
-              ? 'text-purple-500 border-b-2 border-purple-500' 
-              : 'text-[#666] hover:text-[#aaa]'
+            activeTab === 'FUTUROS' ? 'text-purple-500 border-b-2 border-purple-500' : 'text-[#666] hover:text-[#aaa]'
           }`}
         >
           Líneas Tempranas (Mañana)
@@ -59,11 +60,11 @@ export default function EVDashboard({ plays }: { plays: any[] }) {
 
       <div className="flex flex-col lg:flex-row gap-6 items-start">
         
-        {/* COLUMNA IZQUIERDA: Bloques de Partidos */}
-        <div className="w-full lg:w-1/3 flex flex-col gap-3 max-h-[75vh] overflow-y-auto pr-2">
+        {/* MENÚ IZQUIERDO: Partidos */}
+        <div className="w-full lg:w-1/4 flex flex-col gap-3 max-h-[75vh] overflow-y-auto pr-2">
           {filteredPlays.length === 0 ? (
              <div className="p-6 text-center border border-dashed border-[#333] rounded-2xl bg-[#0a0a0a]">
-               <p className="text-[#666] text-xs font-bold uppercase tracking-widest">No hay líneas disponibles para esta fecha.</p>
+               <p className="text-[#666] text-xs font-bold uppercase tracking-widest">No hay líneas.</p>
              </div>
           ) : (
             filteredPlays.map((bloque, idx) => {
@@ -74,21 +75,21 @@ export default function EVDashboard({ plays }: { plays: any[] }) {
                 <button
                   key={idx}
                   onClick={() => setSelectedBlock(bloque)}
-                  className={`w-full text-left p-4 rounded-2xl border transition-all flex flex-col gap-2 ${
+                  className={`w-full text-left p-4 rounded-xl border transition-all flex flex-col gap-2 ${
                     isSelected 
                       ? isOver 
-                        ? 'bg-[#111] border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.1)]' 
-                        : 'bg-[#111] border-cyan-500/50 shadow-[0_0_20px_rgba(6,182,212,0.1)]'
+                        ? 'bg-[#111] border-orange-500/50 shadow-[0_0_15px_rgba(249,115,22,0.1)]' 
+                        : 'bg-[#111] border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.1)]'
                       : 'bg-[#0a0a0a] border-[#1a1a1a] hover:border-[#333] hover:bg-[#111]'
                   }`}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-xl">{isOver ? '🔥' : '🧊'}</span>
+                    <span className="text-lg">{isOver ? '🔥' : '🧊'}</span>
                     <div>
-                      <h3 className="text-sm font-black uppercase text-white leading-tight">
+                      <h3 className="text-xs font-black uppercase text-white leading-tight">
                         {bloque.matchup.split(' (')[0]}
                       </h3>
-                      <p className={`text-[10px] font-black uppercase tracking-widest ${isOver ? 'text-orange-500' : 'text-cyan-500'}`}>
+                      <p className={`text-[9px] font-black uppercase tracking-widest mt-1 ${isOver ? 'text-orange-500' : 'text-cyan-500'}`}>
                         GUION {isOver ? 'OFENSIVO' : 'DEFENSIVO'}
                       </p>
                     </div>
@@ -99,118 +100,66 @@ export default function EVDashboard({ plays }: { plays: any[] }) {
           )}
         </div>
 
-        {/* COLUMNA DERECHA: El Panel de Tickets */}
-        <div className="w-full lg:w-2/3 sticky top-8">
+        {/* PANEL DERECHO: Tickets */}
+        <div className="w-full lg:w-3/4 sticky top-8">
           {selectedBlock && (
-            <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-3xl p-6 shadow-xl relative overflow-hidden">
+            <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-2xl p-6 shadow-xl">
               
-              <div className="mb-6 relative z-10 border-b border-[#222] pb-4">
+              <div className="mb-6 border-b border-[#222] pb-4">
                 <h2 className="text-2xl font-black uppercase tracking-tighter text-white">
                   {selectedBlock.matchup.split(' (')[0]}
                 </h2>
-                <p className={`text-xs font-bold uppercase tracking-widest ${selectedBlock.guion === 'OVER' ? 'text-orange-500' : 'text-cyan-500'}`}>
+                <p className={`text-xs font-bold uppercase tracking-widest mt-1 ${selectedBlock.guion === 'OVER' ? 'text-orange-500' : 'text-cyan-500'}`}>
                   SAME GAME PARLAYS • SOLO {selectedBlock.guion}S
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {selectedBlock.tickets.map((ticket: any, tIdx: number) => (
-                  <div key={tIdx} className="bg-[#111] border border-[#222] rounded-2xl overflow-hidden flex flex-col">
-                    
-                    <div className="p-4 bg-black/50 border-b border-[#222] flex justify-between items-center">
-                      <h3 className="font-bold text-white text-sm uppercase">{ticket.name}</h3>
-                      <span className="bg-[#10b981]/10 text-[#10b981] text-[10px] px-2 py-1 rounded font-black uppercase tracking-widest">
-                        CUOTA {ticket.total_odds.toFixed(2)}
-                      </span>
-                    </div>
+              {/* 🟢 SUB-MENÚ INTERNO (Botonera para elegir el ticket X2, X5, etc.) */}
+              <div className="flex flex-wrap gap-2 mb-6">
+                {selectedBlock.tickets.map((ticket: any, idx: number) => {
+                  const isActive = activeTicketIdx === idx;
+                  const isHuge = ticket.name.includes('X10') || ticket.name.includes('X5');
+                  
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => setActiveTicketIdx(idx)}
+                      className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
+                        isActive 
+                          ? 'bg-[#10b981] text-black shadow-[0_0_15px_rgba(16,185,129,0.3)]' 
+                          : 'bg-[#111] text-[#888] border border-[#222] hover:bg-[#1a1a1a] hover:text-white'
+                      }`}
+                    >
+                      {isHuge ? '🚀' : '💎'} {ticket.name}
+                    </button>
+                  );
+                })}
+              </div>
 
-                    <div className="p-4 flex-grow space-y-4">
-                      {ticket.plays.map((play: any, pIdx: number) => (
-                        <div key={pIdx} className="space-y-2 border-b border-[#222] pb-4 last:border-0 last:pb-0">
-                          
-                          <div className="flex justify-between items-start mb-2">
-                            <div>
-                              <p className="font-black text-white text-sm leading-none">
-                                {play.player} <span className="text-[10px] text-[#666] ml-1">{play.team}</span>
-                              </p>
-                              <p className="text-xs font-bold mt-1 uppercase">
-                                <span className={play.type === 'OVER' ? 'text-orange-500' : 'text-cyan-500'}>
-                                  {play.type}
-                                </span>{' '}
-                                <span className="text-[#ccc]">{play.line} {play.prop}</span>
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-[9px] uppercase tracking-widest text-[#666]">Cuota</p>
-                              <p className="font-mono text-white text-sm">{play.odds.toFixed(2)}</p>
-                            </div>
-                          </div>
-
-                          {/* Datos Sharp */}
-                          <div className="flex gap-4 items-center bg-black p-2 rounded-xl border border-[#222]">
-                            <div className="flex-1 text-center border-r border-[#222]">
-                               <p className="text-[9px] uppercase tracking-widest text-[#666]">Proy IA</p>
-                               <p className="text-xs font-bold text-white">{play.proj}</p>
-                             </div>
-                             <div className="flex-1 text-center border-r border-[#222]">
-                               <p className="text-[9px] uppercase tracking-widest text-[#666]">Edge</p>
-                               <p className={`text-xs font-bold ${Number(play.edge) > 20 ? 'text-[#10b981]' : 'text-yellow-500'}`}>
-                                 +{Number(play.edge).toFixed(1)}%
-                               </p>
-                             </div>
-                             <div className="flex-1 text-center">
-                               <p className="text-[9px] uppercase tracking-widest text-[#666]">Acierto L5</p>
-                               <p className="text-xs font-bold text-white">
-                                  {play.hit_rate ? play.hit_rate.split(' ')[0] : '0/5'}
-                               </p>
-                             </div>
-                          </div>
-
-                          {/* Efecto Dominó / Lesiones */}
-                          {play.injuries && (
-                             <div className="mt-2 flex items-center gap-1.5 bg-red-500/10 px-2 py-1 rounded border border-red-500/20">
-                               <span className="text-red-500 text-xs">⚠️</span>
-                               <p className="text-[10px] text-red-400 font-bold uppercase tracking-wider">{play.injuries}</p>
-                             </div>
-                          )}
-                          
-                          {/* 🛡️ CAJA DE ALTERNATIVA SEGURA Y EXPLICACIÓN */}
-                          {(play.safe_line && play.safe_odds !== 99) && (
-                            <div className="mt-3 bg-[#10b981]/5 border border-[#10b981]/20 rounded-xl p-3 relative overflow-hidden">
-                              <div className="absolute -right-4 -top-4 w-12 h-12 bg-[#10b981] opacity-10 blur-xl rounded-full" />
-                              
-                              <div className="flex items-center justify-between mb-1.5 relative z-10">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-sm">🛡️</span>
-                                  <p className="text-[10px] font-black uppercase tracking-widest text-[#10b981]">Opción Segura</p>
-                                </div>
-                                <p className="font-mono text-white text-xs font-bold bg-black/50 px-2 py-0.5 rounded border border-[#333]">
-                                  Cuota {play.safe_odds?.toFixed(2)}
-                                </p>
-                              </div>
-                              
-                              <p className="text-sm font-black text-white mb-2 relative z-10">
-                                <span className={play.type === 'OVER' ? 'text-orange-500' : 'text-cyan-500'}>{play.type}</span> {play.safe_line} {play.prop}
-                              </p>
-                              
-                              {/* EL "POR QUÉ" DEL ANALISTA (Estilo Terminal) */}
-                              <div className="border-t border-[#10b981]/10 pt-2 mt-2 relative z-10">
-                                <div className="flex items-start gap-1">
-                                  <span className="text-[#10b981] text-[10px] mt-0.5">▶</span>
-                                  <p className="text-[10px] text-[#888] leading-relaxed font-mono">
-                                    <strong className="text-[#10b981]">Scouting_AI:</strong> {play.analysis || `Proyección quant de ${play.proj} ${play.prop}. Línea ajustada a ${play.safe_line} para neutralizar varianza de minutos.`}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-
-                        </div>
-                      ))}
+              {/* 🟢 RENDERIZAMOS SOLO EL TICKET SELECCIONADO */}
+              {selectedBlock.tickets[activeTicketIdx] && (
+                <div className="bg-transparent flex flex-col gap-4 animate-in fade-in duration-300">
+                  
+                  <div className="flex justify-between items-end border-b border-[#333] pb-2">
+                    <h3 className="font-black text-white text-xl uppercase tracking-tight">
+                      {selectedBlock.tickets[activeTicketIdx].name}
+                    </h3>
+                    <div className="text-right">
+                       <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-0.5">Cuota Total</p>
+                       <span className="bg-[#10b981] text-black text-sm px-3 py-1 rounded-md font-black uppercase tracking-widest">
+                         {selectedBlock.tickets[activeTicketIdx].total_odds?.toFixed(2)}
+                       </span>
                     </div>
                   </div>
-                ))}
-              </div>
+
+                  <div className="flex flex-col gap-3">
+                    {selectedBlock.tickets[activeTicketIdx].plays.map((play: any, pIdx: number) => (
+                      <PickHorizontal key={pIdx} play={play} />
+                    ))}
+                  </div>
+                  
+                </div>
+              )}
 
             </div>
           )}

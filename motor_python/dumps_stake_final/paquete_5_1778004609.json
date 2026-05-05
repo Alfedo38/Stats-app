@@ -1,0 +1,735 @@
+{
+    "data": {
+        "highrollerSportBets": [
+            {
+                "id": "9c23a78f-49e9-442b-954c-63555bc76d74",
+                "iid": "sport:576573055",
+                "bet": {
+                    "__typename": "SportBet",
+                    "id": "9c23a78f-49e9-442b-954c-63555bc76d74",
+                    "customBet": false,
+                    "updatedAt": "Tue, 05 May 2026 18:10:01 GMT",
+                    "createdAt": "Tue, 05 May 2026 18:10:00 GMT",
+                    "potentialMultiplier": 5.6,
+                    "amount": 2.11599996,
+                    "currency": "eth",
+                    "user": null,
+                    "outcomes": [
+                        {
+                            "id": "4f7dec5d-7c5c-4b92-b230-4731d1a3af89",
+                            "odds": 5.6,
+                            "fixtureAbreviation": "ARS - ATM",
+                            "fixtureName": "Arsenal FC - Atl\u00e9tico Madrid",
+                            "fixture": {
+                                "id": "41305ee6-e2eb-4d7a-8838-32279b3b5d29",
+                                "tournament": {
+                                    "id": "0ec0353d-27ac-4893-93e3-7b7c14edf285",
+                                    "category": {
+                                        "id": "eaadf307-ea04-4f94-85a4-73a2e0716227",
+                                        "sport": {
+                                            "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                            "slug": "soccer"
+                                        }
+                                    }
+                                },
+                                "status": "active",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Arsenal FC",
+                                            "abbreviation": "ARS"
+                                        },
+                                        {
+                                            "name": "Atl\u00e9tico Madrid",
+                                            "abbreviation": "ATM"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "4f7dec5d-7c5c-4b92-b230-4731d1a3af89",
+                                "odds": 5.6,
+                                "name": "Atl\u00e9tico Madrid"
+                            },
+                            "market": {
+                                "id": "4d1c11d5-ae71-4f1d-b112-93a37906e4a0",
+                                "name": "1x2",
+                                "status": "active"
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "75a9b4e1-6a81-43be-96d5-14c3015cd5b9",
+                "iid": "sport:576572943",
+                "bet": {
+                    "__typename": "SportBet",
+                    "id": "75a9b4e1-6a81-43be-96d5-14c3015cd5b9",
+                    "customBet": false,
+                    "updatedAt": "Tue, 05 May 2026 18:09:49 GMT",
+                    "createdAt": "Tue, 05 May 2026 18:09:49 GMT",
+                    "potentialMultiplier": 5.6,
+                    "amount": 13.68832499,
+                    "currency": "sol",
+                    "user": null,
+                    "outcomes": [
+                        {
+                            "id": "4f7dec5d-7c5c-4b92-b230-4731d1a3af89",
+                            "odds": 5.6,
+                            "fixtureAbreviation": "ARS - ATM",
+                            "fixtureName": "Arsenal FC - Atl\u00e9tico Madrid",
+                            "fixture": {
+                                "id": "41305ee6-e2eb-4d7a-8838-32279b3b5d29",
+                                "tournament": {
+                                    "id": "0ec0353d-27ac-4893-93e3-7b7c14edf285",
+                                    "category": {
+                                        "id": "eaadf307-ea04-4f94-85a4-73a2e0716227",
+                                        "sport": {
+                                            "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                            "slug": "soccer"
+                                        }
+                                    }
+                                },
+                                "status": "active",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Arsenal FC",
+                                            "abbreviation": "ARS"
+                                        },
+                                        {
+                                            "name": "Atl\u00e9tico Madrid",
+                                            "abbreviation": "ATM"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "4f7dec5d-7c5c-4b92-b230-4731d1a3af89",
+                                "odds": 5.6,
+                                "name": "Atl\u00e9tico Madrid"
+                            },
+                            "market": {
+                                "id": "4d1c11d5-ae71-4f1d-b112-93a37906e4a0",
+                                "name": "1x2",
+                                "status": "active"
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "9a0cd669-c8ae-4a27-b015-1578c0581f50",
+                "iid": "sport:576572941",
+                "bet": {
+                    "__typename": "SportBet",
+                    "id": "9a0cd669-c8ae-4a27-b015-1578c0581f50",
+                    "customBet": false,
+                    "updatedAt": "Tue, 05 May 2026 18:09:49 GMT",
+                    "createdAt": "Tue, 05 May 2026 18:09:49 GMT",
+                    "potentialMultiplier": 2.85,
+                    "amount": 34.22081246,
+                    "currency": "sol",
+                    "user": null,
+                    "outcomes": [
+                        {
+                            "id": "6690577a-4cf4-4ddd-8c49-71756ffc336b",
+                            "odds": 2.85,
+                            "fixtureAbreviation": "ARS - ATM",
+                            "fixtureName": "Arsenal FC - Atl\u00e9tico Madrid",
+                            "fixture": {
+                                "id": "41305ee6-e2eb-4d7a-8838-32279b3b5d29",
+                                "tournament": {
+                                    "id": "0ec0353d-27ac-4893-93e3-7b7c14edf285",
+                                    "category": {
+                                        "id": "eaadf307-ea04-4f94-85a4-73a2e0716227",
+                                        "sport": {
+                                            "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                            "slug": "soccer"
+                                        }
+                                    }
+                                },
+                                "status": "active",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Arsenal FC",
+                                            "abbreviation": "ARS"
+                                        },
+                                        {
+                                            "name": "Atl\u00e9tico Madrid",
+                                            "abbreviation": "ATM"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "6690577a-4cf4-4ddd-8c49-71756ffc336b",
+                                "odds": 2.85,
+                                "name": "Atl\u00e9tico Madrid"
+                            },
+                            "market": {
+                                "id": "a50041f4-8c2e-4398-b2ec-f848e26cc444",
+                                "name": "1x2 (1up)",
+                                "status": "active"
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "24d97809-ae13-4fbc-a40d-fcf13c1f619b",
+                "iid": "sport:576572940",
+                "bet": {
+                    "__typename": "SportBet",
+                    "id": "24d97809-ae13-4fbc-a40d-fcf13c1f619b",
+                    "customBet": false,
+                    "updatedAt": "Tue, 05 May 2026 18:09:49 GMT",
+                    "createdAt": "Tue, 05 May 2026 18:09:49 GMT",
+                    "potentialMultiplier": 3.45,
+                    "amount": 20.53248748,
+                    "currency": "sol",
+                    "user": null,
+                    "outcomes": [
+                        {
+                            "id": "008dc74c-e43b-4385-a368-17dd8a7ff9f8",
+                            "odds": 3.45,
+                            "fixtureAbreviation": "ARS - ATM",
+                            "fixtureName": "Arsenal FC - Atl\u00e9tico Madrid",
+                            "fixture": {
+                                "id": "41305ee6-e2eb-4d7a-8838-32279b3b5d29",
+                                "tournament": {
+                                    "id": "0ec0353d-27ac-4893-93e3-7b7c14edf285",
+                                    "category": {
+                                        "id": "eaadf307-ea04-4f94-85a4-73a2e0716227",
+                                        "sport": {
+                                            "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                            "slug": "soccer"
+                                        }
+                                    }
+                                },
+                                "status": "active",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Arsenal FC",
+                                            "abbreviation": "ARS"
+                                        },
+                                        {
+                                            "name": "Atl\u00e9tico Madrid",
+                                            "abbreviation": "ATM"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "008dc74c-e43b-4385-a368-17dd8a7ff9f8",
+                                "odds": 3.45,
+                                "name": "Atl\u00e9tico Madrid"
+                            },
+                            "market": {
+                                "id": "d23f2599-29a1-469b-a292-046d8e5ca3c9",
+                                "name": "Se clasifica",
+                                "status": "active"
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "8416f0fd-fe90-49de-b5db-2b9dd5742f3b",
+                "iid": "sport:576572881",
+                "bet": {
+                    "__typename": "SportBet",
+                    "id": "8416f0fd-fe90-49de-b5db-2b9dd5742f3b",
+                    "customBet": false,
+                    "updatedAt": "Tue, 05 May 2026 18:09:41 GMT",
+                    "createdAt": "Tue, 05 May 2026 18:09:41 GMT",
+                    "potentialMultiplier": 10,
+                    "amount": 2.53919996,
+                    "currency": "eth",
+                    "user": null,
+                    "outcomes": [
+                        {
+                            "id": "7f7f8ba3-74ac-4460-ab52-9d6da6032df8",
+                            "odds": 10,
+                            "fixtureAbreviation": "ARS - ATM",
+                            "fixtureName": "Arsenal FC - Atl\u00e9tico Madrid",
+                            "fixture": {
+                                "id": "41305ee6-e2eb-4d7a-8838-32279b3b5d29",
+                                "tournament": {
+                                    "id": "0ec0353d-27ac-4893-93e3-7b7c14edf285",
+                                    "category": {
+                                        "id": "eaadf307-ea04-4f94-85a4-73a2e0716227",
+                                        "sport": {
+                                            "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                            "slug": "soccer"
+                                        }
+                                    }
+                                },
+                                "status": "active",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Arsenal FC",
+                                            "abbreviation": "ARS"
+                                        },
+                                        {
+                                            "name": "Atl\u00e9tico Madrid",
+                                            "abbreviation": "ATM"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "7f7f8ba3-74ac-4460-ab52-9d6da6032df8",
+                                "odds": 10,
+                                "name": "Lookman, Ademola"
+                            },
+                            "market": {
+                                "id": "ad3d2865-bcb8-4fcc-b130-9fdd5533b45f",
+                                "name": "Goleador 1st",
+                                "status": "active"
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "7fe99df3-4dfa-4d46-af44-d5778fd6eafb",
+                "iid": "sport:576572723",
+                "bet": {
+                    "__typename": "SportBet",
+                    "id": "7fe99df3-4dfa-4d46-af44-d5778fd6eafb",
+                    "customBet": false,
+                    "updatedAt": "Tue, 05 May 2026 18:09:25 GMT",
+                    "createdAt": "Tue, 05 May 2026 18:09:25 GMT",
+                    "potentialMultiplier": 5.2,
+                    "amount": 4.08514741,
+                    "currency": "eth",
+                    "user": null,
+                    "outcomes": [
+                        {
+                            "id": "d28a168f-a4bd-4bd7-80a7-8960644a5c39",
+                            "odds": 5.2,
+                            "fixtureAbreviation": "ARS - ATM",
+                            "fixtureName": "Arsenal FC - Atl\u00e9tico Madrid",
+                            "fixture": {
+                                "id": "41305ee6-e2eb-4d7a-8838-32279b3b5d29",
+                                "tournament": {
+                                    "id": "0ec0353d-27ac-4893-93e3-7b7c14edf285",
+                                    "category": {
+                                        "id": "eaadf307-ea04-4f94-85a4-73a2e0716227",
+                                        "sport": {
+                                            "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                            "slug": "soccer"
+                                        }
+                                    }
+                                },
+                                "status": "active",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Arsenal FC",
+                                            "abbreviation": "ARS"
+                                        },
+                                        {
+                                            "name": "Atl\u00e9tico Madrid",
+                                            "abbreviation": "ATM"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "d28a168f-a4bd-4bd7-80a7-8960644a5c39",
+                                "odds": 5.2,
+                                "name": "Lookman, Ademola"
+                            },
+                            "market": {
+                                "id": "7a8aea6d-b31c-4a81-a57f-283f9c08b4e9",
+                                "name": "Goleador en cualquier momento",
+                                "status": "active"
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "61f3eb52-6d5f-4935-943e-164ef27e63ba",
+                "iid": "sport:576572416",
+                "bet": {
+                    "__typename": "SportBet",
+                    "id": "61f3eb52-6d5f-4935-943e-164ef27e63ba",
+                    "customBet": false,
+                    "updatedAt": "Tue, 05 May 2026 18:09:02 GMT",
+                    "createdAt": "Tue, 05 May 2026 18:08:52 GMT",
+                    "potentialMultiplier": 1.01,
+                    "amount": 11111,
+                    "currency": "usdc",
+                    "user": null,
+                    "outcomes": [
+                        {
+                            "id": "9988f9f0-d872-49ea-b9a8-005c6a9ff1e4",
+                            "odds": 1.01,
+                            "fixtureAbreviation": "MOUZ - 1win",
+                            "fixtureName": "MOUZ - 1win",
+                            "fixture": {
+                                "id": "e96c4824-93fc-486c-a013-489e18d87c5d",
+                                "tournament": {
+                                    "id": "2d731025-6b1e-42e0-8ae9-22c50fa1c9d6",
+                                    "category": {
+                                        "id": "23414ef7-9d80-451f-a920-9a38639923a4",
+                                        "sport": {
+                                            "id": "0d15c0ff-f97a-442c-8546-e8ee08d5fe4e",
+                                            "slug": "dota-2"
+                                        }
+                                    }
+                                },
+                                "status": "live",
+                                "provider": "oddin",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "MOUZ",
+                                            "abbreviation": "MOUZ"
+                                        },
+                                        {
+                                            "name": "1win",
+                                            "abbreviation": "1win"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "9988f9f0-d872-49ea-b9a8-005c6a9ff1e4",
+                                "odds": 0,
+                                "name": "1win"
+                            },
+                            "market": {
+                                "id": "6eb38813-213e-4b6a-afc9-a2442acf262e",
+                                "name": "Mapa 2 Ganador del - Two opciones",
+                                "status": "suspended"
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "5a724c9b-566c-4247-a3b0-da93160d6795",
+                "iid": "sport:576572434",
+                "bet": {
+                    "__typename": "SportBet",
+                    "id": "5a724c9b-566c-4247-a3b0-da93160d6795",
+                    "customBet": false,
+                    "updatedAt": "Tue, 05 May 2026 18:08:55 GMT",
+                    "createdAt": "Tue, 05 May 2026 18:08:54 GMT",
+                    "potentialMultiplier": 1.61,
+                    "amount": 3120,
+                    "currency": "usdt",
+                    "user": null,
+                    "outcomes": [
+                        {
+                            "id": "e21ea8f7-fa4d-4c84-93d2-23141e35d892",
+                            "odds": 1.61,
+                            "fixtureAbreviation": "ARS - ATM",
+                            "fixtureName": "Arsenal FC - Atl\u00e9tico Madrid",
+                            "fixture": {
+                                "id": "41305ee6-e2eb-4d7a-8838-32279b3b5d29",
+                                "tournament": {
+                                    "id": "0ec0353d-27ac-4893-93e3-7b7c14edf285",
+                                    "category": {
+                                        "id": "eaadf307-ea04-4f94-85a4-73a2e0716227",
+                                        "sport": {
+                                            "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                            "slug": "soccer"
+                                        }
+                                    }
+                                },
+                                "status": "active",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Arsenal FC",
+                                            "abbreviation": "ARS"
+                                        },
+                                        {
+                                            "name": "Atl\u00e9tico Madrid",
+                                            "abbreviation": "ATM"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "e21ea8f7-fa4d-4c84-93d2-23141e35d892",
+                                "odds": 1.61,
+                                "name": "Arsenal FC"
+                            },
+                            "market": {
+                                "id": "4d1c11d5-ae71-4f1d-b112-93a37906e4a0",
+                                "name": "1x2",
+                                "status": "active"
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "47a453b7-5f5f-4132-930c-b78265aaad1e",
+                "iid": "sport:576571833",
+                "bet": {
+                    "__typename": "SportBet",
+                    "id": "47a453b7-5f5f-4132-930c-b78265aaad1e",
+                    "customBet": false,
+                    "updatedAt": "Tue, 05 May 2026 18:08:08 GMT",
+                    "createdAt": "Tue, 05 May 2026 18:08:08 GMT",
+                    "potentialMultiplier": 6.923,
+                    "amount": 1898,
+                    "currency": "usdt",
+                    "user": null,
+                    "outcomes": [
+                        {
+                            "id": "cbe2ea68-3ffa-43ff-b2bf-068a2d7cda08",
+                            "odds": 4.3,
+                            "fixtureAbreviation": "BM - PSG",
+                            "fixtureName": "Bayern M\u00fanich - Paris Saint-Germain FC",
+                            "fixture": {
+                                "id": "fac1707c-1e57-481f-9dba-7729482f4114",
+                                "tournament": {
+                                    "id": "0ec0353d-27ac-4893-93e3-7b7c14edf285",
+                                    "category": {
+                                        "id": "eaadf307-ea04-4f94-85a4-73a2e0716227",
+                                        "sport": {
+                                            "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                            "slug": "soccer"
+                                        }
+                                    }
+                                },
+                                "status": "active",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Bayern M\u00fanich",
+                                            "abbreviation": "BM"
+                                        },
+                                        {
+                                            "name": "Paris Saint-Germain FC",
+                                            "abbreviation": "PSG"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "cbe2ea68-3ffa-43ff-b2bf-068a2d7cda08",
+                                "odds": 4.3,
+                                "name": "Paris Saint-Germain FC"
+                            },
+                            "market": {
+                                "id": "569bdefd-d669-468a-831e-1ffa8a0c5e4c",
+                                "name": "1x2",
+                                "status": "active"
+                            }
+                        },
+                        {
+                            "id": "e21ea8f7-fa4d-4c84-93d2-23141e35d892",
+                            "odds": 1.61,
+                            "fixtureAbreviation": "ARS - ATM",
+                            "fixtureName": "Arsenal FC - Atl\u00e9tico Madrid",
+                            "fixture": {
+                                "id": "41305ee6-e2eb-4d7a-8838-32279b3b5d29",
+                                "tournament": {
+                                    "id": "0ec0353d-27ac-4893-93e3-7b7c14edf285",
+                                    "category": {
+                                        "id": "eaadf307-ea04-4f94-85a4-73a2e0716227",
+                                        "sport": {
+                                            "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                            "slug": "soccer"
+                                        }
+                                    }
+                                },
+                                "status": "active",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Arsenal FC",
+                                            "abbreviation": "ARS"
+                                        },
+                                        {
+                                            "name": "Atl\u00e9tico Madrid",
+                                            "abbreviation": "ATM"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "e21ea8f7-fa4d-4c84-93d2-23141e35d892",
+                                "odds": 1.61,
+                                "name": "Arsenal FC"
+                            },
+                            "market": {
+                                "id": "4d1c11d5-ae71-4f1d-b112-93a37906e4a0",
+                                "name": "1x2",
+                                "status": "active"
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "9227c613-d997-4a38-9ab3-ba0fdecddc78",
+                "iid": "sport:576571819",
+                "bet": {
+                    "__typename": "SportBet",
+                    "id": "9227c613-d997-4a38-9ab3-ba0fdecddc78",
+                    "customBet": false,
+                    "updatedAt": "Tue, 05 May 2026 18:08:07 GMT",
+                    "createdAt": "Tue, 05 May 2026 18:08:07 GMT",
+                    "potentialMultiplier": 4.246053000000001,
+                    "amount": 3385,
+                    "currency": "usdt",
+                    "user": null,
+                    "outcomes": [
+                        {
+                            "id": "4804eeab-588e-4b0b-9625-4471d67538a5",
+                            "odds": 1.49,
+                            "fixtureAbreviation": "CRI - PAL",
+                            "fixtureName": "Sporting Cristal - Palmeiras SP",
+                            "fixture": {
+                                "id": "a2798eca-3c94-4c64-8b07-0027707650a7",
+                                "tournament": {
+                                    "id": "cb4c5c61-41be-4514-b93c-8a2bf7a340f2",
+                                    "category": {
+                                        "id": "eaadf307-ea04-4f94-85a4-73a2e0716227",
+                                        "sport": {
+                                            "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                            "slug": "soccer"
+                                        }
+                                    }
+                                },
+                                "status": "active",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Sporting Cristal",
+                                            "abbreviation": "CRI"
+                                        },
+                                        {
+                                            "name": "Palmeiras SP",
+                                            "abbreviation": "PAL"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "4804eeab-588e-4b0b-9625-4471d67538a5",
+                                "odds": 1.49,
+                                "name": "Palmeiras SP"
+                            },
+                            "market": {
+                                "id": "989b1dd0-208f-49b7-a433-c0c5deb140de",
+                                "name": "1x2",
+                                "status": "active"
+                            }
+                        },
+                        {
+                            "id": "a8be35ea-4b9a-409b-85f9-952433dc8712",
+                            "odds": 1.77,
+                            "fixtureAbreviation": "RIE - GPA",
+                            "fixtureName": "Deportivo Riestra - Gremio",
+                            "fixture": {
+                                "id": "3a3c57d7-8920-42e2-bbe5-92e41973c9d6",
+                                "tournament": {
+                                    "id": "aa7c4669-5742-400c-8657-64e1f725ec00",
+                                    "category": {
+                                        "id": "eaadf307-ea04-4f94-85a4-73a2e0716227",
+                                        "sport": {
+                                            "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                            "slug": "soccer"
+                                        }
+                                    }
+                                },
+                                "status": "active",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Deportivo Riestra",
+                                            "abbreviation": "RIE"
+                                        },
+                                        {
+                                            "name": "Gremio",
+                                            "abbreviation": "GPA"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "a8be35ea-4b9a-409b-85f9-952433dc8712",
+                                "odds": 1.77,
+                                "name": "Gremio"
+                            },
+                            "market": {
+                                "id": "a03ac4c9-1c94-496e-bbc4-d78be9b43c39",
+                                "name": "Apuesta Sin Empate",
+                                "status": "active"
+                            }
+                        },
+                        {
+                            "id": "e21ea8f7-fa4d-4c84-93d2-23141e35d892",
+                            "odds": 1.61,
+                            "fixtureAbreviation": "ARS - ATM",
+                            "fixtureName": "Arsenal FC - Atl\u00e9tico Madrid",
+                            "fixture": {
+                                "id": "41305ee6-e2eb-4d7a-8838-32279b3b5d29",
+                                "tournament": {
+                                    "id": "0ec0353d-27ac-4893-93e3-7b7c14edf285",
+                                    "category": {
+                                        "id": "eaadf307-ea04-4f94-85a4-73a2e0716227",
+                                        "sport": {
+                                            "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                            "slug": "soccer"
+                                        }
+                                    }
+                                },
+                                "status": "active",
+                                "provider": "betradar",
+                                "data": {
+                                    "competitors": [
+                                        {
+                                            "name": "Arsenal FC",
+                                            "abbreviation": "ARS"
+                                        },
+                                        {
+                                            "name": "Atl\u00e9tico Madrid",
+                                            "abbreviation": "ATM"
+                                        }
+                                    ]
+                                }
+                            },
+                            "outcome": {
+                                "id": "e21ea8f7-fa4d-4c84-93d2-23141e35d892",
+                                "odds": 1.61,
+                                "name": "Arsenal FC"
+                            },
+                            "market": {
+                                "id": "4d1c11d5-ae71-4f1d-b112-93a37906e4a0",
+                                "name": "1x2",
+                                "status": "active"
+                            }
+                        }
+                    ]
+                }
+            }
+        ]
+    }
+}

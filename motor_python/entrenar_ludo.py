@@ -1,415 +1,736 @@
+"""
+Entrenamiento Ludo v2 — usa las vistas limpias creadas en Supabase.
+
+Objetivo:
+- No leer player_game_logs crudo.
+- No hacer COALESCE falso de Q1.
+- No recalcular DvP en Python.
+- Entrenar modelos separados por mercado usando datasets adecuados.
+- Guardar modelos + metadata auditable.
+
+Requisitos de DB:
+- v_ludo_train_fullgame
+- v_ludo_train_fullgame_tracking_ok
+- v_ludo_train_q1
+- v_ludo_train_ast_tracking
+- v_ludo_train_ast_fallback
+
+Uso:
+    python entrenar_ludo_v2.py
+    python entrenar_ludo_v2.py --only PTS,REB,AST
+    python entrenar_ludo_v2.py --models-dir modelos_ai
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
 import os
-import pandas as pd
+import time
+from dataclasses import dataclass, asdict
+from pathlib import Path
+from typing import Dict, Iterable, List, Optional, Tuple
+
+import joblib
 import numpy as np
+import pandas as pd
+from dotenv import load_dotenv
+from sklearn.metrics import mean_absolute_error
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL
-from dotenv import load_dotenv
 from xgboost import XGBRegressor
-from sklearn.model_selection import TimeSeriesSplit
-from sklearn.metrics import mean_absolute_error
-import joblib
-import warnings
-warnings.filterwarnings('ignore')
 
 load_dotenv()
 
 # -------------------------------------------------------------------
-# 1. CONFIGURACIÓN
+# 1. CONFIGURACIÓN DB
 # -------------------------------------------------------------------
-db_url = URL.create(
-    drivername="postgresql", username="postgres.xxhdctrvjsngwbagamns",
-    password=os.getenv("DB_PASSWORD"), host="aws-1-sa-east-1.pooler.supabase.com",
-    port=6543, database="postgres", query={"sslmode": "require"}
+DB_URL = URL.create(
+    drivername="postgresql",
+    username="postgres.xxhdctrvjsngwbagamns",
+    password=os.getenv("DB_PASSWORD"),
+    host="aws-1-sa-east-1.pooler.supabase.com",
+    port=6543,
+    database="postgres",
+    query={"sslmode": "require"},
 )
-engine = create_engine(db_url)
-os.makedirs('modelos_ai', exist_ok=True)
 
-# Encoding numérico de posición para que XGBoost aprenda por posición
-POSICION_ENCODING = {'G': 1, 'G-F': 2, 'F-G': 2, 'F': 3, 'F-C': 4, 'C-F': 4, 'C': 5}
+ENGINE = create_engine(DB_URL, pool_pre_ping=True)
 
-# -------------------------------------------------------------------
-# 2. HELPERS
-# -------------------------------------------------------------------
-def get_opp(row):
-    """Extrae el rival de forma segura sin importar el formato del matchup."""
-    matchup = str(row['matchup']).replace('.', '').strip()
-    team    = str(row['team_abbreviation']).strip()
-    sep     = '@' if '@' in matchup else ('vs' if 'vs' in matchup.lower() else None)
-    if sep:
-        parts = [p.strip() for p in matchup.split(sep)]
-        if len(parts) == 2:
-            return parts[1] if parts[0].endswith(team) or parts[0] == team else parts[0]
-    return matchup[-3:]
+POSICION_ENCODING = {
+    "G": 1, "G-F": 2, "F-G": 2,
+    "F": 3, "F-C": 4, "C-F": 4,
+    "C": 5,
+}
 
+SOURCE_VIEWS = {
+    "fullgame": "v_ludo_train_fullgame",
+    "tracking_ok": "v_ludo_train_fullgame_tracking_ok",
+    "q1": "v_ludo_train_q1",
+    "ast_tracking": "v_ludo_train_ast_tracking",
+    "ast_fallback": "v_ludo_train_ast_fallback",
+}
 
-def calcular_rolling_dvp(df):
-    """
-    Rolling DvP — para cada partido solo usa la defensa del rival
-    calculada con partidos ANTERIORES a esa fecha.
-    Evita el Data Leakage de usar el DvP final de temporada.
-    """
-    print("    📐 Calculando Rolling DvP (sin Data Leakage)...")
+BASE_SELECT = """
+SELECT
+    player_id,
+    player_name,
+    position,
+    position_group,
+    team_abbreviation,
+    game_id,
+    game_date,
+    matchup,
+    opponent_abbr,
 
-    # Necesitamos stats reales por partido para calcular cuánto permitió cada equipo
-    # Usamos los mismos logs: lo que anotó un jugador = lo que permitió el equipo rival
-    df_dvp_rolling = df[['game_date', 'opp', 'position', 'pts', 'reb', 'ast', 'fg3m']].copy()
-    df_dvp_rolling = df_dvp_rolling.rename(columns={
-        'pts': 'pts_allowed', 'reb': 'reb_allowed',
-        'ast': 'ast_allowed', 'fg3m': 'threes_allowed'
-    })
+    min,
+    usage_pct,
+    touches,
+    rebound_chances,
+    passes_made,
+    potential_ast,
+    rebound_off,
+    rebound_def,
 
-    # Ordenamos y calculamos media móvil histórica por equipo+posición
-    df_dvp_rolling = df_dvp_rolling.sort_values('game_date')
+    pts,
+    reb,
+    ast,
+    fgm,
+    fga,
+    fg3m,
+    fg3a,
+    ftm,
+    fta,
 
-    for stat in ['pts_allowed', 'reb_allowed', 'ast_allowed', 'threes_allowed']:
-        df_dvp_rolling[f'{stat}_roll'] = (
-            df_dvp_rolling.groupby(['opp', 'position'])[stat]
-            .transform(lambda x: x.shift(1).expanding(min_periods=3).mean())
-        )
+    q1_pts,
+    q1_reb,
+    q1_ast,
+    q1_oreb,
+    q1_dreb,
+    has_q1_data,
 
-    # Renombramos para el merge
-    df_dvp_rolling = df_dvp_rolling.rename(columns={
-        'pts_allowed_roll':    'dvp_pts',
-        'reb_allowed_roll':    'dvp_reb',
-        'ast_allowed_roll':    'dvp_ast',
-        'threes_allowed_roll': 'dvp_3pt',
-    })
+    has_full_tracking,
+    has_ast_tracking,
+    tracking_status,
 
-    return df_dvp_rolling[['game_date', 'opp', 'position', 'dvp_pts', 'dvp_reb', 'dvp_ast', 'dvp_3pt']]
-
-
-def kelly_fraccional(edge_pct, odds, fraccion=0.25):
-    """Kelly Criterion fraccional matemáticamente correcto."""
-    if odds <= 1 or edge_pct <= 0:
-        return 0.0
-
-    ev    = edge_pct / 100.0
-    p_win = (ev + 1.0) / odds
-    p_win = min(p_win, 0.99)
-    p_lose = 1.0 - p_win
-    b      = odds - 1.0
-
-    kelly = (b * p_win - p_lose) / b
-    kelly = max(0.0, kelly)
-    return round(min(kelly * fraccion, 0.20), 4)
-
-
-def feature_importance_report(modelo, features, stat_name):
-    """Imprime el top 5 de features más importantes del modelo."""
-    imp = dict(zip(features, modelo.feature_importances_))
-    top = sorted(imp.items(), key=lambda x: x[1], reverse=True)[:5]
-    print(f"         📊 Top features: " + " | ".join([f"{k}={v:.3f}" for k, v in top]))
-
+    dvp_pts_model  AS dvp_pts,
+    dvp_reb_model  AS dvp_reb,
+    dvp_ast_model  AS dvp_ast,
+    dvp_3pt_model  AS dvp_3pt,
+    dvp_fga_model  AS dvp_fga,
+    dvp_fg3a_model AS dvp_fg3a,
+    dvp_fta_model  AS dvp_fta,
+    has_dvp_rolling
+FROM {view_name}
+ORDER BY player_id, game_date, game_id
+"""
 
 # -------------------------------------------------------------------
-# 3. CARGA Y PREPARACIÓN DE DATOS
+# 2. CONFIGURACIÓN DE MODELOS
 # -------------------------------------------------------------------
-def cargar_datos():
-    print("📡 1. Descargando historial y cruzando con datos de Q1...")
-    query = text("""
-        SELECT pgl.player_id, p.position, pgl.team_abbreviation, pgl.game_date, pgl.matchup,
-               pgl.min, pgl.usage_pct, pgl.touches, pgl.rebound_chances, pgl.passes_made,
-               pgl.potential_ast, pgl.rebound_off, pgl.rebound_def,
-               pgl.pts, pgl.reb, pgl.ast, pgl.fgm, pgl.fga, pgl.fg3m, pgl.fg3a, pgl.ftm, pgl.fta,
-               COALESCE(q1.q1_pts, 0) as q1_pts, 
-               COALESCE(q1.q1_reb, 0) as q1_reb, 
-               COALESCE(q1.q1_ast, 0) as q1_ast,
-               COALESCE(q1.q1_oreb, 0) as q1_oreb,
-               COALESCE(q1.q1_dreb, 0) as q1_dreb
-        FROM player_game_logs pgl
-        JOIN players p ON pgl.player_id = p.id
-        LEFT JOIN player_q1_stats q1 
-               ON CAST(pgl.game_id AS INTEGER) = CAST(q1.game_id AS INTEGER) 
-               AND pgl.player_id = q1.player_id
-        WHERE pgl.game_date >= '2025-10-01'
-          AND pgl.min >= 10
-          AND (
-            CAST(pgl.game_id AS TEXT) LIKE '225%%'
-            OR CAST(pgl.game_id AS TEXT) LIKE '425%%'
-            OR CAST(pgl.game_id AS TEXT) LIKE '625%%'
-          )
-        ORDER BY pgl.player_id ASC, pgl.game_date ASC
-    """)
-    df = pd.read_sql(query, engine)
-
-    if df.empty:
-        print("❌ No hay datos suficientes.")
-        return None
-
-    print(f"    ✅ {len(df)} registros cargados ({df['player_id'].nunique()} jugadores únicos)")
-    return df
+@dataclass(frozen=True)
+class ModelConfig:
+    stat: str
+    file_stem: str
+    source: str
+    features: List[str]
+    target: str
+    objective: str = "reg:squarederror"
+    min_rows: int = 800
 
 
-def preparar_features(df):
-    print("⏳ 2. Preparando features y extrayendo momentum...")
-
-    df['game_date'] = pd.to_datetime(df['game_date'])
-    df = df.sort_values(['player_id', 'game_date'])
-
-    df['pos_enc'] = df['position'].map(POSICION_ENCODING).fillna(3)
-    df['opp'] = df.apply(get_opp, axis=1)
-
-    df['is_home'] = df.apply(
-        lambda r: 0 if str(r['matchup']).split('@')[-1].strip().startswith(r['team_abbreviation']) else 1
-        if '@' in str(r['matchup']) else 1, axis=1
-    )
-
-    df['rest_days'] = df.groupby('player_id')['game_date'].diff().dt.days.fillna(3).clip(upper=7)
-    df['is_b2b']    = (df['rest_days'] <= 1).astype(int)
-
-    cols_tracking = ['touches', 'rebound_chances', 'passes_made', 'potential_ast', 'rebound_off', 'rebound_def']
-    for col in cols_tracking:
-        df[col] = df[col].fillna(0)
-
-    cols_to_roll = [
-        'min', 'usage_pct', 'touches', 'rebound_chances', 'passes_made',
-        'potential_ast', 'rebound_off', 'rebound_def',
-        'pts', 'reb', 'ast', 'fgm', 'fga', 'fg3m', 'fg3a', 'ftm', 'fta',
-        'q1_pts', 'q1_reb', 'q1_ast'
-    ]
-
-    for col in cols_to_roll:
-        df[f'{col}_L5']  = df.groupby('player_id')[col].transform(lambda x: x.shift(1).rolling(window=5,  min_periods=1).mean())
-        df[f'{col}_L10'] = df.groupby('player_id')[col].transform(lambda x: x.shift(1).rolling(window=10, min_periods=1).mean())
-        df[f'{col}_season'] = df.groupby('player_id')[col].transform(lambda x: x.shift(1).expanding(min_periods=1).mean())
-
-    df['pts_momentum'] = df['pts_L5'] - df['pts_season']
-    df['reb_momentum'] = df['reb_L5'] - df['reb_season']
-    df['ast_momentum'] = df['ast_L5'] - df['ast_season']
-
-    df['q1_pts_pct_L5'] = np.where(df['pts_L5'] > 0, df['q1_pts_L5'] / df['pts_L5'], 0)
-    df['q1_reb_pct_L5'] = np.where(df['reb_L5'] > 0, df['q1_reb_L5'] / df['reb_L5'], 0)
-    df['q1_ast_pct_L5'] = np.where(df['ast_L5'] > 0, df['q1_ast_L5'] / df['ast_L5'], 0)
-
-    df['ppm_L5']    = np.where(df['min_L5'] > 0, df['pts_L5']  / df['min_L5'], 0)
-    df['fga_pm_L5'] = np.where(df['min_L5'] > 0, df['fga_L5']  / df['min_L5'], 0)
-    df['ast_pm_L5'] = np.where(df['min_L5'] > 0, df['ast_L5']  / df['min_L5'], 0)
-    df['reb_pm_L5'] = np.where(df['min_L5'] > 0, df['reb_L5']  / df['min_L5'], 0)
-
-    df_dvp_roll = calcular_rolling_dvp(df)
-    df = pd.merge(df, df_dvp_roll, on=['game_date', 'opp', 'position'], how='left')
-
-    for col in ['dvp_pts', 'dvp_reb', 'dvp_ast', 'dvp_3pt']:
-        global_mean = df[col].mean()
-        df[col] = df[col].fillna(global_mean)
-
-    df = df.fillna(0)
-    print(f"    ✅ Features listos. {len(df)} filas × {len(df.columns)} columnas.")
-    return df
-
-
-# -------------------------------------------------------------------
-# 4. CONFIGURACIÓN DE MODELOS
-# -------------------------------------------------------------------
-MODELOS_CONFIG = {
-    # ── MODELOS CLÁSICOS (PARTIDO COMPLETO) ──
-    'PTS': (
-        'puntos',
-        ['min_L5', 'min_L10', 'usage_pct_L5', 'usage_pct_L10', 'fga_L5', 'fga_L10',
-         'pts_L5', 'pts_L10', 'pts_season', 'touches_L5', 'ppm_L5',
-         'pts_momentum', 'q1_pts_L5', 'q1_pts_pct_L5', 
-         'dvp_pts', 'rest_days', 'is_b2b', 'is_home', 'pos_enc'],
-        'pts', 'reg:squarederror'
+MODELOS_CONFIG: Dict[str, ModelConfig] = {
+    # Full game clásicos
+    "PTS": ModelConfig(
+        stat="PTS",
+        file_stem="puntos",
+        source="fullgame",
+        target="pts",
+        features=[
+            "min_L5", "min_L10", "usage_pct_L5", "usage_pct_L10",
+            "fga_L5", "fga_L10", "pts_L5", "pts_L10", "pts_season",
+            "touches_L5", "ppm_L5", "pts_momentum", "q1_pts_L5",
+            "q1_pts_pct_L5", "dvp_pts", "dvp_fga", "rest_days", "is_b2b",
+            "is_home", "pos_enc", "has_full_tracking", "has_dvp_rolling",
+        ],
     ),
-    'REB': (
-        'rebotes',
-        ['min_L5', 'min_L10', 'rebound_chances_L5', 'rebound_chances_L10',
-         'rebound_off_L5', 'rebound_def_L5', 'reb_L5', 'reb_L10', 'reb_season',
-         'touches_L5', 'reb_pm_L5', 
-         'reb_momentum', 'q1_reb_L5', 'q1_reb_pct_L5', 
-         'dvp_reb', 'rest_days', 'is_b2b', 'is_home', 'pos_enc'],
-        'reb', 'reg:squarederror'
+    "REB": ModelConfig(
+        stat="REB",
+        file_stem="rebotes",
+        source="fullgame",
+        target="reb",
+        features=[
+            "min_L5", "min_L10", "rebound_chances_L5", "rebound_chances_L10",
+            "rebound_off_L5", "rebound_def_L5", "reb_L5", "reb_L10",
+            "reb_season", "touches_L5", "reb_pm_L5", "reb_momentum",
+            "q1_reb_L5", "q1_reb_pct_L5", "dvp_reb", "rest_days",
+            "is_b2b", "is_home", "pos_enc", "has_full_tracking", "has_dvp_rolling",
+        ],
     ),
-    'AST': (
-        'asistencias',
-        ['min_L5', 'min_L10', 'passes_made_L5', 'passes_made_L10',
-         'potential_ast_L5', 'potential_ast_L10', 'ast_L5', 'ast_L10', 'ast_season',
-         'touches_L5', 'usage_pct_L5', 'ast_pm_L5',
-         'ast_momentum', 'q1_ast_L5', 'q1_ast_pct_L5', 
-         'dvp_ast', 'rest_days', 'is_b2b', 'is_home', 'pos_enc'],
-        'ast', 'reg:squarederror'
+    "AST": ModelConfig(
+        stat="AST",
+        file_stem="asistencias",
+        source="ast_tracking",
+        target="ast",
+        features=[
+            "min_L5", "min_L10", "passes_made_L5", "passes_made_L10",
+            "potential_ast_L5", "potential_ast_L10", "ast_L5", "ast_L10",
+            "ast_season", "touches_L5", "usage_pct_L5", "ast_pm_L5",
+            "ast_momentum", "q1_ast_L5", "q1_ast_pct_L5", "dvp_ast",
+            "rest_days", "is_b2b", "is_home", "pos_enc", "has_dvp_rolling",
+        ],
     ),
-    '3PT': (
-        'triples',
-        ['min_L5', 'min_L10', 'usage_pct_L5', 'fg3a_L5', 'fg3a_L10',
-         'fg3m_L5', 'fg3m_L10', 'fg3m_season',
-         'dvp_3pt', 'rest_days', 'is_b2b', 'is_home', 'pos_enc'],
-        'fg3m', 'count:poisson'     
+    "AST_FALLBACK": ModelConfig(
+        stat="AST_FALLBACK",
+        file_stem="asistencias_fallback",
+        source="ast_fallback",
+        target="ast",
+        features=[
+            "min_L5", "min_L10", "usage_pct_L5", "usage_pct_L10",
+            "ast_L5", "ast_L10", "ast_season", "pts_L5", "fga_L5",
+            "q1_ast_L5", "q1_ast_pct_L5", "dvp_ast", "rest_days",
+            "is_b2b", "is_home", "pos_enc", "has_dvp_rolling",
+        ],
     ),
-    'FGM': (
-        'tiros_anotados',
-        ['min_L5', 'usage_pct_L5', 'fga_L5', 'fgm_L5', 'fgm_L10', 'fgm_season',
-         'dvp_pts', 'is_b2b', 'is_home', 'pos_enc'],
-        'fgm', 'reg:squarederror'
+    "3PT": ModelConfig(
+        stat="3PT",
+        file_stem="triples",
+        source="fullgame",
+        target="fg3m",
+        objective="count:poisson",
+        features=[
+            "min_L5", "min_L10", "usage_pct_L5", "fg3a_L5", "fg3a_L10",
+            "fg3m_L5", "fg3m_L10", "fg3m_season", "dvp_3pt", "dvp_fg3a",
+            "rest_days", "is_b2b", "is_home", "pos_enc", "has_dvp_rolling",
+        ],
     ),
-    'FGA': (
-        'tiros_intentados',
-        ['min_L5', 'usage_pct_L5', 'fga_L5', 'fga_L10', 'touches_L5',
-         'rest_days', 'fga_pm_L5', 'is_b2b', 'is_home', 'pos_enc'],
-        'fga', 'reg:squarederror'
+    "FGM": ModelConfig(
+        stat="FGM",
+        file_stem="tiros_anotados",
+        source="fullgame",
+        target="fgm",
+        features=[
+            "min_L5", "usage_pct_L5", "fga_L5", "fgm_L5", "fgm_L10",
+            "fgm_season", "dvp_pts", "dvp_fga", "is_b2b", "is_home",
+            "pos_enc", "has_dvp_rolling",
+        ],
     ),
-    'FG3A': (
-        'triples_intentados',
-        ['min_L5', 'usage_pct_L5', 'fg3a_L5', 'fg3a_L10', 'fg3a_season',
-         'dvp_3pt', 'rest_days', 'is_b2b', 'is_home', 'pos_enc'],
-        'fg3a', 'count:poisson'     
+    "FGA": ModelConfig(
+        stat="FGA",
+        file_stem="tiros_intentados",
+        source="fullgame",
+        target="fga",
+        features=[
+            "min_L5", "usage_pct_L5", "fga_L5", "fga_L10", "touches_L5",
+            "rest_days", "fga_pm_L5", "dvp_fga", "is_b2b", "is_home",
+            "pos_enc", "has_full_tracking", "has_dvp_rolling",
+        ],
     ),
-    'FTM': (
-        'libres_anotados',
-        ['min_L5', 'usage_pct_L5', 'fta_L5', 'ftm_L5', 'ftm_L10', 'ftm_season',
-         'is_b2b', 'is_home', 'pos_enc'],
-        'ftm', 'reg:squarederror'
+    "FG3A": ModelConfig(
+        stat="FG3A",
+        file_stem="triples_intentados",
+        source="fullgame",
+        target="fg3a",
+        objective="count:poisson",
+        features=[
+            "min_L5", "usage_pct_L5", "fg3a_L5", "fg3a_L10", "fg3a_season",
+            "dvp_3pt", "dvp_fg3a", "rest_days", "is_b2b", "is_home",
+            "pos_enc", "has_dvp_rolling",
+        ],
     ),
-    'FTA': (
-        'libres_intentados',
-        ['min_L5', 'usage_pct_L5', 'fta_L5', 'fta_L10', 'fta_season',
-         'rest_days', 'is_b2b', 'is_home', 'pos_enc'],
-        'fta', 'reg:squarederror'
+    "FTM": ModelConfig(
+        stat="FTM",
+        file_stem="libres_anotados",
+        source="fullgame",
+        target="ftm",
+        features=[
+            "min_L5", "usage_pct_L5", "fta_L5", "ftm_L5", "ftm_L10",
+            "ftm_season", "dvp_fta", "is_b2b", "is_home", "pos_enc",
+            "has_dvp_rolling",
+        ],
     ),
-    
-    # ── NUEVOS MODELOS (EXCLUSIVOS PRIMER CUARTO) ──
-    'Q1_PTS': (
-        'q1_puntos',
-        ['min_L5', 'usage_pct_L5', 'q1_pts_L5', 'q1_pts_L10', 'q1_pts_season',
-         'pts_L5', 'q1_pts_pct_L5', 'dvp_pts', 'is_b2b', 'is_home', 'pos_enc'],
-        'q1_pts', 'reg:squarederror'
+    "FTA": ModelConfig(
+        stat="FTA",
+        file_stem="libres_intentados",
+        source="fullgame",
+        target="fta",
+        features=[
+            "min_L5", "usage_pct_L5", "fta_L5", "fta_L10", "fta_season",
+            "dvp_fta", "rest_days", "is_b2b", "is_home", "pos_enc",
+            "has_dvp_rolling",
+        ],
     ),
-    'Q1_REB': (
-        'q1_rebotes',
-        ['min_L5', 'q1_reb_L5', 'q1_reb_L10', 'q1_reb_season',
-         'reb_L5', 'dvp_reb', 'is_b2b', 'is_home', 'pos_enc'],
-        'q1_reb', 'reg:squarederror'
+
+    # Combos directos. Mejora contra sumar modelo base + promedios L5.
+    "PRA": ModelConfig(
+        stat="PRA",
+        file_stem="pra",
+        source="fullgame",
+        target="pra",
+        features=[
+            "min_L5", "min_L10", "usage_pct_L5", "pts_L5", "reb_L5", "ast_L5",
+            "fga_L5", "touches_L5", "rebound_chances_L5", "potential_ast_L5",
+            "pra_L5", "pra_L10", "pra_season", "pra_momentum",
+            "dvp_pts", "dvp_reb", "dvp_ast", "rest_days", "is_b2b",
+            "is_home", "pos_enc", "has_full_tracking", "has_dvp_rolling",
+        ],
     ),
-    'Q1_AST': (
-        'q1_asistencias',
-        ['min_L5', 'usage_pct_L5', 'q1_ast_L5', 'q1_ast_L10', 'q1_ast_season',
-         'ast_L5', 'dvp_ast', 'is_b2b', 'is_home', 'pos_enc'],
-        'q1_ast', 'reg:squarederror'
+    "PR": ModelConfig(
+        stat="PR",
+        file_stem="pr",
+        source="fullgame",
+        target="pr",
+        features=[
+            "min_L5", "min_L10", "usage_pct_L5", "pts_L5", "reb_L5",
+            "fga_L5", "rebound_chances_L5", "pr_L5", "pr_L10", "pr_season",
+            "pr_momentum", "dvp_pts", "dvp_reb", "rest_days", "is_b2b",
+            "is_home", "pos_enc", "has_full_tracking", "has_dvp_rolling",
+        ],
+    ),
+    "PA": ModelConfig(
+        stat="PA",
+        file_stem="pa",
+        source="fullgame",
+        target="pa",
+        features=[
+            "min_L5", "min_L10", "usage_pct_L5", "pts_L5", "ast_L5",
+            "fga_L5", "potential_ast_L5", "pa_L5", "pa_L10", "pa_season",
+            "pa_momentum", "dvp_pts", "dvp_ast", "rest_days", "is_b2b",
+            "is_home", "pos_enc", "has_full_tracking", "has_dvp_rolling",
+        ],
+    ),
+    "RA": ModelConfig(
+        stat="RA",
+        file_stem="ra",
+        source="fullgame",
+        target="ra",
+        features=[
+            "min_L5", "min_L10", "reb_L5", "ast_L5", "rebound_chances_L5",
+            "potential_ast_L5", "ra_L5", "ra_L10", "ra_season", "ra_momentum",
+            "dvp_reb", "dvp_ast", "rest_days", "is_b2b", "is_home",
+            "pos_enc", "has_full_tracking", "has_dvp_rolling",
+        ],
+    ),
+
+    # Primer cuarto: siempre desde vista Q1 limpia.
+    "Q1_PTS": ModelConfig(
+        stat="Q1_PTS",
+        file_stem="q1_puntos",
+        source="q1",
+        target="q1_pts",
+        features=[
+            "min_L5", "usage_pct_L5", "q1_pts_L5", "q1_pts_L10",
+            "q1_pts_season", "pts_L5", "q1_pts_pct_L5", "dvp_pts",
+            "is_b2b", "is_home", "pos_enc", "has_dvp_rolling",
+        ],
+    ),
+    "Q1_REB": ModelConfig(
+        stat="Q1_REB",
+        file_stem="q1_rebotes",
+        source="q1",
+        target="q1_reb",
+        features=[
+            "min_L5", "q1_reb_L5", "q1_reb_L10", "q1_reb_season",
+            "reb_L5", "q1_reb_pct_L5", "dvp_reb", "is_b2b", "is_home",
+            "pos_enc", "has_dvp_rolling",
+        ],
+    ),
+    "Q1_AST": ModelConfig(
+        stat="Q1_AST",
+        file_stem="q1_asistencias",
+        source="q1",
+        target="q1_ast",
+        features=[
+            "min_L5", "usage_pct_L5", "q1_ast_L5", "q1_ast_L10",
+            "q1_ast_season", "ast_L5", "q1_ast_pct_L5", "dvp_ast",
+            "is_b2b", "is_home", "pos_enc", "has_dvp_rolling",
+        ],
     ),
 }
 
+ROLLING_BASE_COLS = [
+    "min", "usage_pct", "touches", "rebound_chances", "passes_made",
+    "potential_ast", "rebound_off", "rebound_def",
+    "pts", "reb", "ast", "fgm", "fga", "fg3m", "fg3a", "ftm", "fta",
+    "q1_pts", "q1_reb", "q1_ast", "pra", "pr", "pa", "ra",
+]
+
+SEASON_COLS = [
+    "pts", "reb", "ast", "fgm", "fg3m", "fg3a", "ftm", "fta",
+    "q1_pts", "q1_reb", "q1_ast", "pra", "pr", "pa", "ra",
+]
 
 # -------------------------------------------------------------------
-# 5. ENTRENAMIENTO CON TIMESERIES CROSS-VALIDATION
+# 3. HELPERS
 # -------------------------------------------------------------------
-def entrenar_modelos():
-    df_raw = cargar_datos()
-    if df_raw is None:
-        return
+def log(msg: str) -> None:
+    print(msg, flush=True)
 
-    df = preparar_features(df_raw)
 
-    print("\n🏋️‍♂️ 3. Iniciando Gimnasio Quant (TimeSeriesSplit + Early Stopping)...")
-    print(f"    Estrategia: 5-fold temporal | Early stopping: 20 rondas\n")
+def infer_is_home(matchup: object, team: object) -> int:
+    """Inferencia para matchups tipo 'CLE @ DET' o 'CLE vs DET'."""
+    if pd.isna(matchup) or pd.isna(team):
+        return 0
 
-    df_sorted = df.sort_values('game_date').reset_index(drop=True)
-    tscv = TimeSeriesSplit(n_splits=5)
+    m = str(matchup).replace(".", "").strip()
+    t = str(team).strip()
 
-    resumen = []
+    if "@" in m:
+        left, right = [x.strip() for x in m.split("@", 1)]
+        if left.startswith(t) or left.endswith(t):
+            return 0
+        if right.startswith(t) or right.endswith(t):
+            return 1
+        return 0
 
-    for stat, (nombre_archivo, features, target_col, objetivo) in MODELOS_CONFIG.items():
-        features_disp = [f for f in features if f in df_sorted.columns]
-        if target_col not in df_sorted.columns:
-            print(f"   ⚠️  {stat}: columna target '{target_col}' no encontrada, salteando.")
-            continue
+    lowered = m.lower()
+    if " vs " in lowered:
+        left = m.lower().split(" vs ", 1)[0].strip()
+        return 1 if left.upper().startswith(t) or left.upper().endswith(t) else 0
 
-        X = df_sorted[features_disp]
-        y = df_sorted[target_col]
+    # Si viene reconstruido como TEAM vs OPP, asumimos local solo como fallback débil.
+    return 1
 
-        maes_cv = []
 
-        # Cross-validation temporal
-        for fold, (train_idx, val_idx) in enumerate(tscv.split(X)):
-            X_tr, X_val = X.iloc[train_idx], X.iloc[val_idx]
-            y_tr, y_val = y.iloc[train_idx], y.iloc[val_idx]
+def make_model(objective: str, seed: int = 42) -> XGBRegressor:
+    return XGBRegressor(
+        n_estimators=500,
+        learning_rate=0.03,
+        max_depth=4,
+        subsample=0.85,
+        colsample_bytree=0.85,
+        min_child_weight=5,
+        gamma=0.1,
+        reg_alpha=0.05,
+        reg_lambda=1.0,
+        objective=objective,
+        eval_metric="mae",
+        random_state=seed,
+        n_jobs=-1,
+        early_stopping_rounds=25,
+        missing=np.nan,
+    )
 
-            m = XGBRegressor(
-                n_estimators=400,
-                learning_rate=0.03,
-                max_depth=4,
-                subsample=0.8,
-                colsample_bytree=0.8,
-                min_child_weight=5,
-                gamma=0.1,
-                objective=objetivo,
-                random_state=42,
-                n_jobs=-1,
-                early_stopping_rounds=20,
-            )
-            m.fit(X_tr, y_tr, eval_set=[(X_val, y_val)], verbose=False)
-            preds = m.predict(X_val)
-            if objetivo == 'count:poisson':
-                preds = np.round(preds)
-            maes_cv.append(mean_absolute_error(y_val, preds))
 
-        mae_cv_mean = np.mean(maes_cv)
-        mae_cv_std  = np.std(maes_cv)
+def date_based_splits(df: pd.DataFrame, n_splits: int = 5) -> Iterable[Tuple[np.ndarray, np.ndarray]]:
+    """Expanding CV por fecha: evita que una misma fecha caiga en train y validation."""
+    dates = np.array(sorted(pd.to_datetime(df["game_date"]).dt.date.unique()))
+    if len(dates) < n_splits + 2:
+        raise ValueError(f"No hay fechas suficientes para {n_splits} folds. Fechas={len(dates)}")
 
-        # Entrenamiento final con todos los datos
-        split_final = int(len(df_sorted) * 0.85)
-        X_train_f = X.iloc[:split_final]
-        X_val_f   = X.iloc[split_final:]
-        y_train_f = y.iloc[:split_final]
-        y_val_f   = y.iloc[split_final:]
+    # validation chunks sobre el tramo final, con train expandiendo.
+    chunks = np.array_split(dates, n_splits + 1)
+    for i in range(1, len(chunks)):
+        train_dates = np.concatenate(chunks[:i])
+        val_dates = chunks[i]
+        train_mask = pd.to_datetime(df["game_date"]).dt.date.isin(train_dates)
+        val_mask = pd.to_datetime(df["game_date"]).dt.date.isin(val_dates)
+        train_idx = np.flatnonzero(train_mask.to_numpy())
+        val_idx = np.flatnonzero(val_mask.to_numpy())
+        if len(train_idx) and len(val_idx):
+            yield train_idx, val_idx
 
-        modelo_final = XGBRegressor(
-            n_estimators=400,
-            learning_rate=0.03,
-            max_depth=4,
-            subsample=0.8,
-            colsample_bytree=0.8,
-            min_child_weight=5,
-            gamma=0.1,
-            objective=objetivo,
-            random_state=42,
-            n_jobs=-1,
-            early_stopping_rounds=20,
-        )
-        modelo_final.fit(
-            X_train_f, y_train_f,
-            eval_set=[(X_val_f, y_val_f)],
-            verbose=False
-        )
 
-        preds_final = modelo_final.predict(X_val_f)
-        mae_final   = mean_absolute_error(y_val_f, preds_final)
+def safe_ratio(num: pd.Series, den: pd.Series) -> pd.Series:
+    return np.where(den.fillna(0) > 0, num / den, 0)
 
-        ruta = f'modelos_ai/ludogallina_{nombre_archivo}.pkl'
-        joblib.dump(modelo_final, ruta)
 
-        print(f"   ✅ {stat.ljust(6)} | "
-              f"MAE CV: {mae_cv_mean:.2f} ±{mae_cv_std:.2f} | "
-              f"MAE Final: {mae_final:.2f} | "
-              f"Árboles: {modelo_final.best_iteration} | "
-              f"Obj: {objetivo}")
-        feature_importance_report(modelo_final, features_disp, stat)
+def feature_importance_report(modelo: XGBRegressor, features: List[str]) -> str:
+    if not hasattr(modelo, "feature_importances_"):
+        return ""
+    imp = dict(zip(features, modelo.feature_importances_))
+    top = sorted(imp.items(), key=lambda x: x[1], reverse=True)[:7]
+    return " | ".join([f"{k}={v:.3f}" for k, v in top])
 
-        resumen.append({
-            'stat': stat, 'mae_cv': round(mae_cv_mean, 3),
-            'mae_cv_std': round(mae_cv_std, 3), 'mae_final': round(mae_final, 3),
-            'best_iter': modelo_final.best_iteration,
-            'n_features': len(features_disp)
+
+def load_view(source_key: str) -> pd.DataFrame:
+    view_name = SOURCE_VIEWS[source_key]
+    query = text(BASE_SELECT.format(view_name=view_name))
+    df = pd.read_sql(query, ENGINE)
+    if df.empty:
+        raise RuntimeError(f"La vista {view_name} no devolvió filas.")
+    log(f"    ✅ {view_name}: {len(df)} filas | {df['player_id'].nunique()} jugadores")
+    return df
+
+
+def preparar_features(df_raw: pd.DataFrame, source_key: str) -> pd.DataFrame:
+    df = df_raw.copy()
+    df["game_date"] = pd.to_datetime(df["game_date"])
+    df = df.sort_values(["player_id", "game_date", "game_id"]).reset_index(drop=True)
+
+    # Targets de combos directos.
+    df["pra"] = df["pts"] + df["reb"] + df["ast"]
+    df["pr"] = df["pts"] + df["reb"]
+    df["pa"] = df["pts"] + df["ast"]
+    df["ra"] = df["reb"] + df["ast"]
+
+    # Posición y localía.
+    df["position"] = df["position"].fillna("F").replace("", "F")
+    df["pos_enc"] = df["position"].map(POSICION_ENCODING).fillna(3).astype(float)
+    df["is_home"] = df.apply(lambda r: infer_is_home(r.get("matchup"), r.get("team_abbreviation")), axis=1)
+
+    # Descanso histórico por jugador.
+    df["rest_days"] = df.groupby("player_id")["game_date"].diff().dt.days.fillna(3).clip(lower=0, upper=7)
+    df["is_b2b"] = (df["rest_days"] <= 1).astype(int)
+
+    # Flags numéricos.
+    for flag in ["has_q1_data", "has_full_tracking", "has_ast_tracking", "has_dvp_rolling"]:
+        if flag in df.columns:
+            df[flag] = df[flag].fillna(0).astype(int)
+        else:
+            df[flag] = 0
+
+    # Rolling con shift(1): solo partidos anteriores al target.
+    for col in ROLLING_BASE_COLS:
+        if col not in df.columns:
+            df[col] = np.nan
+        grp = df.groupby("player_id")[col]
+        df[f"{col}_L5"] = grp.transform(lambda x: x.shift(1).rolling(5, min_periods=1).mean())
+        df[f"{col}_L10"] = grp.transform(lambda x: x.shift(1).rolling(10, min_periods=1).mean())
+
+    for col in SEASON_COLS:
+        grp = df.groupby("player_id")[col]
+        df[f"{col}_season"] = grp.transform(lambda x: x.shift(1).expanding(min_periods=1).mean())
+
+    # Momentum.
+    df["pts_momentum"] = df["pts_L5"] - df["pts_season"]
+    df["reb_momentum"] = df["reb_L5"] - df["reb_season"]
+    df["ast_momentum"] = df["ast_L5"] - df["ast_season"]
+    df["pra_momentum"] = df["pra_L5"] - df["pra_season"]
+    df["pr_momentum"] = df["pr_L5"] - df["pr_season"]
+    df["pa_momentum"] = df["pa_L5"] - df["pa_season"]
+    df["ra_momentum"] = df["ra_L5"] - df["ra_season"]
+
+    # Ratios seguros.
+    df["q1_pts_pct_L5"] = safe_ratio(df["q1_pts_L5"].fillna(0), df["pts_L5"].fillna(0))
+    df["q1_reb_pct_L5"] = safe_ratio(df["q1_reb_L5"].fillna(0), df["reb_L5"].fillna(0))
+    df["q1_ast_pct_L5"] = safe_ratio(df["q1_ast_L5"].fillna(0), df["ast_L5"].fillna(0))
+
+    df["ppm_L5"] = safe_ratio(df["pts_L5"].fillna(0), df["min_L5"].fillna(0))
+    df["fga_pm_L5"] = safe_ratio(df["fga_L5"].fillna(0), df["min_L5"].fillna(0))
+    df["ast_pm_L5"] = safe_ratio(df["ast_L5"].fillna(0), df["min_L5"].fillna(0))
+    df["reb_pm_L5"] = safe_ratio(df["reb_L5"].fillna(0), df["min_L5"].fillna(0))
+
+    # Las columnas tracking faltantes quedan como NaN. XGBoost las maneja como missing.
+    # No hacemos df.fillna(0) global para no convertir faltantes reales en ceros falsos.
+    log(
+        f"    🧱 Features {source_key}: {len(df)} filas × {len(df.columns)} columnas | "
+        f"fechas {df['game_date'].min().date()} → {df['game_date'].max().date()}"
+    )
+    return df
+
+
+def cargar_y_preparar_sources(sources: Iterable[str]) -> Dict[str, pd.DataFrame]:
+    datasets = {}
+    for src in sorted(set(sources)):
+        log(f"\n📡 Cargando source: {src}")
+        raw = load_view(src)
+        datasets[src] = preparar_features(raw, src)
+    return datasets
+
+
+def entrenar_un_modelo(cfg: ModelConfig, df_source: pd.DataFrame, models_dir: Path, n_splits: int) -> Optional[dict]:
+    df = df_source.sort_values(["game_date", "game_id", "player_id"]).reset_index(drop=True).copy()
+
+    missing_features = [f for f in cfg.features if f not in df.columns]
+    if missing_features:
+        log(f"   ❌ {cfg.stat}: faltan features: {missing_features}")
+        return None
+
+    if cfg.target not in df.columns:
+        log(f"   ❌ {cfg.stat}: falta target {cfg.target}")
+        return None
+
+    train_df = df[df[cfg.target].notna()].copy()
+    if cfg.objective == "count:poisson":
+        train_df = train_df[train_df[cfg.target] >= 0].copy()
+
+    if len(train_df) < cfg.min_rows:
+        log(f"   ⚠️  {cfg.stat}: pocas filas ({len(train_df)} < {cfg.min_rows}). Salteado.")
+        return None
+
+    X = train_df[cfg.features].astype(float)
+    y = train_df[cfg.target].astype(float)
+
+    maes = []
+    fold_rows = []
+    for fold, (tr_idx, val_idx) in enumerate(date_based_splits(train_df, n_splits=n_splits), start=1):
+        X_tr, X_val = X.iloc[tr_idx], X.iloc[val_idx]
+        y_tr, y_val = y.iloc[tr_idx], y.iloc[val_idx]
+
+        model = make_model(cfg.objective, seed=42 + fold)
+        model.fit(X_tr, y_tr, eval_set=[(X_val, y_val)], verbose=False)
+        preds = np.clip(model.predict(X_val), 0, None)
+        mae = mean_absolute_error(y_val, preds)
+        maes.append(mae)
+        fold_rows.append({
+            "fold": fold,
+            "rows_train": int(len(tr_idx)),
+            "rows_val": int(len(val_idx)),
+            "date_val_min": str(train_df.iloc[val_idx]["game_date"].min().date()),
+            "date_val_max": str(train_df.iloc[val_idx]["game_date"].max().date()),
+            "mae": round(float(mae), 4),
         })
 
-    # ── Resumen final ──────────────────────────────────────────────────
-    print("\n" + "="*65)
-    print("🏆 RESUMEN FINAL DEL ENTRENAMIENTO")
-    print("="*65)
-    df_res = pd.DataFrame(resumen).sort_values('mae_cv')
-    for _, r in df_res.iterrows():
-        barra = '█' * int(r['mae_cv'] * 3)
-        print(f"   {r['stat'].ljust(6)} | MAE={r['mae_cv']:.2f} ±{r['mae_cv_std']:.2f} | {barra}")
+    # Entrenamiento final con validación temporal final 85/15.
+    unique_dates = np.array(sorted(pd.to_datetime(train_df["game_date"]).dt.date.unique()))
+    split_date_idx = max(1, int(len(unique_dates) * 0.85))
+    train_dates = set(unique_dates[:split_date_idx])
+    final_train_mask = pd.to_datetime(train_df["game_date"]).dt.date.isin(train_dates).to_numpy()
 
-    print(f"\n✅ 12 Modelos (9 Full Game + 3 Primer Cuarto) guardados en modelos_ai/")
+    X_train, X_val = X.loc[final_train_mask], X.loc[~final_train_mask]
+    y_train, y_val = y.loc[final_train_mask], y.loc[~final_train_mask]
+
+    final_model = make_model(cfg.objective, seed=42)
+    final_model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
+    final_preds = np.clip(final_model.predict(X_val), 0, None)
+    mae_final = mean_absolute_error(y_val, final_preds)
+
+    model_path = models_dir / f"ludogallina_{cfg.file_stem}.pkl"
+    joblib.dump(final_model, model_path)
+
+    top_features = feature_importance_report(final_model, cfg.features)
+    best_iter = getattr(final_model, "best_iteration", None)
+
+    log(
+        f"   ✅ {cfg.stat.ljust(12)} | source={cfg.source.ljust(12)} | "
+        f"rows={len(train_df):5d} | MAE CV={np.mean(maes):.2f} ±{np.std(maes):.2f} | "
+        f"MAE Final={mae_final:.2f} | trees={best_iter} | obj={cfg.objective}"
+    )
+    if top_features:
+        log(f"      📊 Top: {top_features}")
+
+    meta = {
+        "stat": cfg.stat,
+        "source": cfg.source,
+        "source_view": SOURCE_VIEWS[cfg.source],
+        "target": cfg.target,
+        "objective": cfg.objective,
+        "features": cfg.features,
+        "model_file": str(model_path),
+        "rows": int(len(train_df)),
+        "players": int(train_df["player_id"].nunique()),
+        "games": int(train_df["game_id"].nunique()),
+        "date_min": str(train_df["game_date"].min().date()),
+        "date_max": str(train_df["game_date"].max().date()),
+        "mae_cv": round(float(np.mean(maes)), 4),
+        "mae_cv_std": round(float(np.std(maes)), 4),
+        "mae_final": round(float(mae_final), 4),
+        "best_iteration": None if best_iter is None else int(best_iter),
+        "top_features": top_features,
+        "folds": fold_rows,
+    }
+
+    meta_path = models_dir / f"ludogallina_{cfg.file_stem}.metadata.json"
+    with open(meta_path, "w", encoding="utf-8") as f:
+        json.dump(meta, f, ensure_ascii=False, indent=2)
+
+    return meta
+
+
+def entrenar_modelos(only: Optional[List[str]], models_dir: str, n_splits: int) -> List[dict]:
+    selected = MODELOS_CONFIG
+    if only:
+        only_set = {x.strip().upper() for x in only if x.strip()}
+        selected = {k: v for k, v in MODELOS_CONFIG.items() if k in only_set}
+        missing = sorted(only_set - set(selected.keys()))
+        if missing:
+            raise ValueError(f"Modelos no reconocidos: {missing}. Disponibles: {sorted(MODELOS_CONFIG)}")
+
+    out_dir = Path(models_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    log("\n🏋️‍♂️ LUDO TRAINER v2 — Entrenamiento con vistas limpias")
+    log("=" * 72)
+    log(f"Modelos a entrenar: {', '.join(selected.keys())}")
+    log(f"Salida: {out_dir.resolve()}")
+
+    needed_sources = [cfg.source for cfg in selected.values()]
+    datasets = cargar_y_preparar_sources(needed_sources)
+
+    resumen = []
+    log("\n🧠 Entrenando modelos...")
+    for stat, cfg in selected.items():
+        meta = entrenar_un_modelo(cfg, datasets[cfg.source], out_dir, n_splits=n_splits)
+        if meta:
+            resumen.append(meta)
+
+    if not resumen:
+        log("\n❌ No se entrenó ningún modelo.")
+        return []
+
+    # Registry global para que Ludo.py pueda cargar modelos sin hardcodear nombres/features.
+    registry = {
+        "version": "ludo_trainer_v2",
+        "created_at": pd.Timestamp.now().isoformat(),
+        "models_dir": str(out_dir),
+        "models": {m["stat"]: m for m in resumen},
+    }
+    with open(out_dir / "ludo_model_registry.json", "w", encoding="utf-8") as f:
+        json.dump(registry, f, ensure_ascii=False, indent=2)
+
+    df_res = pd.DataFrame([
+        {
+            "stat": m["stat"],
+            "source": m["source"],
+            "rows": m["rows"],
+            "players": m["players"],
+            "games": m["games"],
+            "date_min": m["date_min"],
+            "date_max": m["date_max"],
+            "mae_cv": m["mae_cv"],
+            "mae_cv_std": m["mae_cv_std"],
+            "mae_final": m["mae_final"],
+            "best_iteration": m["best_iteration"],
+            "model_file": m["model_file"],
+        }
+        for m in resumen
+    ]).sort_values("mae_cv")
+    df_res.to_csv(out_dir / "ludo_training_summary.csv", index=False, encoding="utf-8")
+
+    log("\n" + "=" * 72)
+    log("🏆 RESUMEN FINAL")
+    log("=" * 72)
+    for _, r in df_res.iterrows():
+        log(
+            f"   {str(r['stat']).ljust(12)} | MAE CV={r['mae_cv']:.2f} ±{r['mae_cv_std']:.2f} | "
+            f"MAE Final={r['mae_final']:.2f} | rows={int(r['rows'])} | source={r['source']}"
+        )
+
+    log(f"\n✅ Modelos guardados en: {out_dir}")
+    log(f"✅ Registry: {out_dir / 'ludo_model_registry.json'}")
+    log(f"✅ Resumen:  {out_dir / 'ludo_training_summary.csv'}")
     return resumen
 
 
 # -------------------------------------------------------------------
-# 6. ENTRY POINT
+# 4. ENTRY POINT
 # -------------------------------------------------------------------
-if __name__ == "__main__":
-    import time
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Entrenamiento Ludo v2 con vistas limpias")
+    parser.add_argument(
+        "--only",
+        default="",
+        help="Modelos específicos separados por coma. Ej: PTS,REB,AST,Q1_PTS",
+    )
+    parser.add_argument(
+        "--models-dir",
+        default="modelos_ai",
+        help="Carpeta donde guardar modelos y metadata.",
+    )
+    parser.add_argument(
+        "--splits",
+        type=int,
+        default=5,
+        help="Cantidad de folds temporales para CV.",
+    )
+    args = parser.parse_args()
+
+    only = [x.strip() for x in args.only.split(",") if x.strip()] or None
     start = time.time()
-    resumen = entrenar_modelos()
-    elapsed = round(time.time() - start, 1)
-    print(f"\n⏱️  Tiempo total de entrenamiento: {elapsed}s")
+    entrenar_modelos(only=only, models_dir=args.models_dir, n_splits=args.splits)
+    log(f"\n⏱️ Tiempo total: {round(time.time() - start, 1)}s")
+
+
+if __name__ == "__main__":
+    main()

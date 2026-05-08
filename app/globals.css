@@ -7,12 +7,21 @@
 }
 
 @layer base {
-  *, ::before, ::after {
-    border-color: var(--color-brand-10, #222);
-  }
-  
   html {
     color-scheme: dark;
+
+    /* ✅ FIX: Variable CSS compartida entre layout y Sidebar.
+       El layout la usa para el padding-top en mobile.
+       El Sidebar la usa para definir la altura de la top bar.
+       Si cambia la altura, se toca solo acá. */
+    --topbar-height: 4rem; /* 64px — h-16 de Tailwind */
+  }
+
+  /* En desktop no hay top bar — reseteamos la variable */
+  @media (min-width: 768px) {
+    html {
+      --topbar-height: 0px;
+    }
   }
 
   body {
@@ -26,13 +35,14 @@
   .text-brand { color: #10b981; }
   .bg-brand { background-color: #10b981; }
 }
-/* Ocultar barra de scroll para Chrome, Safari y Opera */
+
+/* Ocultar barra de scroll — Chrome, Safari, Opera */
 .no-scrollbar::-webkit-scrollbar {
-    display: none;
+  display: none;
 }
 
-/* Ocultar barra de scroll para IE, Edge y Firefox */
+/* Ocultar barra de scroll — IE, Edge, Firefox */
 .no-scrollbar {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

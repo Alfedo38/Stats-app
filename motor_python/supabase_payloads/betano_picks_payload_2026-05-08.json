@@ -1,0 +1,515 @@
+{
+  "json_data": [
+    {
+      "matchup": "Cleveland Cavaliers Detroit Pistons",
+      "game_date": "2026-05-08",
+      "guion": "OVER",
+      "tickets": [
+        {
+          "name": "💎 Stewart — 4+ REB",
+          "side": "OVER",
+          "family": "MAIN",
+          "total_odds": 2.95,
+          "plays": [
+            {
+              "player_id": 1630191,
+              "player": "Isaiah Stewart",
+              "team": "DET",
+              "prop": "REB",
+              "type": "OVER",
+              "line": 3.5,
+              "linea_raw": "4+",
+              "threshold": 4.0,
+              "odds": 2.95,
+              "proj": 4.57,
+              "diff": 1.07,
+              "edge_score": 0.36744,
+              "edge_pct": 108.39,
+              "prob_model": 0.706423,
+              "quality": "JOYA",
+              "hit_rate": "N/D",
+              "analysis": "Hito 4+ REB. Proy 4.6, diff +1.1. EV +108.4%.",
+              "is_vip": false,
+              "book": "betano",
+              "market_type": "hitos",
+              "snapshot_id": "20260508_163041",
+              "pick_uid": "117869eb6da1595459258c6875aa6111826baa84|4.5678|1.9667"
+            }
+          ]
+        },
+        {
+          "name": "💎 Robinson — 3+ REB",
+          "side": "OVER",
+          "family": "MAIN",
+          "total_odds": 2.05,
+          "plays": [
+            {
+              "player_id": 1629130,
+              "player": "Duncan Robinson",
+              "team": "DET",
+              "prop": "REB",
+              "type": "OVER",
+              "line": 2.5,
+              "linea_raw": "3+",
+              "threshold": 3.0,
+              "odds": 2.05,
+              "proj": 3.54,
+              "diff": 1.04,
+              "edge_score": 0.213624,
+              "edge_pct": 43.79,
+              "prob_model": 0.701428,
+              "quality": "JOYA",
+              "hit_rate": "N/D",
+              "analysis": "Hito 3+ REB. Proy 3.5, diff +1.0. EV +43.8%.",
+              "is_vip": false,
+              "book": "betano",
+              "market_type": "hitos",
+              "snapshot_id": "20260508_163041",
+              "pick_uid": "21935110e88fe896e0d8785c30f609ff43ecf433|3.5394|1.9667"
+            }
+          ]
+        },
+        {
+          "name": "💎 Harris — 2+ AST",
+          "side": "OVER",
+          "family": "MAIN",
+          "total_odds": 1.75,
+          "plays": [
+            {
+              "player_id": 202699,
+              "player": "Tobias Harris",
+              "team": "DET",
+              "prop": "AST",
+              "type": "OVER",
+              "line": 1.5,
+              "linea_raw": "2+",
+              "threshold": 2.0,
+              "odds": 1.75,
+              "proj": 2.55,
+              "diff": 1.05,
+              "edge_score": 0.19331,
+              "edge_pct": 33.83,
+              "prob_model": 0.764739,
+              "quality": "JOYA",
+              "hit_rate": "N/D",
+              "analysis": "Hito 2+ AST. Proy 2.5, diff +1.0. EV +33.8%.",
+              "is_vip": false,
+              "book": "betano",
+              "market_type": "hitos",
+              "snapshot_id": "20260508_163041",
+              "pick_uid": "2ace9937760c4e7be2110976d65da4504fb11174|2.5497|1.4546"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "matchup": "Minnesota Timberwolves San Antonio Spurs",
+      "game_date": "2026-05-08",
+      "guion": "OVER",
+      "tickets": [
+        {
+          "name": "💎 Kornet — 6+ RA",
+          "side": "OVER",
+          "family": "COMBO",
+          "total_odds": 2.87,
+          "plays": [
+            {
+              "player_id": 1628436,
+              "player": "Luke Kornet",
+              "team": "SAS",
+              "prop": "RA",
+              "type": "OVER",
+              "line": 5.5,
+              "linea_raw": "6+",
+              "threshold": 6.0,
+              "odds": 2.87,
+              "proj": 7.11,
+              "diff": 1.61,
+              "edge_score": 0.376725,
+              "edge_pct": 108.12,
+              "prob_model": 0.725158,
+              "quality": "JOYA",
+              "hit_rate": "N/D",
+              "analysis": "Hito 6+ RA. Proy 7.1, diff +1.6. EV +108.1%.",
+              "is_vip": false,
+              "book": "betano",
+              "market_type": "hitos",
+              "snapshot_id": "20260508_163041",
+              "pick_uid": "52e6c02bd84c4997084818567acbdfd42a99c3f9|7.1138|2.6976"
+            }
+          ]
+        },
+        {
+          "name": "💎 Barnes — 3+ RA",
+          "side": "OVER",
+          "family": "COMBO",
+          "total_odds": 2.82,
+          "plays": [
+            {
+              "player_id": 203084,
+              "player": "Harrison Barnes",
+              "team": "SAS",
+              "prop": "RA",
+              "type": "OVER",
+              "line": 2.5,
+              "linea_raw": "3+",
+              "threshold": 3.0,
+              "odds": 2.82,
+              "proj": 3.87,
+              "diff": 1.37,
+              "edge_score": 0.340152,
+              "edge_pct": 95.92,
+              "prob_model": 0.694762,
+              "quality": "JOYA",
+              "hit_rate": "N/D",
+              "analysis": "Hito 3+ RA. Proy 3.9, diff +1.4. EV +95.9%.",
+              "is_vip": false,
+              "book": "betano",
+              "market_type": "hitos",
+              "snapshot_id": "20260508_163041",
+              "pick_uid": "58a20b1012de79d3d3d02b100b4a08888c0c83d3|3.8741|2.6976"
+            }
+          ]
+        },
+        {
+          "name": "💎 Dosunmu — 12+ PTS",
+          "side": "OVER",
+          "family": "MAIN",
+          "total_odds": 2.45,
+          "plays": [
+            {
+              "player_id": 1630245,
+              "player": "Ayo Dosunmu",
+              "team": "MIN",
+              "prop": "PTS",
+              "type": "OVER",
+              "line": 11.5,
+              "linea_raw": "12+",
+              "threshold": 12.0,
+              "odds": 2.45,
+              "proj": 14.35,
+              "diff": 2.85,
+              "edge_score": 0.314202,
+              "edge_pct": 76.98,
+              "prob_model": 0.722366,
+              "quality": "JOYA",
+              "hit_rate": "N/D",
+              "analysis": "Hito 12+ PTS. Proy 14.4, diff +2.9. EV +77.0%.",
+              "is_vip": false,
+              "book": "betano",
+              "market_type": "hitos",
+              "snapshot_id": "20260508_163041",
+              "pick_uid": "9360c7d5dd611112c522f168df2efd6fa517d47b|14.3516|4.8341"
+            }
+          ]
+        },
+        {
+          "name": "💎 Gobert — 10+ REB",
+          "side": "OVER",
+          "family": "MAIN",
+          "total_odds": 1.42,
+          "plays": [
+            {
+              "player_id": 203497,
+              "player": "Rudy Gobert",
+              "team": "MIN",
+              "prop": "REB",
+              "type": "OVER",
+              "line": 9.5,
+              "linea_raw": "10+",
+              "threshold": 10.0,
+              "odds": 1.42,
+              "proj": 12.36,
+              "diff": 2.86,
+              "edge_score": 0.222831,
+              "edge_pct": 31.64,
+              "prob_model": 0.927057,
+              "quality": "JOYA",
+              "hit_rate": "N/D",
+              "analysis": "Hito 10+ REB. Proy 12.4, diff +2.9. EV +31.6%.",
+              "is_vip": false,
+              "book": "betano",
+              "market_type": "hitos",
+              "snapshot_id": "20260508_163041",
+              "pick_uid": "64cc547dd16591ab807e475e70fe5eb04c0c125e|12.3600|1.9667"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "matchup": "Los Angeles Lakers Oklahoma City Thunder",
+      "game_date": "2026-05-08",
+      "guion": "OVER",
+      "tickets": [
+        {
+          "name": "💎 LaRavia — 3+ REB",
+          "side": "OVER",
+          "family": "MAIN",
+          "total_odds": 2.18,
+          "plays": [
+            {
+              "player_id": 1631222,
+              "player": "Jake LaRavia",
+              "team": "LAL",
+              "prop": "REB",
+              "type": "OVER",
+              "line": 2.5,
+              "linea_raw": "3+",
+              "threshold": 3.0,
+              "odds": 2.18,
+              "proj": 3.98,
+              "diff": 1.48,
+              "edge_score": 0.315057,
+              "edge_pct": 68.68,
+              "prob_model": 0.773772,
+              "quality": "JOYA",
+              "hit_rate": "N/D",
+              "analysis": "Hito 3+ REB. Proy 4.0, diff +1.5. EV +68.7%.",
+              "is_vip": false,
+              "book": "betano",
+              "market_type": "hitos",
+              "snapshot_id": "20260508_163041",
+              "pick_uid": "ada49bc892ad4823c11583035511169a975ff764|3.9776|1.9667"
+            }
+          ]
+        },
+        {
+          "name": "💎 Joe — 1+ 3PM",
+          "side": "OVER",
+          "family": "SPEC",
+          "total_odds": 1.52,
+          "plays": [
+            {
+              "player_id": 1630198,
+              "player": "Isaiah Joe",
+              "team": "OKC",
+              "prop": "3PM",
+              "type": "OVER",
+              "line": 0.5,
+              "linea_raw": "1+",
+              "threshold": 1.0,
+              "odds": 1.52,
+              "proj": 2.44,
+              "diff": 1.94,
+              "edge_score": 0.32003,
+              "edge_pct": 48.64,
+              "prob_model": 0.977925,
+              "quality": "JOYA",
+              "hit_rate": "N/D",
+              "analysis": "Hito 1+ 3PM. Proy 2.4, diff +1.9. EV +48.6%.",
+              "is_vip": false,
+              "book": "betano",
+              "market_type": "hitos",
+              "snapshot_id": "20260508_163041",
+              "pick_uid": "c614c45e8b99bd06e479ab4882af7489314e4d5e|2.4406|0.9642"
+            }
+          ]
+        },
+        {
+          "name": "💎 McCain — 1+ AST",
+          "side": "OVER",
+          "family": "MAIN",
+          "total_odds": 1.78,
+          "plays": [
+            {
+              "player_id": 1642272,
+              "player": "Jared McCain",
+              "team": "OKC",
+              "prop": "AST",
+              "type": "OVER",
+              "line": 0.5,
+              "linea_raw": "1+",
+              "threshold": 1.0,
+              "odds": 1.78,
+              "proj": 1.52,
+              "diff": 1.02,
+              "edge_score": 0.197478,
+              "edge_pct": 35.15,
+              "prob_model": 0.759276,
+              "quality": "JOYA",
+              "hit_rate": "N/D",
+              "analysis": "Hito 1+ AST. Proy 1.5, diff +1.0. EV +35.1%.",
+              "is_vip": false,
+              "book": "betano",
+              "market_type": "hitos",
+              "snapshot_id": "20260508_163041",
+              "pick_uid": "7e254fb6ea50d06886a0f6ccd57ad994e1760880|1.5240|1.4546"
+            }
+          ]
+        },
+        {
+          "name": "💎 Williams — 4+ REB",
+          "side": "OVER",
+          "family": "MAIN",
+          "total_odds": 1.98,
+          "plays": [
+            {
+              "player_id": 1631119,
+              "player": "Jaylin Williams",
+              "team": "OKC",
+              "prop": "REB",
+              "type": "OVER",
+              "line": 3.5,
+              "linea_raw": "4+",
+              "threshold": 4.0,
+              "odds": 1.98,
+              "proj": 4.37,
+              "diff": 0.87,
+              "edge_score": 0.16515,
+              "edge_pct": 32.7,
+              "prob_model": 0.670201,
+              "quality": "JOYA",
+              "hit_rate": "N/D",
+              "analysis": "Hito 4+ REB. Proy 4.4, diff +0.9. EV +32.7%.",
+              "is_vip": false,
+              "book": "betano",
+              "market_type": "hitos",
+              "snapshot_id": "20260508_163041",
+              "pick_uid": "4069df23b8ab6d9e342aeb4d6b26b8888d40e7da|4.3663|1.9667"
+            }
+          ]
+        },
+        {
+          "name": "💎 Wallace — 2+ AST",
+          "side": "OVER",
+          "family": "MAIN",
+          "total_odds": 1.57,
+          "plays": [
+            {
+              "player_id": 1641717,
+              "player": "Cason Wallace",
+              "team": "OKC",
+              "prop": "AST",
+              "type": "OVER",
+              "line": 1.5,
+              "linea_raw": "2+",
+              "threshold": 2.0,
+              "odds": 1.57,
+              "proj": 2.85,
+              "diff": 1.35,
+              "edge_score": 0.18631,
+              "edge_pct": 29.25,
+              "prob_model": 0.823253,
+              "quality": "JOYA",
+              "hit_rate": "N/D",
+              "analysis": "Hito 2+ AST. Proy 2.8, diff +1.3. EV +29.2%.",
+              "is_vip": false,
+              "book": "betano",
+              "market_type": "hitos",
+              "snapshot_id": "20260508_163041",
+              "pick_uid": "16ee73543a7333e1224004e538203498f6b3bef0|2.8496|1.4546"
+            }
+          ]
+        },
+        {
+          "name": "💎 Ayton — 9+ PTS",
+          "side": "OVER",
+          "family": "MAIN",
+          "total_odds": 1.6,
+          "plays": [
+            {
+              "player_id": 1629028,
+              "player": "Deandre Ayton",
+              "team": "LAL",
+              "prop": "PTS",
+              "type": "OVER",
+              "line": 8.5,
+              "linea_raw": "9+",
+              "threshold": 9.0,
+              "odds": 1.6,
+              "proj": 12.58,
+              "diff": 4.08,
+              "edge_score": 0.175792,
+              "edge_pct": 28.13,
+              "prob_model": 0.800792,
+              "quality": "JOYA",
+              "hit_rate": "N/D",
+              "analysis": "Hito 9+ PTS. Proy 12.6, diff +4.1. EV +28.1%.",
+              "is_vip": false,
+              "book": "betano",
+              "market_type": "hitos",
+              "snapshot_id": "20260508_163041",
+              "pick_uid": "e89fc9b17359459eb57e451917a1370192d0525d|12.5822|4.8341"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "matchup": "Philadelphia 76Ers New York Knicks",
+      "game_date": "2026-05-08",
+      "guion": "OVER",
+      "tickets": [
+        {
+          "name": "💎 Embiid — 23+ PTS",
+          "side": "OVER",
+          "family": "MAIN",
+          "total_odds": 1.5,
+          "plays": [
+            {
+              "player_id": 203954,
+              "player": "Joel Embiid",
+              "team": "PHI",
+              "prop": "PTS",
+              "type": "OVER",
+              "line": 22.5,
+              "linea_raw": "23+",
+              "threshold": 23.0,
+              "odds": 1.5,
+              "proj": 30.53,
+              "diff": 8.03,
+              "edge_score": 0.284965,
+              "edge_pct": 42.74,
+              "prob_model": 0.951631,
+              "quality": "JOYA",
+              "hit_rate": "N/D",
+              "analysis": "Hito 23+ PTS. Proy 30.5, diff +8.0. EV +42.7%.",
+              "is_vip": false,
+              "book": "betano",
+              "market_type": "hitos",
+              "snapshot_id": "20260508_163041",
+              "pick_uid": "66a43bd7fd92bca91ed19dc31476b144c0948000|30.5289|4.8341"
+            }
+          ]
+        },
+        {
+          "name": "💎 Robinson — 7+ REB",
+          "side": "OVER",
+          "family": "MAIN",
+          "total_odds": 1.67,
+          "plays": [
+            {
+              "player_id": 1629011,
+              "player": "Mitchell Robinson",
+              "team": "NYK",
+              "prop": "REB",
+              "type": "OVER",
+              "line": 6.5,
+              "linea_raw": "7+",
+              "threshold": 7.0,
+              "odds": 1.67,
+              "proj": 8.14,
+              "diff": 1.64,
+              "edge_score": 0.199249,
+              "edge_pct": 33.27,
+              "prob_model": 0.798051,
+              "quality": "JOYA",
+              "hit_rate": "N/D",
+              "analysis": "Hito 7+ REB. Proy 8.1, diff +1.6. EV +33.3%.",
+              "is_vip": false,
+              "book": "betano",
+              "market_type": "hitos",
+              "snapshot_id": "20260508_163041",
+              "pick_uid": "358613f737a36dbd662392660b8426c2512aeaf0|8.1416|1.9667"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "results_data": null,
+  "pick_date": "2026-05-08",
+  "status": "PENDING"
+}

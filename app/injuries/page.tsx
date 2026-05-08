@@ -1,13 +1,17 @@
 import { getNBAInjuries } from '@/lib/api';
-import { ChevronLeft, Stethoscope, AlertCircle } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
+export const metadata = {
+  title: 'Injury Report | MoskProps',
+};
+
 export default async function InjuriesPage() {
   const realTeams = await getNBAInjuries();
 
-  // 🧪 DATOS DE PRUEBA (Para ver la tabla llena mientras ESPN actualiza)
+  // 🧪 DATOS DE PRUEBA — solo visibles en desarrollo local, NUNCA en producción
   const fakeTeams = [
     {
       id: "fake-1",
@@ -20,25 +24,29 @@ export default async function InjuriesPage() {
       ]
     },
     {
-        id: "fake-2",
-        displayName: "Golden State Warriors",
-        logo: "https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/gs.png",
-        injuries: [
-          { athlete: { id: "p4", shortName: "Stephen Curry" }, status: "Out", comment: "Ankle Sprain" },
-          { athlete: { id: "p5", shortName: "Draymond Green" }, status: "Doubtful", comment: "Back" }
-        ]
-      }
+      id: "fake-2",
+      displayName: "Golden State Warriors",
+      logo: "https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/gs.png",
+      injuries: [
+        { athlete: { id: "p4", shortName: "Stephen Curry" }, status: "Out", comment: "Ankle Sprain" },
+        { athlete: { id: "p5", shortName: "Draymond Green" }, status: "Doubtful", comment: "Back" }
+      ]
+    }
   ];
 
-  // Si no hay datos reales, mostramos los de prueba para testear el diseño
-  const teams = realTeams.length > 0 ? realTeams : fakeTeams;
+  // ✅ FIX: Los datos fake solo aparecen en desarrollo local.
+  // En producción, si ESPN no devuelve datos, se muestra la tabla vacía.
+  const teams = process.env.NODE_ENV === 'development' && realTeams.length === 0
+    ? fakeTeams
+    : realTeams;
+
   const statusColumns = ['Probable', 'Questionable', 'Doubtful', 'Out'];
 
   return (
     <main className="min-h-screen bg-black text-white p-4 md:p-8 pb-20">
       <div className="max-w-6xl mx-auto space-y-8">
-        
-        {/* Header Estilo Pro */}
+
+        {/* Header */}
         <div className="flex items-center justify-between border-b border-[#222] pb-6">
           <div className="flex items-center gap-4">
             <Link href="/" className="text-[#666] hover:text-[#10b981] transition-colors">
@@ -49,67 +57,80 @@ export default async function InjuriesPage() {
             </h1>
           </div>
           <div className="hidden md:flex gap-2">
-             <span className="text-[9px] font-black uppercase text-red-500 bg-red-500/10 px-3 py-1 rounded-md border border-red-500/20 animate-pulse">Live Updates</span>
+            <span className="text-[9px] font-black uppercase text-red-500 bg-red-500/10 px-3 py-1 rounded-md border border-red-500/20 animate-pulse">
+              Live Updates
+            </span>
           </div>
         </div>
 
-        {/* La Grilla de Guerra */}
-        <div className="overflow-hidden rounded-3xl border border-[#222] bg-[#0a0a0a] shadow-2xl">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[800px]">
-              <thead>
-                <tr className="bg-[#111] border-b border-[#222]">
-                  <th className="p-5 text-[10px] font-black uppercase tracking-widest text-[#666] w-56">Equipo</th>
-                  <th className="p-4 text-[10px] font-black uppercase tracking-widest text-green-500 bg-green-500/5 text-center border-x border-[#222]">Probable</th>
-                  <th className="p-4 text-[10px] font-black uppercase tracking-widest text-yellow-500 bg-yellow-500/5 text-center">Questionable</th>
-                  <th className="p-4 text-[10px] font-black uppercase tracking-widest text-orange-500 bg-orange-500/5 text-center border-x border-[#222]">Doubtful</th>
-                  <th className="p-4 text-[10px] font-black uppercase tracking-widest text-red-600 bg-red-600/5 text-center">OUT</th>
-                </tr>
-              </thead>
-              <tbody>
-                {teams.map((team: any) => (
-                  <tr key={team.id} className="border-b border-[#111] hover:bg-[#0f0f0f] transition-colors group">
-                    {/* Celda del Equipo - CORREGIDA (Ya no usa div para cerrar td) */}
-                    <td className="p-5 border-r border-[#222] bg-[#0a0a0a]">
-                      <div className="flex items-center gap-3">
-                        <img src={team.logo} className="w-7 h-7 object-contain drop-shadow-lg" alt="" />
-                        <span className="font-black uppercase text-xs tracking-tighter group-hover:text-[#10b981] transition-colors">
+        {/* Tabla */}
+        {teams.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 border border-dashed border-[#222] rounded-3xl">
+            <p className="text-[#444] font-black uppercase tracking-widest text-sm">
+              Sin lesionados reportados hoy
+            </p>
+            <p className="text-[#333] text-[10px] font-bold uppercase tracking-widest mt-2">
+              ESPN no reportó lesiones o el servicio no está disponible
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-3xl border border-[#222] bg-[#0a0a0a] shadow-2xl">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-[800px]">
+                <thead>
+                  <tr className="bg-[#111] border-b border-[#222]">
+                    <th className="p-5 text-[10px] font-black uppercase tracking-widest text-[#666] w-56">Equipo</th>
+                    <th className="p-4 text-[10px] font-black uppercase tracking-widest text-green-500 bg-green-500/5 text-center border-x border-[#222]">Probable</th>
+                    <th className="p-4 text-[10px] font-black uppercase tracking-widest text-yellow-500 bg-yellow-500/5 text-center">Questionable</th>
+                    <th className="p-4 text-[10px] font-black uppercase tracking-widest text-orange-500 bg-orange-500/5 text-center border-x border-[#222]">Doubtful</th>
+                    <th className="p-4 text-[10px] font-black uppercase tracking-widest text-red-600 bg-red-600/5 text-center">OUT</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {teams.map((team: any) => (
+                    <tr key={team.id} className="border-b border-[#111] hover:bg-[#0f0f0f] transition-colors group">
+                      <td className="p-5 border-r border-[#222] bg-[#0a0a0a]">
+                        <div className="flex items-center gap-3">
+                          <img src={team.logo} className="w-7 h-7 object-contain drop-shadow-lg" alt="" />
+                          <span className="font-black uppercase text-xs tracking-tighter group-hover:text-[#10b981] transition-colors">
                             {team.displayName}
-                        </span>
-                      </div>
-                    </td>
-                    
-                    {/* Columnas de Jugadores */}
-                    {statusColumns.map((col) => {
-                      const playersInCol = team.injuries.filter((i: any) => 
-                          i.status.toLowerCase().includes(col.toLowerCase())
-                      );
+                          </span>
+                        </div>
+                      </td>
 
-                      return (
-                        <td key={col} className="p-3 text-center border-r border-[#222] last:border-0 align-top">
-                          <div className="flex flex-col gap-2">
-                            {playersInCol.map((injury: any) => (
-                              <div key={injury.athlete.id} className="group/item relative py-1 px-2 rounded-lg hover:bg-[#151515] transition-all">
-                                  <span className="text-[10px] font-bold text-[#ccc] group-hover/item:text-white cursor-default">
+                      {statusColumns.map((col) => {
+                        const playersInCol = team.injuries.filter((i: any) =>
+                          i.status.toLowerCase().includes(col.toLowerCase())
+                        );
+                        return (
+                          <td key={col} className="p-3 text-center border-r border-[#222] last:border-0 align-top">
+                            <div className="flex flex-col gap-2">
+                              {playersInCol.length === 0 ? (
+                                <span className="text-[#333] text-[10px]">—</span>
+                              ) : (
+                                playersInCol.map((injury: any) => (
+                                  <div key={injury.athlete.id} className="group/item relative py-1 px-2 rounded-lg hover:bg-[#151515] transition-all">
+                                    <span className="text-[10px] font-bold text-[#ccc] group-hover/item:text-white cursor-default">
                                       {injury.athlete.shortName}
-                                  </span>
-                                  {/* Tooltip con el detalle del dolor */}
-                                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-40 hidden group-hover/item:block bg-black border border-[#333] p-2 rounded-xl text-[9px] z-50 shadow-[0_10px_30px_rgba(0,0,0,0.8)] text-white text-center leading-relaxed">
+                                    </span>
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-40 hidden group-hover/item:block bg-black border border-[#333] p-2 rounded-xl text-[9px] z-50 shadow-[0_10px_30px_rgba(0,0,0,0.8)] text-white text-center leading-relaxed">
                                       <p className="font-black uppercase text-red-500 mb-1">{injury.status}</p>
                                       {injury.comment || "No detail"}
+                                    </div>
                                   </div>
-                              </div>
-                            ))}
-                          </div>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                                ))
+                              )}
+                            </div>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        )}
 
       </div>
     </main>

@@ -1,0 +1,141 @@
+{
+    "data": {
+        "highrollerHouseBets": [
+            {
+                "id": "2403ac3c-05bf-487e-ad38-7adc97a7a92f",
+                "iid": "house:474089511031",
+                "game": {
+                    "name": "limbo",
+                    "icon": "stake-game-limbo"
+                },
+                "bet": {
+                    "__typename": "CasinoBet",
+                    "id": "2403ac3c-05bf-487e-ad38-7adc97a7a92f",
+                    "active": false,
+                    "payoutMultiplier": 14.5,
+                    "amountMultiplier": 1,
+                    "amount": 0.00201407,
+                    "payout": 0.029204015000000003,
+                    "updatedAt": "Fri, 08 May 2026 14:15:28 GMT",
+                    "currency": "btc",
+                    "user": null
+                }
+            },
+            {
+                "id": "b276ac7a-01f1-44c6-88f2-c0f90de76099",
+                "iid": "house:474089291595",
+                "game": {
+                    "name": "Roadquake",
+                    "icon": "provider-slots"
+                },
+                "bet": {
+                    "__typename": "ThirdPartyBet",
+                    "id": "b276ac7a-01f1-44c6-88f2-c0f90de76099",
+                    "amount": 0.015035999942863199,
+                    "currency": "btc",
+                    "updatedAt": "Fri, 08 May 2026 14:15:26 GMT",
+                    "createdAt": "Fri, 08 May 2026 14:14:33 GMT",
+                    "payout": 0.0035284479865918977,
+                    "payoutMultiplier": 0.23,
+                    "user": null
+                }
+            },
+            {
+                "id": "c05953e1-44d4-46da-a80d-e312673342cc",
+                "iid": "house:474089502478",
+                "game": {
+                    "name": "limbo",
+                    "icon": "stake-game-limbo"
+                },
+                "bet": {
+                    "__typename": "CasinoBet",
+                    "id": "c05953e1-44d4-46da-a80d-e312673342cc",
+                    "active": false,
+                    "payoutMultiplier": 14.5,
+                    "amountMultiplier": 1,
+                    "amount": 0.00100704,
+                    "payout": 0.014602080000000002,
+                    "updatedAt": "Fri, 08 May 2026 14:15:26 GMT",
+                    "currency": "btc",
+                    "user": null
+                }
+            },
+            {
+                "id": "a3c8d070-c132-4bce-9df2-e8d9bec66847",
+                "iid": "house:474089351805",
+                "game": {
+                    "name": "Blackjack VIP 15",
+                    "icon": "provider-blackjack"
+                },
+                "bet": {
+                    "__typename": "ThirdPartyBet",
+                    "id": "a3c8d070-c132-4bce-9df2-e8d9bec66847",
+                    "amount": 1320,
+                    "currency": "usdt",
+                    "updatedAt": "Fri, 08 May 2026 14:15:24 GMT",
+                    "createdAt": "Fri, 08 May 2026 14:14:48 GMT",
+                    "payout": 0,
+                    "payoutMultiplier": 0,
+                    "user": null
+                }
+            },
+            {
+                "id": "3ca9e56c-9c7f-41fe-9948-2a55e7e98677",
+                "iid": "house:474089207057",
+                "game": {
+                    "name": "Blackjack 8 - Azure",
+                    "icon": "provider-blackjack"
+                },
+                "bet": {
+                    "__typename": "ThirdPartyBet",
+                    "id": "3ca9e56c-9c7f-41fe-9948-2a55e7e98677",
+                    "amount": 2000,
+                    "currency": "usdt",
+                    "updatedAt": "Fri, 08 May 2026 14:15:24 GMT",
+                    "createdAt": "Fri, 08 May 2026 14:14:12 GMT",
+                    "payout": 0,
+                    "payoutMultiplier": 0,
+                    "user": null
+                }
+            },
+            {
+                "id": "db362f6e-ad0a-4f8f-86c7-879190025800",
+                "iid": "house:474089419594",
+                "game": {
+                    "name": "Salon Priv\u00e9 Blackjack O",
+                    "icon": "provider-blackjack"
+                },
+                "bet": {
+                    "__typename": "ThirdPartyBet",
+                    "id": "db362f6e-ad0a-4f8f-86c7-879190025800",
+                    "amount": 5772.1,
+                    "currency": "usdt",
+                    "updatedAt": "Fri, 08 May 2026 14:15:23 GMT",
+                    "createdAt": "Fri, 08 May 2026 14:15:05 GMT",
+                    "payout": 4572.1,
+                    "payoutMultiplier": 0.792103,
+                    "user": null
+                }
+            },
+            {
+                "id": "3ff2971b-d216-48b2-8ea2-a1cb59e12ae8",
+                "iid": "house:474089215231",
+                "game": {
+                    "name": "Sugar Rush 1000",
+                    "icon": "provider-slots"
+                },
+                "bet": {
+                    "__typename": "ThirdPartyBet",
+                    "id": "3ff2971b-d216-48b2-8ea2-a1cb59e12ae8",
+                    "amount": 0.06279999873395203,
+                    "currency": "btc",
+                    "updatedAt": "Fri, 08 May 2026 14:15:19 GMT",
+                    "createdAt": "Fri, 08 May 2026 14:14:14 GMT",
+                    "payout": 0.010713679784012217,
+                    "payoutMultiplier": 0.17,
+                    "user": null
+                }
+            }
+        ]
+    }
+}

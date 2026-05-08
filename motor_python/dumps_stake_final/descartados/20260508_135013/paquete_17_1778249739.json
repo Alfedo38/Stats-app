@@ -1,0 +1,19 @@
+{
+    "data": {
+        "slugTournament": {
+            "id": "eedee767-a2c7-4242-9d4c-5a01eb03df00",
+            "name": "NBA",
+            "slug": "nba",
+            "category": {
+                "id": "5e40323b-2d79-48d2-955f-3b0692d759c1",
+                "name": "Estados Unidos",
+                "slug": "usa",
+                "sport": {
+                    "id": "285d2c11-61ff-4d65-97e8-1bad9fdfa2c0",
+                    "name": "Baloncesto",
+                    "slug": "basketball"
+                }
+            }
+        }
+    }
+}

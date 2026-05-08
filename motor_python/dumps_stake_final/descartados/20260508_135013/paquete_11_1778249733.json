@@ -1,0 +1,3071 @@
+{
+    "data": {
+        "tournamentList": [
+            {
+                "fixtureCount": 4,
+                "id": "105ec870-26ba-490d-aaa7-50033259e4a1",
+                "name": "Liga Premier de India",
+                "slug": "indian-premier-league",
+                "category": {
+                    "id": "0b34d188-9e7c-4689-9d31-a7d463061029",
+                    "name": "India",
+                    "slug": "india",
+                    "sport": {
+                        "id": "83ce6112-ddd8-46a6-b2d1-ed6d2b5e9010",
+                        "name": "Cr\u00edquet",
+                        "slug": "cricket"
+                    }
+                },
+                "fixtureList": [
+                    {
+                        "id": "262c714a-a48b-4999-9d01-f49e6b5cd9d0",
+                        "betradarStream": {
+                            "exists": false
+                        },
+                        "imgArenaStream": {
+                            "exists": false
+                        },
+                        "abiosStream": null,
+                        "geniussportsStream": {
+                            "exists": false
+                        },
+                        "statsPerformStream": {
+                            "isAvailable": false,
+                            "geoBlocked": false
+                        },
+                        "liveStream": {
+                            "data": null
+                        },
+                        "sgmAvailable": false,
+                        "swish": null,
+                        "status": "live",
+                        "slug": "46532794-delhi-capitals-kolkata-knight-riders",
+                        "name": "Delhi Capitals - Kolkata Knight Riders",
+                        "provider": "betradar",
+                        "marketCount": 26,
+                        "extId": "sr:match:70343186",
+                        "liveWidgetUrl": null,
+                        "widgetUrl": null,
+                        "data": {
+                            "__typename": "SportFixtureDataMatch",
+                            "startTime": "Fri, 08 May 2026 14:00:00 GMT",
+                            "competitors": [
+                                {
+                                    "name": "Delhi Capitals",
+                                    "defaultName": "Delhi Capitals",
+                                    "extId": "sr:competitor:152332",
+                                    "countryCode": "IN",
+                                    "abbreviation": "DEC",
+                                    "iconPath": null
+                                },
+                                {
+                                    "name": "Kolkata Knight Riders",
+                                    "defaultName": "Kolkata Knight Riders",
+                                    "extId": "sr:competitor:152326",
+                                    "countryCode": "IN",
+                                    "abbreviation": "KKR",
+                                    "iconPath": null
+                                }
+                            ],
+                            "teams": [
+                                {
+                                    "name": "Delhi Capitals",
+                                    "qualifier": "home"
+                                },
+                                {
+                                    "name": "Kolkata Knight Riders",
+                                    "qualifier": "away"
+                                }
+                            ],
+                            "tvChannels": null
+                        },
+                        "tournament": {
+                            "id": "105ec870-26ba-490d-aaa7-50033259e4a1",
+                            "name": "Liga Premier de India",
+                            "slug": "indian-premier-league",
+                            "category": {
+                                "id": "0b34d188-9e7c-4689-9d31-a7d463061029",
+                                "name": "India",
+                                "slug": "india",
+                                "sport": {
+                                    "id": "83ce6112-ddd8-46a6-b2d1-ed6d2b5e9010",
+                                    "name": "Cr\u00edquet",
+                                    "slug": "cricket"
+                                },
+                                "cashoutEnabled": true
+                            }
+                        },
+                        "eventStatus": {
+                            "__typename": "SportFixtureEventStatusData",
+                            "homeScore": 38,
+                            "awayScore": null,
+                            "matchStatus": "Primeros innings, equipo local",
+                            "clock": {
+                                "matchTime": null,
+                                "remainingTime": null
+                            },
+                            "periodScores": null,
+                            "currentTeamServing": null,
+                            "homeGameScore": null,
+                            "awayGameScore": null,
+                            "statistic": {
+                                "yellowCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "redCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "corners": {
+                                    "home": null,
+                                    "away": null
+                                }
+                            }
+                        },
+                        "groups": [
+                            {
+                                "name": "winner",
+                                "translation": "Ganador",
+                                "rank": 0,
+                                "templates": [
+                                    {
+                                        "extId": "11",
+                                        "rank": 3002,
+                                        "name": "Apuesta Sin Empate",
+                                        "markets": []
+                                    },
+                                    {
+                                        "extId": "1",
+                                        "rank": 2502,
+                                        "name": "1x2",
+                                        "markets": []
+                                    },
+                                    {
+                                        "extId": "340",
+                                        "rank": 2252,
+                                        "name": "Ganador (incl. super over)",
+                                        "markets": [
+                                            {
+                                                "id": "22f9edcb-aef7-414e-b39b-d8a3f44b547e",
+                                                "name": "Ganador (incl. super over)",
+                                                "status": "active",
+                                                "extId": "340",
+                                                "specifiers": "",
+                                                "customBetAvailable": true,
+                                                "provider": "betradar",
+                                                "outcomes": [
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "62f4ed8f-876a-440c-99fa-aaff2e74a603",
+                                                        "active": true,
+                                                        "odds": 1.8,
+                                                        "name": "Delhi Capitals",
+                                                        "customBetAvailable": true
+                                                    },
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "adf367e5-8851-40b4-9289-d244f4346a93",
+                                                        "active": true,
+                                                        "odds": 2,
+                                                        "name": "Kolkata Knight Riders",
+                                                        "customBetAvailable": true
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "id": "f7aaeff1-723e-4226-9cf0-c2435c1f21cf",
+                        "betradarStream": {
+                            "exists": false
+                        },
+                        "imgArenaStream": {
+                            "exists": false
+                        },
+                        "abiosStream": null,
+                        "geniussportsStream": {
+                            "exists": false
+                        },
+                        "statsPerformStream": {
+                            "isAvailable": false,
+                            "geoBlocked": false
+                        },
+                        "liveStream": {
+                            "data": null
+                        },
+                        "sgmAvailable": true,
+                        "swish": null,
+                        "status": "active",
+                        "slug": "46525999-rajasthan-royals-gujarat-titans",
+                        "name": "Rajasthan Royals - Gujarat Titans",
+                        "provider": "betradar",
+                        "marketCount": 55,
+                        "extId": "sr:match:70343188",
+                        "liveWidgetUrl": null,
+                        "widgetUrl": null,
+                        "data": {
+                            "__typename": "SportFixtureDataMatch",
+                            "startTime": "Sat, 09 May 2026 14:00:00 GMT",
+                            "competitors": [
+                                {
+                                    "name": "Rajasthan Royals",
+                                    "defaultName": "Rajasthan Royals",
+                                    "extId": "sr:competitor:152320",
+                                    "countryCode": "IN",
+                                    "abbreviation": "RAJ",
+                                    "iconPath": null
+                                },
+                                {
+                                    "name": "Gujarat Titans",
+                                    "defaultName": "Gujarat Titans",
+                                    "extId": "sr:competitor:877927",
+                                    "countryCode": "IN",
+                                    "abbreviation": "GUJ",
+                                    "iconPath": null
+                                }
+                            ],
+                            "teams": [
+                                {
+                                    "name": "Rajasthan Royals",
+                                    "qualifier": "home"
+                                },
+                                {
+                                    "name": "Gujarat Titans",
+                                    "qualifier": "away"
+                                }
+                            ],
+                            "tvChannels": null
+                        },
+                        "tournament": {
+                            "id": "105ec870-26ba-490d-aaa7-50033259e4a1",
+                            "name": "Liga Premier de India",
+                            "slug": "indian-premier-league",
+                            "category": {
+                                "id": "0b34d188-9e7c-4689-9d31-a7d463061029",
+                                "name": "India",
+                                "slug": "india",
+                                "sport": {
+                                    "id": "83ce6112-ddd8-46a6-b2d1-ed6d2b5e9010",
+                                    "name": "Cr\u00edquet",
+                                    "slug": "cricket"
+                                },
+                                "cashoutEnabled": true
+                            }
+                        },
+                        "eventStatus": {
+                            "__typename": "SportFixtureEventStatusData",
+                            "homeScore": null,
+                            "awayScore": null,
+                            "matchStatus": "No Iniciado",
+                            "clock": {
+                                "matchTime": null,
+                                "remainingTime": null
+                            },
+                            "periodScores": null,
+                            "currentTeamServing": null,
+                            "homeGameScore": null,
+                            "awayGameScore": null,
+                            "statistic": {
+                                "yellowCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "redCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "corners": {
+                                    "home": null,
+                                    "away": null
+                                }
+                            }
+                        },
+                        "groups": [
+                            {
+                                "name": "winner",
+                                "translation": "Ganador",
+                                "rank": 0,
+                                "templates": [
+                                    {
+                                        "extId": "11",
+                                        "rank": 3002,
+                                        "name": "Apuesta Sin Empate",
+                                        "markets": []
+                                    },
+                                    {
+                                        "extId": "1",
+                                        "rank": 2502,
+                                        "name": "1x2",
+                                        "markets": []
+                                    },
+                                    {
+                                        "extId": "340",
+                                        "rank": 2252,
+                                        "name": "Ganador (incl. super over)",
+                                        "markets": [
+                                            {
+                                                "id": "0e137f5c-f208-4b38-9397-774f6d1cf06e",
+                                                "name": "Ganador (incl. super over)",
+                                                "status": "active",
+                                                "extId": "340",
+                                                "specifiers": "",
+                                                "customBetAvailable": true,
+                                                "provider": "betradar",
+                                                "outcomes": [
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "8dd5a490-ccab-46c1-af6e-d165a253f380",
+                                                        "active": true,
+                                                        "odds": 1.75,
+                                                        "name": "Rajasthan Royals",
+                                                        "customBetAvailable": true
+                                                    },
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "777cd2af-ada6-4d2e-a389-50739ee0465a",
+                                                        "active": true,
+                                                        "odds": 2.05,
+                                                        "name": "Gujarat Titans",
+                                                        "customBetAvailable": true
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "id": "f5c7e63f-a998-4dc0-b026-232183ec4194",
+                        "betradarStream": {
+                            "exists": false
+                        },
+                        "imgArenaStream": {
+                            "exists": false
+                        },
+                        "abiosStream": null,
+                        "geniussportsStream": {
+                            "exists": false
+                        },
+                        "statsPerformStream": {
+                            "isAvailable": false,
+                            "geoBlocked": false
+                        },
+                        "liveStream": {
+                            "data": null
+                        },
+                        "sgmAvailable": true,
+                        "swish": null,
+                        "status": "active",
+                        "slug": "46538992-chennai-super-kings-lucknow-super-giants",
+                        "name": "Chennai Super Kings - Lucknow Super Giants",
+                        "provider": "betradar",
+                        "marketCount": 55,
+                        "extId": "sr:match:70343190",
+                        "liveWidgetUrl": null,
+                        "widgetUrl": null,
+                        "data": {
+                            "__typename": "SportFixtureDataMatch",
+                            "startTime": "Sun, 10 May 2026 10:00:00 GMT",
+                            "competitors": [
+                                {
+                                    "name": "Chennai Super Kings",
+                                    "defaultName": "Chennai Super Kings",
+                                    "extId": "sr:competitor:152334",
+                                    "countryCode": "IN",
+                                    "abbreviation": "CSK",
+                                    "iconPath": null
+                                },
+                                {
+                                    "name": "Lucknow Super Giants",
+                                    "defaultName": "Lucknow Super Giants",
+                                    "extId": "sr:competitor:877929",
+                                    "countryCode": "IN",
+                                    "abbreviation": "LUC",
+                                    "iconPath": null
+                                }
+                            ],
+                            "teams": [
+                                {
+                                    "name": "Chennai Super Kings",
+                                    "qualifier": "home"
+                                },
+                                {
+                                    "name": "Lucknow Super Giants",
+                                    "qualifier": "away"
+                                }
+                            ],
+                            "tvChannels": null
+                        },
+                        "tournament": {
+                            "id": "105ec870-26ba-490d-aaa7-50033259e4a1",
+                            "name": "Liga Premier de India",
+                            "slug": "indian-premier-league",
+                            "category": {
+                                "id": "0b34d188-9e7c-4689-9d31-a7d463061029",
+                                "name": "India",
+                                "slug": "india",
+                                "sport": {
+                                    "id": "83ce6112-ddd8-46a6-b2d1-ed6d2b5e9010",
+                                    "name": "Cr\u00edquet",
+                                    "slug": "cricket"
+                                },
+                                "cashoutEnabled": true
+                            }
+                        },
+                        "eventStatus": {
+                            "__typename": "SportFixtureEventStatusData",
+                            "homeScore": null,
+                            "awayScore": null,
+                            "matchStatus": "No Iniciado",
+                            "clock": {
+                                "matchTime": null,
+                                "remainingTime": null
+                            },
+                            "periodScores": null,
+                            "currentTeamServing": null,
+                            "homeGameScore": null,
+                            "awayGameScore": null,
+                            "statistic": {
+                                "yellowCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "redCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "corners": {
+                                    "home": null,
+                                    "away": null
+                                }
+                            }
+                        },
+                        "groups": [
+                            {
+                                "name": "winner",
+                                "translation": "Ganador",
+                                "rank": 0,
+                                "templates": [
+                                    {
+                                        "extId": "11",
+                                        "rank": 3002,
+                                        "name": "Apuesta Sin Empate",
+                                        "markets": []
+                                    },
+                                    {
+                                        "extId": "1",
+                                        "rank": 2502,
+                                        "name": "1x2",
+                                        "markets": []
+                                    },
+                                    {
+                                        "extId": "340",
+                                        "rank": 2252,
+                                        "name": "Ganador (incl. super over)",
+                                        "markets": [
+                                            {
+                                                "id": "360859b3-8ed3-4bcf-bf91-f2843878f646",
+                                                "name": "Ganador (incl. super over)",
+                                                "status": "active",
+                                                "extId": "340",
+                                                "specifiers": "",
+                                                "customBetAvailable": true,
+                                                "provider": "betradar",
+                                                "outcomes": [
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "4fb3a571-4d52-4235-b341-6c6d3ea6f9c6",
+                                                        "active": true,
+                                                        "odds": 1.7,
+                                                        "name": "Chennai Super Kings",
+                                                        "customBetAvailable": true
+                                                    },
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "b9045c25-5343-4e7b-b628-0b929e18de7f",
+                                                        "active": true,
+                                                        "odds": 2.1,
+                                                        "name": "Lucknow Super Giants",
+                                                        "customBetAvailable": true
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "id": "3b63423d-d23a-407b-b052-1f2e7563bed2",
+                        "betradarStream": {
+                            "exists": false
+                        },
+                        "imgArenaStream": {
+                            "exists": false
+                        },
+                        "abiosStream": null,
+                        "geniussportsStream": {
+                            "exists": false
+                        },
+                        "statsPerformStream": {
+                            "isAvailable": false,
+                            "geoBlocked": false
+                        },
+                        "liveStream": {
+                            "data": null
+                        },
+                        "sgmAvailable": true,
+                        "swish": null,
+                        "status": "active",
+                        "slug": "46538993-royal-challengers-bengaluru-mumbai-indians",
+                        "name": "Royal Challengers Bengaluru - Mumbai Indians",
+                        "provider": "betradar",
+                        "marketCount": 55,
+                        "extId": "sr:match:70343192",
+                        "liveWidgetUrl": null,
+                        "widgetUrl": null,
+                        "data": {
+                            "__typename": "SportFixtureDataMatch",
+                            "startTime": "Sun, 10 May 2026 14:00:00 GMT",
+                            "competitors": [
+                                {
+                                    "name": "Royal Challengers Bangalore",
+                                    "defaultName": "Royal Challengers Bangalore",
+                                    "extId": "sr:competitor:152318",
+                                    "countryCode": "IN",
+                                    "abbreviation": "BAN",
+                                    "iconPath": null
+                                },
+                                {
+                                    "name": "Mumbai Indians",
+                                    "defaultName": "Mumbai Indians",
+                                    "extId": "sr:competitor:152324",
+                                    "countryCode": "IN",
+                                    "abbreviation": "MUI",
+                                    "iconPath": null
+                                }
+                            ],
+                            "teams": [
+                                {
+                                    "name": "Royal Challengers Bengaluru",
+                                    "qualifier": "home"
+                                },
+                                {
+                                    "name": "Mumbai Indians",
+                                    "qualifier": "away"
+                                }
+                            ],
+                            "tvChannels": null
+                        },
+                        "tournament": {
+                            "id": "105ec870-26ba-490d-aaa7-50033259e4a1",
+                            "name": "Liga Premier de India",
+                            "slug": "indian-premier-league",
+                            "category": {
+                                "id": "0b34d188-9e7c-4689-9d31-a7d463061029",
+                                "name": "India",
+                                "slug": "india",
+                                "sport": {
+                                    "id": "83ce6112-ddd8-46a6-b2d1-ed6d2b5e9010",
+                                    "name": "Cr\u00edquet",
+                                    "slug": "cricket"
+                                },
+                                "cashoutEnabled": true
+                            }
+                        },
+                        "eventStatus": {
+                            "__typename": "SportFixtureEventStatusData",
+                            "homeScore": null,
+                            "awayScore": null,
+                            "matchStatus": "No Iniciado",
+                            "clock": {
+                                "matchTime": null,
+                                "remainingTime": null
+                            },
+                            "periodScores": null,
+                            "currentTeamServing": null,
+                            "homeGameScore": null,
+                            "awayGameScore": null,
+                            "statistic": {
+                                "yellowCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "redCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "corners": {
+                                    "home": null,
+                                    "away": null
+                                }
+                            }
+                        },
+                        "groups": [
+                            {
+                                "name": "winner",
+                                "translation": "Ganador",
+                                "rank": 0,
+                                "templates": [
+                                    {
+                                        "extId": "11",
+                                        "rank": 3002,
+                                        "name": "Apuesta Sin Empate",
+                                        "markets": []
+                                    },
+                                    {
+                                        "extId": "1",
+                                        "rank": 2502,
+                                        "name": "1x2",
+                                        "markets": []
+                                    },
+                                    {
+                                        "extId": "340",
+                                        "rank": 2252,
+                                        "name": "Ganador (incl. super over)",
+                                        "markets": [
+                                            {
+                                                "id": "319cc748-4b82-4723-b1ff-b758bbbc0aa6",
+                                                "name": "Ganador (incl. super over)",
+                                                "status": "active",
+                                                "extId": "340",
+                                                "specifiers": "",
+                                                "customBetAvailable": true,
+                                                "provider": "betradar",
+                                                "outcomes": [
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "b76d6802-cba6-451a-a241-f18fcf8c81d0",
+                                                        "active": true,
+                                                        "odds": 1.8,
+                                                        "name": "Royal Challengers Bangalore",
+                                                        "customBetAvailable": true
+                                                    },
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "2b90f431-4cba-4720-b501-2862a55db63b",
+                                                        "active": true,
+                                                        "odds": 1.95,
+                                                        "name": "Mumbai Indians",
+                                                        "customBetAvailable": true
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "fixtureCount": 26,
+                "id": "3cc2ce50-6204-4a92-b6cc-9cca2a0bbae9",
+                "name": "ATP Roma, Italia Individual Masculino",
+                "slug": "atp-rome-italy-men-singles",
+                "category": {
+                    "id": "5102f1bc-58c5-435e-aff4-d9c71c0ad30c",
+                    "name": "ATP",
+                    "slug": "atp",
+                    "sport": {
+                        "id": "8c7aea57-e9b1-414f-a095-206740716b4f",
+                        "name": "Tenis",
+                        "slug": "tennis"
+                    }
+                },
+                "fixtureList": [
+                    {
+                        "id": "143d2776-0beb-430c-a034-92334f70bee3",
+                        "betradarStream": {
+                            "exists": true
+                        },
+                        "imgArenaStream": {
+                            "exists": false
+                        },
+                        "abiosStream": null,
+                        "geniussportsStream": {
+                            "exists": false
+                        },
+                        "statsPerformStream": {
+                            "isAvailable": false,
+                            "geoBlocked": false
+                        },
+                        "liveStream": {
+                            "data": {
+                                "isAvailable": true
+                            }
+                        },
+                        "sgmAvailable": true,
+                        "swish": null,
+                        "status": "live",
+                        "slug": "46536461-botic-van-de-zandschulp-aleksandar-kovacevic",
+                        "name": "van de Zandschulp, Botic - Kovacevic, Aleksandar",
+                        "provider": "betradar",
+                        "marketCount": 37,
+                        "extId": "sr:match:71339160",
+                        "liveWidgetUrl": null,
+                        "widgetUrl": null,
+                        "data": {
+                            "__typename": "SportFixtureDataMatch",
+                            "startTime": "Fri, 08 May 2026 11:05:00 GMT",
+                            "competitors": [
+                                {
+                                    "name": "van de Zandschulp, Botic",
+                                    "defaultName": "Botic Van de Zandschulp",
+                                    "extId": "sr:competitor:102339",
+                                    "countryCode": "NL",
+                                    "abbreviation": "VAN",
+                                    "iconPath": null
+                                },
+                                {
+                                    "name": "Kovacevic, Aleksandar",
+                                    "defaultName": "Aleksandar Kovacevic",
+                                    "extId": "sr:competitor:188321",
+                                    "countryCode": "US",
+                                    "abbreviation": "KOV",
+                                    "iconPath": null
+                                }
+                            ],
+                            "teams": [
+                                {
+                                    "name": "van de Zandschulp, Botic",
+                                    "qualifier": "home"
+                                },
+                                {
+                                    "name": "Kovacevic, Aleksandar",
+                                    "qualifier": "away"
+                                }
+                            ],
+                            "tvChannels": null
+                        },
+                        "tournament": {
+                            "id": "3cc2ce50-6204-4a92-b6cc-9cca2a0bbae9",
+                            "name": "ATP Roma, Italia Individual Masculino",
+                            "slug": "atp-rome-italy-men-singles",
+                            "category": {
+                                "id": "5102f1bc-58c5-435e-aff4-d9c71c0ad30c",
+                                "name": "ATP",
+                                "slug": "atp",
+                                "sport": {
+                                    "id": "8c7aea57-e9b1-414f-a095-206740716b4f",
+                                    "name": "Tenis",
+                                    "slug": "tennis"
+                                },
+                                "cashoutEnabled": true
+                            }
+                        },
+                        "eventStatus": {
+                            "__typename": "SportFixtureEventStatusData",
+                            "homeScore": 1,
+                            "awayScore": 1,
+                            "matchStatus": "3\u00ba set",
+                            "clock": {
+                                "matchTime": null,
+                                "remainingTime": null
+                            },
+                            "periodScores": [
+                                {
+                                    "homeScore": 2,
+                                    "awayScore": 6,
+                                    "matchStatus": "1er set"
+                                },
+                                {
+                                    "homeScore": 6,
+                                    "awayScore": 2,
+                                    "matchStatus": "2do Set"
+                                },
+                                {
+                                    "homeScore": 1,
+                                    "awayScore": 1,
+                                    "matchStatus": "3\u00ba set"
+                                }
+                            ],
+                            "currentTeamServing": "away",
+                            "homeGameScore": "40",
+                            "awayGameScore": "30",
+                            "statistic": {
+                                "yellowCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "redCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "corners": {
+                                    "home": null,
+                                    "away": null
+                                }
+                            }
+                        },
+                        "groups": [
+                            {
+                                "name": "winner",
+                                "translation": "Ganador",
+                                "rank": 0,
+                                "templates": [
+                                    {
+                                        "extId": "186",
+                                        "rank": 2,
+                                        "name": "Ganador",
+                                        "markets": [
+                                            {
+                                                "id": "b6aa37cf-cc80-4dbd-b60c-43be1efee9d5",
+                                                "name": "Ganador",
+                                                "status": "active",
+                                                "extId": "186",
+                                                "specifiers": "",
+                                                "customBetAvailable": true,
+                                                "provider": "betradar",
+                                                "outcomes": [
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "cc88b50d-501e-406e-9a91-0291095d7d6b",
+                                                        "active": true,
+                                                        "odds": 1.25,
+                                                        "name": "van de Zandschulp, Botic",
+                                                        "customBetAvailable": true
+                                                    },
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "2c4d0436-b553-4d6b-b24d-52680125e759",
+                                                        "active": true,
+                                                        "odds": 3.95,
+                                                        "name": "Kovacevic, Aleksandar",
+                                                        "customBetAvailable": true
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "id": "5fd24447-37c3-41b7-ad66-74e6fe0f3f6a",
+                        "betradarStream": {
+                            "exists": true
+                        },
+                        "imgArenaStream": {
+                            "exists": false
+                        },
+                        "abiosStream": null,
+                        "geniussportsStream": {
+                            "exists": false
+                        },
+                        "statsPerformStream": {
+                            "isAvailable": false,
+                            "geoBlocked": false
+                        },
+                        "liveStream": {
+                            "data": {
+                                "isAvailable": true
+                            }
+                        },
+                        "sgmAvailable": true,
+                        "swish": null,
+                        "status": "live",
+                        "slug": "46517490-r64p63-r64p64",
+                        "name": "Altmaier, Daniel - Zverev, Alexander",
+                        "provider": "betradar",
+                        "marketCount": 45,
+                        "extId": "sr:match:71201106",
+                        "liveWidgetUrl": null,
+                        "widgetUrl": null,
+                        "data": {
+                            "__typename": "SportFixtureDataMatch",
+                            "startTime": "Fri, 08 May 2026 13:40:00 GMT",
+                            "competitors": [
+                                {
+                                    "name": "Altmaier, Daniel",
+                                    "defaultName": "Daniel Altmaier",
+                                    "extId": "sr:competitor:127208",
+                                    "countryCode": "DE",
+                                    "abbreviation": "ALT",
+                                    "iconPath": null
+                                },
+                                {
+                                    "name": "Zverev, Alexander",
+                                    "defaultName": "Alexander Zverev",
+                                    "extId": "sr:competitor:57163",
+                                    "countryCode": "DE",
+                                    "abbreviation": "ZVE",
+                                    "iconPath": null
+                                }
+                            ],
+                            "teams": [
+                                {
+                                    "name": "Altmaier, Daniel",
+                                    "qualifier": "home"
+                                },
+                                {
+                                    "name": "Zverev, Alexander",
+                                    "qualifier": "away"
+                                }
+                            ],
+                            "tvChannels": null
+                        },
+                        "tournament": {
+                            "id": "3cc2ce50-6204-4a92-b6cc-9cca2a0bbae9",
+                            "name": "ATP Roma, Italia Individual Masculino",
+                            "slug": "atp-rome-italy-men-singles",
+                            "category": {
+                                "id": "5102f1bc-58c5-435e-aff4-d9c71c0ad30c",
+                                "name": "ATP",
+                                "slug": "atp",
+                                "sport": {
+                                    "id": "8c7aea57-e9b1-414f-a095-206740716b4f",
+                                    "name": "Tenis",
+                                    "slug": "tennis"
+                                },
+                                "cashoutEnabled": true
+                            }
+                        },
+                        "eventStatus": {
+                            "__typename": "SportFixtureEventStatusData",
+                            "homeScore": 0,
+                            "awayScore": 0,
+                            "matchStatus": "1er set",
+                            "clock": {
+                                "matchTime": null,
+                                "remainingTime": null
+                            },
+                            "periodScores": [
+                                {
+                                    "homeScore": 2,
+                                    "awayScore": 3,
+                                    "matchStatus": "1er set"
+                                }
+                            ],
+                            "currentTeamServing": "home",
+                            "homeGameScore": "30",
+                            "awayGameScore": "40",
+                            "statistic": {
+                                "yellowCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "redCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "corners": {
+                                    "home": null,
+                                    "away": null
+                                }
+                            }
+                        },
+                        "groups": [
+                            {
+                                "name": "winner",
+                                "translation": "Ganador",
+                                "rank": 0,
+                                "templates": [
+                                    {
+                                        "extId": "186",
+                                        "rank": 2,
+                                        "name": "Ganador",
+                                        "markets": [
+                                            {
+                                                "id": "ec873da7-ecf9-4762-bbec-e9c1f5d32702",
+                                                "name": "Ganador",
+                                                "status": "active",
+                                                "extId": "186",
+                                                "specifiers": "",
+                                                "customBetAvailable": true,
+                                                "provider": "betradar",
+                                                "outcomes": [
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "50bdec60-5933-4426-91a4-53adff7f4c12",
+                                                        "active": true,
+                                                        "odds": 8.25,
+                                                        "name": "Altmaier, Daniel",
+                                                        "customBetAvailable": true
+                                                    },
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "d9fe37d9-d72d-4a53-a7db-7679e954dba5",
+                                                        "active": true,
+                                                        "odds": 1.06,
+                                                        "name": "Zverev, Alexander",
+                                                        "customBetAvailable": true
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "id": "237cdcba-4531-423e-86e7-1af7172bf05a",
+                        "betradarStream": {
+                            "exists": true
+                        },
+                        "imgArenaStream": {
+                            "exists": false
+                        },
+                        "abiosStream": null,
+                        "geniussportsStream": {
+                            "exists": false
+                        },
+                        "statsPerformStream": {
+                            "isAvailable": false,
+                            "geoBlocked": false
+                        },
+                        "liveStream": {
+                            "data": {
+                                "isAvailable": true
+                            }
+                        },
+                        "sgmAvailable": true,
+                        "swish": null,
+                        "status": "active",
+                        "slug": "46517501-r64p35-r64p36",
+                        "name": "Tabilo, Alejandro - Cer\u00fandolo, Francisco",
+                        "provider": "betradar",
+                        "marketCount": 18,
+                        "extId": "sr:match:71201134",
+                        "liveWidgetUrl": null,
+                        "widgetUrl": null,
+                        "data": {
+                            "__typename": "SportFixtureDataMatch",
+                            "startTime": "Fri, 08 May 2026 14:10:00 GMT",
+                            "competitors": [
+                                {
+                                    "name": "Tabilo, Alejandro",
+                                    "defaultName": "Alejandro Tabilo",
+                                    "extId": "sr:competitor:102151",
+                                    "countryCode": "CL",
+                                    "abbreviation": "TAB",
+                                    "iconPath": null
+                                },
+                                {
+                                    "name": "Cer\u00fandolo, Francisco",
+                                    "defaultName": "Francisco Cerundolo",
+                                    "extId": "sr:competitor:255595",
+                                    "countryCode": "AR",
+                                    "abbreviation": "CER",
+                                    "iconPath": null
+                                }
+                            ],
+                            "teams": [
+                                {
+                                    "name": "Tabilo, Alejandro",
+                                    "qualifier": "home"
+                                },
+                                {
+                                    "name": "Cer\u00fandolo, Francisco",
+                                    "qualifier": "away"
+                                }
+                            ],
+                            "tvChannels": null
+                        },
+                        "tournament": {
+                            "id": "3cc2ce50-6204-4a92-b6cc-9cca2a0bbae9",
+                            "name": "ATP Roma, Italia Individual Masculino",
+                            "slug": "atp-rome-italy-men-singles",
+                            "category": {
+                                "id": "5102f1bc-58c5-435e-aff4-d9c71c0ad30c",
+                                "name": "ATP",
+                                "slug": "atp",
+                                "sport": {
+                                    "id": "8c7aea57-e9b1-414f-a095-206740716b4f",
+                                    "name": "Tenis",
+                                    "slug": "tennis"
+                                },
+                                "cashoutEnabled": true
+                            }
+                        },
+                        "eventStatus": {
+                            "__typename": "SportFixtureEventStatusData",
+                            "homeScore": null,
+                            "awayScore": null,
+                            "matchStatus": "No Iniciado",
+                            "clock": {
+                                "matchTime": null,
+                                "remainingTime": null
+                            },
+                            "periodScores": null,
+                            "currentTeamServing": null,
+                            "homeGameScore": null,
+                            "awayGameScore": null,
+                            "statistic": {
+                                "yellowCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "redCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "corners": {
+                                    "home": null,
+                                    "away": null
+                                }
+                            }
+                        },
+                        "groups": [
+                            {
+                                "name": "winner",
+                                "translation": "Ganador",
+                                "rank": 0,
+                                "templates": [
+                                    {
+                                        "extId": "186",
+                                        "rank": 2,
+                                        "name": "Ganador",
+                                        "markets": [
+                                            {
+                                                "id": "19b09b90-a899-4812-9f3a-8f6583b34ec4",
+                                                "name": "Ganador",
+                                                "status": "active",
+                                                "extId": "186",
+                                                "specifiers": "",
+                                                "customBetAvailable": true,
+                                                "provider": "betradar",
+                                                "outcomes": [
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "966c894d-4300-41ec-bf0c-116dfcf3dfda",
+                                                        "active": true,
+                                                        "odds": 2.3,
+                                                        "name": "Tabilo, Alejandro",
+                                                        "customBetAvailable": true
+                                                    },
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "b04826b2-ecbc-4be5-8178-076dd5ecbf18",
+                                                        "active": true,
+                                                        "odds": 1.6,
+                                                        "name": "Cer\u00fandolo, Francisco",
+                                                        "customBetAvailable": true
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "id": "bb5ca153-303b-4bc2-a00d-2f7bc563bdd2",
+                        "betradarStream": {
+                            "exists": true
+                        },
+                        "imgArenaStream": {
+                            "exists": false
+                        },
+                        "abiosStream": null,
+                        "geniussportsStream": {
+                            "exists": false
+                        },
+                        "statsPerformStream": {
+                            "isAvailable": false,
+                            "geoBlocked": false
+                        },
+                        "liveStream": {
+                            "data": {
+                                "isAvailable": true
+                            }
+                        },
+                        "sgmAvailable": true,
+                        "swish": null,
+                        "status": "active",
+                        "slug": "46517465-r64p61-r64p62",
+                        "name": "Griekspoor, Tallon - Alexander Blockx",
+                        "provider": "betradar",
+                        "marketCount": 20,
+                        "extId": "sr:match:71201092",
+                        "liveWidgetUrl": null,
+                        "widgetUrl": null,
+                        "data": {
+                            "__typename": "SportFixtureDataMatch",
+                            "startTime": "Fri, 08 May 2026 14:30:00 GMT",
+                            "competitors": [
+                                {
+                                    "name": "Griekspoor, Tallon",
+                                    "defaultName": "Tallon Griekspoor",
+                                    "extId": "sr:competitor:122368",
+                                    "countryCode": "NL",
+                                    "abbreviation": "TAL",
+                                    "iconPath": null
+                                },
+                                {
+                                    "name": "Alexander Blockx",
+                                    "defaultName": "Alexander Blockx",
+                                    "extId": "sr:competitor:829282",
+                                    "countryCode": "BE",
+                                    "abbreviation": "BLO",
+                                    "iconPath": null
+                                }
+                            ],
+                            "teams": [
+                                {
+                                    "name": "Griekspoor, Tallon",
+                                    "qualifier": "home"
+                                },
+                                {
+                                    "name": "Alexander Blockx",
+                                    "qualifier": "away"
+                                }
+                            ],
+                            "tvChannels": null
+                        },
+                        "tournament": {
+                            "id": "3cc2ce50-6204-4a92-b6cc-9cca2a0bbae9",
+                            "name": "ATP Roma, Italia Individual Masculino",
+                            "slug": "atp-rome-italy-men-singles",
+                            "category": {
+                                "id": "5102f1bc-58c5-435e-aff4-d9c71c0ad30c",
+                                "name": "ATP",
+                                "slug": "atp",
+                                "sport": {
+                                    "id": "8c7aea57-e9b1-414f-a095-206740716b4f",
+                                    "name": "Tenis",
+                                    "slug": "tennis"
+                                },
+                                "cashoutEnabled": true
+                            }
+                        },
+                        "eventStatus": {
+                            "__typename": "SportFixtureEventStatusData",
+                            "homeScore": null,
+                            "awayScore": null,
+                            "matchStatus": "No Iniciado",
+                            "clock": {
+                                "matchTime": null,
+                                "remainingTime": null
+                            },
+                            "periodScores": null,
+                            "currentTeamServing": null,
+                            "homeGameScore": null,
+                            "awayGameScore": null,
+                            "statistic": {
+                                "yellowCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "redCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "corners": {
+                                    "home": null,
+                                    "away": null
+                                }
+                            }
+                        },
+                        "groups": [
+                            {
+                                "name": "winner",
+                                "translation": "Ganador",
+                                "rank": 0,
+                                "templates": [
+                                    {
+                                        "extId": "186",
+                                        "rank": 2,
+                                        "name": "Ganador",
+                                        "markets": [
+                                            {
+                                                "id": "e74633bd-76d9-4f75-a75b-26143a411ad3",
+                                                "name": "Ganador",
+                                                "status": "active",
+                                                "extId": "186",
+                                                "specifiers": "",
+                                                "customBetAvailable": true,
+                                                "provider": "betradar",
+                                                "outcomes": [
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "ed89a9e7-513a-4f69-9274-7d6f9bb1cd76",
+                                                        "active": true,
+                                                        "odds": 2.75,
+                                                        "name": "Griekspoor, Tallon",
+                                                        "customBetAvailable": true
+                                                    },
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "621066f4-b0bc-46a6-8940-fa69aa238854",
+                                                        "active": true,
+                                                        "odds": 1.48,
+                                                        "name": "Alexander Blockx",
+                                                        "customBetAvailable": true
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "id": "a7dee371-f399-45b5-ba31-9723964f39cc",
+                        "betradarStream": {
+                            "exists": true
+                        },
+                        "imgArenaStream": {
+                            "exists": false
+                        },
+                        "abiosStream": null,
+                        "geniussportsStream": {
+                            "exists": false
+                        },
+                        "statsPerformStream": {
+                            "isAvailable": false,
+                            "geoBlocked": false
+                        },
+                        "liveStream": {
+                            "data": {
+                                "isAvailable": true
+                            }
+                        },
+                        "sgmAvailable": true,
+                        "swish": null,
+                        "status": "active",
+                        "slug": "46517476-r64p47-r64p48",
+                        "name": "Prizmic, Dino - Djokovic, Novak",
+                        "provider": "betradar",
+                        "marketCount": 20,
+                        "extId": "sr:match:71201090",
+                        "liveWidgetUrl": null,
+                        "widgetUrl": null,
+                        "data": {
+                            "__typename": "SportFixtureDataMatch",
+                            "startTime": "Fri, 08 May 2026 14:50:00 GMT",
+                            "competitors": [
+                                {
+                                    "name": "Prizmic, Dino",
+                                    "defaultName": "Dino Prizmic",
+                                    "extId": "sr:competitor:722429",
+                                    "countryCode": "HR",
+                                    "abbreviation": "PRI",
+                                    "iconPath": null
+                                },
+                                {
+                                    "name": "Djokovic, Novak",
+                                    "defaultName": "Djokovic, Novak",
+                                    "extId": "sr:competitor:14882",
+                                    "countryCode": "RS",
+                                    "abbreviation": "DJO",
+                                    "iconPath": null
+                                }
+                            ],
+                            "teams": [
+                                {
+                                    "name": "Prizmic, Dino",
+                                    "qualifier": "home"
+                                },
+                                {
+                                    "name": "Djokovic, Novak",
+                                    "qualifier": "away"
+                                }
+                            ],
+                            "tvChannels": null
+                        },
+                        "tournament": {
+                            "id": "3cc2ce50-6204-4a92-b6cc-9cca2a0bbae9",
+                            "name": "ATP Roma, Italia Individual Masculino",
+                            "slug": "atp-rome-italy-men-singles",
+                            "category": {
+                                "id": "5102f1bc-58c5-435e-aff4-d9c71c0ad30c",
+                                "name": "ATP",
+                                "slug": "atp",
+                                "sport": {
+                                    "id": "8c7aea57-e9b1-414f-a095-206740716b4f",
+                                    "name": "Tenis",
+                                    "slug": "tennis"
+                                },
+                                "cashoutEnabled": true
+                            }
+                        },
+                        "eventStatus": {
+                            "__typename": "SportFixtureEventStatusData",
+                            "homeScore": null,
+                            "awayScore": null,
+                            "matchStatus": "No Iniciado",
+                            "clock": {
+                                "matchTime": null,
+                                "remainingTime": null
+                            },
+                            "periodScores": null,
+                            "currentTeamServing": null,
+                            "homeGameScore": null,
+                            "awayGameScore": null,
+                            "statistic": {
+                                "yellowCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "redCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "corners": {
+                                    "home": null,
+                                    "away": null
+                                }
+                            }
+                        },
+                        "groups": [
+                            {
+                                "name": "winner",
+                                "translation": "Ganador",
+                                "rank": 0,
+                                "templates": [
+                                    {
+                                        "extId": "186",
+                                        "rank": 2,
+                                        "name": "Ganador",
+                                        "markets": [
+                                            {
+                                                "id": "493cb40b-6508-4157-a645-7e8569e00905",
+                                                "name": "Ganador",
+                                                "status": "active",
+                                                "extId": "186",
+                                                "specifiers": "",
+                                                "customBetAvailable": true,
+                                                "provider": "betradar",
+                                                "outcomes": [
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "4019b4b4-9e41-4749-ad81-7eca2498f5a9",
+                                                        "active": true,
+                                                        "odds": 2.75,
+                                                        "name": "Prizmic, Dino",
+                                                        "customBetAvailable": true
+                                                    },
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "01dd5a24-beb0-45b0-8b26-a9c5ffbcaead",
+                                                        "active": true,
+                                                        "odds": 1.47,
+                                                        "name": "Djokovic, Novak",
+                                                        "customBetAvailable": true
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "fixtureCount": 20,
+                "id": "c42ad70b-3a2d-4a5d-9212-801e6298ef80",
+                "name": "WTA Roma, Italia Indiv. Fem.",
+                "slug": "wta-rome-italy-women-singles",
+                "category": {
+                    "id": "71a98070-c267-4885-93a2-7c912702f1d1",
+                    "name": "WTA",
+                    "slug": "wta",
+                    "sport": {
+                        "id": "8c7aea57-e9b1-414f-a095-206740716b4f",
+                        "name": "Tenis",
+                        "slug": "tennis"
+                    }
+                },
+                "fixtureList": [
+                    {
+                        "id": "dba6c93b-3435-4412-90fa-0897bf3c7124",
+                        "betradarStream": {
+                            "exists": false
+                        },
+                        "imgArenaStream": {
+                            "exists": false
+                        },
+                        "abiosStream": null,
+                        "geniussportsStream": {
+                            "exists": false
+                        },
+                        "statsPerformStream": {
+                            "isAvailable": false,
+                            "geoBlocked": false
+                        },
+                        "liveStream": {
+                            "data": {
+                                "isAvailable": true
+                            }
+                        },
+                        "sgmAvailable": true,
+                        "swish": {
+                            "sport": {
+                                "sgmAvailable": false,
+                                "sgmLiveAvailable": false
+                            }
+                        },
+                        "status": "live",
+                        "slug": "46537064-anastasia-potapova-karolina-muchova",
+                        "name": "Potapova, Anastasia - Muchova, Karolina",
+                        "provider": "betradar",
+                        "marketCount": 14,
+                        "extId": "sr:match:71344466",
+                        "liveWidgetUrl": null,
+                        "widgetUrl": null,
+                        "data": {
+                            "__typename": "SportFixtureDataMatch",
+                            "startTime": "Fri, 08 May 2026 10:50:00 GMT",
+                            "competitors": [
+                                {
+                                    "name": "Potapova, Anastasia",
+                                    "defaultName": "Anastasia Potapova",
+                                    "extId": "sr:competitor:234150",
+                                    "countryCode": "AT",
+                                    "abbreviation": "POT",
+                                    "iconPath": null
+                                },
+                                {
+                                    "name": "Muchova, Karolina",
+                                    "defaultName": "Karolina Muchova",
+                                    "extId": "sr:competitor:85077",
+                                    "countryCode": "CZ",
+                                    "abbreviation": "MUC",
+                                    "iconPath": null
+                                }
+                            ],
+                            "teams": [
+                                {
+                                    "name": "Potapova, Anastasia",
+                                    "qualifier": "home"
+                                },
+                                {
+                                    "name": "Muchova, Karolina",
+                                    "qualifier": "away"
+                                }
+                            ],
+                            "tvChannels": null
+                        },
+                        "tournament": {
+                            "id": "c42ad70b-3a2d-4a5d-9212-801e6298ef80",
+                            "name": "WTA Roma, Italia Indiv. Fem.",
+                            "slug": "wta-rome-italy-women-singles",
+                            "category": {
+                                "id": "71a98070-c267-4885-93a2-7c912702f1d1",
+                                "name": "WTA",
+                                "slug": "wta",
+                                "sport": {
+                                    "id": "8c7aea57-e9b1-414f-a095-206740716b4f",
+                                    "name": "Tenis",
+                                    "slug": "tennis"
+                                },
+                                "cashoutEnabled": true
+                            }
+                        },
+                        "eventStatus": {
+                            "__typename": "SportFixtureEventStatusData",
+                            "homeScore": 1,
+                            "awayScore": 0,
+                            "matchStatus": "2do Set",
+                            "clock": {
+                                "matchTime": null,
+                                "remainingTime": null
+                            },
+                            "periodScores": [
+                                {
+                                    "homeScore": 6,
+                                    "awayScore": 3,
+                                    "matchStatus": "1er set"
+                                },
+                                {
+                                    "homeScore": 5,
+                                    "awayScore": 1,
+                                    "matchStatus": "2do Set"
+                                }
+                            ],
+                            "currentTeamServing": "away",
+                            "homeGameScore": "0",
+                            "awayGameScore": "15",
+                            "statistic": {
+                                "yellowCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "redCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "corners": {
+                                    "home": null,
+                                    "away": null
+                                }
+                            }
+                        },
+                        "groups": []
+                    },
+                    {
+                        "id": "a67e4af5-2b86-4117-aab5-876895dc1604",
+                        "betradarStream": {
+                            "exists": false
+                        },
+                        "imgArenaStream": {
+                            "exists": false
+                        },
+                        "abiosStream": null,
+                        "geniussportsStream": {
+                            "exists": false
+                        },
+                        "statsPerformStream": {
+                            "isAvailable": false,
+                            "geoBlocked": false
+                        },
+                        "liveStream": {
+                            "data": {
+                                "isAvailable": true
+                            }
+                        },
+                        "sgmAvailable": true,
+                        "swish": {
+                            "sport": {
+                                "sgmAvailable": false,
+                                "sgmLiveAvailable": false
+                            }
+                        },
+                        "status": "live",
+                        "slug": "46536716-madison-keys-peyton-stearns",
+                        "name": "Keys, Madison - Stearns, Peyton",
+                        "provider": "betradar",
+                        "marketCount": 30,
+                        "extId": "sr:match:71340762",
+                        "liveWidgetUrl": null,
+                        "widgetUrl": null,
+                        "data": {
+                            "__typename": "SportFixtureDataMatch",
+                            "startTime": "Fri, 08 May 2026 11:25:00 GMT",
+                            "competitors": [
+                                {
+                                    "name": "Keys, Madison",
+                                    "defaultName": "Madison Keys",
+                                    "extId": "sr:competitor:35424",
+                                    "countryCode": "US",
+                                    "abbreviation": "KEY",
+                                    "iconPath": null
+                                },
+                                {
+                                    "name": "Stearns, Peyton",
+                                    "defaultName": "Peyton Stearns",
+                                    "extId": "sr:competitor:360038",
+                                    "countryCode": "US",
+                                    "abbreviation": "STE",
+                                    "iconPath": null
+                                }
+                            ],
+                            "teams": [
+                                {
+                                    "name": "Keys, Madison",
+                                    "qualifier": "home"
+                                },
+                                {
+                                    "name": "Stearns, Peyton",
+                                    "qualifier": "away"
+                                }
+                            ],
+                            "tvChannels": null
+                        },
+                        "tournament": {
+                            "id": "c42ad70b-3a2d-4a5d-9212-801e6298ef80",
+                            "name": "WTA Roma, Italia Indiv. Fem.",
+                            "slug": "wta-rome-italy-women-singles",
+                            "category": {
+                                "id": "71a98070-c267-4885-93a2-7c912702f1d1",
+                                "name": "WTA",
+                                "slug": "wta",
+                                "sport": {
+                                    "id": "8c7aea57-e9b1-414f-a095-206740716b4f",
+                                    "name": "Tenis",
+                                    "slug": "tennis"
+                                },
+                                "cashoutEnabled": true
+                            }
+                        },
+                        "eventStatus": {
+                            "__typename": "SportFixtureEventStatusData",
+                            "homeScore": 0,
+                            "awayScore": 1,
+                            "matchStatus": "2do Set",
+                            "clock": {
+                                "matchTime": null,
+                                "remainingTime": null
+                            },
+                            "periodScores": [
+                                {
+                                    "homeScore": 4,
+                                    "awayScore": 6,
+                                    "matchStatus": "1er set"
+                                },
+                                {
+                                    "homeScore": 1,
+                                    "awayScore": 0,
+                                    "matchStatus": "2do Set"
+                                }
+                            ],
+                            "currentTeamServing": "away",
+                            "homeGameScore": "0",
+                            "awayGameScore": "40",
+                            "statistic": {
+                                "yellowCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "redCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "corners": {
+                                    "home": null,
+                                    "away": null
+                                }
+                            }
+                        },
+                        "groups": [
+                            {
+                                "name": "winner",
+                                "translation": "Ganador",
+                                "rank": 0,
+                                "templates": [
+                                    {
+                                        "extId": "186",
+                                        "rank": 2,
+                                        "name": "Ganador",
+                                        "markets": [
+                                            {
+                                                "id": "b11e7e61-3244-4b6c-b632-d778959b9a17",
+                                                "name": "Ganador",
+                                                "status": "active",
+                                                "extId": "186",
+                                                "specifiers": "",
+                                                "customBetAvailable": true,
+                                                "provider": "betradar",
+                                                "outcomes": [
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "71fb645b-cb98-48f8-823e-5e32dbfe50c1",
+                                                        "active": true,
+                                                        "odds": 3.55,
+                                                        "name": "Keys, Madison",
+                                                        "customBetAvailable": true
+                                                    },
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "b54c9edb-5d64-4984-a09d-3db8596e94e4",
+                                                        "active": true,
+                                                        "odds": 1.25,
+                                                        "name": "Stearns, Peyton",
+                                                        "customBetAvailable": true
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "id": "51aa85fd-d49d-41dc-a516-31b6b5186fc5",
+                        "betradarStream": {
+                            "exists": false
+                        },
+                        "imgArenaStream": {
+                            "exists": false
+                        },
+                        "abiosStream": null,
+                        "geniussportsStream": {
+                            "exists": false
+                        },
+                        "statsPerformStream": {
+                            "isAvailable": false,
+                            "geoBlocked": false
+                        },
+                        "liveStream": {
+                            "data": {
+                                "isAvailable": true
+                            }
+                        },
+                        "sgmAvailable": true,
+                        "swish": {
+                            "sport": {
+                                "sgmAvailable": false,
+                                "sgmLiveAvailable": false
+                            }
+                        },
+                        "status": "live",
+                        "slug": "46537065-naomi-osaka-eva-lys",
+                        "name": "Osaka, Naomi - Lys, Eva",
+                        "provider": "betradar",
+                        "marketCount": 30,
+                        "extId": "sr:match:71344468",
+                        "liveWidgetUrl": null,
+                        "widgetUrl": null,
+                        "data": {
+                            "__typename": "SportFixtureDataMatch",
+                            "startTime": "Fri, 08 May 2026 13:50:00 GMT",
+                            "competitors": [
+                                {
+                                    "name": "Osaka, Naomi",
+                                    "defaultName": "Naomi Osaka",
+                                    "extId": "sr:competitor:66476",
+                                    "countryCode": "JP",
+                                    "abbreviation": "OSA",
+                                    "iconPath": null
+                                },
+                                {
+                                    "name": "Lys, Eva",
+                                    "defaultName": "Eva Lys",
+                                    "extId": "sr:competitor:246941",
+                                    "countryCode": "DE",
+                                    "abbreviation": "EVA",
+                                    "iconPath": null
+                                }
+                            ],
+                            "teams": [
+                                {
+                                    "name": "Osaka, Naomi",
+                                    "qualifier": "home"
+                                },
+                                {
+                                    "name": "Lys, Eva",
+                                    "qualifier": "away"
+                                }
+                            ],
+                            "tvChannels": null
+                        },
+                        "tournament": {
+                            "id": "c42ad70b-3a2d-4a5d-9212-801e6298ef80",
+                            "name": "WTA Roma, Italia Indiv. Fem.",
+                            "slug": "wta-rome-italy-women-singles",
+                            "category": {
+                                "id": "71a98070-c267-4885-93a2-7c912702f1d1",
+                                "name": "WTA",
+                                "slug": "wta",
+                                "sport": {
+                                    "id": "8c7aea57-e9b1-414f-a095-206740716b4f",
+                                    "name": "Tenis",
+                                    "slug": "tennis"
+                                },
+                                "cashoutEnabled": true
+                            }
+                        },
+                        "eventStatus": {
+                            "__typename": "SportFixtureEventStatusData",
+                            "homeScore": 0,
+                            "awayScore": 0,
+                            "matchStatus": "1er set",
+                            "clock": {
+                                "matchTime": null,
+                                "remainingTime": null
+                            },
+                            "periodScores": [
+                                {
+                                    "homeScore": 4,
+                                    "awayScore": 2,
+                                    "matchStatus": "1er set"
+                                }
+                            ],
+                            "currentTeamServing": "home",
+                            "homeGameScore": "0",
+                            "awayGameScore": "0",
+                            "statistic": {
+                                "yellowCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "redCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "corners": {
+                                    "home": null,
+                                    "away": null
+                                }
+                            }
+                        },
+                        "groups": [
+                            {
+                                "name": "winner",
+                                "translation": "Ganador",
+                                "rank": 0,
+                                "templates": [
+                                    {
+                                        "extId": "186",
+                                        "rank": 2,
+                                        "name": "Ganador",
+                                        "markets": [
+                                            {
+                                                "id": "2232ec70-4388-4b7c-9e62-aace1c21a3c2",
+                                                "name": "Ganador",
+                                                "status": "active",
+                                                "extId": "186",
+                                                "specifiers": "",
+                                                "customBetAvailable": true,
+                                                "provider": "betradar",
+                                                "outcomes": [
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "aea5ea76-692b-4cb9-a6fd-5ef7b5b5708c",
+                                                        "active": true,
+                                                        "odds": 1.1,
+                                                        "name": "Osaka, Naomi",
+                                                        "customBetAvailable": true
+                                                    },
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "798dc877-85e1-448a-9af6-b9290fb3981d",
+                                                        "active": true,
+                                                        "odds": 6.75,
+                                                        "name": "Lys, Eva",
+                                                        "customBetAvailable": true
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "id": "c5a41556-4ab1-4d5a-9fc2-7a56ccf74e76",
+                        "betradarStream": {
+                            "exists": false
+                        },
+                        "imgArenaStream": {
+                            "exists": false
+                        },
+                        "abiosStream": null,
+                        "geniussportsStream": {
+                            "exists": false
+                        },
+                        "statsPerformStream": {
+                            "isAvailable": false,
+                            "geoBlocked": false
+                        },
+                        "liveStream": {
+                            "data": {
+                                "isAvailable": true
+                            }
+                        },
+                        "sgmAvailable": true,
+                        "swish": {
+                            "sport": {
+                                "sgmAvailable": false,
+                                "sgmLiveAvailable": false
+                            }
+                        },
+                        "status": "active",
+                        "slug": "46533611-jessica-pegula-zeynep-sonmez",
+                        "name": "Pegula, Jessica - Sonmez, Zeynep",
+                        "provider": "betradar",
+                        "marketCount": 22,
+                        "extId": "sr:match:71320178",
+                        "liveWidgetUrl": null,
+                        "widgetUrl": null,
+                        "data": {
+                            "__typename": "SportFixtureDataMatch",
+                            "startTime": "Fri, 08 May 2026 14:10:00 GMT",
+                            "competitors": [
+                                {
+                                    "name": "Pegula, Jessica",
+                                    "defaultName": "Jessica Pegula",
+                                    "extId": "sr:competitor:44834",
+                                    "countryCode": "US",
+                                    "abbreviation": "PEG",
+                                    "iconPath": null
+                                },
+                                {
+                                    "name": "Sonmez, Zeynep",
+                                    "defaultName": "Zeynep Sonmez",
+                                    "extId": "sr:competitor:299310",
+                                    "countryCode": "TR",
+                                    "abbreviation": "SON",
+                                    "iconPath": null
+                                }
+                            ],
+                            "teams": [
+                                {
+                                    "name": "Pegula, Jessica",
+                                    "qualifier": "home"
+                                },
+                                {
+                                    "name": "Sonmez, Zeynep",
+                                    "qualifier": "away"
+                                }
+                            ],
+                            "tvChannels": null
+                        },
+                        "tournament": {
+                            "id": "c42ad70b-3a2d-4a5d-9212-801e6298ef80",
+                            "name": "WTA Roma, Italia Indiv. Fem.",
+                            "slug": "wta-rome-italy-women-singles",
+                            "category": {
+                                "id": "71a98070-c267-4885-93a2-7c912702f1d1",
+                                "name": "WTA",
+                                "slug": "wta",
+                                "sport": {
+                                    "id": "8c7aea57-e9b1-414f-a095-206740716b4f",
+                                    "name": "Tenis",
+                                    "slug": "tennis"
+                                },
+                                "cashoutEnabled": true
+                            }
+                        },
+                        "eventStatus": {
+                            "__typename": "SportFixtureEventStatusData",
+                            "homeScore": null,
+                            "awayScore": null,
+                            "matchStatus": "No Iniciado",
+                            "clock": {
+                                "matchTime": null,
+                                "remainingTime": null
+                            },
+                            "periodScores": null,
+                            "currentTeamServing": null,
+                            "homeGameScore": null,
+                            "awayGameScore": null,
+                            "statistic": {
+                                "yellowCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "redCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "corners": {
+                                    "home": null,
+                                    "away": null
+                                }
+                            }
+                        },
+                        "groups": [
+                            {
+                                "name": "winner",
+                                "translation": "Ganador",
+                                "rank": 0,
+                                "templates": [
+                                    {
+                                        "extId": "186",
+                                        "rank": 2,
+                                        "name": "Ganador",
+                                        "markets": [
+                                            {
+                                                "id": "c5251171-ac81-4e52-ba77-5db8cb349d79",
+                                                "name": "Ganador",
+                                                "status": "active",
+                                                "extId": "186",
+                                                "specifiers": "",
+                                                "customBetAvailable": true,
+                                                "provider": "betradar",
+                                                "outcomes": [
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "9a7d0d64-65bf-484a-af51-9cfde10d770a",
+                                                        "active": true,
+                                                        "odds": 1.22,
+                                                        "name": "Pegula, Jessica",
+                                                        "customBetAvailable": true
+                                                    },
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "8576d97c-fd5b-4261-a6a6-a2f8f84249e7",
+                                                        "active": true,
+                                                        "odds": 4.1,
+                                                        "name": "Sonmez, Zeynep",
+                                                        "customBetAvailable": true
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "id": "e5aaa33f-ad75-434e-bd31-4d95d21b6d6c",
+                        "betradarStream": {
+                            "exists": false
+                        },
+                        "imgArenaStream": {
+                            "exists": false
+                        },
+                        "abiosStream": null,
+                        "geniussportsStream": {
+                            "exists": false
+                        },
+                        "statsPerformStream": {
+                            "isAvailable": false,
+                            "geoBlocked": false
+                        },
+                        "liveStream": {
+                            "data": {
+                                "isAvailable": true
+                            }
+                        },
+                        "sgmAvailable": true,
+                        "swish": {
+                            "sport": {
+                                "sgmAvailable": false,
+                                "sgmLiveAvailable": false
+                            }
+                        },
+                        "status": "active",
+                        "slug": "46536691-ekaterina-alexandrova-laura-siegemund",
+                        "name": "Alexandrova, Ekaterina - Siegemund, Laura",
+                        "provider": "betradar",
+                        "marketCount": 20,
+                        "extId": "sr:match:71340564",
+                        "liveWidgetUrl": null,
+                        "widgetUrl": null,
+                        "data": {
+                            "__typename": "SportFixtureDataMatch",
+                            "startTime": "Fri, 08 May 2026 14:30:00 GMT",
+                            "competitors": [
+                                {
+                                    "name": "Alexandrova, Ekaterina",
+                                    "defaultName": "Ekaterina Alexandrova",
+                                    "extId": "sr:competitor:67759",
+                                    "countryCode": null,
+                                    "abbreviation": "EKA",
+                                    "iconPath": null
+                                },
+                                {
+                                    "name": "Siegemund, Laura",
+                                    "defaultName": "Laura Siegemund",
+                                    "extId": "sr:competitor:37508",
+                                    "countryCode": "DE",
+                                    "abbreviation": "LAU",
+                                    "iconPath": null
+                                }
+                            ],
+                            "teams": [
+                                {
+                                    "name": "Alexandrova, Ekaterina",
+                                    "qualifier": "home"
+                                },
+                                {
+                                    "name": "Siegemund, Laura",
+                                    "qualifier": "away"
+                                }
+                            ],
+                            "tvChannels": null
+                        },
+                        "tournament": {
+                            "id": "c42ad70b-3a2d-4a5d-9212-801e6298ef80",
+                            "name": "WTA Roma, Italia Indiv. Fem.",
+                            "slug": "wta-rome-italy-women-singles",
+                            "category": {
+                                "id": "71a98070-c267-4885-93a2-7c912702f1d1",
+                                "name": "WTA",
+                                "slug": "wta",
+                                "sport": {
+                                    "id": "8c7aea57-e9b1-414f-a095-206740716b4f",
+                                    "name": "Tenis",
+                                    "slug": "tennis"
+                                },
+                                "cashoutEnabled": true
+                            }
+                        },
+                        "eventStatus": {
+                            "__typename": "SportFixtureEventStatusData",
+                            "homeScore": null,
+                            "awayScore": null,
+                            "matchStatus": "No Iniciado",
+                            "clock": {
+                                "matchTime": null,
+                                "remainingTime": null
+                            },
+                            "periodScores": null,
+                            "currentTeamServing": null,
+                            "homeGameScore": null,
+                            "awayGameScore": null,
+                            "statistic": {
+                                "yellowCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "redCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "corners": {
+                                    "home": null,
+                                    "away": null
+                                }
+                            }
+                        },
+                        "groups": [
+                            {
+                                "name": "winner",
+                                "translation": "Ganador",
+                                "rank": 0,
+                                "templates": [
+                                    {
+                                        "extId": "186",
+                                        "rank": 2,
+                                        "name": "Ganador",
+                                        "markets": [
+                                            {
+                                                "id": "af392a55-237e-44c9-96b7-db613fed03ca",
+                                                "name": "Ganador",
+                                                "status": "active",
+                                                "extId": "186",
+                                                "specifiers": "",
+                                                "customBetAvailable": true,
+                                                "provider": "betradar",
+                                                "outcomes": [
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "5d3c8304-ac29-4c59-af46-cb9d1a6a470b",
+                                                        "active": true,
+                                                        "odds": 1.81,
+                                                        "name": "Alexandrova, Ekaterina",
+                                                        "customBetAvailable": true
+                                                    },
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "f429a545-d1ec-4779-b708-eaef518a91d7",
+                                                        "active": true,
+                                                        "odds": 2.05,
+                                                        "name": "Siegemund, Laura",
+                                                        "customBetAvailable": true
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "fixtureCount": 10,
+                "id": "4ec37b6b-a7f8-456a-b18b-e127f06d52b7",
+                "name": "Liga 1",
+                "slug": "ligue-1",
+                "category": {
+                    "id": "2b4b95e5-ef93-4d72-8ea2-f0c138c9632a",
+                    "name": "Francia",
+                    "slug": "france",
+                    "sport": {
+                        "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                        "name": "F\u00fatbol",
+                        "slug": "soccer"
+                    }
+                },
+                "fixtureList": [
+                    {
+                        "id": "0c550875-bfef-4c31-bf33-48e9975b48fb",
+                        "betradarStream": {
+                            "exists": false
+                        },
+                        "imgArenaStream": {
+                            "exists": false
+                        },
+                        "abiosStream": null,
+                        "geniussportsStream": {
+                            "exists": false
+                        },
+                        "statsPerformStream": {
+                            "isAvailable": false,
+                            "geoBlocked": false
+                        },
+                        "liveStream": {
+                            "data": {
+                                "isAvailable": true
+                            }
+                        },
+                        "sgmAvailable": true,
+                        "swish": null,
+                        "status": "active",
+                        "slug": "46489345-lens-nantes",
+                        "name": "RC Lens - FC Nantes",
+                        "provider": "betradar",
+                        "marketCount": 110,
+                        "extId": "sr:match:61526576",
+                        "liveWidgetUrl": null,
+                        "widgetUrl": null,
+                        "data": {
+                            "__typename": "SportFixtureDataMatch",
+                            "startTime": "Fri, 08 May 2026 18:45:00 GMT",
+                            "competitors": [
+                                {
+                                    "name": "RC Lens",
+                                    "defaultName": "Lens",
+                                    "extId": "sr:competitor:1648",
+                                    "countryCode": "FR",
+                                    "abbreviation": "RCL",
+                                    "iconPath": null
+                                },
+                                {
+                                    "name": "FC Nantes",
+                                    "defaultName": "Nantes",
+                                    "extId": "sr:competitor:1647",
+                                    "countryCode": "FR",
+                                    "abbreviation": "NAN",
+                                    "iconPath": null
+                                }
+                            ],
+                            "teams": [
+                                {
+                                    "name": "RC Lens",
+                                    "qualifier": "home"
+                                },
+                                {
+                                    "name": "FC Nantes",
+                                    "qualifier": "away"
+                                }
+                            ],
+                            "tvChannels": null
+                        },
+                        "tournament": {
+                            "id": "4ec37b6b-a7f8-456a-b18b-e127f06d52b7",
+                            "name": "Liga 1",
+                            "slug": "ligue-1",
+                            "category": {
+                                "id": "2b4b95e5-ef93-4d72-8ea2-f0c138c9632a",
+                                "name": "Francia",
+                                "slug": "france",
+                                "sport": {
+                                    "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                    "name": "F\u00fatbol",
+                                    "slug": "soccer"
+                                },
+                                "cashoutEnabled": true
+                            }
+                        },
+                        "eventStatus": {
+                            "__typename": "SportFixtureEventStatusData",
+                            "homeScore": null,
+                            "awayScore": null,
+                            "matchStatus": "No Iniciado",
+                            "clock": {
+                                "matchTime": null,
+                                "remainingTime": null
+                            },
+                            "periodScores": null,
+                            "currentTeamServing": null,
+                            "homeGameScore": null,
+                            "awayGameScore": null,
+                            "statistic": {
+                                "yellowCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "redCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "corners": {
+                                    "home": null,
+                                    "away": null
+                                }
+                            }
+                        },
+                        "groups": [
+                            {
+                                "name": "winner",
+                                "translation": "Ganador",
+                                "rank": 0,
+                                "templates": [
+                                    {
+                                        "extId": "1",
+                                        "rank": 2,
+                                        "name": "1x2",
+                                        "markets": [
+                                            {
+                                                "id": "1f826ee4-870d-4032-b633-9d6301ff6b3f",
+                                                "name": "1x2",
+                                                "status": "active",
+                                                "extId": "1",
+                                                "specifiers": "",
+                                                "customBetAvailable": true,
+                                                "provider": "betradar",
+                                                "outcomes": [
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "549a8676-99b4-45e5-bb45-7cd75f8308fc",
+                                                        "active": true,
+                                                        "odds": 1.45,
+                                                        "name": "RC Lens",
+                                                        "customBetAvailable": true
+                                                    },
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "b1bd0162-eb8a-4e19-8a8c-631841294189",
+                                                        "active": true,
+                                                        "odds": 5,
+                                                        "name": "empate",
+                                                        "customBetAvailable": true
+                                                    },
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "e6341459-866f-4e2f-bffa-906a76d722bc",
+                                                        "active": true,
+                                                        "odds": 6.6,
+                                                        "name": "FC Nantes",
+                                                        "customBetAvailable": true
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "id": "0c2fd581-25cc-4c7d-80e7-b2e90ab09d4e",
+                        "betradarStream": {
+                            "exists": false
+                        },
+                        "imgArenaStream": {
+                            "exists": false
+                        },
+                        "abiosStream": null,
+                        "geniussportsStream": {
+                            "exists": false
+                        },
+                        "statsPerformStream": {
+                            "isAvailable": false,
+                            "geoBlocked": false
+                        },
+                        "liveStream": {
+                            "data": null
+                        },
+                        "sgmAvailable": true,
+                        "swish": null,
+                        "status": "active",
+                        "slug": "46481145-auxerre-nice",
+                        "name": "AJ Auxerre - OGC Niza",
+                        "provider": "betradar",
+                        "marketCount": 103,
+                        "extId": "sr:match:61526578",
+                        "liveWidgetUrl": null,
+                        "widgetUrl": null,
+                        "data": {
+                            "__typename": "SportFixtureDataMatch",
+                            "startTime": "Sun, 10 May 2026 19:00:00 GMT",
+                            "competitors": [
+                                {
+                                    "name": "AJ Auxerre",
+                                    "defaultName": "Auxerre",
+                                    "extId": "sr:competitor:1646",
+                                    "countryCode": "FR",
+                                    "abbreviation": "AJA",
+                                    "iconPath": null
+                                },
+                                {
+                                    "name": "OGC Niza",
+                                    "defaultName": "Nice",
+                                    "extId": "sr:competitor:1661",
+                                    "countryCode": "FR",
+                                    "abbreviation": "OGN",
+                                    "iconPath": null
+                                }
+                            ],
+                            "teams": [
+                                {
+                                    "name": "AJ Auxerre",
+                                    "qualifier": "home"
+                                },
+                                {
+                                    "name": "OGC Niza",
+                                    "qualifier": "away"
+                                }
+                            ],
+                            "tvChannels": null
+                        },
+                        "tournament": {
+                            "id": "4ec37b6b-a7f8-456a-b18b-e127f06d52b7",
+                            "name": "Liga 1",
+                            "slug": "ligue-1",
+                            "category": {
+                                "id": "2b4b95e5-ef93-4d72-8ea2-f0c138c9632a",
+                                "name": "Francia",
+                                "slug": "france",
+                                "sport": {
+                                    "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                    "name": "F\u00fatbol",
+                                    "slug": "soccer"
+                                },
+                                "cashoutEnabled": true
+                            }
+                        },
+                        "eventStatus": {
+                            "__typename": "SportFixtureEventStatusData",
+                            "homeScore": null,
+                            "awayScore": null,
+                            "matchStatus": "No Iniciado",
+                            "clock": {
+                                "matchTime": null,
+                                "remainingTime": null
+                            },
+                            "periodScores": null,
+                            "currentTeamServing": null,
+                            "homeGameScore": null,
+                            "awayGameScore": null,
+                            "statistic": {
+                                "yellowCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "redCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "corners": {
+                                    "home": null,
+                                    "away": null
+                                }
+                            }
+                        },
+                        "groups": [
+                            {
+                                "name": "winner",
+                                "translation": "Ganador",
+                                "rank": 0,
+                                "templates": [
+                                    {
+                                        "extId": "1",
+                                        "rank": 2,
+                                        "name": "1x2",
+                                        "markets": [
+                                            {
+                                                "id": "c1fb0d05-6137-4b04-9bce-a46ccdc6005e",
+                                                "name": "1x2",
+                                                "status": "active",
+                                                "extId": "1",
+                                                "specifiers": "",
+                                                "customBetAvailable": true,
+                                                "provider": "betradar",
+                                                "outcomes": [
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "d3cd7433-04e4-4f9c-be8d-52c4703527e1",
+                                                        "active": true,
+                                                        "odds": 2.44,
+                                                        "name": "AJ Auxerre",
+                                                        "customBetAvailable": true
+                                                    },
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "d7c4c402-2c60-43cd-a76c-ce440fd5b700",
+                                                        "active": true,
+                                                        "odds": 3.45,
+                                                        "name": "empate",
+                                                        "customBetAvailable": true
+                                                    },
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "d1a012c2-14de-4f76-a0cf-15e9a6cb2d6d",
+                                                        "active": true,
+                                                        "odds": 2.95,
+                                                        "name": "OGC Niza",
+                                                        "customBetAvailable": true
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "id": "10c5cc44-7ea0-4175-adce-821367a1f2dc",
+                        "betradarStream": {
+                            "exists": false
+                        },
+                        "imgArenaStream": {
+                            "exists": false
+                        },
+                        "abiosStream": null,
+                        "geniussportsStream": {
+                            "exists": false
+                        },
+                        "statsPerformStream": {
+                            "isAvailable": false,
+                            "geoBlocked": false
+                        },
+                        "liveStream": {
+                            "data": null
+                        },
+                        "sgmAvailable": true,
+                        "swish": null,
+                        "status": "active",
+                        "slug": "46421855-monaco-lille",
+                        "name": "AS M\u00f3naco FC - LOSC Lille",
+                        "provider": "betradar",
+                        "marketCount": 109,
+                        "extId": "sr:match:61526590",
+                        "liveWidgetUrl": null,
+                        "widgetUrl": null,
+                        "data": {
+                            "__typename": "SportFixtureDataMatch",
+                            "startTime": "Sun, 10 May 2026 19:00:00 GMT",
+                            "competitors": [
+                                {
+                                    "name": "AS M\u00f3naco FC",
+                                    "defaultName": "Monaco",
+                                    "extId": "sr:competitor:1653",
+                                    "countryCode": "FR",
+                                    "abbreviation": "ASM",
+                                    "iconPath": null
+                                },
+                                {
+                                    "name": "LOSC Lille",
+                                    "defaultName": "Lille",
+                                    "extId": "sr:competitor:1643",
+                                    "countryCode": "FR",
+                                    "abbreviation": "LIL",
+                                    "iconPath": null
+                                }
+                            ],
+                            "teams": [
+                                {
+                                    "name": "AS M\u00f3naco FC",
+                                    "qualifier": "home"
+                                },
+                                {
+                                    "name": "LOSC Lille",
+                                    "qualifier": "away"
+                                }
+                            ],
+                            "tvChannels": null
+                        },
+                        "tournament": {
+                            "id": "4ec37b6b-a7f8-456a-b18b-e127f06d52b7",
+                            "name": "Liga 1",
+                            "slug": "ligue-1",
+                            "category": {
+                                "id": "2b4b95e5-ef93-4d72-8ea2-f0c138c9632a",
+                                "name": "Francia",
+                                "slug": "france",
+                                "sport": {
+                                    "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                    "name": "F\u00fatbol",
+                                    "slug": "soccer"
+                                },
+                                "cashoutEnabled": true
+                            }
+                        },
+                        "eventStatus": {
+                            "__typename": "SportFixtureEventStatusData",
+                            "homeScore": null,
+                            "awayScore": null,
+                            "matchStatus": "No Iniciado",
+                            "clock": {
+                                "matchTime": null,
+                                "remainingTime": null
+                            },
+                            "periodScores": null,
+                            "currentTeamServing": null,
+                            "homeGameScore": null,
+                            "awayGameScore": null,
+                            "statistic": {
+                                "yellowCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "redCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "corners": {
+                                    "home": null,
+                                    "away": null
+                                }
+                            }
+                        },
+                        "groups": [
+                            {
+                                "name": "winner",
+                                "translation": "Ganador",
+                                "rank": 0,
+                                "templates": [
+                                    {
+                                        "extId": "1",
+                                        "rank": 2,
+                                        "name": "1x2",
+                                        "markets": [
+                                            {
+                                                "id": "4066a7a4-6300-46cf-a454-57dde6ae0355",
+                                                "name": "1x2",
+                                                "status": "active",
+                                                "extId": "1",
+                                                "specifiers": "",
+                                                "customBetAvailable": true,
+                                                "provider": "betradar",
+                                                "outcomes": [
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "e881fb9a-2947-41de-bb80-c5c4a7466f14",
+                                                        "active": true,
+                                                        "odds": 2.36,
+                                                        "name": "AS M\u00f3naco FC",
+                                                        "customBetAvailable": true
+                                                    },
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "5ee7a98d-d5b3-4d02-9d74-1e7cd63897aa",
+                                                        "active": true,
+                                                        "odds": 3.8,
+                                                        "name": "empate",
+                                                        "customBetAvailable": true
+                                                    },
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "4a09564c-8295-4c24-b355-0599592fca74",
+                                                        "active": true,
+                                                        "odds": 2.8,
+                                                        "name": "LOSC Lille",
+                                                        "customBetAvailable": true
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "id": "2631b2a3-ca74-4e2f-a490-ba149c7b28f3",
+                        "betradarStream": {
+                            "exists": false
+                        },
+                        "imgArenaStream": {
+                            "exists": false
+                        },
+                        "abiosStream": null,
+                        "geniussportsStream": {
+                            "exists": false
+                        },
+                        "statsPerformStream": {
+                            "isAvailable": false,
+                            "geoBlocked": false
+                        },
+                        "liveStream": {
+                            "data": null
+                        },
+                        "sgmAvailable": true,
+                        "swish": null,
+                        "status": "active",
+                        "slug": "46490887-toulouse-olympique-lyonnais",
+                        "name": "Toulouse FC - Olympique Lyon",
+                        "provider": "betradar",
+                        "marketCount": 109,
+                        "extId": "sr:match:61526574",
+                        "liveWidgetUrl": null,
+                        "widgetUrl": null,
+                        "data": {
+                            "__typename": "SportFixtureDataMatch",
+                            "startTime": "Sun, 10 May 2026 19:00:00 GMT",
+                            "competitors": [
+                                {
+                                    "name": "Toulouse FC",
+                                    "defaultName": "Toulouse",
+                                    "extId": "sr:competitor:1681",
+                                    "countryCode": "FR",
+                                    "abbreviation": "TFC",
+                                    "iconPath": null
+                                },
+                                {
+                                    "name": "Olympique Lyon",
+                                    "defaultName": "Olympique Lyonnais",
+                                    "extId": "sr:competitor:1649",
+                                    "countryCode": "FR",
+                                    "abbreviation": "OL",
+                                    "iconPath": null
+                                }
+                            ],
+                            "teams": [
+                                {
+                                    "name": "Toulouse FC",
+                                    "qualifier": "home"
+                                },
+                                {
+                                    "name": "Olympique Lyon",
+                                    "qualifier": "away"
+                                }
+                            ],
+                            "tvChannels": null
+                        },
+                        "tournament": {
+                            "id": "4ec37b6b-a7f8-456a-b18b-e127f06d52b7",
+                            "name": "Liga 1",
+                            "slug": "ligue-1",
+                            "category": {
+                                "id": "2b4b95e5-ef93-4d72-8ea2-f0c138c9632a",
+                                "name": "Francia",
+                                "slug": "france",
+                                "sport": {
+                                    "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                    "name": "F\u00fatbol",
+                                    "slug": "soccer"
+                                },
+                                "cashoutEnabled": true
+                            }
+                        },
+                        "eventStatus": {
+                            "__typename": "SportFixtureEventStatusData",
+                            "homeScore": null,
+                            "awayScore": null,
+                            "matchStatus": "No Iniciado",
+                            "clock": {
+                                "matchTime": null,
+                                "remainingTime": null
+                            },
+                            "periodScores": null,
+                            "currentTeamServing": null,
+                            "homeGameScore": null,
+                            "awayGameScore": null,
+                            "statistic": {
+                                "yellowCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "redCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "corners": {
+                                    "home": null,
+                                    "away": null
+                                }
+                            }
+                        },
+                        "groups": [
+                            {
+                                "name": "winner",
+                                "translation": "Ganador",
+                                "rank": 0,
+                                "templates": [
+                                    {
+                                        "extId": "1",
+                                        "rank": 2,
+                                        "name": "1x2",
+                                        "markets": [
+                                            {
+                                                "id": "bdb02e05-1609-4f21-b8b2-692a6e92802c",
+                                                "name": "1x2",
+                                                "status": "active",
+                                                "extId": "1",
+                                                "specifiers": "",
+                                                "customBetAvailable": true,
+                                                "provider": "betradar",
+                                                "outcomes": [
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "6688796d-8791-4bc8-989c-772f9661c843",
+                                                        "active": true,
+                                                        "odds": 4.4,
+                                                        "name": "Toulouse FC",
+                                                        "customBetAvailable": true
+                                                    },
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "ad3a988f-a47a-4643-b27f-4f28c6bdec43",
+                                                        "active": true,
+                                                        "odds": 3.95,
+                                                        "name": "empate",
+                                                        "customBetAvailable": true
+                                                    },
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "b91718a2-9538-4673-a485-e6b45ef34717",
+                                                        "active": true,
+                                                        "odds": 1.79,
+                                                        "name": "Olympique Lyon",
+                                                        "customBetAvailable": true
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "id": "4f511447-6a04-4fbf-bc2d-d262b3e7288a",
+                        "betradarStream": {
+                            "exists": false
+                        },
+                        "imgArenaStream": {
+                            "exists": false
+                        },
+                        "abiosStream": null,
+                        "geniussportsStream": {
+                            "exists": false
+                        },
+                        "statsPerformStream": {
+                            "isAvailable": false,
+                            "geoBlocked": false
+                        },
+                        "liveStream": {
+                            "data": null
+                        },
+                        "sgmAvailable": true,
+                        "swish": null,
+                        "status": "active",
+                        "slug": "46421856-angers-strasbourg",
+                        "name": "Angers SCO - RC Estrasburgo",
+                        "provider": "betradar",
+                        "marketCount": 109,
+                        "extId": "sr:match:61526588",
+                        "liveWidgetUrl": null,
+                        "widgetUrl": null,
+                        "data": {
+                            "__typename": "SportFixtureDataMatch",
+                            "startTime": "Sun, 10 May 2026 19:00:00 GMT",
+                            "competitors": [
+                                {
+                                    "name": "Angers SCO",
+                                    "defaultName": "Angers",
+                                    "extId": "sr:competitor:1684",
+                                    "countryCode": "FR",
+                                    "abbreviation": "ANG",
+                                    "iconPath": null
+                                },
+                                {
+                                    "name": "RC Estrasburgo",
+                                    "defaultName": "Strasbourg",
+                                    "extId": "sr:competitor:1659",
+                                    "countryCode": "FR",
+                                    "abbreviation": "RCS",
+                                    "iconPath": null
+                                }
+                            ],
+                            "teams": [
+                                {
+                                    "name": "Angers SCO",
+                                    "qualifier": "home"
+                                },
+                                {
+                                    "name": "RC Estrasburgo",
+                                    "qualifier": "away"
+                                }
+                            ],
+                            "tvChannels": null
+                        },
+                        "tournament": {
+                            "id": "4ec37b6b-a7f8-456a-b18b-e127f06d52b7",
+                            "name": "Liga 1",
+                            "slug": "ligue-1",
+                            "category": {
+                                "id": "2b4b95e5-ef93-4d72-8ea2-f0c138c9632a",
+                                "name": "Francia",
+                                "slug": "france",
+                                "sport": {
+                                    "id": "5b4b60b9-ed95-41e7-97e3-f33aa172cf12",
+                                    "name": "F\u00fatbol",
+                                    "slug": "soccer"
+                                },
+                                "cashoutEnabled": true
+                            }
+                        },
+                        "eventStatus": {
+                            "__typename": "SportFixtureEventStatusData",
+                            "homeScore": null,
+                            "awayScore": null,
+                            "matchStatus": "No Iniciado",
+                            "clock": {
+                                "matchTime": null,
+                                "remainingTime": null
+                            },
+                            "periodScores": null,
+                            "currentTeamServing": null,
+                            "homeGameScore": null,
+                            "awayGameScore": null,
+                            "statistic": {
+                                "yellowCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "redCards": {
+                                    "away": null,
+                                    "home": null
+                                },
+                                "corners": {
+                                    "home": null,
+                                    "away": null
+                                }
+                            }
+                        },
+                        "groups": [
+                            {
+                                "name": "winner",
+                                "translation": "Ganador",
+                                "rank": 0,
+                                "templates": [
+                                    {
+                                        "extId": "1",
+                                        "rank": 2,
+                                        "name": "1x2",
+                                        "markets": [
+                                            {
+                                                "id": "8139f10b-a77c-4621-9b56-741ac4ae8519",
+                                                "name": "1x2",
+                                                "status": "active",
+                                                "extId": "1",
+                                                "specifiers": "",
+                                                "customBetAvailable": true,
+                                                "provider": "betradar",
+                                                "outcomes": [
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "e0fa53dd-e488-4955-a2d4-4d2f65cb5e98",
+                                                        "active": true,
+                                                        "odds": 2.9,
+                                                        "name": "Angers SCO",
+                                                        "customBetAvailable": true
+                                                    },
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "cae31503-a9e3-4705-9909-bc3db6da8dc2",
+                                                        "active": true,
+                                                        "odds": 3.4,
+                                                        "name": "empate",
+                                                        "customBetAvailable": true
+                                                    },
+                                                    {
+                                                        "__typename": "SportMarketOutcome",
+                                                        "id": "5814993b-55ae-40ca-954f-697e27a77f36",
+                                                        "active": true,
+                                                        "odds": 2.49,
+                                                        "name": "RC Estrasburgo",
+                                                        "customBetAvailable": true
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+}

@@ -1,0 +1,636 @@
+{
+    "data": {
+        "sportHomepageTrendingTopPicks": [
+            {
+                "statistics": {
+                    "totalBetValue": 683885.1908230192,
+                    "totalUserCount": 805
+                },
+                "outcome": {
+                    "id": "f7ed12d6-4363-4119-b45c-6312c8e088c4",
+                    "name": "Svitolina, Elina",
+                    "market": {
+                        "extId": "186",
+                        "id": "38976be1-3088-4862-8781-b5c36b9b47c0",
+                        "name": "Ganador",
+                        "provider": "betradar",
+                        "rank": 0,
+                        "specifiers": "",
+                        "status": "active",
+                        "enabled": true,
+                        "customBetAvailable": true,
+                        "extendedSpecifiers": "",
+                        "outcomes": [
+                            {
+                                "active": true,
+                                "customBetAvailable": true,
+                                "extId": "4",
+                                "id": "f7ed12d6-4363-4119-b45c-6312c8e088c4",
+                                "name": "Svitolina, Elina",
+                                "odds": 1.05,
+                                "payout": 0,
+                                "probabilities": 0.931476,
+                                "provider": "betradar",
+                                "voidFactor": 0
+                            },
+                            {
+                                "active": true,
+                                "customBetAvailable": true,
+                                "extId": "5",
+                                "id": "be330daa-5474-413e-bc35-d216c990c455",
+                                "name": "Noemi Basiletti",
+                                "odds": 11,
+                                "payout": 0,
+                                "probabilities": 0.068518,
+                                "provider": "betradar",
+                                "voidFactor": 0
+                            }
+                        ],
+                        "fixture": {
+                            "id": "69f1b01b-872f-4bbd-9a5a-0416c15452d5",
+                            "extId": "sr:match:71362462",
+                            "name": "Svitolina, Elina - Noemi Basiletti",
+                            "provider": "betradar",
+                            "status": "active",
+                            "widgetUrl": null,
+                            "liveWidgetUrl": null,
+                            "imgArenaStream": {
+                                "exists": false
+                            },
+                            "geniussportsStream": {
+                                "exists": false
+                            },
+                            "betradarStream": {
+                                "exists": false
+                            },
+                            "tournament": {
+                                "slug": "wta-rome-italy-women-singles",
+                                "frontRowSeatEvent": null,
+                                "category": {
+                                    "slug": "wta",
+                                    "sport": {
+                                        "slug": "tennis"
+                                    }
+                                }
+                            },
+                            "data": {
+                                "competitors": [
+                                    {
+                                        "name": "Svitolina, Elina",
+                                        "abbreviation": "SVI",
+                                        "country": "Ucrania",
+                                        "countryCode": "UA",
+                                        "extId": "sr:competitor:51293",
+                                        "iconPath": null
+                                    },
+                                    {
+                                        "name": "Noemi Basiletti",
+                                        "abbreviation": "BAS",
+                                        "country": "Italia",
+                                        "countryCode": "IT",
+                                        "extId": "sr:competitor:770242",
+                                        "iconPath": null
+                                    }
+                                ],
+                                "tvChannels": null,
+                                "startTime": "Fri, 08 May 2026 16:30:00 GMT",
+                                "__typename": "SportFixtureDataMatch",
+                                "teams": [
+                                    {
+                                        "name": "Svitolina, Elina",
+                                        "qualifier": "home"
+                                    },
+                                    {
+                                        "name": "Noemi Basiletti",
+                                        "qualifier": "away"
+                                    }
+                                ]
+                            },
+                            "statsPerformStream": {
+                                "isAvailable": false,
+                                "geoBlocked": false
+                            },
+                            "liveStream": {
+                                "data": {
+                                    "isAvailable": true
+                                }
+                            },
+                            "frontRowSeatFight": null,
+                            "sgmAvailable": true,
+                            "swish": {
+                                "sport": {
+                                    "sgmAvailable": false,
+                                    "sgmLiveAvailable": false
+                                }
+                            },
+                            "abiosStream": null,
+                            "slug": "46538991-elina-svitolina-noemi-basiletti"
+                        }
+                    }
+                }
+            },
+            {
+                "statistics": {
+                    "totalBetValue": 578700.1620241214,
+                    "totalUserCount": 1806
+                },
+                "outcome": {
+                    "id": "d6ef9f89-8ffd-4852-a6c9-aa0949fe6db1",
+                    "name": "Paul, Tommy",
+                    "market": {
+                        "extId": "186",
+                        "id": "dda7ca23-9383-4f36-bec4-c3c2725ca2bb",
+                        "name": "Ganador",
+                        "provider": "betradar",
+                        "rank": 0,
+                        "specifiers": "",
+                        "status": "active",
+                        "enabled": true,
+                        "customBetAvailable": true,
+                        "extendedSpecifiers": "",
+                        "outcomes": [
+                            {
+                                "active": true,
+                                "customBetAvailable": true,
+                                "extId": "4",
+                                "id": "d6ef9f89-8ffd-4852-a6c9-aa0949fe6db1",
+                                "name": "Paul, Tommy",
+                                "odds": 1.08,
+                                "payout": 0,
+                                "probabilities": 0.911863,
+                                "provider": "betradar",
+                                "voidFactor": 0
+                            },
+                            {
+                                "active": true,
+                                "customBetAvailable": true,
+                                "extId": "5",
+                                "id": "854e7ed7-64ab-4477-b575-a48b03939a06",
+                                "name": "Vukic, Aleksandar",
+                                "odds": 9,
+                                "payout": 0,
+                                "probabilities": 0.0881459,
+                                "provider": "betradar",
+                                "voidFactor": 0
+                            }
+                        ],
+                        "fixture": {
+                            "id": "739007a2-8911-4299-be39-89b0093a2a02",
+                            "extId": "sr:match:71201096",
+                            "name": "Paul, Tommy - Vukic, Aleksandar",
+                            "provider": "betradar",
+                            "status": "active",
+                            "widgetUrl": null,
+                            "liveWidgetUrl": null,
+                            "imgArenaStream": {
+                                "exists": false
+                            },
+                            "geniussportsStream": {
+                                "exists": false
+                            },
+                            "betradarStream": {
+                                "exists": true
+                            },
+                            "tournament": {
+                                "slug": "atp-rome-italy-men-singles",
+                                "frontRowSeatEvent": null,
+                                "category": {
+                                    "slug": "atp",
+                                    "sport": {
+                                        "slug": "tennis"
+                                    }
+                                }
+                            },
+                            "data": {
+                                "competitors": [
+                                    {
+                                        "name": "Paul, Tommy",
+                                        "abbreviation": "PAU",
+                                        "country": "Estados Unidos",
+                                        "countryCode": "US",
+                                        "extId": "sr:competitor:138546",
+                                        "iconPath": null
+                                    },
+                                    {
+                                        "name": "Vukic, Aleksandar",
+                                        "abbreviation": "VUK",
+                                        "country": "Australia",
+                                        "countryCode": "AU",
+                                        "extId": "sr:competitor:124656",
+                                        "iconPath": null
+                                    }
+                                ],
+                                "tvChannels": null,
+                                "startTime": "Fri, 08 May 2026 15:20:00 GMT",
+                                "__typename": "SportFixtureDataMatch",
+                                "teams": [
+                                    {
+                                        "name": "Paul, Tommy",
+                                        "qualifier": "home"
+                                    },
+                                    {
+                                        "name": "Vukic, Aleksandar",
+                                        "qualifier": "away"
+                                    }
+                                ]
+                            },
+                            "statsPerformStream": {
+                                "isAvailable": false,
+                                "geoBlocked": false
+                            },
+                            "liveStream": {
+                                "data": {
+                                    "isAvailable": true
+                                }
+                            },
+                            "frontRowSeatFight": null,
+                            "sgmAvailable": true,
+                            "swish": null,
+                            "abiosStream": null,
+                            "slug": "46517462-r64p57-r64p58"
+                        }
+                    }
+                }
+            },
+            {
+                "statistics": {
+                    "totalBetValue": 501905.7616012659,
+                    "totalUserCount": 2936
+                },
+                "outcome": {
+                    "id": "ba7e52b8-21ef-4af5-a9aa-0d0922270426",
+                    "name": "Musetti, Lorenzo",
+                    "market": {
+                        "extId": "186",
+                        "id": "d2e09d29-9070-4e75-9000-a28b8923fe32",
+                        "name": "Ganador",
+                        "provider": "betradar",
+                        "rank": 0,
+                        "specifiers": "",
+                        "status": "active",
+                        "enabled": true,
+                        "customBetAvailable": true,
+                        "extendedSpecifiers": "",
+                        "outcomes": [
+                            {
+                                "active": true,
+                                "customBetAvailable": true,
+                                "extId": "4",
+                                "id": "ba7e52b8-21ef-4af5-a9aa-0d0922270426",
+                                "name": "Musetti, Lorenzo",
+                                "odds": 1.14,
+                                "payout": 0,
+                                "probabilities": 0.857999,
+                                "provider": "betradar",
+                                "voidFactor": 0
+                            },
+                            {
+                                "active": true,
+                                "customBetAvailable": true,
+                                "extId": "5",
+                                "id": "d09faaa4-9dd9-43f2-b441-33249900463d",
+                                "name": "Mpetshi Perricard, Giovanni",
+                                "odds": 6.2,
+                                "payout": 0,
+                                "probabilities": 0.142002,
+                                "provider": "betradar",
+                                "voidFactor": 0
+                            }
+                        ],
+                        "fixture": {
+                            "id": "462b98dc-6f65-40c8-a647-8538daa4f646",
+                            "extId": "sr:match:71201136",
+                            "name": "Musetti, Lorenzo - Mpetshi Perricard, Giovanni",
+                            "provider": "betradar",
+                            "status": "active",
+                            "widgetUrl": null,
+                            "liveWidgetUrl": null,
+                            "imgArenaStream": {
+                                "exists": false
+                            },
+                            "geniussportsStream": {
+                                "exists": false
+                            },
+                            "betradarStream": {
+                                "exists": true
+                            },
+                            "tournament": {
+                                "slug": "atp-rome-italy-men-singles",
+                                "frontRowSeatEvent": null,
+                                "category": {
+                                    "slug": "atp",
+                                    "sport": {
+                                        "slug": "tennis"
+                                    }
+                                }
+                            },
+                            "data": {
+                                "competitors": [
+                                    {
+                                        "name": "Musetti, Lorenzo",
+                                        "abbreviation": "MUS",
+                                        "country": "Italia",
+                                        "countryCode": "IT",
+                                        "extId": "sr:competitor:359602",
+                                        "iconPath": null
+                                    },
+                                    {
+                                        "name": "Mpetshi Perricard, Giovanni",
+                                        "abbreviation": "GMP",
+                                        "country": "Francia",
+                                        "countryCode": "FR",
+                                        "extId": "sr:competitor:450283",
+                                        "iconPath": null
+                                    }
+                                ],
+                                "tvChannels": null,
+                                "startTime": "Fri, 08 May 2026 18:30:00 GMT",
+                                "__typename": "SportFixtureDataMatch",
+                                "teams": [
+                                    {
+                                        "name": "Musetti, Lorenzo",
+                                        "qualifier": "home"
+                                    },
+                                    {
+                                        "name": "Mpetshi Perricard, Giovanni",
+                                        "qualifier": "away"
+                                    }
+                                ]
+                            },
+                            "statsPerformStream": {
+                                "isAvailable": false,
+                                "geoBlocked": false
+                            },
+                            "liveStream": {
+                                "data": {
+                                    "isAvailable": true
+                                }
+                            },
+                            "frontRowSeatFight": null,
+                            "sgmAvailable": true,
+                            "swish": null,
+                            "abiosStream": null,
+                            "slug": "46517496-r64p33-r64p34"
+                        }
+                    }
+                }
+            },
+            {
+                "statistics": {
+                    "totalBetValue": 438415.59667344106,
+                    "totalUserCount": 2877
+                },
+                "outcome": {
+                    "id": "e3ae4433-0771-4dc5-a58a-36800fb17401",
+                    "name": "Rybakina, Elena",
+                    "market": {
+                        "extId": "186",
+                        "id": "e946b009-8eb8-48a5-a432-68bc92cdabbb",
+                        "name": "Ganador",
+                        "provider": "betradar",
+                        "rank": 0,
+                        "specifiers": "",
+                        "status": "active",
+                        "enabled": true,
+                        "customBetAvailable": true,
+                        "extendedSpecifiers": "",
+                        "outcomes": [
+                            {
+                                "active": true,
+                                "customBetAvailable": true,
+                                "extId": "4",
+                                "id": "fecc9272-6a73-42b5-b4f2-fc7bd81b439d",
+                                "name": "Sakkari, Maria",
+                                "odds": 6.2,
+                                "payout": 0,
+                                "probabilities": 0.138696,
+                                "provider": "betradar",
+                                "voidFactor": 0
+                            },
+                            {
+                                "active": true,
+                                "customBetAvailable": true,
+                                "extId": "5",
+                                "id": "e3ae4433-0771-4dc5-a58a-36800fb17401",
+                                "name": "Rybakina, Elena",
+                                "odds": 1.14,
+                                "payout": 0,
+                                "probabilities": 0.861295,
+                                "provider": "betradar",
+                                "voidFactor": 0
+                            }
+                        ],
+                        "fixture": {
+                            "id": "07d30927-d172-4108-99d8-d976a420d740",
+                            "extId": "sr:match:71341910",
+                            "name": "Sakkari, Maria - Rybakina, Elena",
+                            "provider": "betradar",
+                            "status": "active",
+                            "widgetUrl": null,
+                            "liveWidgetUrl": null,
+                            "imgArenaStream": {
+                                "exists": false
+                            },
+                            "geniussportsStream": {
+                                "exists": false
+                            },
+                            "betradarStream": {
+                                "exists": false
+                            },
+                            "tournament": {
+                                "slug": "wta-rome-italy-women-singles",
+                                "frontRowSeatEvent": null,
+                                "category": {
+                                    "slug": "wta",
+                                    "sport": {
+                                        "slug": "tennis"
+                                    }
+                                }
+                            },
+                            "data": {
+                                "competitors": [
+                                    {
+                                        "name": "Sakkari, Maria",
+                                        "abbreviation": "SAK",
+                                        "country": "Grecia",
+                                        "countryCode": "GR",
+                                        "extId": "sr:competitor:65950",
+                                        "iconPath": null
+                                    },
+                                    {
+                                        "name": "Rybakina, Elena",
+                                        "abbreviation": "RYB",
+                                        "country": "Kazajist\u00e1n",
+                                        "countryCode": "KZ",
+                                        "extId": "sr:competitor:186312",
+                                        "iconPath": null
+                                    }
+                                ],
+                                "tvChannels": null,
+                                "startTime": "Fri, 08 May 2026 16:10:00 GMT",
+                                "__typename": "SportFixtureDataMatch",
+                                "teams": [
+                                    {
+                                        "name": "Sakkari, Maria",
+                                        "qualifier": "home"
+                                    },
+                                    {
+                                        "name": "Rybakina, Elena",
+                                        "qualifier": "away"
+                                    }
+                                ]
+                            },
+                            "statsPerformStream": {
+                                "isAvailable": false,
+                                "geoBlocked": false
+                            },
+                            "liveStream": {
+                                "data": {
+                                    "isAvailable": true
+                                }
+                            },
+                            "frontRowSeatFight": null,
+                            "sgmAvailable": true,
+                            "swish": {
+                                "sport": {
+                                    "sgmAvailable": false,
+                                    "sgmLiveAvailable": false
+                                }
+                            },
+                            "abiosStream": null,
+                            "slug": "46536882-maria-sakkari-elena-rybakina"
+                        }
+                    }
+                }
+            },
+            {
+                "statistics": {
+                    "totalBetValue": 404397.77268787887,
+                    "totalUserCount": 3298
+                },
+                "outcome": {
+                    "id": "9a7d0d64-65bf-484a-af51-9cfde10d770a",
+                    "name": "Pegula, Jessica",
+                    "market": {
+                        "extId": "186",
+                        "id": "c5251171-ac81-4e52-ba77-5db8cb349d79",
+                        "name": "Ganador",
+                        "provider": "betradar",
+                        "rank": 0,
+                        "specifiers": "",
+                        "status": "active",
+                        "enabled": true,
+                        "customBetAvailable": true,
+                        "extendedSpecifiers": "",
+                        "outcomes": [
+                            {
+                                "active": true,
+                                "customBetAvailable": true,
+                                "extId": "4",
+                                "id": "9a7d0d64-65bf-484a-af51-9cfde10d770a",
+                                "name": "Pegula, Jessica",
+                                "odds": 1.22,
+                                "payout": 0,
+                                "probabilities": 0.7889975,
+                                "provider": "betradar",
+                                "voidFactor": 0
+                            },
+                            {
+                                "active": true,
+                                "customBetAvailable": true,
+                                "extId": "5",
+                                "id": "8576d97c-fd5b-4261-a6a6-a2f8f84249e7",
+                                "name": "Sonmez, Zeynep",
+                                "odds": 4.1,
+                                "payout": 0,
+                                "probabilities": 0.21100251,
+                                "provider": "betradar",
+                                "voidFactor": 0
+                            }
+                        ],
+                        "fixture": {
+                            "id": "c5a41556-4ab1-4d5a-9fc2-7a56ccf74e76",
+                            "extId": "sr:match:71320178",
+                            "name": "Pegula, Jessica - Sonmez, Zeynep",
+                            "provider": "betradar",
+                            "status": "active",
+                            "widgetUrl": null,
+                            "liveWidgetUrl": null,
+                            "imgArenaStream": {
+                                "exists": false
+                            },
+                            "geniussportsStream": {
+                                "exists": false
+                            },
+                            "betradarStream": {
+                                "exists": false
+                            },
+                            "tournament": {
+                                "slug": "wta-rome-italy-women-singles",
+                                "frontRowSeatEvent": null,
+                                "category": {
+                                    "slug": "wta",
+                                    "sport": {
+                                        "slug": "tennis"
+                                    }
+                                }
+                            },
+                            "data": {
+                                "competitors": [
+                                    {
+                                        "name": "Pegula, Jessica",
+                                        "abbreviation": "PEG",
+                                        "country": "Estados Unidos",
+                                        "countryCode": "US",
+                                        "extId": "sr:competitor:44834",
+                                        "iconPath": null
+                                    },
+                                    {
+                                        "name": "Sonmez, Zeynep",
+                                        "abbreviation": "SON",
+                                        "country": "Turqu\u00eda",
+                                        "countryCode": "TR",
+                                        "extId": "sr:competitor:299310",
+                                        "iconPath": null
+                                    }
+                                ],
+                                "tvChannels": null,
+                                "startTime": "Fri, 08 May 2026 14:10:00 GMT",
+                                "__typename": "SportFixtureDataMatch",
+                                "teams": [
+                                    {
+                                        "name": "Pegula, Jessica",
+                                        "qualifier": "home"
+                                    },
+                                    {
+                                        "name": "Sonmez, Zeynep",
+                                        "qualifier": "away"
+                                    }
+                                ]
+                            },
+                            "statsPerformStream": {
+                                "isAvailable": false,
+                                "geoBlocked": false
+                            },
+                            "liveStream": {
+                                "data": {
+                                    "isAvailable": true
+                                }
+                            },
+                            "frontRowSeatFight": null,
+                            "sgmAvailable": true,
+                            "swish": {
+                                "sport": {
+                                    "sgmAvailable": false,
+                                    "sgmLiveAvailable": false
+                                }
+                            },
+                            "abiosStream": null,
+                            "slug": "46533611-jessica-pegula-zeynep-sonmez"
+                        }
+                    }
+                }
+            }
+        ]
+    }
+}

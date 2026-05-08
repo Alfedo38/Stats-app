@@ -1,266 +1,700 @@
 import os
-from dotenv import load_dotenv
+import re
 import time
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, date, timedelta
 from zoneinfo import ZoneInfo
+
 import pandas as pd
+from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL
 
-from nba_api.stats.endpoints import playergamelogs, boxscoreadvancedv3, boxscoreplayertrackv3
+from nba_api.stats.endpoints import playergamelogs, boxscoreplayertrackv3
 
 load_dotenv()
 
 # =========================================================
-# CONFIGURACIÓN SEGURA DE BASE DE DATOS
+# CONFIGURACION
 # =========================================================
-password_raw = os.getenv("DB_PASSWORD")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+if not DB_PASSWORD:
+    raise ValueError("❌ Falta DB_PASSWORD en el archivo .env")
 
-if not password_raw:
-    raise ValueError("❌ ERROR: Falta la variable DB_PASSWORD en el archivo .env")
+DB_USER = os.getenv("DB_USER", "postgres.xxhdctrvjsngwbagamns")
+DB_HOST = os.getenv("DB_HOST", "aws-1-sa-east-1.pooler.supabase.com")
+DB_PORT = int(os.getenv("DB_PORT", "6543"))
+DB_NAME = os.getenv("DB_NAME", "postgres")
+TABLE_NAME = os.getenv("PLAYER_LOGS_TABLE", "player_game_logs")
 
-db_url = URL.create(
-    drivername="postgresql",
-    username="postgres.xxhdctrvjsngwbagamns",
-    password=password_raw,
-    host="aws-1-sa-east-1.pooler.supabase.com",
-    port=6543,
-    database="postgres",
-    query={"sslmode": "require"}
-)
+TIMEZONE = os.getenv("TIMEZONE", "America/Argentina/Buenos_Aires")
+LEAGUE_ID = os.getenv("NBA_LEAGUE_ID", "00")
+SEASON = os.getenv("NBA_SEASON", "2025-26")
+PER_MODE = os.getenv("NBA_PER_MODE", "PerGame")
 
-TABLE_NAME = "player_game_logs"
-engine = create_engine(db_url, pool_pre_ping=True)
+# Si no pasas fechas, reprocesa los ultimos 3 dias cerrados.
+now_local = datetime.now(ZoneInfo(TIMEZONE))
+default_end = (now_local.date() - timedelta(days=1)).isoformat()
+default_start = (now_local.date() - timedelta(days=3)).isoformat()
 
-# Configuración API NBA
-TIMEZONE = "America/Argentina/Buenos_Aires"
-LEAGUE_ID = "00"
-PER_MODE = "PerGame"
-SEASON_TYPES = ["Regular Season", "Playoffs"]
+START_DATE = os.getenv("NBA_START_DATE", default_start)   # formato YYYY-MM-DD
+END_DATE = os.getenv("NBA_END_DATE", default_end)         # formato YYYY-MM-DD
 
-REQUEST_TIMEOUT = 90
-MAX_RETRIES = 5
-SLEEP_MIN = 1.2
-SLEEP_MAX = 2.5
-DATE_MODE = "yesterday"
+# Ejemplos:
+# NBA_SEASON_TYPES=Playoffs python3 daily_update.py
+# NBA_SEASON_TYPES="Regular Season,Playoffs" python3 daily_update.py
+SEASON_TYPES = [
+    x.strip() for x in os.getenv("NBA_SEASON_TYPES", "Regular Season,Playoffs,Play-In").split(",")
+    if x.strip()
+]
+
+REQUEST_TIMEOUT = int(os.getenv("NBA_REQUEST_TIMEOUT", "90"))
+MAX_RETRIES = int(os.getenv("NBA_MAX_RETRIES", "5"))
+SLEEP_MIN = float(os.getenv("NBA_SLEEP_MIN", "1.2"))
+SLEEP_MAX = float(os.getenv("NBA_SLEEP_MAX", "2.7"))
+
+# Si NBA no manda una metrica sharp, queda NULL, se intenta preservar la anterior,
+# y al final se completa en 0 para evitar nulos en el modelo.
+FILL_MISSING_SHARP_WITH_ZERO = os.getenv("NBA_FILL_MISSING_SHARP_WITH_ZERO", "1") == "1"
 
 HEADERS = {
     "Host": "stats.nba.com",
     "Connection": "keep-alive",
     "Cache-Control": "max-age=0",
     "Upgrade-Insecure-Requests": "1",
-    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
+    "User-Agent": os.getenv(
+        "NBA_USER_AGENT",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
+    ),
     "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "en-US,en;q=0.9,es;q=0.8",
     "Referer": "https://www.nba.com/",
     "Origin": "https://www.nba.com",
+    "x-nba-stats-origin": "stats",
+    "x-nba-stats-token": "true",
 }
 
-def random_sleep():
+# =========================================================
+# DB
+# =========================================================
+db_url = URL.create(
+    drivername="postgresql",
+    username=DB_USER,
+    password=DB_PASSWORD,
+    host=DB_HOST,
+    port=DB_PORT,
+    database=DB_NAME,
+    query={"sslmode": "require"},
+)
+engine = create_engine(db_url, pool_pre_ping=True)
+
+# =========================================================
+# HELPERS
+# =========================================================
+def parse_iso_date(value: str) -> date:
+    return datetime.strptime(value, "%Y-%m-%d").date()
+
+
+def iso_to_nba_date(value: str) -> str:
+    """YYYY-MM-DD -> MM/DD/YYYY"""
+    return parse_iso_date(value).strftime("%m/%d/%Y")
+
+
+def random_sleep() -> None:
     time.sleep(random.uniform(SLEEP_MIN, SLEEP_MAX))
 
-def backoff_sleep(attempt: int, base_seconds: int = 4, max_wait: int = 60):
-    wait = min(max_wait, base_seconds * attempt + random.uniform(0.5, 2.0))
+
+def backoff_sleep(attempt: int, base_seconds: int = 5, max_wait: int = 75) -> None:
+    wait = min(max_wait, base_seconds * attempt + random.uniform(1.0, 4.0))
     print(f"   ↳ reintentando en {wait:.1f}s...")
     time.sleep(wait)
 
-def get_target_date():
-    now_local = datetime.now(ZoneInfo(TIMEZONE))
-    if DATE_MODE == "today":
-        target = now_local.date()
-    else:
-        target = (now_local - timedelta(days=1)).date()
-    date_str = target.strftime("%m/%d/%Y")
-    return target, date_str
 
-def infer_season_from_date(target_date):
-    year = target_date.year
-    month = target_date.month
-    if month >= 10:
-        start_year = year
-        end_year = str(year + 1)[-2:]
-    else:
-        start_year = year - 1
-        end_year = str(year)[-2:]
-    return f"{start_year}-{end_year}"
+def normalize_col_name(col) -> str:
+    """Convierte GAME_ID, gameId, reboundChancesTotal -> game_id, game_id, rebound_chances_total."""
+    s = str(col).strip()
+    s = re.sub(r"(.)([A-Z][a-z]+)", r"\1_\2", s)
+    s = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s)
+    s = s.replace("%", "_pct")
+    s = re.sub(r"[^A-Za-z0-9]+", "_", s)
+    s = re.sub(r"_+", "_", s).strip("_").lower()
+    return s
 
-def get_db_columns(table_name):
+
+def normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
+    out = df.copy()
+    out.columns = [normalize_col_name(c) for c in out.columns]
+    return out
+
+
+def first_existing(df: pd.DataFrame, candidates: list[str]):
+    for c in candidates:
+        if c in df.columns:
+            return c
+    return None
+
+
+def ensure_game_key(df: pd.DataFrame, source_col: str = "game_id") -> pd.DataFrame:
+    if df.empty or source_col not in df.columns:
+        return df
+    out = df.copy()
+    out["game_key"] = out[source_col].astype(str).str.replace(r"\.0$", "", regex=True).str.zfill(10)
+    return out
+
+
+def get_db_columns(table_name: str) -> list[str]:
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text("""
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = :table_name
+                ORDER BY ordinal_position
+            """),
+            {"table_name": table_name},
+        ).fetchall()
+    return [r[0] for r in rows]
+
+
+def get_players_columns() -> list[str]:
     try:
-        with engine.connect() as conn:
-            query = text("SELECT column_name FROM information_schema.columns WHERE table_name = :table")
-            result = conn.execute(query, {"table": table_name})
-            return [row[0] for row in result]
-    except:
+        return get_db_columns("players")
+    except Exception:
         return []
 
-def fetch_logs_for_date(date_str: str, season: str, season_type: str):
+
+def convert_min_to_decimal(value):
+    """Convierte '37:47' -> 37.7833. Si ya es numero, lo devuelve."""
+    if pd.isna(value):
+        return pd.NA
+    s = str(value).strip()
+    if not s:
+        return pd.NA
+    if ":" in s:
+        try:
+            m, sec = s.split(":", 1)
+            return float(m) + float(sec) / 60.0
+        except Exception:
+            return pd.NA
+    try:
+        return float(s)
+    except Exception:
+        return pd.NA
+
+
+def infer_home_away_and_opponent(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty or "matchup" not in df.columns:
+        return df
+
+    out = df.copy()
+
+    def home_away(matchup):
+        m = str(matchup)
+        if " vs. " in m or " vs " in m:
+            return "HOME"
+        if " @ " in m:
+            return "AWAY"
+        return pd.NA
+
+    def opponent(matchup):
+        m = str(matchup)
+        if " vs. " in m:
+            return m.split(" vs. ")[-1].strip()
+        if " vs " in m:
+            return m.split(" vs ")[-1].strip()
+        if " @ " in m:
+            return m.split(" @ ")[-1].strip()
+        return pd.NA
+
+    if "home_away" not in out.columns:
+        out["home_away"] = out["matchup"].apply(home_away)
+    else:
+        out["home_away"] = out["home_away"].combine_first(out["matchup"].apply(home_away))
+
+    if "opponent" not in out.columns:
+        out["opponent"] = out["matchup"].apply(opponent)
+    else:
+        out["opponent"] = out["opponent"].combine_first(out["matchup"].apply(opponent))
+
+    return out
+
+
+def clean_numeric_cols(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
+    out = df.copy()
+    for c in cols:
+        if c in out.columns:
+            out[c] = pd.to_numeric(out[c], errors="coerce")
+    return out
+
+# =========================================================
+# NBA FETCH
+# =========================================================
+def fetch_player_game_logs(measure_type: str, season_type: str) -> pd.DataFrame:
+    start_nba = iso_to_nba_date(START_DATE)
+    end_nba = iso_to_nba_date(END_DATE)
+
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            print(f"Descargando fecha={date_str} season={season} season_type={season_type} intento={attempt}/{MAX_RETRIES}")
-            endpoint = playergamelogs.PlayerGameLogs(
-                league_id_nullable=LEAGUE_ID, season_nullable=season, season_type_nullable=season_type,
-                per_mode_simple_nullable=PER_MODE, date_from_nullable=date_str, date_to_nullable=date_str,
-                player_id_nullable="", headers=HEADERS, timeout=REQUEST_TIMEOUT,
+            print(
+                f"📡 PlayerGameLogs {measure_type} | {season_type} | "
+                f"{start_nba} a {end_nba} | intento {attempt}/{MAX_RETRIES}"
             )
-            df = endpoint.player_game_logs.get_data_frame()
+            endpoint = playergamelogs.PlayerGameLogs(
+                league_id_nullable=LEAGUE_ID,
+                season_nullable=SEASON,
+                season_type_nullable=season_type,
+                per_mode_simple_nullable=PER_MODE,
+                date_from_nullable=start_nba,
+                date_to_nullable=end_nba,
+                measure_type_player_game_logs_nullable=measure_type,
+                headers=HEADERS,
+                timeout=REQUEST_TIMEOUT,
+            )
+            df = endpoint.get_data_frames()[0]
             if df.empty:
-                print(f"   ! sin filas para {date_str} | {season_type}")
+                print(f"   ! sin filas: {measure_type} | {season_type}")
                 return pd.DataFrame()
+
+            df = normalize_columns(df)
+            df["season_type"] = season_type
+            df["season"] = SEASON
+            df = ensure_game_key(df, "game_id")
             return df
+
         except Exception as e:
-            print(f"   X error en {date_str} | {season_type}: {e}")
-            if attempt == MAX_RETRIES: raise
-            backoff_sleep(attempt)
+            msg = str(e)
+            print(f"   X error {measure_type} | {season_type}: {msg}")
 
-def fetch_game_sharp_metrics(game_id: str):
-    """Busca métricas de tracking y avanzadas con escudo INTELIGENTE de columnas."""
-    for attempt in range(1, MAX_RETRIES + 1):
-        try:
-            # 1. Advanced Stats (Usage %)
-            adv_stats = boxscoreadvancedv3.BoxScoreAdvancedV3(game_id=game_id, headers=HEADERS, timeout=REQUEST_TIMEOUT)
-            df_adv = adv_stats.get_data_frames()[0]
-            if not df_adv.empty and 'personId' in df_adv.columns:
-                df_adv = df_adv[['personId', 'usagePercentage']]
-            else:
-                df_adv = pd.DataFrame(columns=['personId', 'usagePercentage'])
-
-            random_sleep()
-
-            # 2. Player Tracking
-            track_stats = boxscoreplayertrackv3.BoxScorePlayerTrackV3(game_id=game_id, headers=HEADERS, timeout=REQUEST_TIMEOUT)
-            df_track = track_stats.get_data_frames()[0]
-            
-            if not df_track.empty and 'personId' in df_track.columns:
-                # 🛡️ ESCUDO INTELIGENTE: Buscamos las columnas sin importar cómo se llamen hoy
-                col_ast = next((c for c in df_track.columns if 'potentialast' in c.lower() or 'potentialassists' in c.lower()), None)
-                col_reb = next((c for c in df_track.columns if 'reboundchances' in c.lower()), None)
-                col_tch = next((c for c in df_track.columns if 'touches' in c.lower()), None)
-                col_pass = next((c for c in df_track.columns if 'passes' in c.lower() and 'made' not in c.lower()), None)
-
-                # Asignamos los valores encontrados o 0.0 si la NBA no los mandó
-                df_track['potential_ast'] = df_track[col_ast] if col_ast else 0.0
-                df_track['rebound_chances'] = df_track[col_reb] if col_reb else 0.0
-                df_track['touches'] = df_track[col_tch] if col_tch else 0.0
-                df_track['passes_made'] = df_track[col_pass] if col_pass else 0.0
-                
-                df_track = df_track[['personId', 'touches', 'potential_ast', 'rebound_chances', 'passes_made']]
-            else:
-                df_track = pd.DataFrame(columns=['personId', 'touches', 'potential_ast', 'rebound_chances', 'passes_made'])
-
-            if df_adv.empty and df_track.empty:
+            # Esto suele pasar cuando NBA Stats no devuelve dataset para ese season_type.
+            # No conviene gastar 5 reintentos si ya sabemos que no hay resultSet.
+            if "resultSet" in msg or "resultSets" in msg:
                 return pd.DataFrame()
 
-            df_merged = pd.merge(df_adv, df_track, on='personId', how='outer')
-            
-            df_merged.rename(columns={
-                'personId': 'player_id',
-                'usagePercentage': 'usage_pct',
-            }, inplace=True)
-            
-            df_merged['game_id_str'] = game_id 
-            df_merged['player_id'] = df_merged['player_id'].astype(int)
-
-            return df_merged
-            
-        except Exception as e:
-            print(f"   X Error en métricas avanzadas (Game {game_id}): {e}")
-            if attempt == MAX_RETRIES: return pd.DataFrame()
+            if attempt == MAX_RETRIES:
+                return pd.DataFrame()
             backoff_sleep(attempt)
+
     return pd.DataFrame()
 
-def main():
-    target_date, date_str = get_target_date()
-    season = infer_season_from_date(target_date)
 
-    print(f"Iniciando actualización diaria para: {target_date} ({date_str})")
-    
-    new_parts = []
-    for season_type in SEASON_TYPES:
-        raw_df = fetch_logs_for_date(date_str, season, season_type)
-        if raw_df.empty: continue
-        
-        raw_df.columns = [col.lower() for col in raw_df.columns]
-        valid_cols = get_db_columns(TABLE_NAME)
-        if valid_cols:
-            raw_df = raw_df[[c for c in raw_df.columns if c in valid_cols]]
-            
-        new_parts.append(raw_df)
+def fetch_tracking_for_game(game_id: str) -> pd.DataFrame:
+    """
+    Tracking V3 por partido.
+    Importante: NBA V3 devuelve columnas camelCase: gameId, personId, reboundChancesTotal, touches, passes.
+    El bug que te dejaba 0042500222 en NULL era por no normalizar/mergear bien estas columnas.
+    """
+    gid = str(game_id).zfill(10)
+
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            endpoint = boxscoreplayertrackv3.BoxScorePlayerTrackV3(
+                game_id=gid,
+                headers=HEADERS,
+                timeout=REQUEST_TIMEOUT,
+            )
+            df = endpoint.get_data_frames()[0]
+            if df.empty:
+                return pd.DataFrame()
+
+            df = normalize_columns(df)
+
+            # IDs
+            player_col = first_existing(df, ["person_id", "player_id"])
+            game_col = first_existing(df, ["game_id", "gameid"])
+            if not player_col:
+                print(f"      ⚠️ tracking {gid}: no encontre person_id/player_id")
+                return pd.DataFrame()
+
+            out = pd.DataFrame()
+            out["game_key"] = gid if not game_col else df[game_col].astype(str).str.zfill(10)
+            out["player_id"] = pd.to_numeric(df[player_col], errors="coerce")
+
+            # Filtra filas que no sean jugadores reales.
+            out = out[out["player_id"].notna()].copy()
+            out["player_id"] = out["player_id"].astype(int)
+            out = out[(out["player_id"] > 0) & (out["player_id"] < 1610600000)]
+
+            # Metricas reales de PlayerTrack V3.
+            touch_col = first_existing(df, ["touches", "tchs"])
+            reb_col = first_existing(df, ["rebound_chances_total", "reb_chances", "rbc"])
+            pass_col = first_existing(df, ["passes", "pass", "passes_made"])
+
+            # Potential AST no viene en BoxScorePlayerTrackV3 actual.
+            # Si algun dia aparece, lo toma. Si no, queda NA y luego se preserva/fill 0.
+            pot_ast_col = first_existing(df, [
+                "potential_ast",
+                "potential_asts",
+                "potential_assists",
+                "potential_assist",
+            ])
+
+            out["touches"] = pd.to_numeric(df[touch_col], errors="coerce") if touch_col else pd.NA
+            out["rebound_chances"] = pd.to_numeric(df[reb_col], errors="coerce") if reb_col else pd.NA
+            out["passes_made"] = pd.to_numeric(df[pass_col], errors="coerce") if pass_col else pd.NA
+            out["potential_ast"] = pd.to_numeric(df[pot_ast_col], errors="coerce") if pot_ast_col else pd.NA
+
+            return out.drop_duplicates(subset=["game_key", "player_id"])
+
+        except Exception as e:
+            print(f"      X tracking game={gid} intento {attempt}/{MAX_RETRIES}: {e}")
+            if attempt == MAX_RETRIES:
+                return pd.DataFrame()
+            backoff_sleep(attempt, base_seconds=4)
+
+    return pd.DataFrame()
+
+
+def fetch_tracking_for_games(game_ids: list[str]) -> pd.DataFrame:
+    if not game_ids:
+        return pd.DataFrame()
+
+    print(f"📡 Tracking por partido: {len(game_ids)} partidos")
+    parts = []
+    for idx, gid in enumerate(game_ids, 1):
+        gid = str(gid).zfill(10)
+        print(f"   -> tracking {idx}/{len(game_ids)} game={gid}")
+        df = fetch_tracking_for_game(gid)
+        if not df.empty:
+            parts.append(df)
         random_sleep()
 
-    if not new_parts:
-        print("\nNo hubo datos nuevos para esa fecha. Fin del proceso.")
+    if not parts:
+        return pd.DataFrame()
+
+    return pd.concat(parts, ignore_index=True).drop_duplicates(subset=["game_key", "player_id"])
+
+# =========================================================
+# DATA PREP
+# =========================================================
+def build_final_dataframe() -> pd.DataFrame:
+    base_parts = []
+    adv_parts = []
+
+    for stype in SEASON_TYPES:
+        df_base = fetch_player_game_logs("Base", stype)
+        if not df_base.empty:
+            base_parts.append(df_base)
+        random_sleep()
+
+        df_adv = fetch_player_game_logs("Advanced", stype)
+        if not df_adv.empty:
+            adv_parts.append(df_adv)
+        random_sleep()
+
+    if not base_parts:
+        return pd.DataFrame()
+
+    base = pd.concat(base_parts, ignore_index=True).drop_duplicates(subset=["game_key", "player_id"])
+
+    # Advanced: usage_pct
+    if adv_parts:
+        adv = pd.concat(adv_parts, ignore_index=True).drop_duplicates(subset=["game_key", "player_id"])
+        usage_col = first_existing(adv, ["usg_pct", "usage_pct", "usage_percentage"])
+        if usage_col:
+            adv_small = adv[["game_key", "player_id", usage_col]].copy()
+            adv_small.rename(columns={usage_col: "usage_pct"}, inplace=True)
+            base = base.merge(adv_small, on=["game_key", "player_id"], how="left")
+        else:
+            base["usage_pct"] = pd.NA
+    else:
+        base["usage_pct"] = pd.NA
+
+    # Tracking: touches / rebound_chances / passes_made / potential_ast
+    unique_games = sorted(base["game_key"].dropna().astype(str).unique().tolist())
+    tracking = fetch_tracking_for_games(unique_games)
+    if not tracking.empty:
+        base = base.merge(tracking, on=["game_key", "player_id"], how="left", suffixes=("", "_track"))
+
+        # Si quedaron columnas duplicadas, combina sin pisar lo bueno.
+        for c in ["touches", "rebound_chances", "passes_made", "potential_ast"]:
+            old_c = f"{c}_track"
+            if old_c in base.columns:
+                if c in base.columns:
+                    base[c] = base[c].combine_first(base[old_c])
+                else:
+                    base[c] = base[old_c]
+                base.drop(columns=[old_c], inplace=True)
+    else:
+        for c in ["touches", "rebound_chances", "passes_made", "potential_ast"]:
+            if c not in base.columns:
+                base[c] = pd.NA
+
+    # Fecha
+    if "game_date" in base.columns:
+        base["game_date"] = pd.to_datetime(base["game_date"], errors="coerce").dt.date
+
+    # Local/visitante y rival desde MATCHUP.
+    base = infer_home_away_and_opponent(base)
+
+    # Aliases utiles para tu esquema.
+    if "tov" in base.columns and "turnover" not in base.columns:
+        base["turnover"] = base["tov"]
+
+    if "team_abbreviation" in base.columns and "team" not in base.columns:
+        base["team"] = base["team_abbreviation"]
+
+    if "min" in base.columns and "minutes" not in base.columns:
+        base["minutes"] = base["min"].apply(convert_min_to_decimal)
+
+    if "wl" not in base.columns and "w_l" in base.columns:
+        base["wl"] = base["w_l"]
+
+    # Limpieza numerica.
+    numeric_cols = [
+        "player_id", "team_id", "pts", "reb", "ast", "stl", "blk", "tov", "turnover",
+        "fgm", "fga", "fg_pct", "fg3m", "fg3a", "fg3_pct", "ftm", "fta", "ft_pct",
+        "oreb", "dreb", "rebound_off", "rebound_def", "pf", "plus_minus", "usage_pct",
+        "touches", "rebound_chances", "potential_ast", "passes_made", "minutes",
+    ]
+    base = clean_numeric_cols(base, numeric_cols)
+
+    # Aliases de rebotes ofensivos/defensivos para esquemas viejos.
+    if "oreb" in base.columns and "rebound_off" not in base.columns:
+        base["rebound_off"] = base["oreb"]
+    if "dreb" in base.columns and "rebound_def" not in base.columns:
+        base["rebound_def"] = base["dreb"]
+
+    # Timestamps si la tabla los tiene.
+    now_ts = datetime.now(ZoneInfo(TIMEZONE))
+    base["updated_at"] = now_ts
+    if "created_at" not in base.columns:
+        base["created_at"] = now_ts
+
+    return base
+
+# =========================================================
+# PRESERVAR SHARP EXISTENTE
+# =========================================================
+def load_existing_sharp(start_date: str, end_date: str, valid_cols: list[str]) -> pd.DataFrame:
+    sharp_cols = [
+        "usage_pct",
+        "touches",
+        "rebound_chances",
+        "potential_ast",
+        "passes_made",
+    ]
+    existing_sharp_cols = [c for c in sharp_cols if c in valid_cols]
+    if not existing_sharp_cols:
+        return pd.DataFrame()
+
+    select_cols = ", ".join(["game_id", "player_id"] + existing_sharp_cols)
+    sql = text(f"""
+        SELECT {select_cols}
+        FROM public.{TABLE_NAME}
+        WHERE game_date BETWEEN CAST(:start_date AS date) AND CAST(:end_date AS date)
+    """)
+
+    try:
+        with engine.connect() as conn:
+            old = pd.read_sql(sql, conn, params={"start_date": start_date, "end_date": end_date})
+        if old.empty:
+            return old
+
+        old = normalize_columns(old)
+        old = ensure_game_key(old, "game_id")
+        old["player_id"] = pd.to_numeric(old["player_id"], errors="coerce")
+        old = old[old["player_id"].notna()].copy()
+        old["player_id"] = old["player_id"].astype(int)
+
+        rename_map = {c: f"old_{c}" for c in existing_sharp_cols if c in old.columns}
+        return old[["game_key", "player_id"] + list(rename_map.keys())].rename(columns=rename_map)
+
+    except Exception as e:
+        print(f"⚠️ No pude cargar sharp existente: {e}")
+        return pd.DataFrame()
+
+
+def preserve_old_sharp_if_new_missing(df: pd.DataFrame, valid_cols: list[str]) -> pd.DataFrame:
+    if df.empty:
+        return df
+
+    old = load_existing_sharp(START_DATE, END_DATE, valid_cols)
+    if old.empty:
+        return df
+
+    out = df.copy()
+    out = ensure_game_key(out, "game_id")
+    out["player_id"] = pd.to_numeric(out["player_id"], errors="coerce")
+    out = out[out["player_id"].notna()].copy()
+    out["player_id"] = out["player_id"].astype(int)
+
+    out = out.merge(old, on=["game_key", "player_id"], how="left")
+
+    for c in ["usage_pct", "touches", "rebound_chances", "potential_ast", "passes_made"]:
+        old_c = f"old_{c}"
+        if c in out.columns and old_c in out.columns:
+            out[c] = out[c].combine_first(out[old_c])
+        elif old_c in out.columns:
+            out[c] = out[old_c]
+
+    old_cols = [c for c in out.columns if c.startswith("old_")]
+    if old_cols:
+        out.drop(columns=old_cols, inplace=True)
+
+    return out
+
+# =========================================================
+# PLAYERS AUTO-REGISTER
+# =========================================================
+def auto_register_missing_players(df: pd.DataFrame) -> None:
+    if df.empty or "player_id" not in df.columns:
         return
 
-    final_df = pd.concat(new_parts, ignore_index=True)
-    
-    print("\n🔥 Descargando Métricas Sharp (Tracking & Advanced) por partido...")
-    final_df['game_id_str'] = final_df['game_id'].astype(str).str.zfill(10)
-    unique_games = final_df['game_id_str'].unique()
-    
-    sharp_dfs = []
-    for idx, gid in enumerate(unique_games):
-        print(f"   -> Escaneando partido {idx+1}/{len(unique_games)} (ID: {gid})")
-        df_sharp = fetch_game_sharp_metrics(gid)
-        if not df_sharp.empty:
-            sharp_dfs.append(df_sharp)
-        random_sleep()
-        
-    if sharp_dfs:
-        all_sharp_df = pd.concat(sharp_dfs, ignore_index=True)
-        final_df['player_id'] = final_df['player_id'].astype(int)
-        
-        final_df = pd.merge(
-            final_df, 
-            all_sharp_df, 
-            how='left', 
-            on=['game_id_str', 'player_id']
-        )
-        print("✅ Métricas Sharp fusionadas exitosamente.")
-    else:
-        print("⚠️ No se pudieron obtener métricas Sharp.")
-        
-    if 'game_id_str' in final_df.columns:
-        final_df.drop(columns=['game_id_str'], inplace=True)
+    name_col = first_existing(df, ["player_name", "name", "full_name"])
+    if not name_col:
+        return
 
-    print("\nVerificando si hay jugadores nuevos que no estén en la base de datos...")
     try:
-        unique_players = final_df[['player_id', 'player_name']].drop_duplicates()
+        players_cols = get_players_columns()
+        if not players_cols:
+            return
+
+        unique_players = df[["player_id", name_col]].dropna().drop_duplicates()
+        unique_players["player_id"] = unique_players["player_id"].astype(int)
+
         with engine.connect() as conn:
-            existing_ids = pd.read_sql("SELECT id FROM players", conn)['id'].tolist()
-            
-        missing_players = unique_players[~unique_players['player_id'].isin(existing_ids)]
-        
-        if not missing_players.empty:
-            print(f"¡Se encontraron {len(missing_players)} jugadores nuevos! Registrándolos...")
-            new_players_df = pd.DataFrame({
-                'id': missing_players['player_id'],
-                'full_name': missing_players['player_name'],
-                'first_name': missing_players['player_name'].apply(lambda x: str(x).split(' ')[0] if pd.notnull(x) else ''),
-                'last_name': missing_players['player_name'].apply(lambda x: ' '.join(str(x).split(' ')[1:]) if pd.notnull(x) and ' ' in str(x) else '')
-            })
-            new_players_df.to_sql('players', engine, if_exists='append', index=False)
-            print("Jugadores registrados correctamente.")
+            existing_ids = pd.read_sql("SELECT id FROM public.players", conn)["id"].astype(int).tolist()
+
+        missing = unique_players[~unique_players["player_id"].isin(existing_ids)].copy()
+        if missing.empty:
+            return
+
+        print(f"👤 Jugadores nuevos detectados: {len(missing)}. Registrando minimo en players...")
+
+        rows = []
+        for _, r in missing.iterrows():
+            full = str(r[name_col]).strip()
+            parts = full.split()
+            row = {}
+            if "id" in players_cols:
+                row["id"] = int(r["player_id"])
+            if "api_id" in players_cols:
+                row["api_id"] = int(r["player_id"])
+            if "full_name" in players_cols:
+                row["full_name"] = full
+            if "first_name" in players_cols:
+                row["first_name"] = parts[0] if parts else ""
+            if "last_name" in players_cols:
+                row["last_name"] = " ".join(parts[1:]) if len(parts) > 1 else ""
+            rows.append(row)
+
+        if rows:
+            pd.DataFrame(rows).to_sql("players", engine, if_exists="append", index=False, chunksize=100, method="multi")
+
     except Exception as e:
-        print(f"Aviso: No se pudo auto-registrar jugadores. Detalle: {e}")
+        print(f"⚠️ No se pudo auto-registrar jugadores: {e}")
+
+# =========================================================
+# SAVE
+# =========================================================
+def prepare_for_db(df: pd.DataFrame, valid_cols: list[str]) -> pd.DataFrame:
+    if df.empty:
+        return df
+
+    out = df.copy()
+
+    # Si la tabla no tiene game_key, no lo insertes.
+    if "game_key" in out.columns and "game_key" not in valid_cols:
+        out.drop(columns=["game_key"], inplace=True)
+
+    # Completa sharp con 0 si se desea evitar nulos en el modelo.
+    if FILL_MISSING_SHARP_WITH_ZERO:
+        # Estas métricas sí pueden rellenarse en 0 si faltan.
+        for c in ["usage_pct", "touches", "rebound_chances", "passes_made"]:
+            if c in out.columns:
+                out[c] = pd.to_numeric(out[c], errors="coerce").fillna(0)
+
+        # potential_ast NO se inventa en 0.
+        # Si NBA no manda una columna real de potential assists, debe quedar NULL.
+        if "potential_ast" in out.columns:
+            out["potential_ast"] = pd.to_numeric(out["potential_ast"], errors="coerce")
+
+            # Si todo quedó en 0, probablemente son ceros artificiales del fallback viejo.
+            # Mejor guardarlo como NULL para no contaminar el modelo.
+            if out["potential_ast"].notna().any() and out["potential_ast"].max(skipna=True) == 0:
+                out["potential_ast"] = pd.NA
+
+    # Formato fecha compatible.
+    if "game_date" in out.columns:
+        out["game_date"] = pd.to_datetime(out["game_date"], errors="coerce").dt.strftime("%Y-%m-%d")
+
+    # Solo columnas existentes en la tabla.
+    keep = [c for c in out.columns if c in valid_cols]
+    out = out[keep].copy()
+
+    # Evita columnas duplicadas.
+    out = out.loc[:, ~out.columns.duplicated()].copy()
+
+    return out
+
+
+def save_to_db(df: pd.DataFrame) -> int:
+    if df.empty:
+        print("😴 No hay filas para guardar.")
+        return 0
 
     valid_cols = get_db_columns(TABLE_NAME)
-    final_df = final_df[[c for c in final_df.columns if c in valid_cols]]
+    if not valid_cols:
+        raise RuntimeError(f"No pude leer columnas de {TABLE_NAME}")
 
-    # ==========================================
-    # 🩹 EL FIX PARA EL TIMEOUT DE SUPABASE
-    # ==========================================
-    try:
-        with engine.begin() as conn:
-            delete_query = text(f"DELETE FROM {TABLE_NAME} WHERE DATE(game_date) = :target_date")
-            conn.execute(delete_query, {"target_date": target_date})
-            
-            # 🔥 Agregamos chunksize=100 para que envíe los datos de a poco y Supabase no corte la conexión
-            print("💾 Guardando datos en Supabase (en lotes para evitar Timeout)...")
-            final_df.to_sql(TABLE_NAME, engine, if_exists='append', index=False, chunksize=100, method='multi')
-            
-        print(f"\n✅ ¡Éxito Total! Se guardaron {len(final_df)} estadísticas del {date_str} en Supabase.")
-    except Exception as e:
-        print(f"\n❌ Error al guardar en la base de datos: {e}")
+    # Preserva sharp viejo si NBA falla o viene incompleto.
+    df = preserve_old_sharp_if_new_missing(df, valid_cols)
+
+    # Registra jugadores nuevos antes de insertar logs.
+    auto_register_missing_players(df)
+
+    final_df = prepare_for_db(df, valid_cols)
+    if final_df.empty:
+        print("⚠️ Despues de filtrar columnas, no quedo nada para insertar.")
+        return 0
+
+    print(f"🧹 Reemplazando ventana {START_DATE} a {END_DATE} en {TABLE_NAME}...")
+    print("💾 Insertando filas nuevas con la misma conexion transaccional...")
+
+    with engine.begin() as conn:
+        conn.execute(
+            text(f"""
+                DELETE FROM public.{TABLE_NAME}
+                WHERE game_date BETWEEN CAST(:start_date AS date) AND CAST(:end_date AS date)
+            """),
+            {"start_date": START_DATE, "end_date": END_DATE},
+        )
+
+        final_df.to_sql(
+            TABLE_NAME,
+            conn,
+            schema="public",
+            if_exists="append",
+            index=False,
+            chunksize=100,
+            method="multi",
+        )
+
+    return len(final_df)
+
+# =========================================================
+# MAIN
+# =========================================================
+def main() -> None:
+    print("===========================================================")
+    print("🔄 DAILY UPDATE FIXED - PLAYER GAME LOGS")
+    print("===========================================================")
+    print(f"Temporada: {SEASON}")
+    print(f"Rango: {START_DATE} a {END_DATE}")
+    print(f"Season types: {SEASON_TYPES}")
+
+    df = build_final_dataframe()
+    if df.empty:
+        print("\n😴 No hubo datos nuevos para ese rango. Fin.")
+        return
+
+    rows = save_to_db(df)
+    print(f"✅ Proceso terminado. Filas insertadas: {rows}")
+
 
 if __name__ == "__main__":
     main()

@@ -1,669 +1,1342 @@
-import os
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+generar_picks_ludo.py — Ludo v4.4
+
+Lee:
+- Último run de ludo_prop_predictions
+- Historial limpio desde v_ludo_train_model_ready
+
+Hace:
+- Calcula hit rate L5/L10 contra la línea real.
+- Deduplica líneas alternativas: 1 línea por jugador + prop + lado.
+- Clasifica picks: JOYA / EXCELENTE / BUENA / RADAR.
+- Permite JOYA por consistencia aunque falte tracking: 5/5 y 9/10+.
+- Separa mercados:
+    MAIN = PTS, REB, AST, PRA, PR, PA, RA, 3PT
+    TECH = FGM, FGA, FG3A, FTM, FTA
+    Q1   = Q1_PTS, Q1_REB, Q1_AST
+- Arma tickets por fecha y un solo bloque por partido:
+    MAIN / TECH / Q1 separados dentro del mismo partido
+    X2 / X5 / X10 / Radar / Micro-líneas
+    Sin singles
+    Sin bloque GLOBAL por defecto
+- Guarda historial en ludo_picks con INSERT, pick_date y run_id.
+- Exporta CSV auditables.
+
+Uso:
+    python3 generar_picks_ludo.py
+    python3 generar_picks_ludo.py --run-id ludo_20260507_122000_634622
+    python3 generar_picks_ludo.py --dry-run
+    python3 generar_picks_ludo.py --top 60
+"""
+
+from __future__ import annotations
+
+import argparse
 import json
 import math
-import time
-import pandas as pd
+import os
+from pathlib import Path
+from typing import Optional
+
 import numpy as np
+import pandas as pd
+from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL
-import joblib
-from datetime import datetime
-from dotenv import load_dotenv
-from google import genai
-from google.genai import types
-import warnings
-warnings.filterwarnings('ignore')
+
+
+# ============================================================
+# CONFIG
+# ============================================================
 
 load_dotenv()
 
-# -------------------------------------------------------------------
-# 1. CONFIGURACIÓN
-# -------------------------------------------------------------------
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-db_url = URL.create(
-    drivername="postgresql", username="postgres.xxhdctrvjsngwbagamns",
-    password=os.getenv("DB_PASSWORD"), host="aws-1-sa-east-1.pooler.supabase.com",
-    port=6543, database="postgres", query={"sslmode": "require"}
-)
-engine = create_engine(db_url)
+OUT_CSV = Path("ludo_picks_audit.csv")
+OUT_JSON = Path("ludo_picks_preview.json")
 
-TEAM_MAP = {
-    'Atlanta Hawks': 'ATL', 'Boston Celtics': 'BOS', 'Brooklyn Nets': 'BKN', 'Charlotte Hornets': 'CHA',
-    'Chicago Bulls': 'CHI', 'Cleveland Cavaliers': 'CLE', 'Dallas Mavericks': 'DAL', 'Denver Nuggets': 'DEN',
-    'Detroit Pistons': 'DET', 'Golden State Warriors': 'GSW', 'Houston Rockets': 'HOU', 'Indiana Pacers': 'IND',
-    'Los Angeles Clippers': 'LAC', 'Los Angeles Lakers': 'LAL', 'Memphis Grizzlies': 'MEM', 'Miami Heat': 'MIA',
-    'Milwaukee Bucks': 'MIL', 'Minnesota Timberwolves': 'MIN', 'New Orleans Pelicans': 'NOP', 'New York Knicks': 'NYK',
-    'Oklahoma City Thunder': 'OKC', 'Orlando Magic': 'ORL', 'Philadelphia 76ers': 'PHI', 'Phoenix Suns': 'PHX',
-    'Portland Trail Blazers': 'POR', 'Sacramento Kings': 'SAC', 'San Antonio Spurs': 'SAS', 'Toronto Raptors': 'TOR',
-    'Utah Jazz': 'UTA', 'Washington Wizards': 'WAS'
+QUALITY_ORDER = {
+    "JOYA": 4,
+    "EXCELENTE": 3,
+    "BUENA": 2,
+    "RADAR": 1,
+    "DESCARTAR": 0,
 }
 
-POSICION_ENCODING = {'G': 1, 'G-F': 2, 'F-G': 2, 'F': 3, 'F-C': 4, 'C-F': 4, 'C': 5}
-POSICION_BUMP = {
-    'G':  {'G': 1.20, 'F': 1.05, 'C': 1.02},
-    'F':  {'G': 1.05, 'F': 1.20, 'C': 1.08},
-    'C':  {'G': 1.02, 'F': 1.08, 'C': 1.20},
-    'G-F':{'G': 1.12, 'F': 1.12, 'C': 1.04},
-    'F-C':{'G': 1.03, 'F': 1.12, 'C': 1.15},
+EMOJI = {
+    "JOYA": "💎",
+    "EXCELENTE": "⭐",
+    "BUENA": "🌟",
+    "RADAR": "📊",
+    "DESCARTAR": "🗑️",
 }
 
-# MAE real de cada modelo — umbral mínimo para que el edge sea creíble
-MAE_DICT = {
-    'Q1_AST': 0.69, 'Q1_REB': 0.85, '3PT': 0.97, 'FTM': 1.12, 'FTA': 1.35,
-    'AST': 1.47, 'FG3A': 1.63, 'FGM': 1.83, 'REB': 1.84, 'Q1_PTS': 2.01,
-    'FGA': 2.88, 'PTS': 4.81, 'PRA': 8.12, 'PR': 6.65, 'PA': 6.28, 'RA': 3.31
+FAMILY_LABELS = {
+    "MAIN": "🏀 FULL GAME",
+    "TECH": "🎯 TÉCNICOS",
+    "Q1": "⏱️ 1Q",
+    "OTHER": "OTROS",
 }
 
-FEATURES = {
-    'PTS':    ['min_L5','min_L10','usage_pct_L5','usage_pct_L10','fga_L5','fga_L10','pts_L5','pts_L10','pts_season','touches_L5','ppm_L5','pts_momentum','q1_pts_L5','q1_pts_pct_L5','dvp_pts','rest_days','is_b2b','is_home','pos_enc'],
-    'REB':    ['min_L5','min_L10','rebound_chances_L5','rebound_chances_L10','rebound_off_L5','rebound_def_L5','reb_L5','reb_L10','reb_season','touches_L5','reb_pm_L5','reb_momentum','q1_reb_L5','q1_reb_pct_L5','dvp_reb','rest_days','is_b2b','is_home','pos_enc'],
-    'AST':    ['min_L5','min_L10','passes_made_L5','passes_made_L10','potential_ast_L5','potential_ast_L10','ast_L5','ast_L10','ast_season','touches_L5','usage_pct_L5','ast_pm_L5','ast_momentum','q1_ast_L5','q1_ast_pct_L5','dvp_ast','rest_days','is_b2b','is_home','pos_enc'],
-    '3PT':    ['min_L5','min_L10','usage_pct_L5','fg3a_L5','fg3a_L10','fg3m_L5','fg3m_L10','fg3m_season','dvp_3pt','rest_days','is_b2b','is_home','pos_enc'],
-    'FGM':    ['min_L5','usage_pct_L5','fga_L5','fgm_L5','fgm_L10','fgm_season','dvp_pts','is_b2b','is_home','pos_enc'],
-    'FGA':    ['min_L5','usage_pct_L5','fga_L5','fga_L10','touches_L5','rest_days','fga_pm_L5','is_b2b','is_home','pos_enc'],
-    'FG3A':   ['min_L5','usage_pct_L5','fg3a_L5','fg3a_L10','fg3a_season','dvp_3pt','rest_days','is_b2b','is_home','pos_enc'],
-    'FTM':    ['min_L5','usage_pct_L5','fta_L5','ftm_L5','ftm_L10','ftm_season','is_b2b','is_home','pos_enc'],
-    'FTA':    ['min_L5','usage_pct_L5','fta_L5','fta_L10','fta_season','rest_days','is_b2b','is_home','pos_enc'],
-    'Q1_PTS': ['min_L5','usage_pct_L5','q1_pts_L5','q1_pts_L10','q1_pts_season','pts_L5','q1_pts_pct_L5','dvp_pts','is_b2b','is_home','pos_enc'],
-    'Q1_REB': ['min_L5','q1_reb_L5','q1_reb_L10','q1_reb_season','reb_L5','dvp_reb','is_b2b','is_home','pos_enc'],
-    'Q1_AST': ['min_L5','usage_pct_L5','q1_ast_L5','q1_ast_L10','q1_ast_season','ast_L5','dvp_ast','is_b2b','is_home','pos_enc'],
-}
 
-# -------------------------------------------------------------------
-# 2. CLASIFICADOR DE CALIDAD
-# -------------------------------------------------------------------
-def clasificar_linea(h5, n5, h10, n10):
-    """
-    JOYA y EXCELENTE: AND estricto — ambas ventanas deben cumplir.
-    BUENA: OR — basta con que una ventana cumpla (más picks pero honestos).
-    Esto evita descartar jugadores en racha reciente (4/5) aunque el L10 sea menor.
-    """
-    if n10 < 5:
-        return 'BASURA'   # muestra insuficiente → no apostamos
-    pct5  = h5  / max(n5,  1)
-    pct10 = h10 / max(n10, 1)
-    # JOYA: racha perfecta reciente O excelente en ambas (AND)
-    if pct5 >= 1.0:                      return 'JOYA'
-    if pct5 >= 0.9 and pct10 >= 0.9:    return 'JOYA'
-    # EXCELENTE: AND — ambas ventanas sólidas
-    if pct5 >= 0.8 and pct10 >= 0.8:    return 'EXCELENTE'
-    # BUENA: OR — racha reciente fuerte O consistencia histórica
-    if pct5 >= 0.6 or pct10 >= 0.6:     return 'BUENA'
-    return 'BASURA'
+# ============================================================
+# DB
+# ============================================================
 
-def emoji_calidad(calidad):
-    return {'JOYA': '💎', 'EXCELENTE': '⭐', 'BUENA': '🌟'}.get(calidad, '📊')
+def get_engine():
+    password = os.getenv("DB_PASSWORD")
+    if not password:
+        raise RuntimeError("Falta DB_PASSWORD en .env")
 
-def titulo_par(calidades):
-    """Título honesto basado en la PEOR línea del par."""
-    orden = {'JOYA': 3, 'EXCELENTE': 2, 'BUENA': 1, 'BASURA': 0}
-    peor  = min(calidades, key=lambda c: orden.get(c, 0))
-    return emoji_calidad(peor)
-
-# -------------------------------------------------------------------
-# 3. HELPERS
-# -------------------------------------------------------------------
-def kelly_fraccional(edge_pct, odds, fraccion=0.25):
-    """Kelly Criterion fraccional — matemáticamente correcto."""
-    if odds <= 1 or edge_pct <= 0: return 0.005
-    p_win  = min((edge_pct / 100.0 + 1.0) / odds, 0.99)
-    b      = odds - 1.0
-    kelly  = max(0.0, (b * p_win - (1 - p_win)) / b)
-    return round(min(kelly * fraccion, 0.20), 4) or 0.005
-
-def obtener_bajas_equipo(team_abbr, df_inj):
-    if df_inj.empty or not team_abbr: return ""
-    bajas = df_inj[df_inj['team'] == team_abbr]['injured_player'].tolist()
-    return f"🚑 OUT: {', '.join(bajas[:2])}{'...' if len(bajas) > 2 else ''}" if bajas else ""
-
-def construir_play(row, guion, analisis_dict, df_inj):
-    clave   = f"{row['player_name']}_{row['prop_type']}"
-    calidad = row.get('calidad', 'BUENA')
-    # Fallback enriquecido con datos clave — no solo proyección y edge
-    fallback = (
-        f"{emoji_calidad(calidad)} [{calidad}] {guion} {row['line']} {row['prop_type']} | "
-        f"Proy: {row['proj']} | Edge: +{round(row['edge'],1)}% | "
-        f"HR: {row.get('hr','')} | "
-        f"{'🏠 Local' if row.get('is_home',0)==1 else '✈️ Visitante'}"
-        f"{' | ⚠️ B2B' if row.get('is_b2b',0)==1 else ''}"
+    db_url = URL.create(
+        drivername="postgresql",
+        username="postgres.xxhdctrvjsngwbagamns",
+        password=password,
+        host="aws-1-sa-east-1.pooler.supabase.com",
+        port=6543,
+        database="postgres",
+        query={"sslmode": "require"},
     )
-    # Solo VIPs (JOYA/EXCELENTE) reciben análisis de IA
-    raw = analisis_dict.get(clave, fallback) if row.get('is_vip', False) else fallback
-    if isinstance(raw, dict):   raw = str(list(raw.values())[0]) if raw else fallback
-    elif isinstance(raw, list): raw = str(raw[0]) if raw else fallback
-    else:                       raw = str(raw)
+    return create_engine(db_url, pool_pre_ping=True)
 
-    odds_val = float(row['price'])
-    return {
-        "player_id": int(row.get('player_id', 0)) if pd.notnull(row.get('player_id')) else 0,
-        "player":    row['player_name'],
-        "team":      row['team_abbreviation'],
-        "type":      guion,
-        "prop":      row['prop_type'],
-        "line":      float(row['line']),
-        "odds":      odds_val,
-        "proj":      float(row['proj']),
-        "edge":      round(float(row['edge']), 1),
-        "analysis":  raw,
-        "calidad":   calidad,
-        "is_vip":    bool(row.get('is_vip', False)),
-        "safe_line": float(row.get('s_line', row['line'])),
-        "safe_odds": float(row.get('s_odds', row['price'])),
-        "safe_prob": float(row.get('s_prob', 0)),
-        "hit_rate":  row.get('hr', ""),
-        "injuries":  obtener_bajas_equipo(row['team_abbreviation'], df_inj),
-        "stake":     kelly_fraccional(float(row['edge']), odds_val),
-    }
 
-def armar_ticket(nombre, df_subset, tipo_guion, analisis_dict, df_inj):
-    plays = [construir_play(row, tipo_guion, analisis_dict, df_inj)
-             for _, row in df_subset.iterrows()]
-    return {
-        "name":       nombre,
-        "total_odds": round(math.prod([max(p['odds'], 1.01) for p in plays]), 2),
-        "plays":      plays,
-        "calidades":  [p['calidad'] for p in plays],
-    }
+# ============================================================
+# LOADERS
+# ============================================================
 
-def log(msg): print(f"   {msg}")
+def get_latest_run_id(engine) -> str:
+    q = text("""
+        SELECT run_id
+        FROM ludo_prop_predictions
+        GROUP BY run_id
+        ORDER BY MAX(created_at) DESC
+        LIMIT 1;
+    """)
+    with engine.begin() as conn:
+        run_id = conn.execute(q).scalar_one_or_none()
 
-# -------------------------------------------------------------------
-# 4. EXTRACCIÓN DE DATOS
-# -------------------------------------------------------------------
-def obtener_datos():
-    hoy_str = datetime.now().strftime('%Y-%m-%d')
-    print(f"\n{'='*60}")
-    print(f"📅 LUDO ENGINE — {hoy_str}")
-    print(f"{'='*60}")
+    if not run_id:
+        raise RuntimeError("No hay runs en ludo_prop_predictions.")
 
-    print("\n📡 PASO 1 — Líneas del día (Full Game + Q1)")
-    query_stats = "'PTS','REB','AST','3PT','PRA','PR','PA','RA','FGM','FGA','FG3A','FTM','FTA','Q1_PTS','Q1_REB','Q1_AST'"
-    df_odds = pd.read_sql(text(f"""
-        SELECT player_name, prop_type, matchup, line, over_price, under_price
-        FROM player_odds WHERE prop_type IN ({query_stats})
-    """), engine)
+    return str(run_id)
 
-    if df_odds.empty:
-        print("   ⚠️  Sin odds hoy. Abortando.")
-        return None, None, None, None
 
-    def get_abbr(m):
-        try:
-            parts = m.split(' @ ') if ' @ ' in m else m.split(' vs ')
-            return TEAM_MAP.get(parts[0], ''), TEAM_MAP.get(parts[1], '')
-        except: return '', ''
+def load_predictions(engine, run_id: str) -> pd.DataFrame:
+    q = text("""
+        SELECT *
+        FROM ludo_prop_predictions
+        WHERE run_id = :run_id
+        ORDER BY edge_score DESC NULLS LAST;
+    """)
+    df = pd.read_sql(q, engine, params={"run_id": run_id})
 
-    df_odds[['away_team','home_team']] = df_odds.apply(
-        lambda r: get_abbr(r['matchup']), axis=1, result_type='expand'
-    )
-    log(f"✅ {len(df_odds)} odds | {df_odds['matchup'].nunique()} partidos | {df_odds['prop_type'].nunique()} tipos de prop")
+    if df.empty:
+        raise RuntimeError(f"No hay predicciones para run_id={run_id}")
 
-    print("\n📊 PASO 2 — Historial (con shift(1) para alinear con el entrenamiento)")
-    df_logs = pd.read_sql(text("""
-        SELECT pgl.player_id, pgl.player_name, pgl.team_abbreviation, p.position, pgl.game_date,
-               pgl.min, pgl.usage_pct, pgl.touches, pgl.rebound_chances, pgl.potential_ast,
-               pgl.rebound_off, pgl.rebound_def, pgl.passes_made,
-               pgl.pts, pgl.reb, pgl.ast, pgl.fgm, pgl.fga, pgl.fg3a, pgl.fg3m, pgl.ftm, pgl.fta,
-               COALESCE(q1.q1_pts, 0) as q1_pts,
-               COALESCE(q1.q1_reb, 0) as q1_reb,
-               COALESCE(q1.q1_ast, 0) as q1_ast
-        FROM player_game_logs pgl
-        JOIN players p ON pgl.player_id = p.id
-        LEFT JOIN player_q1_stats q1
-            ON CAST(pgl.game_id AS INTEGER) = CAST(q1.game_id AS INTEGER)
-            AND pgl.player_id = q1.player_id
-        WHERE pgl.game_date >= '2025-10-01' AND pgl.min > 0
-        ORDER BY pgl.player_id ASC, pgl.game_date ASC
-    """), engine)
+    return df
 
-    if df_logs.empty:
-        print("   ⚠️  Sin historial. Abortando.")
-        return None, None, None, None
 
-    df_logs['game_date'] = pd.to_datetime(df_logs['game_date'])
-    cols_tracking = ['touches','rebound_chances','passes_made','potential_ast','rebound_off','rebound_def']
-    df_logs[cols_tracking] = df_logs[cols_tracking].fillna(0)
+def load_history(engine, player_ids: list[int]) -> pd.DataFrame:
+    if not player_ids:
+        return pd.DataFrame()
 
-    # ── FIX CRÍTICO: shift(1) — igual que en el entrenamiento ─────────
-    # Sin shift(1), las features incluyen el partido actual → distribución
-    # diferente a la que vio el modelo → predicciones sesgadas.
-    cols_to_roll = [
-        'min','usage_pct','touches','rebound_chances','passes_made',
-        'potential_ast','rebound_off','rebound_def',
-        'pts','reb','ast','fgm','fga','fg3m','fg3a','ftm','fta',
-        'q1_pts','q1_reb','q1_ast'
-    ]
-    for col in cols_to_roll:
-        df_logs[f'{col}_L5'] = df_logs.groupby('player_id')[col].transform(
-            lambda x: x.shift(1).rolling(5, min_periods=1).mean()
-        )
-        df_logs[f'{col}_L10'] = df_logs.groupby('player_id')[col].transform(
-            lambda x: x.shift(1).rolling(10, min_periods=1).mean()
-        )
-        df_logs[f'{col}_season'] = df_logs.groupby('player_id')[col].transform(
-            lambda x: x.shift(1).expanding(min_periods=1).mean()
-        )
+    q = text("""
+        SELECT
+            player_id,
+            player_name,
+            game_date,
+            game_id,
+            pts,
+            reb,
+            ast,
+            fg3m AS "3PT",
+            fgm,
+            fga,
+            fg3a,
+            ftm,
+            fta,
+            q1_pts,
+            q1_reb,
+            q1_ast
+        FROM v_ludo_train_model_ready
+        WHERE player_id = ANY(:player_ids)
+          AND game_date >= '2025-10-01'
+          AND min > 0
+        ORDER BY player_id, game_date, game_id;
+    """)
 
-    # Momentum = diferencia entre forma reciente y promedio de temporada
-    df_logs['pts_momentum']  = df_logs['pts_L5']  - df_logs['pts_season']
-    df_logs['reb_momentum']  = df_logs['reb_L5']  - df_logs['reb_season']
-    df_logs['ast_momentum']  = df_logs['ast_L5']  - df_logs['ast_season']
-    # Qué porcentaje del total de partido lo hace en el Q1
-    df_logs['q1_pts_pct_L5'] = np.where(df_logs['pts_L5'] > 0, df_logs['q1_pts_L5'] / df_logs['pts_L5'], 0)
-    df_logs['q1_reb_pct_L5'] = np.where(df_logs['reb_L5'] > 0, df_logs['q1_reb_L5'] / df_logs['reb_L5'], 0)
-    df_logs['q1_ast_pct_L5'] = np.where(df_logs['ast_L5'] > 0, df_logs['q1_ast_L5'] / df_logs['ast_L5'], 0)
+    df = pd.read_sql(q, engine, params={"player_ids": player_ids})
+    if df.empty:
+        return df
 
-    # ── df de hit rate separados: FG y Q1 no se mezclan nunca ─────────
-    df_hit_fg = df_logs.groupby('player_id').tail(10).copy()
-    df_hit_fg.rename(columns={
-        'pts':'PTS','reb':'REB','ast':'AST','fg3m':'3PT',
-        'fgm':'FGM','fga':'FGA','fg3a':'FG3A','ftm':'FTM','fta':'FTA'
-    }, inplace=True)
-    df_hit_fg['PRA'] = df_hit_fg['PTS'] + df_hit_fg['REB'] + df_hit_fg['AST']
-    df_hit_fg['PR']  = df_hit_fg['PTS'] + df_hit_fg['REB']
-    df_hit_fg['PA']  = df_hit_fg['PTS'] + df_hit_fg['AST']
-    df_hit_fg['RA']  = df_hit_fg['REB'] + df_hit_fg['AST']
+    df["game_date"] = pd.to_datetime(df["game_date"])
 
-    df_hit_q1 = df_logs.groupby('player_id').tail(10).copy()
-    df_hit_q1['Q1_PTS'] = df_hit_q1['q1_pts']
-    df_hit_q1['Q1_REB'] = df_hit_q1['q1_reb']
-    df_hit_q1['Q1_AST'] = df_hit_q1['q1_ast']
+    df["PTS"] = df["pts"]
+    df["REB"] = df["reb"]
+    df["AST"] = df["ast"]
 
-    # Stats actuales por jugador (último partido, con shift ya aplicado)
-    df_stats = df_logs.groupby('player_id').tail(1).copy()
-    df_stats['rest_days'] = (pd.to_datetime(hoy_str) - df_stats['game_date']).dt.days.clip(upper=7)
-    df_stats['is_b2b']    = (df_stats['rest_days'] <= 1).astype(int)
-    df_stats['pos_enc']   = df_stats['position'].map(POSICION_ENCODING).fillna(3)
-    df_stats['ppm_L5']    = np.where(df_stats['min_L5'] > 0, df_stats['pts_L5']  / df_stats['min_L5'], 0)
-    df_stats['fga_pm_L5'] = np.where(df_stats['min_L5'] > 0, df_stats['fga_L5']  / df_stats['min_L5'], 0)
-    df_stats['ast_pm_L5'] = np.where(df_stats['min_L5'] > 0, df_stats['ast_L5']  / df_stats['min_L5'], 0)
-    df_stats['reb_pm_L5'] = np.where(df_stats['min_L5'] > 0, df_stats['reb_L5']  / df_stats['min_L5'], 0)
-    df_stats = df_stats.fillna(0)
+    df["FGM"] = df["fgm"]
+    df["FGA"] = df["fga"]
+    df["FG3A"] = df["fg3a"]
+    df["FTM"] = df["ftm"]
+    df["FTA"] = df["fta"]
 
-    log(f"✅ {df_logs['player_id'].nunique()} jugadores | {len(df_logs)} registros históricos")
+    df["PRA"] = df["PTS"] + df["REB"] + df["AST"]
+    df["PR"] = df["PTS"] + df["REB"]
+    df["PA"] = df["PTS"] + df["AST"]
+    df["RA"] = df["REB"] + df["AST"]
 
-    print("\n🛡️  PASO 3 — DvP, Lesiones y Cruce")
-    df_dvp = pd.read_sql(
-        "SELECT team, position, pts_allowed as dvp_pts, reb_allowed as dvp_reb, "
-        "ast_allowed as dvp_ast, threes_allow as dvp_3pt FROM team_dvp", engine
-    )
-    df_inj = pd.read_sql(
-        "SELECT team, player_name as injured_player, position as inj_position "
-        "FROM player_injuries WHERE status ILIKE '%%out%%'", engine
-    )
+    df["Q1_PTS"] = df["q1_pts"]
+    df["Q1_REB"] = df["q1_reb"]
+    df["Q1_AST"] = df["q1_ast"]
 
-    df_cruce = pd.merge(df_odds, df_stats, on='player_name', how='inner')
-    mask_ok  = (df_cruce['team_abbreviation'] == df_cruce['home_team']) | \
-               (df_cruce['team_abbreviation'] == df_cruce['away_team'])
-    df_cruce = df_cruce[mask_ok].copy()
-    df_cruce['is_home'] = (df_cruce['team_abbreviation'] == df_cruce['home_team']).astype(int)
-    df_cruce['opp']     = df_cruce.apply(
-        lambda r: r['home_team'] if r['is_home'] == 0 else r['away_team'], axis=1
-    )
-    df_cruce = pd.merge(df_cruce, df_dvp, left_on=['opp','position'],
-                        right_on=['team','position'], how='left').fillna(0)
-    log(f"✅ {len(df_cruce)} props cruzadas con historial")
+    return df
 
-    return df_cruce, (df_hit_fg, df_hit_q1), df_inj, df_odds
 
-# -------------------------------------------------------------------
-# 5. MOTOR CENTRAL
-# -------------------------------------------------------------------
-def ludo_engine(df_cruce, logs_tuple, df_inj, df_odds_raw):
-    if df_cruce is None or df_cruce.empty: return
-    df_cruce = df_cruce.copy()
-    df_hit_fg, df_hit_q1 = logs_tuple
+# ============================================================
+# BASIC HELPERS
+# ============================================================
 
-    # ── Efecto Dominó por posición ────────────────────────────────────
-    print("\n🚑 PASO 4 — Efecto Dominó (ajuste por bajas)")
-    n_bajas = 0
-    for team in df_inj['team'].unique():
-        bajas_team = df_inj[df_inj['team'] == team]
-        mask_sanos = df_cruce['team_abbreviation'] == team
-        if df_cruce[mask_sanos].empty: continue
-        for idx_j, jugador in df_cruce[mask_sanos].iterrows():
-            pos_j   = str(jugador.get('position','G')).split('-')[0]
-            mult_ac = 1.0
-            for _, baja in bajas_team.iterrows():
-                pos_b   = str(baja.get('inj_position','G')).split('-')[0]
-                mult_ac *= POSICION_BUMP.get(pos_b, POSICION_BUMP['G']).get(pos_j, 1.05)
-            mult = min(mult_ac, 1.25)
-            for col in ['usage_pct_L5','usage_pct_L10','fga_L5','fga_L10',
-                        'fg3a_L5','fta_L5','touches_L5','potential_ast_L5']:
-                if col in df_cruce.columns:
-                    v = df_cruce.at[idx_j, col] * mult
-                    df_cruce.at[idx_j, col] = min(v, 100.0) if 'pct' in col else v
-            n_bajas += 1
-    log(f"✅ {len(df_inj)} bajas procesadas → ajuste aplicado a {n_bajas} filas")
+def market_family(prop: str) -> str:
+    prop = str(prop)
 
-    # ── XGBoost ───────────────────────────────────────────────────────
-    print("\n🧠 PASO 5 — Predicciones XGBoost")
-    mercados = {
-        'PTS':'puntos','REB':'rebotes','AST':'asistencias','3PT':'triples',
-        'FGM':'tiros_anotados','FGA':'tiros_intentados','FG3A':'triples_intentados',
-        'FTM':'libres_anotados','FTA':'libres_intentados',
-        'Q1_PTS':'q1_puntos','Q1_REB':'q1_rebotes','Q1_AST':'q1_asistencias'
-    }
-    models = {k: joblib.load(f'modelos_ai/ludogallina_{v}.pkl') for k, v in mercados.items()}
+    if prop in {"PTS", "REB", "AST", "PRA", "PR", "PA", "RA", "3PT"}:
+        return "MAIN"
 
-    for k, m in models.items():
-        cols = [c for c in FEATURES.get(k,[]) if c in df_cruce.columns]
-        df_cruce[f'pred_{k.lower()}'] = np.nan
-        mask = df_cruce[cols].notnull().all(axis=1) if cols else pd.Series(False, index=df_cruce.index)
-        if mask.any():
-            df_cruce.loc[mask, f'pred_{k.lower()}'] = m.predict(df_cruce.loc[mask, cols])
+    if prop in {"FGM", "FGA", "FG3A", "FTM", "FTA"}:
+        return "TECH"
 
-    def get_proj(r):
-        p = r['prop_type']
-        g = lambda x: r.get(f'pred_{x}',0) or 0
-        if p in mercados: return g(p.lower())
-        if p == 'PRA': return g('pts') + g('reb') + g('ast')
-        if p == 'PR':  return g('pts') + g('reb')
-        if p == 'PA':  return g('pts') + g('ast')
-        if p == 'RA':  return g('reb') + g('ast')
-        return 0
+    if prop in {"Q1_PTS", "Q1_REB", "Q1_AST"}:
+        return "Q1"
 
-    df_cruce['proj']    = df_cruce.apply(get_proj, axis=1).round(1)
-    df_cruce['diff']    = df_cruce['proj'] - df_cruce['line']
-    df_cruce['diff_abs']= df_cruce['diff'].abs()
-    df_cruce['edge']    = (df_cruce['diff_abs'] / df_cruce['line'].replace(0, np.nan)) * 100
-    df_cruce['price']   = df_cruce.apply(lambda r: r['over_price'] if r['diff'] > 0 else r['under_price'], axis=1)
-    df_cruce['is_over'] = df_cruce['diff'] > 0
-    df_cruce['is_q1']   = df_cruce['prop_type'].str.startswith('Q1_')
-    log(f"✅ {len(df_cruce)} proyecciones generadas")
+    return "OTHER"
 
-    # ── Filtro 1: Minutos mínimos por tipo ────────────────────────────
-    print("\n🔍 PASO 6 — Filtros de calidad")
-    n_antes = len(df_cruce)
-    # ── Filtro 1: Minutos mínimos por tipo ────────────────────────────
-    # FG: 15 min (bajamos de 18 para no perder jugadores de rol importantes)
-    # Q1: 10 min (cualquier rotación válida puede tener stats de Q1)
-    n_antes = len(df_cruce)
-    mask_fg_min = (~df_cruce['is_q1']) & (df_cruce['min_L5'] >= 15.0)
-    mask_q1_min = ( df_cruce['is_q1']) & (df_cruce['min_L5'] >= 10.0)
-    df_cruce = df_cruce[mask_fg_min | mask_q1_min].copy()
-    log(f"Filtro minutos: {n_antes} → {len(df_cruce)} props ({n_antes - len(df_cruce)} eliminados)")
 
-    # ── Filtro 2: MAE como piso mínimo de credibilidad (50% del MAE) ──
-    # Usamos el 50% del MAE como umbral — no el MAE completo.
-    # Razón: el MAE completo (ej: 4.81 en PTS) es demasiado estricto y
-    # elimina picks reales. El 50% asegura que el edge supera el ruido
-    # del modelo pero sin ser tan agresivo.
-    # Combinado con el hit rate, esto da el balance correcto.
-    n_antes = len(df_cruce)
-    df_cruce['mae'] = df_cruce['prop_type'].map(MAE_DICT).fillna(2.0)
-    df_cruce = df_cruce[df_cruce['diff_abs'] >= (df_cruce['mae'] * 0.5)].copy()
-    log(f"Filtro MAE×0.5: {n_antes} → {len(df_cruce)} props ({n_antes - len(df_cruce)} eliminados)")
+def as_float(value, default: float = 0.0) -> float:
+    try:
+        if pd.isna(value):
+            return default
+        return float(value)
+    except Exception:
+        return default
 
-    # ── Hit Rate con df separados FG/Q1 ──────────────────────────────
-    def get_hr(r):
-        prop, player, is_over = r['prop_type'], r['player_name'], r['is_over']
-        hit_df = df_hit_q1 if r['is_q1'] else df_hit_fg
-        logs   = hit_df[hit_df['player_name'] == player]
-        l5     = logs.tail(5)
-        n10, n5 = max(len(logs), 1), max(len(l5), 1)
 
-        # Línea segura (línea alternativa más conservadora del mismo jugador/prop)
-        alts  = df_odds_raw[(df_odds_raw['player_name'] == player) & (df_odds_raw['prop_type'] == prop)]
-        safer = alts[alts['line'] < r['line']] if is_over else alts[alts['line'] > r['line']]
-        if not safer.empty:
-            best   = safer.loc[safer['line'].idxmin() if is_over else safer['line'].idxmax()]
-            s_line = best['line']
-            s_odds = best['over_price'] if is_over else best['under_price']
-        else:
-            s_line, s_odds = r['line'], r['price']
+def as_int(value, default: int = 0) -> int:
+    try:
+        if pd.isna(value):
+            return default
+        return int(value)
+    except Exception:
+        return default
 
-        if prop in logs.columns:
-            h5  = int((l5[prop]   > s_line).sum() if is_over else (l5[prop]   < s_line).sum())
-            h10 = int((logs[prop] > s_line).sum() if is_over else (logs[prop] < s_line).sum())
-        else:
-            h5, h10 = 0, 0
 
+def get_run_date(preds: pd.DataFrame) -> str:
+    if "created_at" in preds.columns and preds["created_at"].notna().any():
+        dt = pd.to_datetime(preds["created_at"], errors="coerce").max()
+        if pd.notna(dt):
+            return dt.strftime("%Y-%m-%d")
+    return pd.Timestamp.now().strftime("%Y-%m-%d")
+
+
+# ============================================================
+# HIT RATE
+# ============================================================
+
+def calc_hit_rate_for_row(row, hist: pd.DataFrame) -> pd.Series:
+    player_id = row["player_id"]
+    prop = str(row["prop_type"])
+    side = str(row["side"])
+    line = as_float(row["line"])
+
+    h = hist[hist["player_id"] == player_id].copy()
+    if h.empty or prop not in h.columns:
         return pd.Series({
-            's_line': s_line, 's_odds': s_odds,
-            's_prob': round((h10 / n10) * 100, 1),
-            'hr': f"{h5}/{n5} | {h10}/{n10}",
-            'hit_count_l5': h5, 'hit_count_l10': h10,
-            'n_l5': n5, 'n_l10': n10,
-            'calidad': clasificar_linea(h5, n5, h10, n10),
+            "hit_l5": 0,
+            "n_l5": 0,
+            "hit_l10": 0,
+            "n_l10": 0,
+            "hr_l5": 0.0,
+            "hr_l10": 0.0,
+            "hr_text": "0/0 | 0/0",
         })
 
-    df_cruce[['s_line','s_odds','s_prob','hr','hit_count_l5','hit_count_l10','n_l5','n_l10','calidad']] = \
-        df_cruce.apply(get_hr, axis=1)
+    h = h.sort_values(["game_date", "game_id"]).tail(10)
+    last5 = h.tail(5)
 
-    # ── Filtro 3: descartar BASURA ────────────────────────────────────
-    n_antes = len(df_cruce)
-    df_cruce = df_cruce[df_cruce['calidad'] != 'BASURA'].copy()
-    log(f"Filtro calidad: {n_antes} → {len(df_cruce)} props ({n_antes - len(df_cruce)} eliminados)")
+    values10 = pd.to_numeric(h[prop], errors="coerce").dropna()
+    values5 = pd.to_numeric(last5[prop], errors="coerce").dropna()
 
-    if df_cruce.empty:
-        print("\n⚠️  Sin picks de calidad hoy. Mejor no apostar.")
+    if side == "OVER":
+        hit10 = int((values10 > line).sum())
+        hit5 = int((values5 > line).sum())
+    else:
+        hit10 = int((values10 < line).sum())
+        hit5 = int((values5 < line).sum())
+
+    n10 = int(len(values10))
+    n5 = int(len(values5))
+
+    hr10 = hit10 / n10 if n10 else 0.0
+    hr5 = hit5 / n5 if n5 else 0.0
+
+    return pd.Series({
+        "hit_l5": hit5,
+        "n_l5": n5,
+        "hit_l10": hit10,
+        "n_l10": n10,
+        "hr_l5": hr5,
+        "hr_l10": hr10,
+        "hr_text": f"{hit5}/{n5} | {hit10}/{n10}",
+    })
+
+
+# ============================================================
+# QUALITY
+# ============================================================
+
+def line_min_ok(row) -> bool:
+    prop = str(row["prop_type"])
+    line = as_float(row["line"])
+
+    min_lines = {
+        "PTS": 5.5,
+        "PRA": 8.5,
+        "PR": 7.5,
+        "PA": 7.5,
+        "RA": 3.5,
+        "REB": 1.5,
+        "AST": 1.5,
+        "3PT": 0.5,
+
+        "FGA": 3.5,
+        "FGM": 1.5,
+        "FG3A": 1.5,
+        "FTA": 0.5,
+        "FTM": 0.5,
+
+        "Q1_PTS": 1.5,
+        "Q1_REB": 0.5,
+        "Q1_AST": 0.5,
+    }
+
+    return line >= min_lines.get(prop, 1.5)
+
+
+def is_micro_line(row) -> bool:
+    prop = str(row["prop_type"])
+    line = as_float(row["line"])
+
+    if prop in {"PTS", "PRA", "PR", "PA", "RA"} and line < 5.5:
+        return True
+    if prop in {"REB", "AST", "Q1_PTS"} and line <= 0.5:
+        return True
+    if prop in {"FTA", "FTM"} and line <= 0.5:
+        return True
+    if prop in {"FGM", "FGA"} and line <= 1.5:
+        return True
+
+    return bool(row.get("micro_line", False))
+
+
+def is_consistency_joya(row) -> bool:
+    """
+    JOYA por consistencia:
+    Permitida aunque falte tracking si el historial contra línea es elite.
+    """
+    edge_score = as_float(row.get("edge_score"))
+    hr5 = as_float(row.get("hr_l5"))
+    hr10 = as_float(row.get("hr_l10"))
+    price = as_float(row.get("price"))
+
+    return (
+        hr5 >= 1.00
+        and hr10 >= 0.90
+        and edge_score >= 1.50
+        and price >= 1.28
+        and not bool(row.get("micro_line_final", False))
+        and bool(row.get("line_min_ok", False))
+    )
+
+
+def classify_pick(row) -> str:
+    edge_score = as_float(row.get("edge_score"))
+    hit_l5 = as_int(row.get("hit_l5"))
+    hit_l10 = as_int(row.get("hit_l10"))
+    n10 = as_int(row.get("n_l10"))
+    price = as_float(row.get("price"))
+
+    if n10 < 5:
+        return "DESCARTAR"
+
+    if not bool(row.get("candidate_basic", False)):
+        return "DESCARTAR"
+
+    if not bool(row.get("line_min_ok", False)) and not bool(row.get("micro_line_final", False)):
+        return "DESCARTAR"
+
+    # Micro-líneas: no son picks principales. Quedan para auditoría, no para tickets.
+    if bool(row.get("micro_line_final", False)):
+        if edge_score >= 1.35 and price >= 1.45 and hit_l5 >= 4 and hit_l10 >= 7:
+            return "RADAR"
+        return "DESCARTAR"
+
+    # JOYA por consistencia: 5/5 y 9/10+ aunque falte tracking.
+    if is_consistency_joya(row):
+        return "JOYA"
+
+    # JOYA normal: muy estricta.
+    if edge_score >= 1.80 and price >= 1.35 and hit_l5 >= 4 and hit_l10 >= 8:
+        return "JOYA"
+
+    # EXCELENTE: ya no permite 3/5 + 7/10.
+    if edge_score >= 1.35 and price >= 1.28 and (
+        (hit_l5 >= 4 and hit_l10 >= 7)
+        or (hit_l5 >= 3 and hit_l10 >= 9)
+    ):
+        return "EXCELENTE"
+
+    # BUENA: usable para VALUE, pero sin 3/5 + 6/10.
+    if edge_score >= 1.10 and price >= 1.28 and (
+        (hit_l5 >= 3 and hit_l10 >= 7)
+        or (hit_l5 >= 4 and hit_l10 >= 6)
+    ):
+        return "BUENA"
+
+    # RADAR: fuerte enough para auditoría, pero no se muestra como ticket por defecto.
+    if edge_score >= 0.90 and price >= 1.25 and (
+        (hit_l5 >= 3 and hit_l10 >= 7)
+        or (hit_l5 >= 4 and hit_l10 >= 6)
+    ):
+        return "RADAR"
+
+    return "DESCARTAR"
+
+
+
+def downgrade_quality(quality: str, max_quality: str) -> str:
+    if QUALITY_ORDER.get(quality, 0) > QUALITY_ORDER.get(max_quality, 0):
+        return max_quality
+    return quality
+
+
+def apply_penalties(row) -> str:
+    quality = str(row["quality"])
+
+    if quality == "DESCARTAR":
+        return quality
+
+    prop = str(row["prop_type"])
+    model_key = str(row.get("model_key") or "")
+    tracking = str(row.get("tracking_status") or "")
+    edge_score = as_float(row.get("edge_score"))
+    price = as_float(row.get("price"))
+    consistency_joya = bool(row.get("consistency_joya", False))
+
+    if not consistency_joya:
+        if price < 1.35:
+            quality = downgrade_quality(quality, "EXCELENTE")
+        if price < 1.28:
+            quality = downgrade_quality(quality, "BUENA")
+
+    if prop == "AST" and model_key == "AST_FALLBACK" and not consistency_joya:
+        quality = downgrade_quality(quality, "EXCELENTE")
+        if edge_score < 1.50:
+            quality = downgrade_quality(quality, "BUENA")
+
+    if tracking in {"TRACKING_FALTANTE_TOTAL", "POTENTIAL_AST_FALTANTE"} and not consistency_joya:
+        quality = downgrade_quality(quality, "EXCELENTE")
+
+    tracking_sensitive = {"AST", "PA", "RA", "PRA", "REB", "FGA"}
+    if prop in tracking_sensitive and tracking == "TRACKING_FALTANTE_TOTAL" and not consistency_joya:
+        if edge_score < 1.70:
+            quality = downgrade_quality(quality, "BUENA")
+        else:
+            quality = downgrade_quality(quality, "EXCELENTE")
+
+    return quality
+
+
+def add_quality(df: pd.DataFrame) -> pd.DataFrame:
+    out = df.copy()
+
+    numeric_cols = [
+        "edge_score", "line", "price", "proj", "diff", "diff_abs",
+        "model_mae", "min_l5", "edge_pct", "hr_l5", "hr_l10",
+        "hit_l5", "hit_l10", "n_l5", "n_l10",
+    ]
+
+    for col in numeric_cols:
+        if col in out.columns:
+            out[col] = pd.to_numeric(out[col], errors="coerce")
+
+    out["market_family"] = out["prop_type"].apply(market_family)
+    out["micro_line_final"] = out.apply(is_micro_line, axis=1)
+    out["line_min_ok"] = out.apply(line_min_ok, axis=1)
+
+    out["consistency_joya"] = out.apply(is_consistency_joya, axis=1)
+    out["quality"] = out.apply(classify_pick, axis=1)
+    out["quality"] = out.apply(apply_penalties, axis=1)
+    out["quality_ord"] = out["quality"].map(QUALITY_ORDER).fillna(0).astype(int)
+
+    out["bucket"] = np.select(
+        [
+            out["quality"] == "DESCARTAR",
+            out["micro_line_final"],
+            out["quality"].isin(["JOYA", "EXCELENTE"]),
+            out["quality"].isin(["BUENA", "RADAR"]),
+        ],
+        [
+            "DESCARTADO",
+            "MICRO_LINE",
+            "MAIN",
+            "RADAR",
+        ],
+        default="DESCARTADO",
+    )
+
+    return out
+
+
+# ============================================================
+# DEDUPE
+# ============================================================
+
+def dedupe_alternatives(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Deja una sola alternativa por jugador + prop + lado.
+
+    Cambio v4.3:
+    - Para picks fuertes prioriza seguridad real de línea:
+      OVER = línea más baja disponible.
+      UNDER = línea más alta disponible.
+    - Después mira edge/score/cuota.
+    Esto evita elegir una línea más agresiva solo porque paga más.
+    """
+    out = df.copy()
+
+    out["line_safety_sort"] = np.where(
+        out["side"].astype(str).str.upper() == "OVER",
+        -pd.to_numeric(out["line"], errors="coerce"),
+        pd.to_numeric(out["line"], errors="coerce"),
+    )
+
+    out = out.sort_values(
+        [
+            "quality_ord",
+            "consistency_joya",
+            "hit_l5",
+            "hit_l10",
+            "hr_l5",
+            "hr_l10",
+            "edge_score",
+            "line_safety_sort",
+            "price",
+            "diff_abs",
+        ],
+        ascending=[False, False, False, False, False, False, False, False, False, False],
+    ).drop_duplicates(
+        subset=["player_id", "prop_type", "side"],
+        keep="first",
+    ).copy()
+
+    return out
+
+
+# ============================================================
+# FILTRO TEMPORAL DE VISIBILIDAD
+# ============================================================
+
+def apply_visibility_filter(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Filtro de visibilidad v4.4.
+
+    No cambia las predicciones ni la auditoría base: solo evita que salgan
+    en tickets cosas flojas tipo 3/5 + 6/10 o mercados sensibles con tracking incompleto.
+    """
+    out = df.copy()
+
+    sensitive_props = {"AST", "REB", "PRA", "PR", "PA", "RA", "FGA"}
+    bad_tracking = {"TRACKING_FALTANTE_TOTAL", "POTENTIAL_AST_FALTANTE"}
+
+    for col in ["hit_l5", "hit_l10", "hr_l5", "hr_l10", "edge_score"]:
+        if col in out.columns:
+            out[col] = pd.to_numeric(out[col], errors="coerce").fillna(0)
+
+    active = out["quality"] != "DESCARTAR"
+
+    # Nada visible con menos de 3 aciertos en L5.
+    weak_l5 = active & (out["hit_l5"] < 3)
+
+    # Radar/Buena mínimo: 3/5 + 7/10, o 4/5 aunque L10 sea menor.
+    radar_like = active & out["quality"].isin(["BUENA", "RADAR"])
+    radar_ok = (
+        ((out["hit_l5"] >= 3) & (out["hit_l10"] >= 7))
+        | (out["hit_l5"] >= 4)
+    )
+    weak_radar = radar_like & (~radar_ok)
+
+    # Props sensibles con tracking incompleto: pedir base fuerte.
+    tracking_status = out["tracking_status"].fillna("").astype(str)
+    prop_type = out["prop_type"].fillna("").astype(str)
+
+    sensitive_missing_tracking = (
+        active
+        & prop_type.isin(sensitive_props)
+        & tracking_status.isin(bad_tracking)
+    )
+    sensitive_ok = (
+        (out["hit_l5"] >= 4)
+        & (out["hit_l10"] >= 8)
+        & (out["edge_score"] >= 1.20)
+    )
+    weak_sensitive = sensitive_missing_tracking & (~sensitive_ok)
+
+    to_discard = weak_l5 | weak_radar | weak_sensitive
+
+    out.loc[to_discard, "quality"] = "DESCARTAR"
+    out.loc[to_discard, "quality_ord"] = 0
+    out.loc[to_discard, "bucket"] = "DESCARTADO"
+
+    return out
+
+
+# ============================================================
+# TICKETS
+# ============================================================
+
+def quality_badge(quality: str) -> str:
+    return EMOJI.get(str(quality), "📊")
+
+
+def play_to_dict(row) -> dict:
+    quality = str(row["quality"])
+    emoji = quality_badge(quality)
+
+    edge_score = round(as_float(row.get("edge_score")), 2)
+    edge_pct = round(as_float(row.get("edge_pct")), 1) if pd.notna(row.get("edge_pct")) else None
+
+    analysis = (
+        f"{emoji} [{quality}] {row['side']} {row['line']} {row['prop_type']} | "
+        f"Proy {round(as_float(row['proj']), 2)} | "
+        f"Diff {round(as_float(row['diff']), 2)} | "
+        f"Score {edge_score} | "
+        f"HR {row['hr_text']} | "
+        f"{'Local' if as_int(row.get('is_home')) == 1 else 'Visitante'}"
+    )
+
+    return {
+        "player_id": as_int(row.get("player_id"), default=0),
+        "player": row["player_name"],
+        "team": row["team_abbreviation"],
+        "matchup": row["matchup"],
+        "type": row["side"],
+        "prop": row["prop_type"],
+        "family": row.get("market_family", market_family(row["prop_type"])),
+        "line": as_float(row["line"]),
+        "odds": as_float(row["price"]),
+        "proj": round(as_float(row["proj"]), 2),
+        "diff": round(as_float(row["diff"]), 2),
+        "edge": edge_score,
+        "edge_score": edge_score,
+        "edge_pct": edge_pct,
+        "quality": quality,
+        "calidad": quality,
+        "is_vip": quality in {"JOYA", "EXCELENTE"},
+        "hit_rate": row["hr_text"],
+        "micro_line": bool(row.get("micro_line_final", False)),
+        "consistency_joya": bool(row.get("consistency_joya", False)),
+        "tracking_status": row.get("tracking_status"),
+        "model_key": row.get("model_key"),
+        "safe_line": as_float(row["line"]),
+        "safe_odds": as_float(row["price"]),
+        "safe_prob": round(as_float(row.get("hr_l10")) * 100, 1),
+        "stake": 0.01,
+        "analysis": analysis,
+    }
+
+
+def make_ticket(name: str, rows: pd.DataFrame) -> dict:
+    plays = [play_to_dict(r) for _, r in rows.iterrows()]
+    total_odds = math.prod([max(as_float(p["odds"], 1.01), 1.01) for p in plays])
+
+    sides = sorted({str(p.get("type", "")) for p in plays if p.get("type")})
+    families = sorted({str(p.get("family", "")) for p in plays if p.get("family")})
+
+    return {
+        "name": name,
+        "side": sides[0] if len(sides) == 1 else "MIX",
+        "family": families[0] if len(families) == 1 else "MIX",
+        "total_odds": round(total_odds, 2),
+        "pick_count": len(plays),
+        "plays": plays,
+        "calidades": [p["quality"] for p in plays],
+    }
+
+
+def sort_for_ticket(rows: pd.DataFrame) -> pd.DataFrame:
+    if rows.empty:
+        return rows.copy()
+
+    return rows.sort_values(
+        ["quality_ord", "consistency_joya", "edge_score", "hr_l10", "hr_l5", "price"],
+        ascending=[False, False, False, False, False, False],
+    )
+
+
+def pick_unique(rows: pd.DataFrame, n: int, used_players: Optional[set] = None) -> pd.DataFrame:
+    """
+    Selecciona hasta n picks sin repetir jugador dentro del mismo ticket.
+    """
+    if used_players is None:
+        used_players = set()
+
+    if rows.empty or n <= 0:
+        return rows.iloc[0:0].copy()
+
+    rows = sort_for_ticket(rows)
+    picked = []
+    local_used = set(used_players)
+
+    for _, r in rows.iterrows():
+        pid = r.get("player_id")
+        if pid in local_used:
+            continue
+        picked.append(r)
+        local_used.add(pid)
+        if len(picked) >= n:
+            break
+
+    if not picked:
+        return rows.iloc[0:0].copy()
+
+    return pd.DataFrame(picked)
+
+
+def ticket_pool(
+    df: pd.DataFrame,
+    matchup: Optional[str] = None,
+    side: Optional[str] = None,
+    family: Optional[str] = None,
+) -> pd.DataFrame:
+    g = df.copy()
+
+    if matchup is not None:
+        g = g[g["matchup"] == matchup].copy()
+
+    if side is not None:
+        g = g[g["side"] == side].copy()
+
+    if family is not None:
+        g = g[g["market_family"] == family].copy()
+
+    g = g[
+        (g["quality"] != "DESCARTAR")
+        & (~g["micro_line_final"])
+        & (g["line_min_ok"])
+    ].copy()
+
+    return g
+
+
+def pool_main_principal(df: pd.DataFrame, matchup: Optional[str] = None, side: Optional[str] = None) -> pd.DataFrame:
+    """
+    FULL GAME PRINCIPAL X2.
+    Ultra estricto: 4/5 o 5/5 + mínimo 8/10.
+    """
+    g = ticket_pool(df, matchup=matchup, side=side, family="MAIN")
+    return g[
+        (g["quality"].isin(["JOYA", "EXCELENTE"]))
+        & (g["edge_score"] >= 1.25)
+        & (g["hit_l5"] >= 4)
+        & (g["hit_l10"] >= 8)
+        & (g["price"] >= 1.28)
+    ].copy()
+
+
+def pool_main_secondary(df: pd.DataFrame, matchup: Optional[str] = None, side: Optional[str] = None) -> pd.DataFrame:
+    """
+    FULL GAME SECUNDARIO X2.
+    Estricto, pero no tanto como principal: 4/5 + 7/10 mínimo.
+    """
+    g = ticket_pool(df, matchup=matchup, side=side, family="MAIN")
+    return g[
+        (g["quality"].isin(["JOYA", "EXCELENTE", "BUENA"]))
+        & (g["edge_score"] >= 1.10)
+        & (g["hit_l5"] >= 4)
+        & (g["hit_l10"] >= 7)
+        & (g["price"] >= 1.28)
+    ].copy()
+
+
+def pool_main_value(df: pd.DataFrame, matchup: Optional[str] = None, side: Optional[str] = None) -> pd.DataFrame:
+    """
+    FULL GAME VALUE X2 / combinadas.
+    Moderado, pero sin 3/5 + 6/10.
+    """
+    g = ticket_pool(df, matchup=matchup, side=side, family="MAIN")
+    return g[
+        (g["quality"].isin(["JOYA", "EXCELENTE", "BUENA", "RADAR"]))
+        & (g["edge_score"] >= 0.95)
+        & (g["price"] >= 1.25)
+        & (
+            ((g["hit_l5"] >= 3) & (g["hit_l10"] >= 8))
+            | ((g["hit_l5"] >= 4) & (g["hit_l10"] >= 6))
+        )
+    ].copy()
+
+
+def pool_main_combo(df: pd.DataFrame, matchup: Optional[str] = None, side: Optional[str] = None) -> pd.DataFrame:
+    """
+    FULL GAME combinadas/mega. Misma base de value, pero se usa con menor prioridad.
+    """
+    return pool_main_value(df, matchup=matchup, side=side)
+
+
+def pool_tech_x2(df: pd.DataFrame, matchup: Optional[str] = None, side: Optional[str] = None) -> pd.DataFrame:
+    """
+    TECH X2: FGM/FGA/FG3A/FTM/FTA.
+    Sin 3/5 + 6/10.
+    """
+    g = ticket_pool(df, matchup=matchup, side=side, family="TECH")
+    return g[
+        (g["quality"].isin(["JOYA", "EXCELENTE", "BUENA", "RADAR"]))
+        & (g["edge_score"] >= 0.90)
+        & (g["price"] >= 1.30)
+        & (
+            ((g["hit_l5"] >= 3) & (g["hit_l10"] >= 7))
+            | (g["hit_l5"] >= 4)
+        )
+    ].copy()
+
+
+def pool_tech_value(df: pd.DataFrame, matchup: Optional[str] = None, side: Optional[str] = None) -> pd.DataFrame:
+    g = ticket_pool(df, matchup=matchup, side=side, family="TECH")
+    return g[
+        (g["quality"].isin(["JOYA", "EXCELENTE", "BUENA", "RADAR"]))
+        & (g["edge_score"] >= 0.85)
+        & (g["price"] >= 1.25)
+        & (
+            ((g["hit_l5"] >= 3) & (g["hit_l10"] >= 7))
+            | (g["hit_l5"] >= 4)
+        )
+    ].copy()
+
+
+def pool_q1_x2(df: pd.DataFrame, matchup: Optional[str] = None, side: Optional[str] = None) -> pd.DataFrame:
+    """
+    1Q X2. Sin 3/5 + 6/10.
+    """
+    g = ticket_pool(df, matchup=matchup, side=side, family="Q1")
+    return g[
+        (g["quality"].isin(["JOYA", "EXCELENTE", "BUENA", "RADAR"]))
+        & (g["edge_score"] >= 0.85)
+        & (g["price"] >= 1.35)
+        & (
+            ((g["hit_l5"] >= 3) & (g["hit_l10"] >= 7))
+            | (g["hit_l5"] >= 4)
+        )
+    ].copy()
+
+
+def pool_q1_value(df: pd.DataFrame, matchup: Optional[str] = None, side: Optional[str] = None) -> pd.DataFrame:
+    g = ticket_pool(df, matchup=matchup, side=side, family="Q1")
+    return g[
+        (g["quality"].isin(["JOYA", "EXCELENTE", "BUENA", "RADAR"]))
+        & (g["edge_score"] >= 0.80)
+        & (g["price"] >= 1.30)
+        & (
+            ((g["hit_l5"] >= 3) & (g["hit_l10"] >= 7))
+            | (g["hit_l5"] >= 4)
+        )
+    ].copy()
+
+def add_ticket_if_enough(tickets: list, name: str, rows: pd.DataFrame, min_len: int, max_len: int) -> None:
+    """
+    No genera singles. min_len debe ser 2 o más salvo que explícitamente quieras otra cosa.
+    """
+    picked = pick_unique(rows, max_len)
+    if len(picked) >= min_len:
+        tickets.append(make_ticket(name.replace("{n}", str(len(picked))), picked))
+
+
+def build_global_tickets(df: pd.DataFrame, run_date: str) -> list[dict]:
+    tickets = []
+
+    # MAIN
+    add_ticket_if_enough(tickets, "💎 FULL GAME FIJOS DEL DÍA X{n}", pool_main_principal(df), 2, 5)
+    add_ticket_if_enough(tickets, "🔥 MAIN OVERS X{n}", pool_main_value(df, side="OVER"), 2, 5)
+    add_ticket_if_enough(tickets, "🧊 MAIN UNDERS X{n}", pool_main_value(df, side="UNDER"), 2, 5)
+    add_ticket_if_enough(tickets, "🤯 MAIN MEGA OVERS X{n}", pool_main_combo(df, side="OVER"), 8, 10)
+    add_ticket_if_enough(tickets, "🥶 MAIN MEGA UNDERS X{n}", pool_main_combo(df, side="UNDER"), 8, 10)
+
+    # TECH
+    add_ticket_if_enough(tickets, "🎯 TÉCNICOS X2 DEL DÍA", pool_tech_x2(df), 2, 2)
+    add_ticket_if_enough(tickets, "🎯 TÉCNICOS VALUE X{n}", pool_tech_value(df), 3, 5)
+    add_ticket_if_enough(tickets, "🎯 TÉCNICOS AMPLIADA X{n}", pool_tech_value(df), 6, 10)
+
+    # Q1
+    add_ticket_if_enough(tickets, "⏱️ 1Q X2 DEL DÍA", pool_q1_x2(df), 2, 2)
+    add_ticket_if_enough(tickets, "⏱️ 1Q VALUE X{n}", pool_q1_value(df), 3, 5)
+    add_ticket_if_enough(tickets, "⏱️ 1Q AMPLIADA X{n}", pool_q1_value(df), 5, 8)
+
+    # Mixta value global.
+    mixed = pd.concat([
+        pool_main_value(df),
+        pool_tech_x2(df),
+        pool_q1_x2(df),
+    ], ignore_index=True)
+    add_ticket_if_enough(tickets, "🧨 MIXTA VALUE DEL DÍA X{n}", mixed, 5, 5)
+
+    # Radar global.
+    radar = df[
+        (df["quality"].isin(["BUENA", "RADAR"]))
+        & (~df["micro_line_final"])
+        & (df["line_min_ok"])
+    ].copy()
+    add_ticket_if_enough(tickets, "📊 RADAR GLOBAL X{n}", radar, 3, 10)
+
+    # Micro-líneas, pero sin single.
+    micro = df[(df["bucket"] == "MICRO_LINE") & (df["quality"] != "DESCARTAR")].copy()
+    add_ticket_if_enough(tickets, "🧪 MICRO-LÍNEAS DEL DÍA X{n}", micro, 2, 8)
+
+    if not tickets:
+        return []
+
+    return [{
+        "matchup": f"🌎 GLOBAL — {run_date}",
+        "guion": "MIX",
+        "tickets": tickets,
+    }]
+
+
+def ticket_signature(ticket: dict) -> tuple:
+    """
+    Firma para evitar tickets idénticos dentro del mismo partido.
+    """
+    plays = ticket.get("plays", [])
+    sig = []
+    for p in plays:
+        sig.append((
+            p.get("player_id"),
+            p.get("type"),
+            p.get("prop"),
+            float(p.get("line", 0)),
+        ))
+    return tuple(sorted(sig))
+
+
+def add_candidate_ticket(
+    candidates: list[dict],
+    name: str,
+    rows: pd.DataFrame,
+    min_len: int,
+    max_len: int,
+    priority: int,
+) -> None:
+    """
+    Agrega un ticket candidato. Nunca genera singles.
+    """
+    if min_len < 2:
+        min_len = 2
+
+    picked = pick_unique(rows, max_len)
+    if len(picked) < min_len:
         return
 
-    joyas      = (df_cruce['calidad'] == 'JOYA').sum()
-    excelentes = (df_cruce['calidad'] == 'EXCELENTE').sum()
-    buenas     = (df_cruce['calidad'] == 'BUENA').sum()
-    log(f"Distribución: 💎 {joyas} JOYAS | ⭐ {excelentes} EXCELENTES | 🌟 {buenas} BUENAS")
+    ticket = make_ticket(name.replace("{n}", str(len(picked))), picked)
+    candidates.append({
+        "priority": priority,
+        "ticket": ticket,
+        "signature": ticket_signature(ticket),
+    })
 
-    # ── Separar FG y Q1 antes de ordenar/rankear ─────────────────────
-    calidad_ord = {'JOYA': 3, 'EXCELENTE': 2, 'BUENA': 1}
-    df_cruce['calidad_ord'] = df_cruce['calidad'].map(calidad_ord).fillna(0)
 
-    df_fg = df_cruce[~df_cruce['is_q1']].copy()
-    df_q1 = df_cruce[ df_cruce['is_q1']].copy()
+def add_main_side_candidates(candidates: list[dict], df: pd.DataFrame, matchup: str, side: str) -> None:
+    """
+    FULL GAME por side:
+    - PRINCIPAL X2: ultra estricto.
+    - SECUNDARIO X2: estricto, intenta ser distinto del principal.
+    - VALUE X2: moderado, puede reutilizar 1 jugador si no hay más material, pero nunca es idéntico.
+    - COMBINADA/MEGA: menor prioridad.
+    """
+    label = "🏀 FULL GAME"
 
-    # Orden: calidad desc → edge desc
-    df_fg = df_fg.sort_values(['matchup','is_over','calidad_ord','edge'],
-                               ascending=[True,True,False,False]) \
-                  .drop_duplicates(subset=['matchup','player_name','is_over'])
+    principal_pool = pool_main_principal(df, matchup=matchup, side=side)
+    secondary_pool = pool_main_secondary(df, matchup=matchup, side=side)
+    value_pool = pool_main_value(df, matchup=matchup, side=side)
+    combo_pool = pool_main_combo(df, matchup=matchup, side=side)
 
-    df_q1 = df_q1.sort_values(['matchup','is_over','calidad_ord','edge'],
-                               ascending=[True,True,False,False]) \
-                  .drop_duplicates(subset=['matchup','player_name','is_over'])
+    principal = pick_unique(principal_pool, 2)
+    principal_sig = None
+    if len(principal) >= 2:
+        ticket = make_ticket(f"💎 {label} {side} PRINCIPAL X2", principal)
+        principal_sig = ticket_signature(ticket)
+        candidates.append({"priority": 120, "ticket": ticket, "signature": principal_sig})
 
-    # Rank dentro de cada partido/guion
-    df_fg['rank_partido'] = df_fg.groupby(['matchup','is_over']).cumcount()
-    df_q1['rank_partido'] = df_q1.groupby(['matchup','is_over']).cumcount()
+    # Secundario: primero intenta sin jugadores del principal.
+    used_principal = set(principal["player_id"].tolist()) if len(principal) >= 2 else set()
+    secundario = pick_unique(secondary_pool[~secondary_pool["player_id"].isin(used_principal)].copy(), 2)
+    if len(secundario) < 2:
+        # Si no alcanza, permite reutilizar, pero la firma evitará duplicado exacto.
+        secundario = pick_unique(secondary_pool, 2)
+    if len(secundario) >= 2:
+        ticket = make_ticket(f"⭐ {label} {side} SECUNDARIO X2", secundario)
+        if ticket_signature(ticket) != principal_sig:
+            candidates.append({"priority": 108, "ticket": ticket, "signature": ticket_signature(ticket)})
 
-    # VIP solo si JOYA o EXCELENTE Y está entre los top 4 del partido
-    df_fg['is_vip'] = (df_fg['rank_partido'] < 4) & (df_fg['calidad'].isin(['JOYA','EXCELENTE']))
-    df_q1['is_vip'] = False   # Q1 siempre con análisis de datos (nunca IA)
+    # Value: intenta no repetir los 2 del principal/secundario, pero no se queda sin ticket si hay poco material.
+    used_strict = set()
+    if len(principal) >= 2:
+        used_strict.update(principal["player_id"].tolist())
+    if len(secundario) >= 2:
+        used_strict.update(secundario["player_id"].tolist())
 
-    # ── Gemini: solo VIPs, prompt enriquecido por partido ─────────────
-    print("\n🤖 PASO 7 — Gemini (solo JOYA/EXCELENTE, contexto completo)")
-    df_vips      = df_fg[df_fg['is_vip']].copy()
-    datos_gemini = {}
+    value_x2 = pick_unique(value_pool[~value_pool["player_id"].isin(used_strict)].copy(), 2)
+    if len(value_x2) < 2:
+        value_x2 = pick_unique(value_pool, 2)
+    if len(value_x2) >= 2:
+        ticket = make_ticket(f"🌟 {label} {side} VALUE X2", value_x2)
+        candidates.append({"priority": 96, "ticket": ticket, "signature": ticket_signature(ticket)})
 
-    for _, j in df_vips.iterrows():
-        prop  = j['prop_type']
-        guion = "OVER" if j['is_over'] else "UNDER"
-        clave = f"{j['player_name']}_{prop}"
+    combo = pick_unique(value_pool, 5)
+    if len(combo) >= 5:
+        ticket = make_ticket(f"🧨 {label} {side} COMBINADA X5", combo)
+        candidates.append({"priority": 74, "ticket": ticket, "signature": ticket_signature(ticket)})
+    elif len(combo) >= 3:
+        ticket = make_ticket(f"🧨 {label} {side} COMBINADA X{len(combo)}", combo)
+        candidates.append({"priority": 70, "ticket": ticket, "signature": ticket_signature(ticket)})
 
-        # Contexto específico por tipo de prop
-        if prop in ['REB','PR','RA','PRA']:
-            vol = (f"RebPot L5:{round(j.get('rebound_chances_L5',0),1)} "
-                   f"Off:{round(j.get('rebound_off_L5',0),1)} Def:{round(j.get('rebound_def_L5',0),1)} "
-                   f"L10:{round(j.get('rebound_chances_L10',0),1)}")
-            dvp = f"Rival permite {round(j.get('dvp_reb',0),1)} REB/partido"
-        elif prop in ['AST','PA']:
-            vol = (f"Pases L5:{round(j.get('passes_made_L5',0),1)} "
-                   f"PotAST L5:{round(j.get('potential_ast_L5',0),1)} "
-                   f"L10:{round(j.get('potential_ast_L10',0),1)}")
-            dvp = f"Rival permite {round(j.get('dvp_ast',0),1)} AST/partido"
-        elif prop in ['3PT','FG3A']:
-            vol = (f"3PA L5:{round(j.get('fg3a_L5',0),1)} "
-                   f"L10:{round(j.get('fg3a_L10',0),1)} "
-                   f"Season:{round(j.get('fg3m_season',0),1)}")
-            dvp = f"Rival permite {round(j.get('dvp_3pt',0),1)} 3PT/partido"
-        else:
-            vol = (f"FGA L5:{round(j.get('fga_L5',0),1)} "
-                   f"Uso L5:{round(j.get('usage_pct_L5',0),1)}% "
-                   f"L10:{round(j.get('fga_L10',0),1)}")
-            dvp = f"Rival permite {round(j.get('dvp_pts',0),1)} PTS/partido"
+    mega = pick_unique(combo_pool, 10)
+    if len(mega) >= 10:
+        ticket = make_ticket(f"🤯 {label} {side} MEGA X10", mega)
+        candidates.append({"priority": 18, "ticket": ticket, "signature": ticket_signature(ticket)})
+    elif len(mega) >= 6:
+        ticket = make_ticket(f"🎰 {label} {side} AMPLIADA X{len(mega)}", mega)
+        candidates.append({"priority": 16, "ticket": ticket, "signature": ticket_signature(ticket)})
 
-        momentum = round(j.get(f"{prop.lower().replace('3pt','fg3m')}_momentum", 0), 1)
-        b2b  = " | ⚠️B2B" if j.get('is_b2b',0) == 1 else ""
-        home = "🏠 Local" if j.get('is_home',0) == 1 else "✈️ Visitante"
+def add_tech_side_candidates(candidates: list[dict], df: pd.DataFrame, matchup: str, side: str) -> None:
+    x2_pool = pool_tech_x2(df, matchup=matchup, side=side)
+    value_pool = pool_tech_value(df, matchup=matchup, side=side)
 
-        datos_gemini[clave] = (
-            f"PARTIDO: {j['matchup']} | PICK: {guion} {j['line']} {prop} | "
-            f"Calidad:{j['calidad']} | Proy:{j['proj']} | Edge:+{round(j['edge'],1)}% | "
-            f"HR:{j['hr']} | {j['min_L5']:.0f}min | {home}{b2b} | "
-            f"Momentum:{momentum:+.1f} | {vol} | {dvp}"
+    add_candidate_ticket(candidates, f"🎯 TÉCNICOS {side} X2", x2_pool, min_len=2, max_len=2, priority=68)
+
+    # TECH value X2 con jugadores distintos si hay más material.
+    first = pick_unique(x2_pool, 2)
+    used = set(first["player_id"].tolist()) if len(first) >= 2 else set()
+    add_candidate_ticket(
+        candidates,
+        f"🎯 TÉCNICOS {side} VALUE X2",
+        value_pool[~value_pool["player_id"].isin(used)].copy(),
+        min_len=2,
+        max_len=2,
+        priority=58,
+    )
+
+    value = pick_unique(value_pool, 5)
+    if len(value) >= 5:
+        ticket = make_ticket(f"🧨 TÉCNICOS {side} VALUE X5", value)
+        candidates.append({"priority": 46, "ticket": ticket, "signature": ticket_signature(ticket)})
+    elif len(value) >= 3:
+        ticket = make_ticket(f"🧨 TÉCNICOS {side} VALUE X{len(value)}", value)
+        candidates.append({"priority": 43, "ticket": ticket, "signature": ticket_signature(ticket)})
+
+def add_q1_side_candidates(candidates: list[dict], df: pd.DataFrame, matchup: str, side: str) -> None:
+    x2_pool = pool_q1_x2(df, matchup=matchup, side=side)
+    value_pool = pool_q1_value(df, matchup=matchup, side=side)
+
+    add_candidate_ticket(candidates, f"⏱️ 1Q {side} X2", x2_pool, min_len=2, max_len=2, priority=62)
+
+    first = pick_unique(x2_pool, 2)
+    used = set(first["player_id"].tolist()) if len(first) >= 2 else set()
+    add_candidate_ticket(
+        candidates,
+        f"⏱️ 1Q {side} VALUE X2",
+        value_pool[~value_pool["player_id"].isin(used)].copy(),
+        min_len=2,
+        max_len=2,
+        priority=52,
+    )
+
+    value = pick_unique(value_pool, 5)
+    if len(value) >= 5:
+        ticket = make_ticket(f"🧨 1Q {side} VALUE X5", value)
+        candidates.append({"priority": 40, "ticket": ticket, "signature": ticket_signature(ticket)})
+    elif len(value) >= 3:
+        ticket = make_ticket(f"🧨 1Q {side} VALUE X{len(value)}", value)
+        candidates.append({"priority": 37, "ticket": ticket, "signature": ticket_signature(ticket)})
+
+def select_matchup_tickets(candidates: list[dict], max_tickets: int = 8) -> list[dict]:
+    """
+    Selecciona tickets finales del partido.
+    Prioridad: X2 > X5 > TECH/Q1 > Radar > Mega.
+    Evita tickets idénticos.
+    """
+    ordered = sorted(candidates, key=lambda x: x["priority"], reverse=True)
+
+    selected = []
+    seen_signatures = set()
+
+    for item in ordered:
+        sig = item["signature"]
+        if sig in seen_signatures:
+            continue
+        selected.append(item["ticket"])
+        seen_signatures.add(sig)
+        if len(selected) >= max_tickets:
+            break
+
+    return selected
+
+
+def build_matchup_block(df: pd.DataFrame, matchup: str, run_date: str, max_tickets: int = 8) -> Optional[dict]:
+    """
+    Un solo bloque por partido, con tickets internos ordenados.
+    """
+    candidates = []
+
+    # Primero FULL GAME, porque es el corazón de Ludo.
+    for side in ["OVER", "UNDER"]:
+        add_main_side_candidates(candidates, df, matchup, side)
+
+    # Luego técnicos: queremos que aparezcan si hay material, pero sin saturar.
+    for side in ["OVER", "UNDER"]:
+        add_tech_side_candidates(candidates, df, matchup, side)
+
+    # Luego 1Q: también controlado.
+    for side in ["OVER", "UNDER"]:
+        add_q1_side_candidates(candidates, df, matchup, side)
+
+    tickets = select_matchup_tickets(candidates, max_tickets=max_tickets)
+
+    if not tickets:
+        return None
+
+    return {
+        "pick_date": run_date,
+        "game_date": run_date,
+        "matchup": matchup,
+        "guion": "MIX",
+        "tickets": tickets,
+    }
+
+
+def build_tickets(df: pd.DataFrame, run_date: str, include_global: bool = False, max_tickets_per_matchup: int = 8) -> list[dict]:
+    out = df.copy()
+    tickets_json = []
+
+    # Global queda apagado por defecto. Si se pide, se conserva para análisis.
+    if include_global:
+        tickets_json.extend(build_global_tickets(out, run_date))
+
+    for matchup in sorted(out["matchup"].dropna().unique()):
+        block = build_matchup_block(out, matchup, run_date, max_tickets=max_tickets_per_matchup)
+        if block:
+            tickets_json.append(block)
+
+    return tickets_json
+
+
+# ============================================================
+# SAVE
+# ============================================================
+
+def save_ludo_picks(
+    engine,
+    tickets_json: list[dict],
+    dry_run: bool,
+    run_id: str,
+    run_date: str,
+) -> None:
+    OUT_JSON.write_text(json.dumps(tickets_json, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    if dry_run:
+        print(f"🧪 DRY RUN: no se guarda en ludo_picks. Preview: {OUT_JSON.resolve()}")
+        return
+
+    with engine.begin() as conn:
+        conn.execute(
+            text("""
+                UPDATE ludo_picks
+                SET status = 'SUPERSEDED'
+                WHERE pick_date = :pick_date
+                  AND status = 'PENDING'
+            """),
+            {"pick_date": run_date},
+        )
+        conn.execute(
+            text("""
+                INSERT INTO ludo_picks (pick_date, run_id, json_data, status)
+                VALUES (:pick_date, :run_id, CAST(:json_data AS jsonb), 'PENDING')
+            """),
+            {
+                "pick_date": run_date,
+                "run_id": run_id,
+                "json_data": json.dumps(tickets_json, ensure_ascii=False),
+            },
         )
 
-    analisis_dict = {}
-    if datos_gemini:
-        items = list(datos_gemini.items())
-        lotes = [dict(items[i:i+15]) for i in range(0, len(items), 15)]
-        log(f"{len(items)} VIPs → {len(lotes)} lotes de Gemini")
+    print(f"💾 ludo_picks insertado con historial | pick_date={run_date} | run_id={run_id}")
+    print("♻️ Picks anteriores de la misma fecha marcados como SUPERSEDED")
+    print(f"📄 Preview local: {OUT_JSON.resolve()}")
 
-        for idx, lote in enumerate(lotes):
-            n = len(lote)
-            log(f"⏳ Lote {idx+1}/{len(lotes)} ({n} picks)...")
-            prompt = f"""Eres un analista Quant NBA de élite. Devuelve UN JSON PLANO con exactamente {n} claves.
-REGLA 1: Clave EXACTA como la recibís.
-REGLA 2: Valor debe ser STRING simple — nunca un objeto ni lista.
-REGLA 3: 1 oración: mencioná la tendencia L5 vs L10 del jugador, el matchup DvP y por qué la línea es beatable con números concretos.
-CERO markdown. CERO saltos de línea. CERO comillas internas.
-Datos: {json.dumps(lote)}"""
-            try:
-                res = client.models.generate_content(
-                    model="gemini-2.5-flash", contents=prompt,
-                    config=types.GenerateContentConfig(
-                        temperature=0.1, response_mime_type="application/json"
-                    )
-                )
-                if res and res.text:
-                    parsed = json.loads(res.text)
-                    if isinstance(parsed, dict): analisis_dict.update(parsed)
-                time.sleep(2)   # evitar rate limit entre lotes
-            except Exception as e:
-                log(f"⚠️ Error lote {idx+1}: {e}")
 
-    log(f"✅ IA analizó {len(analisis_dict)}/{len(datos_gemini)} VIPs | resto → análisis automático")
+# ============================================================
+# MAIN
+# ============================================================
 
-    # ── Armado de Tickets ──────────────────────────────────────────────
-    print("\n🎫 PASO 8 — Armando tickets")
-    TICKETS_JSON = []
-    todos_partidos = set(df_fg['matchup'].unique()) | set(df_q1['matchup'].unique())
+def main():
+    parser = argparse.ArgumentParser(description="Generador de picks Ludo v4.4")
+    parser.add_argument("--run-id", default="", help="Run ID de ludo_prop_predictions. Si no se indica, usa el último.")
+    parser.add_argument("--dry-run", action="store_true", help="No guarda en ludo_picks.")
+    parser.add_argument("--top", type=int, default=60, help="Cantidad de picks a mostrar en terminal.")
+    parser.add_argument("--include-global", action="store_true", help="Incluye bloque GLOBAL por fecha. Por defecto se oculta.")
+    parser.add_argument("--max-tickets-per-matchup", type=int, default=8, help="Máximo de tickets por partido.")
+    args = parser.parse_args()
 
-    for partido in sorted(todos_partidos):
-        for guion in ['OVER', 'UNDER']:
-            is_ov   = guion == 'OVER'
-            tickets = []
+    engine = get_engine()
+    run_id = args.run_id.strip() or get_latest_run_id(engine)
 
-            # ── FULL GAME ──────────────────────────────────────────────
-            fg = df_fg[(df_fg['matchup'] == partido) & (df_fg['is_over'] == is_ov)].sort_values('rank_partido')
+    print("🎯 LUDO v4.4 — GENERADOR DE PICKS")
+    print("=" * 72)
+    print(f"🆔 run_id: {run_id}")
 
-            if not fg.empty:
-                vip    = fg[fg['is_vip']].copy()
-                no_vip = fg[~fg['is_vip']].copy()
+    preds = load_predictions(engine, run_id)
+    run_date = get_run_date(preds)
+    print(f"📅 fecha global: {run_date}")
+    print(f"✅ Predicciones cargadas: {len(preds)}")
 
-                # PARLAY PRINCIPAL X2 (picks 1 y 2 VIP)
-                if len(vip) >= 2:
-                    p1  = vip.iloc[0:2]
-                    lbl = titulo_par(p1['calidad'].tolist())
-                    tickets.append(armar_ticket(f"{lbl} PARLAY PRINCIPAL X2", p1, guion, analisis_dict, df_inj))
-                elif len(vip) == 1:
-                    lbl = emoji_calidad(vip.iloc[0]['calidad'])
-                    tickets.append(armar_ticket(f"{lbl} LÍNEA ÚNICA VIP", vip.iloc[0:1], guion, analisis_dict, df_inj))
+    player_ids = sorted(preds["player_id"].dropna().astype(int).unique().tolist())
+    hist = load_history(engine, player_ids)
+    print(f"✅ Historial cargado: {len(hist)} filas | {hist['player_id'].nunique() if not hist.empty else 0} jugadores")
 
-                # PARLAY SECUNDARIO X2 (picks 3 y 4 VIP)
-                if len(vip) >= 4:
-                    p2  = vip.iloc[2:4]
-                    lbl = titulo_par(p2['calidad'].tolist())
-                    tickets.append(armar_ticket(f"{lbl} PARLAY SECUNDARIO X2", p2, guion, analisis_dict, df_inj))
-                elif len(vip) == 3:
-                    lbl = emoji_calidad(vip.iloc[2]['calidad'])
-                    tickets.append(armar_ticket(f"{lbl} LÍNEA SECUNDARIA", vip.iloc[2:3], guion, analisis_dict, df_inj))
+    print("🧮 Calculando hit rates...")
+    hr = preds.apply(lambda r: calc_hit_rate_for_row(r, hist), axis=1)
+    df = pd.concat([preds, hr], axis=1)
 
-                # RADAR — picks BUENA (no VIP) — máximo 2
-                if not no_vip.empty:
-                    radar = no_vip.head(2)
-                    tickets.append(armar_ticket(f"📊 RADAR X{len(radar)}", radar, guion, analisis_dict, df_inj))
+    print("🔍 Clasificando calidad...")
+    df = add_quality(df)
 
-                # COMBINADA X5 y MEGA X10
-                if len(fg) >= 5:
-                    tickets.append(armar_ticket("🧨 COMBINADA X5", fg.head(5), guion, analisis_dict, df_inj))
-                if len(fg) >= 10:
-                    tickets.append(armar_ticket("🤯 MEGA X10", fg.head(10), guion, analisis_dict, df_inj))
+    before_dedupe = len(df)
+    df = dedupe_alternatives(df)
+    after_dedupe = len(df)
+    print(f"🧹 Dedupe alternativas: {before_dedupe} → {after_dedupe} filas")
 
-            # ── PRIMER CUARTO — pipeline 100% independiente ────────────
-            q1 = df_q1[(df_q1['matchup'] == partido) & (df_q1['is_over'] == is_ov)].sort_values(['calidad_ord','edge'], ascending=False)
+    before_visibility = int((df["quality"] != "DESCARTAR").sum())
+    df = apply_visibility_filter(df)
+    after_visibility = int((df["quality"] != "DESCARTAR").sum())
+    print(f"🧯 Filtro visibilidad v4.4: {before_visibility} → {after_visibility} picks/radar visibles")
 
-            if not q1.empty:
-                # PARLAY 1Q PRINCIPAL X2
-                if len(q1) >= 2:
-                    top_q1 = q1.iloc[0:2]
-                    lbl    = titulo_par(top_q1['calidad'].tolist())
-                    tickets.append(armar_ticket(f"⏱️{lbl} 1Q PARLAY PRINCIPAL X2", top_q1, guion, analisis_dict, df_inj))
-                elif len(q1) == 1:
-                    lbl = emoji_calidad(q1.iloc[0]['calidad'])
-                    tickets.append(armar_ticket(f"⏱️{lbl} 1Q LÍNEA ÚNICA", q1.iloc[0:1], guion, analisis_dict, df_inj))
+    audit_cols = [
+        "run_id", "game_date", "player_name", "team_abbreviation", "matchup",
+        "prop_type", "market_family", "side", "line", "price",
+        "proj", "diff", "diff_abs", "edge_pct", "edge_score",
+        "model_mae", "model_key", "min_l5", "candidate_basic",
+        "micro_line_final", "line_min_ok", "consistency_joya",
+        "hit_l5", "n_l5", "hit_l10", "n_l10", "hr_l5", "hr_l10",
+        "hr_text", "quality", "bucket", "tracking_status",
+    ]
+    audit_cols = [c for c in audit_cols if c in df.columns]
+    df[audit_cols].to_csv(OUT_CSV, index=False, encoding="utf-8")
+    print(f"📄 Auditoría CSV: {OUT_CSV.resolve()}")
 
-                # PARLAY 1Q SECUNDARIO X2 (líneas 3 y 4)
-                if len(q1) >= 4:
-                    sec_q1 = q1.iloc[2:4]
-                    lbl    = titulo_par(sec_q1['calidad'].tolist())
-                    tickets.append(armar_ticket(f"⏱️{lbl} 1Q SECUNDARIO X2", sec_q1, guion, analisis_dict, df_inj))
-                elif len(q1) == 3:
-                    lbl = emoji_calidad(q1.iloc[2]['calidad'])
-                    tickets.append(armar_ticket(f"⏱️{lbl} 1Q LÍNEA EXTRA", q1.iloc[2:3], guion, analisis_dict, df_inj))
+    resumen = (
+        df.groupby(["market_family", "bucket", "quality"])
+        .size()
+        .reset_index(name="cantidad")
+        .sort_values(["market_family", "bucket", "quality"], ascending=[True, True, True])
+    )
 
-                # COMBINADA 1Q X3/X4/X5
-                if len(q1) >= 3:
-                    n_q1 = min(len(q1), 5)
-                    tickets.append(armar_ticket(f"⏱️ 1Q COMBINADA X{n_q1}", q1.head(n_q1), guion, analisis_dict, df_inj))
+    print("\n📊 Distribución:")
+    print(resumen.to_string(index=False))
 
-            if tickets:
-                icono = '🔥' if is_ov else '🧊'
-                TICKETS_JSON.append({
-                    "matchup": f"{partido} ({icono})",
-                    "guion":   guion,
-                    "tickets": tickets,
-                })
+    selected = df[df["quality"] != "DESCARTAR"].copy()
+    selected = sort_for_ticket(selected)
 
-    # ── Combinadas Globales — solo élite ──────────────────────────────
-    print("\n🌎 PASO 9 — Combinadas Globales (solo JOYA/EXCELENTE)")
-    fg_ov = df_fg[ df_fg['is_over'] & df_fg['calidad'].isin(['JOYA','EXCELENTE'])].sort_values(['calidad_ord','edge'], ascending=False)
-    fg_un = df_fg[~df_fg['is_over'] & df_fg['calidad'].isin(['JOYA','EXCELENTE'])].sort_values(['calidad_ord','edge'], ascending=False)
-    fg_ov_all = df_fg[ df_fg['is_over']].sort_values(['calidad_ord','edge'], ascending=False)
-    fg_un_all = df_fg[~df_fg['is_over']].sort_values(['calidad_ord','edge'], ascending=False)
-    q1_ov = df_q1[ df_q1['is_over'] & df_q1['calidad'].isin(['JOYA','EXCELENTE'])].sort_values(['calidad_ord','edge'], ascending=False)
-    q1_un = df_q1[~df_q1['is_over'] & df_q1['calidad'].isin(['JOYA','EXCELENTE'])].sort_values(['calidad_ord','edge'], ascending=False)
+    print(f"\n✅ Picks/Radar seleccionados: {len(selected)} / {len(df)}")
 
-    globales = []
-    if len(fg_ov)     >= 5:  globales.append(armar_ticket("💎 ÉLITE X5 OVERS",        fg_ov.head(5),     "OVER",  analisis_dict, df_inj))
-    if len(fg_ov)     >= 10: globales.append(armar_ticket("🤯 MEGA X10 OVERS",        fg_ov.head(10),    "OVER",  analisis_dict, df_inj))
-    if len(fg_ov_all) >= 20: globales.append(armar_ticket("🎰 LOTERÍA X20 OVERS",     fg_ov_all.head(20),"OVER",  analisis_dict, df_inj))
-    if len(fg_un)     >= 5:  globales.append(armar_ticket("💎 ÉLITE X5 UNDERS",       fg_un.head(5),     "UNDER", analisis_dict, df_inj))
-    if len(fg_un)     >= 10: globales.append(armar_ticket("🥶 MEGA X10 UNDERS",       fg_un.head(10),    "UNDER", analisis_dict, df_inj))
-    if len(fg_un_all) >= 20: globales.append(armar_ticket("🎰 LOTERÍA X20 UNDERS",    fg_un_all.head(20),"UNDER", analisis_dict, df_inj))
-    if len(q1_ov)     >= 3:  globales.append(armar_ticket(f"⏱️💎 1Q GLOBAL X{min(len(q1_ov),5)} OVERS",  q1_ov.head(5), "OVER",  analisis_dict, df_inj))
-    if len(q1_un)     >= 3:  globales.append(armar_ticket(f"⏱️💎 1Q GLOBAL X{min(len(q1_un),5)} UNDERS", q1_un.head(5), "UNDER", analisis_dict, df_inj))
+    if not selected.empty:
+        show_cols = [
+            "quality", "bucket", "market_family", "game_date", "player_name", "team_abbreviation",
+            "prop_type", "side", "line", "price", "proj", "diff", "edge_score",
+            "hr_text", "consistency_joya", "model_key", "tracking_status",
+        ]
+        show_cols = [c for c in show_cols if c in selected.columns]
 
-    if globales:
-        TICKETS_JSON.append({"matchup": "🌎 COMBINADAS GLOBALES", "guion": "MIX", "tickets": globales})
+        display = selected[show_cols].head(args.top).copy()
+        for c in ["line", "price", "proj", "diff", "edge_score"]:
+            if c in display.columns:
+                display[c] = pd.to_numeric(display[c], errors="coerce").round(2)
 
-    # ── Guardar ────────────────────────────────────────────────────────
-    total = sum(len(t['tickets']) for t in TICKETS_JSON)
-    print(f"\n💾 PASO 10 — Guardando {total} tickets en {len(TICKETS_JSON)} bloques...")
-    with engine.begin() as conn:
-        conn.execute(text("TRUNCATE TABLE ludo_picks;"))
-        conn.execute(text("INSERT INTO ludo_picks (json_data) VALUES (:data)"),
-                     {"data": json.dumps(TICKETS_JSON, ensure_ascii=False)})
+        print(f"\n🏆 Top {min(args.top, len(selected))}:")
+        print(display.to_string(index=False))
 
-    print(f"\n{'='*60}")
-    print(f"✅ PIPELINE COMPLETADO — {total} tickets generados")
-    print(f"   💎 {joyas} JOYAS | ⭐ {excelentes} EXCELENTES | 🌟 {buenas} BUENAS")
-    print(f"{'='*60}")
+    # ============================================================
+    # Generar y guardar PICKS por fecha real de partido.
+    # ============================================================
+    if "game_date" in df.columns:
+        df["game_date"] = pd.to_datetime(df["game_date"], errors="coerce").dt.date
+    else:
+        df["game_date"] = pd.to_datetime(run_date, errors="coerce").date()
 
-# -------------------------------------------------------------------
-# 6. ENTRY POINT
-# -------------------------------------------------------------------
+    if df["game_date"].isna().any():
+        fallback_date = pd.to_datetime(run_date, errors="coerce").date()
+        df["game_date"] = df["game_date"].fillna(fallback_date)
+
+    game_dates = sorted(df["game_date"].dropna().unique())
+
+    print("\n📅 Fechas de partido detectadas para picks:")
+    for gd in game_dates:
+        day_df = df[df["game_date"] == gd]
+        print(f"   {gd} | filas={len(day_df)} | partidos={day_df['matchup'].nunique()}")
+
+    all_preview = {}
+    grand_total_tickets = 0
+    grand_total_blocks = 0
+
+    for gd in game_dates:
+        gd_str = str(gd)
+        df_day = df[df["game_date"] == gd].copy()
+
+        tickets_json = build_tickets(
+            df_day,
+            run_date=gd_str,
+            include_global=args.include_global,
+            max_tickets_per_matchup=args.max_tickets_per_matchup,
+        )
+
+        total_tickets = sum(len(b["tickets"]) for b in tickets_json)
+        grand_total_tickets += total_tickets
+        grand_total_blocks += len(tickets_json)
+        all_preview[gd_str] = tickets_json
+
+        print(f"\n🎫 {gd_str} | Tickets generados: {total_tickets} bloques={len(tickets_json)}")
+
+        if tickets_json:
+            print("🧾 Resumen tickets:")
+            for block in tickets_json:
+                print(f"   {block['matchup']} | tickets={len(block['tickets'])}")
+                for t in block["tickets"][:8]:
+                    print(f"      - {t['name']} | picks={len(t['plays'])} | cuota={t['total_odds']}")
+
+        save_ludo_picks(
+            engine,
+            tickets_json,
+            dry_run=args.dry_run,
+            run_id=run_id,
+            run_date=gd_str,
+        )
+
+    # Preview combinado local por fecha.
+    OUT_JSON.write_text(
+        json.dumps(all_preview, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    print(f"\n📦 Total general: {grand_total_tickets} tickets | {grand_total_blocks} bloques | fechas={len(game_dates)}")
+    print("\n✅ Proceso terminado.")
+
+
 if __name__ == "__main__":
-    start = time.time()
-    c, l, i, o = obtener_datos()
-    ludo_engine(c, l, i, o)
-    print(f"\n⏱️  Tiempo total: {round(time.time()-start, 1)}s")
+    main()

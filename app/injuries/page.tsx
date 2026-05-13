@@ -43,13 +43,13 @@ export default async function InjuriesPage() {
   const statusColumns = ['Probable', 'Questionable', 'Doubtful', 'Out'];
 
   return (
-    <main className="min-h-screen bg-black text-white p-4 md:p-8 pb-20">
+    <main className="min-h-screen bg-[var(--bg)] text-[var(--text)] p-4 md:p-8 pb-20">
       <div className="max-w-6xl mx-auto space-y-8">
 
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#222] pb-6">
+        <div className="flex items-center justify-between border-b border-[var(--border)] pb-6">
           <div className="flex items-center gap-4">
-            <Link href="/" className="text-[#666] hover:text-[#10b981] transition-colors">
+            <Link href="/" className="text-[var(--text-muted)] hover:text-[#10b981] transition-colors">
               <ChevronLeft size={24} />
             </Link>
             <h1 className="text-3xl font-black italic uppercase tracking-tighter flex items-center gap-3">
@@ -65,31 +65,31 @@ export default async function InjuriesPage() {
 
         {/* Tabla */}
         {teams.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 border border-dashed border-[#222] rounded-3xl">
-            <p className="text-[#444] font-black uppercase tracking-widest text-sm">
+          <div className="flex flex-col items-center justify-center py-20 border border-dashed border-[var(--border)] rounded-3xl">
+            <p className="text-[var(--text-muted)] font-black uppercase tracking-widest text-sm">
               Sin lesionados reportados hoy
             </p>
-            <p className="text-[#333] text-[10px] font-bold uppercase tracking-widest mt-2">
+            <p className="text-[var(--text-soft)] text-[10px] font-bold uppercase tracking-widest mt-2">
               ESPN no reportó lesiones o el servicio no está disponible
             </p>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-3xl border border-[#222] bg-[#0a0a0a] shadow-2xl">
+          <div className="overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse min-w-[800px]">
                 <thead>
-                  <tr className="bg-[#111] border-b border-[#222]">
-                    <th className="p-5 text-[10px] font-black uppercase tracking-widest text-[#666] w-56">Equipo</th>
-                    <th className="p-4 text-[10px] font-black uppercase tracking-widest text-green-500 bg-green-500/5 text-center border-x border-[#222]">Probable</th>
+                  <tr className="bg-[var(--surface-soft)] border-b border-[var(--border)]">
+                    <th className="p-5 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] w-56">Equipo</th>
+                    <th className="p-4 text-[10px] font-black uppercase tracking-widest text-green-500 bg-green-500/5 text-center border-x border-[var(--border)]">Probable</th>
                     <th className="p-4 text-[10px] font-black uppercase tracking-widest text-yellow-500 bg-yellow-500/5 text-center">Questionable</th>
-                    <th className="p-4 text-[10px] font-black uppercase tracking-widest text-orange-500 bg-orange-500/5 text-center border-x border-[#222]">Doubtful</th>
+                    <th className="p-4 text-[10px] font-black uppercase tracking-widest text-orange-500 bg-orange-500/5 text-center border-x border-[var(--border)]">Doubtful</th>
                     <th className="p-4 text-[10px] font-black uppercase tracking-widest text-red-600 bg-red-600/5 text-center">OUT</th>
                   </tr>
                 </thead>
                 <tbody>
                   {teams.map((team: any) => (
-                    <tr key={team.id} className="border-b border-[#111] hover:bg-[#0f0f0f] transition-colors group">
-                      <td className="p-5 border-r border-[#222] bg-[#0a0a0a]">
+                    <tr key={team.id} className="border-b border-[var(--border)] hover:bg-[var(--surface-hover)] transition-colors group">
+                      <td className="p-5 border-r border-[var(--border)] bg-[var(--surface)]">
                         <div className="flex items-center gap-3">
                           <img src={team.logo} className="w-7 h-7 object-contain drop-shadow-lg" alt="" />
                           <span className="font-black uppercase text-xs tracking-tighter group-hover:text-[#10b981] transition-colors">
@@ -103,17 +103,17 @@ export default async function InjuriesPage() {
                           i.status.toLowerCase().includes(col.toLowerCase())
                         );
                         return (
-                          <td key={col} className="p-3 text-center border-r border-[#222] last:border-0 align-top">
+                          <td key={col} className="p-3 text-center border-r border-[var(--border)] last:border-0 align-top">
                             <div className="flex flex-col gap-2">
                               {playersInCol.length === 0 ? (
-                                <span className="text-[#333] text-[10px]">—</span>
+                                <span className="text-[var(--text-soft)] text-[10px]">—</span>
                               ) : (
                                 playersInCol.map((injury: any) => (
-                                  <div key={injury.athlete.id} className="group/item relative py-1 px-2 rounded-lg hover:bg-[#151515] transition-all">
-                                    <span className="text-[10px] font-bold text-[#ccc] group-hover/item:text-white cursor-default">
+                                  <div key={injury.athlete.id} className="group/item relative py-1 px-2 rounded-lg hover:bg-[var(--surface-hover)] transition-all">
+                                    <span className="text-[10px] font-bold text-[var(--text)] group-hover/item:text-[#10b981] cursor-default">
                                       {injury.athlete.shortName}
                                     </span>
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-40 hidden group-hover/item:block bg-black border border-[#333] p-2 rounded-xl text-[9px] z-50 shadow-[0_10px_30px_rgba(0,0,0,0.8)] text-white text-center leading-relaxed">
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-40 hidden group-hover/item:block bg-[var(--surface)] border border-[var(--border-strong)] p-2 rounded-xl text-[9px] z-50 shadow-[0_10px_30px_rgba(0,0,0,0.18)] text-[var(--text)] text-center leading-relaxed">
                                       <p className="font-black uppercase text-red-500 mb-1">{injury.status}</p>
                                       {injury.comment || "No detail"}
                                     </div>

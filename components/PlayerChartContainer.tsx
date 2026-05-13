@@ -1,22 +1,36 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import PlayerChart from '@/components/PlayerChart';
-import { Target, Sparkles, Clock } from 'lucide-react';
+import { useEffect, useMemo, useState } from "react";
+import PlayerChart from "@/components/PlayerChart";
+import AltLinesPanel from "@/components/AltLinesPanel";
+import SupportingDataGrid from "@/components/SupportingDataGrid";
+import PickInsightPanel from "@/components/PickInsightPanel";
+import { ChevronDown, ChevronUp, Clock, Gauge, Sparkles, Table2, Target, TrendingUp } from "lucide-react";
+
+type StakePlayerOdd = {
+  player_name: string;
+  prop_type: string;
+  line: number | null;
+  matchup: string | null;
+  over_price: number | null;
+  under_price: number | null;
+  updated_at: string | null;
+  book?: string | null;
+  source?: string | null;
+};
 
 interface PlayerChartContainerProps {
   stats: any[];
   navStats: { id: string; label: string }[];
+  playerName?: string;
+  stakeOdds?: StakePlayerOdd[];
 }
 
-// ✅ FIX: getStatValue movida fuera del componente.
-// Era una función pura (no usa estado ni props del componente),
-// por lo que no tiene ninguna razón para recrearse en cada render.
 function getStatValue(s: any, statId: string, q1Mode: boolean): number {
   let val = 0;
 
-  if (statId.includes('+')) {
-    const parts = statId.split('+');
+  if (statId.includes("+")) {
+    const parts = statId.split("+");
     val = parts.reduce((acc, part) => {
       const key = q1Mode ? `q1_${part}` : part;
       return acc + (Number(s[key]) || 0);
@@ -24,94 +38,345 @@ function getStatValue(s: any, statId: string, q1Mode: boolean): number {
   } else {
     const key = q1Mode ? `q1_${statId}` : statId;
     const rawVal = Number(s[key]) || 0;
-    val = statId === 'usage_pct' ? rawVal * 100 : rawVal;
+    val = statId === "usage_pct" ? rawVal * 100 : rawVal;
   }
 
   return val;
 }
 
-export default function PlayerChartContainer({ stats, navStats }: PlayerChartContainerProps) {
-  const [activeStat, setActiveStat] = useState('pts');
+function getMinutesValue(raw: any) {
+  const value =
+    raw?.min ??
+    raw?.minutes ??
+    raw?.mins ??
+    raw?.minutos ??
+    raw?.minutes_played ??
+    raw?.mp ??
+    null;
+
+  if (value === null || value === undefined || value === "") return null;
+
+  if (typeof value === "string") {
+    if (value.includes(":")) {
+      const minutes = Number(value.split(":")[0]);
+      return Number.isNaN(minutes) ? null : minutes;
+    }
+
+    const parsed = Number(value.replace("m", ""));
+    return Number.isNaN(parsed) ? null : parsed;
+  }
+
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function getMinutesLabel(raw: any) {
+  const minutes = getMinutesValue(raw);
+  if (minutes === null) return "S/D";
+  return `${Math.round(minutes)}m`;
+}
+
+function getOpponent(item: any) {
+  const matchupParts = item?.matchup ? String(item.matchup).trim().split(" ") : [];
+  return matchupParts.length > 0 ? matchupParts[matchupParts.length - 1] : "---";
+}
+
+function getGameLocation(item: any) {
+  return item?.matchup?.includes("@") ? "@" : "vs";
+}
+
+function formatDateShort(value: any) {
+  if (!value) return "-";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "-";
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+function formatStatValue(value: any, isPercentage?: boolean) {
+  const n = Number(value) || 0;
+  const formatted = Number.isInteger(n) ? String(n) : n.toFixed(1);
+  return isPercentage ? `${formatted}%` : formatted;
+}
+
+
+function getStakePropType(activeStat: string) {
+  const stat = activeStat.toLowerCase();
+
+  const map: Record<string, string> = {
+    pts: "PTS",
+    ast: "AST",
+    reb: "REB",
+    fg3m: "3PT",
+    "pts+ast": "PA",
+    "pts+reb": "PR",
+    "reb+ast": "RA",
+    "pts+reb+ast": "PRA",
+  };
+
+  return map[stat] || null;
+}
+
+function findStakeOddsForStat(stakeOdds: StakePlayerOdd[] | undefined, activeStat: string) {
+  const propType = getStakePropType(activeStat);
+  if (!propType || !stakeOdds?.length) return [];
+
+  return stakeOdds
+    .filter((odd) => String(odd.prop_type).toUpperCase() === propType)
+    .filter((odd) => odd.line !== null && odd.line !== undefined)
+    .sort((a, b) => Number(a.line) - Number(b.line));
+}
+
+function pickPrimaryStakeOdd(odds: StakePlayerOdd[]) {
+  if (!odds.length) return null;
+
+  // Si hay varias líneas reales, tomamos como principal la más balanceada
+  // entre Over y Under. Si el scraper solo trae una, usa esa.
+  return [...odds].sort((a, b) => {
+    const aOver = Number(a.over_price);
+    const aUnder = Number(a.under_price);
+    const bOver = Number(b.over_price);
+    const bUnder = Number(b.under_price);
+
+    const aBalanced = Number.isFinite(aOver) && Number.isFinite(aUnder) ? Math.abs(aOver - aUnder) : 999;
+    const bBalanced = Number.isFinite(bOver) && Number.isFinite(bUnder) ? Math.abs(bOver - bUnder) : 999;
+
+    if (aBalanced !== bBalanced) return aBalanced - bBalanced;
+    return Number(a.line) - Number(b.line);
+  })[0];
+}
+
+function usesIntegerLine(activeStat: string) {
+  return [
+    "usage_pct",
+    "potential_ast",
+    "rebound_chances",
+    "touches",
+    "passes_made",
+  ].includes(activeStat);
+}
+
+function normalizeHalfLine(value: number) {
+  if (!Number.isFinite(value)) return 0.5;
+  return Math.max(0.5, Math.floor(value) + 0.5);
+}
+
+function normalizeLineForStat(value: number, activeStat: string) {
+  if (!Number.isFinite(value)) return usesIntegerLine(activeStat) ? 0 : 0.5;
+  if (usesIntegerLine(activeStat)) return Math.max(0, Math.round(value));
+  return normalizeHalfLine(value);
+}
+
+function getLineStep(activeStat: string) {
+  // Las líneas principales se mueven de a 1:
+  // PTS 19.5 -> 18.5, no 19.0. Contexto como USG/TOUCHES va 67 -> 66.
+  return 1;
+}
+
+function getAutoLine(avg: number, activeStat: string) {
+  if (usesIntegerLine(activeStat)) {
+    return Math.max(0, Math.round(avg));
+  }
+
+  if (avg <= 1) return 0.5;
+  return normalizeHalfLine(avg);
+}
+
+function adjustLine(prev: number, direction: -1 | 1, activeStat: string) {
+  const step = getLineStep(activeStat);
+
+  if (usesIntegerLine(activeStat)) {
+    return Math.max(0, Math.round(prev) + direction * step);
+  }
+
+  const normalized = normalizeHalfLine(prev);
+  return Math.max(0.5, Number((normalized + direction * step).toFixed(1)));
+}
+
+function formatLineValue(value: number, activeStat: string) {
+  if (usesIntegerLine(activeStat)) return String(Math.round(value));
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
+const HIDDEN_MAIN_STATS = new Set(["potential_ast", "rebound_chances"]);
+
+function getOpportunityOverlayConfig(activeStat: string, isQ1Mode: boolean) {
+  if (isQ1Mode) return null;
+
+  if (activeStat === "ast") {
+    return {
+      key: "potential_ast",
+      label: "Pot. AST",
+      color: "#60a5fa",
+      ratioLabel: "Conversión",
+    };
+  }
+
+  if (activeStat === "reb") {
+    return {
+      key: "rebound_chances",
+      label: "Chances Reb.",
+      color: "#a78bfa",
+      ratioLabel: "Captura",
+    };
+  }
+
+  return null;
+}
+
+export default function PlayerChartContainer({ stats, navStats, playerName, stakeOdds = [] }: PlayerChartContainerProps) {
+  const [activeStat, setActiveStat] = useState("pts");
   const [lastN, setLastN] = useState(10);
   const [lineValue, setLineValue] = useState(18.5);
   const [isQ1Mode, setIsQ1Mode] = useState(false);
+  const [showGameLog, setShowGameLog] = useState(false);
 
-  // Filtro anti-duplicados
-  const uniqueStats = Array.from(
-    new Map(
-      (stats || []).map((s: any) => {
-        const fechaUnica = s.game_date
-          ? String(s.game_date).split('T')[0]
-          : (s.date || s.id);
-        return [fechaUnica, s];
-      })
-    ).values()
+  const visibleNavStats = useMemo(
+    () => navStats.filter((stat) => !HIDDEN_MAIN_STATS.has(stat.id)),
+    [navStats]
   );
 
-  // Línea sugerida automática
+  const activeStatLabel =
+    visibleNavStats.find((s) => s.id === activeStat)?.label ||
+    navStats.find((s) => s.id === activeStat)?.label ||
+    activeStat.toUpperCase();
+
+  const opportunityOverlay = useMemo(
+    () => getOpportunityOverlayConfig(activeStat, isQ1Mode),
+    [activeStat, isQ1Mode]
+  );
+
+  const selectedStakeOdds = useMemo(
+    () => findStakeOddsForStat(stakeOdds, activeStat),
+    [stakeOdds, activeStat]
+  );
+
+  const selectedStakeOdd = useMemo(
+    () => pickPrimaryStakeOdd(selectedStakeOdds),
+    [selectedStakeOdds]
+  );
+
+  const uniqueStats = useMemo(() => {
+    return Array.from(
+      new Map(
+        (stats || []).map((s: any) => {
+          const fechaUnica = s.game_date
+            ? String(s.game_date).split("T")[0]
+            : s.date || s.id || s.game_id;
+          return [fechaUnica, s];
+        })
+      ).values()
+    );
+  }, [stats]);
+
   useEffect(() => {
+    if (!isQ1Mode && selectedStakeOdd?.line != null && Number.isFinite(Number(selectedStakeOdd.line))) {
+      setLineValue(normalizeLineForStat(Number(selectedStakeOdd.line), activeStat));
+      return;
+    }
+
     if (uniqueStats.length > 0) {
       const recent = uniqueStats.slice(0, 10);
       const total = recent.reduce((sum, s) => sum + getStatValue(s, activeStat, isQ1Mode), 0);
       const avg = total / (recent.length || 1);
-
-      if (['usage_pct', 'potential_ast', 'rebound_chances'].includes(activeStat)) {
-        setLineValue(Number(avg.toFixed(1)));
-      } else {
-        setLineValue(Math.floor(avg) + 0.5);
-      }
+      setLineValue(getAutoLine(avg, activeStat));
     }
-  }, [activeStat, stats, isQ1Mode]);
+  }, [activeStat, uniqueStats, isQ1Mode, selectedStakeOdd]);
 
   const processedStats = uniqueStats.map((s: any) => ({
     ...s,
     value: Number(getStatValue(s, activeStat, isQ1Mode).toFixed(1)),
-    is_percentage: activeStat === 'usage_pct',
+    is_percentage: activeStat === "usage_pct",
   }));
 
   const visibleStats = processedStats.slice(0, lastN).reverse();
+  const tableStats = [...visibleStats].reverse();
+  const values = visibleStats.map((s) => Number(s.value) || 0);
 
-  const avgValue = visibleStats.length > 0
-    ? (visibleStats.reduce((a, b) => a + b.value, 0) / visibleStats.length).toFixed(1)
-    : "0.0";
+  const avgValue =
+    visibleStats.length > 0
+      ? (visibleStats.reduce((a, b) => a + b.value, 0) / visibleStats.length).toFixed(1)
+      : "0.0";
 
   const hits = visibleStats.filter((s) => s.value >= lineValue).length;
-  const hitRate = visibleStats.length > 0
-    ? ((hits / visibleStats.length) * 100).toFixed(0)
-    : "0";
+  const hitRateNumber = visibleStats.length > 0 ? Math.round((hits / visibleStats.length) * 100) : 0;
+  const hitRate = String(hitRateNumber);
+
+  const minutesValues = visibleStats
+    .map((s) => getMinutesValue(s))
+    .filter((m): m is number => m !== null);
+
+  const avgMinutes =
+    minutesValues.length > 0
+      ? (minutesValues.reduce((sum, m) => sum + m, 0) / minutesValues.length).toFixed(1)
+      : "S/D";
+
+  const lowMinuteGames = minutesValues.filter((m) => m < 20).length;
+
+  const trendLabel =
+    hitRateNumber >= 60
+      ? "Tendencia fuerte"
+      : hitRateNumber >= 50
+        ? "Tendencia media"
+        : "Tendencia baja";
+
+  const volumeLabel =
+    avgMinutes === "S/D"
+      ? "Sin minutos"
+      : Number(avgMinutes) >= 30
+        ? "Volumen alto"
+        : Number(avgMinutes) >= 24
+          ? "Volumen medio"
+          : "Volumen bajo";
+
+  const lineInputStep = usesIntegerLine(activeStat) ? "1" : "any";
 
   return (
-    <div className="space-y-6">
-
+    <div className="space-y-5">
       {/* MENÚ DE ESTADÍSTICAS */}
-      <div className="flex items-center gap-6 overflow-x-auto no-scrollbar whitespace-nowrap border-b border-[#111] pb-2">
-        {navStats.map((stat) => (
-          <button
-            key={stat.id}
-            onClick={() => setActiveStat(stat.id)}
-            className={`py-4 text-[10px] font-black uppercase tracking-widest border-b-2 transition-all
-              ${activeStat === stat.id
-                ? 'border-[#10b981] text-[#10b981] drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]'
-                : 'border-transparent text-[#666] hover:text-[#aaa]'
-              }`}
+      <div className="space-y-2 border-b border-[var(--border)] pb-2">
+        <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3">
+          <label className="block text-[8px] text-[#10b981] font-black uppercase tracking-[0.22em] mb-2">
+            Selector rápido de stat
+          </label>
+          <select
+            value={activeStat}
+            onChange={(e) => setActiveStat(e.target.value)}
+            className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text)] text-xs font-black uppercase tracking-widest focus:outline-none focus:border-[#10b981]"
           >
-            {stat.label}
-          </button>
-        ))}
+            {visibleNavStats.map((stat) => (
+              <option key={stat.id} value={stat.id}>
+                {stat.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex items-center gap-5 overflow-x-auto whitespace-nowrap max-w-full pb-2 pr-4">
+          {visibleNavStats.map((stat) => (
+            <button
+              key={stat.id}
+              onClick={() => setActiveStat(stat.id)}
+              className={`shrink-0 py-3 text-[10px] font-black uppercase tracking-widest border-b-2 transition-all ${
+                activeStat === stat.id
+                  ? "border-[#10b981] text-[#10b981] drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]"
+                  : "border-transparent text-[var(--text-muted)] hover:text-[#aaa]"
+              }`}
+            >
+              {stat.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* CONTROLES */}
-      <div className="flex flex-col md:flex-row justify-between items-center bg-[#0a0a0a] border border-[#171717] rounded-2xl p-4 gap-6 shadow-xl">
-
+      <div className="flex flex-col md:flex-row justify-between items-center bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-4 gap-6 shadow-xl">
         <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
-
-          {/* INTERRUPTOR Q1 vs FULL GAME */}
-          <div className="flex bg-[#111] p-1 rounded-xl border border-[#222]">
+          <div className="flex bg-[var(--surface-soft)] p-1 rounded-xl border border-[var(--border)]">
             <button
               className={`flex items-center gap-2 px-4 py-2 text-[10px] font-black rounded-lg transition-all ${
                 !isQ1Mode
-                  ? 'bg-[#10b981] text-black shadow-[0_0_10px_rgba(16,185,129,0.3)]'
-                  : 'text-[#666] hover:text-white'
+                  ? "bg-[#10b981] text-black shadow-[0_0_10px_rgba(16,185,129,0.3)]"
+                  : "text-[var(--text-muted)] hover:text-[var(--text)]"
               }`}
               onClick={() => setIsQ1Mode(false)}
             >
@@ -120,8 +385,8 @@ export default function PlayerChartContainer({ stats, navStats }: PlayerChartCon
             <button
               className={`flex items-center gap-2 px-4 py-2 text-[10px] font-black rounded-lg transition-all ${
                 isQ1Mode
-                  ? 'bg-[#10b981] text-black shadow-[0_0_10px_rgba(16,185,129,0.3)]'
-                  : 'text-[#666] hover:text-white'
+                  ? "bg-[#10b981] text-black shadow-[0_0_10px_rgba(16,185,129,0.3)]"
+                  : "text-[var(--text-muted)] hover:text-[var(--text)]"
               }`}
               onClick={() => setIsQ1Mode(true)}
             >
@@ -131,16 +396,15 @@ export default function PlayerChartContainer({ stats, navStats }: PlayerChartCon
 
           <div className="bg-[#222] w-[1px] hidden md:block" />
 
-          {/* RACHAS L5, L10, L20 */}
-          <div className="flex bg-black p-1 rounded-xl border border-[#222]">
+          <div className="flex bg-[var(--bg)] p-1 rounded-xl border border-[var(--border)]">
             {[20, 10, 5].map((n) => (
               <button
                 key={n}
                 onClick={() => setLastN(n)}
                 className={`flex-1 md:flex-none px-6 py-2.5 rounded-lg text-[10px] font-black transition-all ${
                   lastN === n
-                    ? 'bg-[#1a1a1a] text-white shadow-md border border-[#333]'
-                    : 'text-[#666] hover:text-white border border-transparent'
+                    ? "bg-[var(--brand-soft)] text-[var(--text)] shadow-md border border-[var(--border-strong)]"
+                    : "text-[var(--text-muted)] hover:text-[var(--text)] border border-transparent"
                 }`}
               >
                 L{n}
@@ -149,34 +413,34 @@ export default function PlayerChartContainer({ stats, navStats }: PlayerChartCon
           </div>
         </div>
 
-        {/* LÍNEA CUSTOM Y PROMEDIOS */}
         <div className="flex items-center gap-6 md:gap-8 w-full md:w-auto justify-between md:justify-end">
           <div className="flex flex-col items-start md:items-end">
-            <span className="text-[8px] text-[#666] font-black uppercase tracking-[0.2em] flex items-center gap-1 mb-1">
-              <Sparkles size={10} className="text-[#10b981]" /> Custom Line
+            <span className="text-[8px] text-[var(--text-muted)] font-black uppercase tracking-[0.2em] flex items-center gap-1 mb-1">
+              <Sparkles size={10} className="text-[#10b981]" /> {selectedStakeOdd ? "Stake Line" : "Custom Line"}
             </span>
 
-            <div className="flex items-center bg-black px-2 py-1 rounded-lg border border-[#222]">
+            <div className="flex items-center bg-[var(--bg)] px-2 py-1 rounded-lg border border-[var(--border)]">
               <Target size={14} className="text-red-500 ml-2" />
 
               <button
-                onClick={() => setLineValue(prev => Number((prev - 1).toFixed(1)))}
-                className="px-3 text-[#666] hover:text-white font-black text-xl transition-colors select-none"
+                onClick={() => setLineValue((prev) => adjustLine(prev, -1, activeStat))}
+                className="px-3 text-[var(--text-muted)] hover:text-[var(--text)] font-black text-xl transition-colors select-none"
               >
                 -
               </button>
 
               <input
                 type="number"
-                step="0.5"
-                value={lineValue}
+                step={lineInputStep}
+                value={formatLineValue(lineValue, activeStat)}
                 onChange={(e) => setLineValue(parseFloat(e.target.value) || 0)}
-                className="bg-transparent border-none text-2xl font-black w-14 text-center focus:outline-none text-white p-0 tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                onBlur={() => setLineValue((prev) => normalizeLineForStat(prev, activeStat))}
+                className="bg-transparent border-none text-2xl font-black w-16 text-center focus:outline-none text-[var(--text)] p-0 tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
 
               <button
-                onClick={() => setLineValue(prev => Number((prev + 1).toFixed(1)))}
-                className="px-3 text-[#666] hover:text-white font-black text-xl transition-colors select-none"
+                onClick={() => setLineValue((prev) => adjustLine(prev, 1, activeStat))}
+                className="px-3 text-[var(--text-muted)] hover:text-[var(--text)] font-black text-xl transition-colors select-none"
               >
                 +
               </button>
@@ -186,30 +450,200 @@ export default function PlayerChartContainer({ stats, navStats }: PlayerChartCon
           <div className="bg-[#222] w-[1px] h-10 hidden md:block" />
 
           <div className="flex flex-col items-end min-w-[70px]">
-            <span className="text-[8px] text-[#888] font-black uppercase tracking-[0.2em] mb-1">
-              AVG: {avgValue}{activeStat === 'usage_pct' ? '%' : ''}
+            <span className="text-[8px] text-[var(--text-muted)] font-black uppercase tracking-[0.2em] mb-1">
+              AVG: {avgValue}{activeStat === "usage_pct" ? "%" : ""}
             </span>
-            <span className={`text-3xl font-black tabular-nums leading-none ${
-              Number(hitRate) >= 50 ? 'text-[#10b981]' : 'text-red-500'
-            }`}>
+            <span
+              className={`text-3xl font-black tabular-nums leading-none ${
+                hitRateNumber >= 50 ? "text-[#10b981]" : "text-red-500"
+              }`}
+            >
               {hitRate}%
             </span>
           </div>
         </div>
       </div>
 
-      {/* GRÁFICA */}
-      <div className="bg-[#0a0a0a] p-4 md:p-6 rounded-[2rem] border border-[#171717] shadow-2xl relative">
-        {isQ1Mode && (
-          <div className="absolute top-6 right-6 px-3 py-1 bg-[#10b981]/10 border border-[#10b981]/30 text-[#10b981] text-[10px] font-black rounded-md tracking-wider z-10">
-            DATOS 1ER CUARTO
+      {/* GRÁFICA + ALT LINES */}
+      <div className="grid grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_320px] gap-4 items-stretch">
+        <div className="bg-[var(--surface)] p-4 md:p-6 rounded-[2rem] border border-[var(--border)] shadow-2xl relative min-w-0">
+          {isQ1Mode && (
+            <div className="absolute top-6 right-6 px-3 py-1 bg-[#10b981]/10 border border-[#10b981]/30 text-[#10b981] text-[10px] font-black rounded-md tracking-wider z-10">
+              DATOS 1ER CUARTO
+            </div>
+          )}
+          <div className="min-h-[410px] w-full relative">
+            <PlayerChart
+              data={visibleStats}
+              statKey="value"
+              lineValue={lineValue}
+              overlayKey={opportunityOverlay?.key}
+              overlayLabel={opportunityOverlay?.label}
+              overlayColor={opportunityOverlay?.color}
+              overlayRatioLabel={opportunityOverlay?.ratioLabel}
+            />
           </div>
-        )}
-        <div className="h-[350px] w-full relative">
-          <PlayerChart data={visibleStats} statKey="value" lineValue={lineValue} />
+        </div>
+
+        <AltLinesPanel
+          values={values}
+          currentLine={lineValue}
+          statId={activeStat}
+          statLabel={activeStatLabel}
+          onSelectLine={setLineValue}
+          stakeOdds={selectedStakeOdds}
+          primaryStakeOdd={selectedStakeOdd}
+          playerName={playerName}
+        />
+      </div>
+
+      {/* CONTEXTO RÁPIDO */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-4">
+          <p className="text-[8px] text-[var(--text-muted)] font-black uppercase tracking-widest">Hit Rate</p>
+          <p className={`text-2xl font-black ${hitRateNumber >= 50 ? "text-[#10b981]" : "text-red-500"}`}>
+            {hits}/{visibleStats.length}
+          </p>
+          <p className="text-[9px] text-[var(--text-muted)] font-black uppercase tracking-widest mt-1">{trendLabel}</p>
+        </div>
+
+        <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-4">
+          <p className="text-[8px] text-[var(--text-muted)] font-black uppercase tracking-widest">Min Prom.</p>
+          <p className="text-2xl font-black text-[var(--text)] tabular-nums">{avgMinutes}</p>
+          <p className="text-[9px] text-[var(--text-muted)] font-black uppercase tracking-widest mt-1">{volumeLabel}</p>
+        </div>
+
+        <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-4">
+          <p className="text-[8px] text-[var(--text-muted)] font-black uppercase tracking-widest">Línea</p>
+          <p className="text-2xl font-black text-[var(--text)] tabular-nums">{formatLineValue(lineValue, activeStat)}</p>
+          <p className="text-[9px] text-[var(--text-muted)] font-black uppercase tracking-widest mt-1">{activeStatLabel}</p>
+        </div>
+
+        <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-4">
+          <p className="text-[8px] text-[var(--text-muted)] font-black uppercase tracking-widest">Alerta</p>
+          <p className="text-sm font-black text-[#10b981] uppercase flex items-center gap-2">
+            <Gauge size={14} /> {lowMinuteGames > 0 ? `${lowMinuteGames} baja min.` : "Muestra limpia"}
+          </p>
+          <p className="text-[9px] text-[var(--text-muted)] font-black uppercase tracking-widest mt-2 flex items-center gap-1">
+            <TrendingUp size={10} /> L{lastN}
+          </p>
         </div>
       </div>
 
+      <PickInsightPanel
+        stats={visibleStats}
+        lineValue={lineValue}
+        activeStatLabel={activeStatLabel}
+        hitRate={hitRateNumber}
+        hits={hits}
+        avgValue={avgValue}
+        avgMinutes={avgMinutes}
+        lastN={visibleStats.length}
+      />
+
+      <SupportingDataGrid
+        stats={visibleStats}
+        activeStat={activeStat}
+        activeStatLabel={activeStatLabel}
+      />
+
+      {/* TABLA GAME LOG COLAPSABLE */}
+      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-[2rem] overflow-hidden shadow-2xl">
+        <button
+          type="button"
+          onClick={() => setShowGameLog((prev) => !prev)}
+          className="w-full px-5 py-4 flex items-center justify-between gap-4 hover:bg-white/[0.02] transition-colors"
+        >
+          <div className="flex items-center gap-3 text-left">
+            <div className="w-9 h-9 rounded-full border border-[#10b981]/25 bg-[#10b981]/10 flex items-center justify-center">
+              <Table2 size={16} className="text-[#10b981]" />
+            </div>
+            <div>
+              <p className="text-[9px] text-[#10b981] font-black uppercase tracking-[0.25em]">
+                Game Log
+              </p>
+              <h3 className="text-[var(--text)] font-black uppercase tracking-tight">
+                {showGameLog ? "Ocultar detalle" : `Ver detalle de últimos ${visibleStats.length}`}
+              </h3>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <p className="hidden md:block text-[10px] text-[var(--text-muted)] font-black uppercase tracking-widest text-right">
+              Línea: {formatLineValue(lineValue, activeStat)} {activeStatLabel}
+            </p>
+            {showGameLog ? <ChevronUp size={18} className="text-[#10b981]" /> : <ChevronDown size={18} className="text-[#10b981]" />}
+          </div>
+        </button>
+
+        {showGameLog && (
+          <div className="overflow-x-auto border-t border-[var(--border)]">
+            <table className="w-full text-left">
+              <thead className="bg-[var(--bg)]/60">
+                <tr className="text-[9px] text-[var(--text-muted)] uppercase tracking-widest">
+                  <th className="px-5 py-3 font-black">Fecha</th>
+                  <th className="px-5 py-3 font-black">Rival</th>
+                  <th className="px-5 py-3 font-black text-right">MIN</th>
+                  <th className="px-5 py-3 font-black text-right">{activeStatLabel}</th>
+                  <th className="px-5 py-3 font-black text-right">Línea</th>
+                  <th className="px-5 py-3 font-black text-right">Resultado</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {tableStats.map((s: any, idx: number) => {
+                  const isOver = Number(s.value) >= lineValue;
+                  const minutes = getMinutesValue(s);
+                  const isLowMinutes = minutes !== null && minutes < 20;
+
+                  return (
+                    <tr
+                      key={`${s.game_id || s.game_date}-${idx}`}
+                      className="border-t border-[var(--border)] hover:bg-white/[0.03] transition-colors"
+                    >
+                      <td className="px-5 py-3 text-xs text-[#aaa] font-bold whitespace-nowrap">
+                        {formatDateShort(s.game_date)}
+                      </td>
+
+                      <td className="px-5 py-3 text-xs text-[var(--text)] font-black uppercase whitespace-nowrap">
+                        {getGameLocation(s)} {getOpponent(s)}
+                      </td>
+
+                      <td
+                        className={`px-5 py-3 text-xs text-right font-black tabular-nums whitespace-nowrap ${
+                          isLowMinutes ? "text-orange-400" : "text-[#10b981]"
+                        }`}
+                      >
+                        {getMinutesLabel(s)} {isLowMinutes ? "⚠" : ""}
+                      </td>
+
+                      <td className="px-5 py-3 text-xs text-right text-[var(--text)] font-black tabular-nums whitespace-nowrap">
+                        {formatStatValue(s.value, activeStat === "usage_pct")}
+                      </td>
+
+                      <td className="px-5 py-3 text-xs text-right text-[#777] font-black tabular-nums whitespace-nowrap">
+                        {formatLineValue(lineValue, activeStat)}
+                      </td>
+
+                      <td className="px-5 py-3 text-right whitespace-nowrap">
+                        <span
+                          className={`text-[9px] font-black uppercase px-2 py-1 rounded-md border ${
+                            isOver
+                              ? "text-[#10b981] border-[#10b981]/30 bg-[#10b981]/10"
+                              : "text-red-400 border-red-500/30 bg-red-500/10"
+                          }`}
+                        >
+                          {isOver ? "Over" : "Under"}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -1,0 +1,191 @@
+{
+  "queryUrl": "match_timelinedelta/70504992",
+  "doc": [
+    {
+      "event": "match_timelinedelta",
+      "_synced": true,
+      "_dob": 1778566144,
+      "_maxage": 60,
+      "data": {
+        "match": {
+          "_doc": "match",
+          "_doctype": "basket",
+          "_id": 70504992,
+          "_sid": 2,
+          "_seasonid": 131631,
+          "_rcid": 15,
+          "_tid": 10561,
+          "_utid": 132,
+          "_dt": {
+            "_doc": "time",
+            "time": "00:00",
+            "date": "14/05/26",
+            "tz": "UTC",
+            "tzoffset": 0,
+            "uts": 1778716800
+          },
+          "round": 195,
+          "roundname": {
+            "_doc": "cupround",
+            "_id": 195,
+            "displaynumber": null,
+            "name": "Eastern Conference Semifinals",
+            "shortname": "",
+            "cuproundnumber": null,
+            "statisticssortorder": 112
+          },
+          "cuproundmatchnumber": 5,
+          "cuproundnumberofmatches": 7,
+          "week": 20,
+          "coverage": {
+            "lineup": 0,
+            "formations": 0,
+            "livetable": 0,
+            "injuries": 0,
+            "ballspotting": false,
+            "cornersonly": true,
+            "multicast": false,
+            "scoutmatch": 1,
+            "scoutcoveragestatus": 0,
+            "scoutconnected": false,
+            "liveodds": true,
+            "deepercoverage": false,
+            "tacticallineup": false,
+            "basiclineup": true,
+            "hasstats": true,
+            "inlivescore": true,
+            "advantage": null,
+            "tiebreak": null,
+            "paperscorecard": null,
+            "insights": false,
+            "penaltyshootout": 2,
+            "scouttest": false,
+            "lmtsupport": 3,
+            "venue": false,
+            "matchdatacomplete": false,
+            "mediacoverage": false,
+            "substitutions": false,
+            "live": {
+              "id": 872,
+              "level": {
+                "name": "Level 2",
+                "value": 2
+              }
+            },
+            "match_creation": {
+              "id": 870,
+              "level": {
+                "name": "Level 1",
+                "value": 1
+              }
+            },
+            "player_service": {
+              "id": 874,
+              "level": {
+                "name": "Level 1",
+                "value": 1
+              }
+            },
+            "resulting": {
+              "id": 876,
+              "level": {
+                "name": "Level 2",
+                "value": 2
+              }
+            },
+            "stats_creation_cup": {
+              "id": 878,
+              "level": {
+                "name": "Level 1",
+                "value": 1
+              }
+            },
+            "stats_creation_table": {
+              "id": 880,
+              "level": {
+                "name": "Level 3",
+                "value": 3
+              }
+            }
+          },
+          "result": {
+            "home": null,
+            "away": null,
+            "winner": null
+          },
+          "periods": null,
+          "updated_uts": 1778566123,
+          "ended_uts": false,
+          "p": "0",
+          "ptime": false,
+          "timeinfo": {
+            "injurytime": null,
+            "ended": null,
+            "started": null,
+            "played": null,
+            "remaining": null,
+            "running": false
+          },
+          "teams": {
+            "home": {
+              "_doc": "team",
+              "_id": 19396,
+              "_sid": 2,
+              "uid": 3424,
+              "virtual": false,
+              "name": "Detroit",
+              "mediumname": "Detroit Pistons",
+              "abbr": "DET",
+              "nickname": "Pistons",
+              "iscountry": false,
+              "haslogo": true
+            },
+            "away": {
+              "_doc": "team",
+              "_id": 19395,
+              "_sid": 2,
+              "uid": 3432,
+              "virtual": false,
+              "name": "Cleveland",
+              "mediumname": "Cleveland Cavaliers",
+              "abbr": "CLE",
+              "nickname": "Cavaliers",
+              "iscountry": false,
+              "haslogo": true
+            }
+          },
+          "status": {
+            "_doc": "status",
+            "_id": 0,
+            "name": "Not started",
+            "shortName": "NS"
+          },
+          "removed": false,
+          "facts": false,
+          "stadiumid": 21782,
+          "localderby": false,
+          "distance": 147,
+          "weather": null,
+          "pitchcondition": null,
+          "temperature": null,
+          "wind": null,
+          "windadvantage": 0,
+          "matchstatus": false,
+          "postponed": false,
+          "cancelled": false,
+          "walkover": false,
+          "hf": 7.5,
+          "periodlength": 12,
+          "numberofperiods": 4,
+          "overtimelength": 5,
+          "tobeannounced": false,
+          "basketballbonus": {
+            "home": false,
+            "away": false
+          }
+        },
+        "events": []
+      }
+    }
+  ]
+}

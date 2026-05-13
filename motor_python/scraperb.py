@@ -24,6 +24,13 @@ Requisitos:
 from DrissionPage import ChromiumPage
 import json, re, os, time
 from datetime import datetime
+try:
+    from zoneinfo import ZoneInfo
+except Exception:
+    ZoneInfo = None
+
+TZ_ARG = ZoneInfo("America/Argentina/Buenos_Aires") if ZoneInfo else None
+
 
 # ══════════════════════════════════════════════════════════════
 #  CONFIG
@@ -188,7 +195,16 @@ def parsear_mercados(state: dict, nombre_partido: str) -> list[dict]:
     """
     cuotas = []
     try:
-        markets = state["data"]["event"]["markets"]
+        event = state["data"]["event"]
+        markets = event["markets"]
+        
+        # [NUEVO] Extraer fecha del partido (Betano manda timestamp en ms)
+        start_time_raw = event.get("startTime")
+        if isinstance(start_time_raw, int) or (isinstance(start_time_raw, str) and start_time_raw.isdigit()):
+            fecha_partido = datetime.fromtimestamp(int(start_time_raw) / 1000.0, TZ_ARG).strftime("%Y-%m-%d") if TZ_ARG else datetime.fromtimestamp(int(start_time_raw) / 1000.0).strftime("%Y-%m-%d")
+        else:
+            fecha_partido = datetime.now(TZ_ARG).strftime("%Y-%m-%d") if TZ_ARG else datetime.now().strftime("%Y-%m-%d") # fallback
+            
     except (KeyError, TypeError):
         return []
 
@@ -219,6 +235,7 @@ def parsear_mercados(state: dict, nombre_partido: str) -> list[dict]:
 
                     cuotas.append({
                         "partido"  : nombre_partido,
+                        "fecha"    : fecha_partido,  # [NUEVO] Mapeado al diccionario
                         "jugador"  : jugador,
                         "mercado"  : mercado_nombre,
                         "linea"    : nombre_sel,
@@ -284,7 +301,8 @@ def guardar(cuotas: list):
 
     # CSV
     ruta_csv = os.path.join(OUTPUT_DIR, f"props_nba_{ts}.csv")
-    campos   = ["partido", "jugador", "mercado", "linea", "handicap", "cuota"]
+    # [NUEVO] Se agrega "fecha" a los campos
+    campos   = ["partido", "fecha", "jugador", "mercado", "linea", "handicap", "cuota"]
     with open(ruta_csv, "w", encoding="utf-8") as f:
         f.write(",".join(campos) + "\n")
         for c in cuotas:

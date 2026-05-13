@@ -230,6 +230,51 @@ def clean_numeric_cols(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
             out[c] = pd.to_numeric(out[c], errors="coerce")
     return out
 
+
+def coalesce_alias(out: pd.DataFrame, target: str, candidates: list[str]) -> pd.DataFrame:
+    """Crea/actualiza target usando la primera columna disponible entre candidates sin pisar datos buenos."""
+    if out.empty:
+        return out
+
+    existing_candidates = [c for c in candidates if c in out.columns]
+    if not existing_candidates and target not in out.columns:
+        return out
+
+    if target not in out.columns:
+        out[target] = pd.NA
+
+    for c in existing_candidates:
+        if c == target:
+            continue
+        out[target] = out[target].combine_first(out[c])
+
+    return out
+
+
+def apply_boxscore_aliases(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Normaliza aliases de boxscore para que coincidan con el esquema viejo de la DB.
+
+    NBA PlayerGameLogs trae FG3M/FG3A, pero normalize_col_name los convierte en fg3_m/fg3_a.
+    Muchas tablas viejas del proyecto usan fg3m/fg3a, por eso antes los triples podían
+    descargarse desde NBA pero terminar descartados en prepare_for_db().
+    """
+    if df.empty:
+        return df
+
+    out = df.copy()
+
+    # Triples: columnas NBA normalizadas -> columnas esperadas por el esquema viejo.
+    out = coalesce_alias(out, "fg3m", ["fg3m", "fg3_m", "three_pm", "three_pointers_made"])
+    out = coalesce_alias(out, "fg3a", ["fg3a", "fg3_a", "three_pa", "three_pointers_attempted"])
+    out = coalesce_alias(out, "fg3_pct", ["fg3_pct", "fg3_percentage", "three_p_pct"])
+
+    # También dejamos las variantes con guion bajo por si alguna tabla nueva usa esos nombres.
+    out = coalesce_alias(out, "fg3_m", ["fg3_m", "fg3m"])
+    out = coalesce_alias(out, "fg3_a", ["fg3_a", "fg3a"])
+
+    return out
+
 # =========================================================
 # NBA FETCH
 # =========================================================
@@ -443,10 +488,14 @@ def build_final_dataframe() -> pd.DataFrame:
     if "wl" not in base.columns and "w_l" in base.columns:
         base["wl"] = base["w_l"]
 
+    # Arregla aliases de triples: NBA normaliza FG3M/FG3A como fg3_m/fg3_a,
+    # pero tu DB/modelo suele esperar fg3m/fg3a.
+    base = apply_boxscore_aliases(base)
+
     # Limpieza numerica.
     numeric_cols = [
         "player_id", "team_id", "pts", "reb", "ast", "stl", "blk", "tov", "turnover",
-        "fgm", "fga", "fg_pct", "fg3m", "fg3a", "fg3_pct", "ftm", "fta", "ft_pct",
+        "fgm", "fga", "fg_pct", "fg3m", "fg3a", "fg3_m", "fg3_a", "fg3_pct", "ftm", "fta", "ft_pct",
         "oreb", "dreb", "rebound_off", "rebound_def", "pf", "plus_minus", "usage_pct",
         "touches", "rebound_chances", "potential_ast", "passes_made", "minutes",
     ]
@@ -597,6 +646,9 @@ def prepare_for_db(df: pd.DataFrame, valid_cols: list[str]) -> pd.DataFrame:
 
     out = df.copy()
 
+    # Ultima defensa: asegurar aliases de triples antes de filtrar por columnas reales de la DB.
+    out = apply_boxscore_aliases(out)
+
     # Si la tabla no tiene game_key, no lo insertes.
     if "game_key" in out.columns and "game_key" not in valid_cols:
         out.drop(columns=["game_key"], inplace=True)
@@ -651,6 +703,13 @@ def save_to_db(df: pd.DataFrame) -> int:
     if final_df.empty:
         print("⚠️ Despues de filtrar columnas, no quedo nada para insertar.")
         return 0
+
+    triple_cols = [c for c in ["fg3m", "fg3a", "fg3_pct", "fg3_m", "fg3_a"] if c in final_df.columns]
+    if triple_cols:
+        counts = {c: int(pd.to_numeric(final_df[c], errors="coerce").notna().sum()) for c in triple_cols}
+        print(f"🎯 Columnas de triples a insertar: {counts}")
+    else:
+        print("⚠️ No encontre columnas de triples compatibles con la tabla. Revisar nombres en DB.")
 
     print(f"🧹 Reemplazando ventana {START_DATE} a {END_DATE} en {TABLE_NAME}...")
     print("💾 Insertando filas nuevas con la misma conexion transaccional...")

@@ -15,9 +15,9 @@ const BOOKS = [
   {
     id: 'betano',
     label: 'Betano',
-    emoji: '🔵',
+    emoji: '🟠',
     href: '/ev-plays?book=betano',
-    activeClass: 'bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.3)]',
+    activeClass: 'bg-orange-500 text-white shadow-[0_0_15px_rgba(249,115,22,0.35)]',
   },
 ] as const;
 
@@ -26,7 +26,7 @@ const BOOKS = [
 // con los nuevos searchParams, en vez de una navegación suave que no los actualiza.
 export default function BookmakerSelector({ activeBook }: Props) {
   return (
-    <div className="flex bg-[#111] p-1 rounded-xl border border-[#222] w-fit">
+    <div className="flex bg-[var(--surface-soft)] p-1 rounded-xl border border-[var(--border)] w-fit">
       {BOOKS.map(book => (
         <Link
           key={book.id}
@@ -34,7 +34,7 @@ export default function BookmakerSelector({ activeBook }: Props) {
           className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all no-underline ${
             activeBook === book.id
               ? book.activeClass
-              : 'text-[#666] hover:text-white'
+              : 'text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-hover)]'
           }`}
         >
           {book.emoji} {book.label}

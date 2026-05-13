@@ -25,11 +25,13 @@ Uso:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 import re
 import shutil
 import sys
-from datetime import datetime
+import unicodedata
+from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 from typing import Optional
@@ -52,6 +54,13 @@ CSV_PATTERN = "lineas_nba_*.csv"
 
 PLAYER_ODDS_TABLE = "player_odds"
 STAGING_TABLE = "player_odds_staging"
+
+# Tabla nueva/universal para guardar todas las líneas disponibles por book.
+# Esta tabla permite múltiples líneas por jugador/mercado y separa over/under.
+PROP_ODDS_TABLE = "public.player_prop_odds"
+PROP_ODDS_STAGING_TABLE = "player_prop_odds_staging"
+SNAPSHOTS_TABLE = "public.odds_snapshots"
+
 DEFAULT_TARGET_TZ = "America/Argentina/Buenos_Aires"
 
 
@@ -224,6 +233,60 @@ def normalizar_matchup(partido_raw) -> str:
         return partido.replace(" - ", " @ ")
 
     return partido
+
+
+def normalize_player_norm(value) -> str:
+    """Normaliza nombres para matchear cuotas con la app: De'Aaron -> de aaron."""
+    s = clean_text(value).lower()
+    s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode("ascii")
+    s = re.sub(r"[^a-z0-9]+", " ", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
+
+
+def normalize_game_norm(value) -> str:
+    s = clean_text(value).lower()
+    s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode("ascii")
+    s = re.sub(r"[^a-z0-9]+", " ", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
+
+
+def fmt_num(value) -> str:
+    try:
+        n = float(value)
+    except Exception:
+        return str(value)
+    if n.is_integer():
+        return str(int(n))
+    return str(n).rstrip("0").rstrip(".")
+
+
+def make_row_uid(*parts) -> str:
+    raw = "|".join(clean_text(p) for p in parts)
+    return hashlib.sha1(raw.encode("utf-8")).hexdigest()
+
+
+def stake_market_key(prop_type: str) -> str:
+    mapping = {
+        "PTS": "player_points",
+        "REB": "player_rebounds",
+        "AST": "player_assists",
+        "3PT": "player_threes",
+        "PRA": "player_points_rebounds_assists",
+        "PR": "player_points_rebounds",
+        "PA": "player_points_assists",
+        "RA": "player_rebounds_assists",
+        "FGM": "player_field_goals_made",
+        "FGA": "player_field_goals_attempted",
+        "FG3A": "player_threes_attempted",
+        "FTM": "player_free_throws_made",
+        "FTA": "player_free_throws_attempted",
+        "Q1_PTS": "player_q1_points",
+        "Q1_REB": "player_q1_rebounds",
+        "Q1_AST": "player_q1_assists",
+    }
+    return mapping.get(prop_type, f"player_{prop_type.lower()}")
 
 
 def _has_time_component(raw: pd.Series) -> bool:
@@ -482,7 +545,292 @@ def preparar_cuotas(
 # SUBIDA SEGURA
 # ============================================================
 
-def subir_con_staging(df_final: pd.DataFrame, dry_run: bool = False) -> None:
+def ensure_prop_odds_tables(conn) -> None:
+    """
+    Asegura la tabla universal de cuotas.
+    Sirve para Stake y Betano, y permite múltiples líneas por jugador/mercado.
+    """
+    conn.execute(text(f"""
+        CREATE TABLE IF NOT EXISTS {SNAPSHOTS_TABLE} (
+            snapshot_id TEXT PRIMARY KEY,
+            book TEXT NOT NULL,
+            league TEXT NOT NULL,
+            scraped_at_source TEXT,
+            scraped_at_utc TIMESTAMPTZ,
+            source_file TEXT,
+            rows_total INTEGER NOT NULL DEFAULT 0,
+            rows_valid INTEGER NOT NULL DEFAULT 0,
+            created_at_utc TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+    """))
+
+    conn.execute(text(f"""
+        CREATE TABLE IF NOT EXISTS {PROP_ODDS_TABLE} (
+            row_uid TEXT PRIMARY KEY,
+            snapshot_id TEXT NOT NULL,
+            scraped_at_source TEXT,
+            scraped_at_utc TIMESTAMPTZ,
+            event_date DATE,
+            book TEXT NOT NULL DEFAULT 'stake',
+            sport TEXT,
+            league TEXT,
+            source_file TEXT,
+            partido TEXT,
+            game_norm TEXT,
+            jugador TEXT,
+            player_norm TEXT NOT NULL,
+            mercado_raw TEXT,
+            linea_raw TEXT,
+            handicap_raw TEXT,
+            odds_decimal NUMERIC(10, 4) NOT NULL,
+            market_key TEXT,
+            stat_key TEXT NOT NULL,
+            side TEXT NOT NULL DEFAULT 'over',
+            threshold NUMERIC(10, 2) NOT NULL,
+            model_line NUMERIC(10, 2) NOT NULL,
+            event_text TEXT,
+            valid BOOLEAN NOT NULL DEFAULT TRUE,
+            error TEXT,
+            created_at_utc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at_utc TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            CONSTRAINT player_prop_odds_side_check
+                CHECK (side IN ('over', 'under'))
+        );
+    """))
+
+    # Por si la tabla fue creada antes sin event_date.
+    conn.execute(text(f"ALTER TABLE {PROP_ODDS_TABLE} ADD COLUMN IF NOT EXISTS event_date DATE;"))
+
+    conn.execute(text(f"CREATE INDEX IF NOT EXISTS idx_player_prop_odds_snapshot ON {PROP_ODDS_TABLE} (snapshot_id);"))
+    conn.execute(text(f"CREATE INDEX IF NOT EXISTS idx_player_prop_odds_player_stat ON {PROP_ODDS_TABLE} (player_norm, stat_key);"))
+    conn.execute(text(f"CREATE INDEX IF NOT EXISTS idx_player_prop_odds_book_player_stat ON {PROP_ODDS_TABLE} (book, player_norm, stat_key);"))
+    conn.execute(text(f"CREATE INDEX IF NOT EXISTS idx_player_prop_odds_event_date ON {PROP_ODDS_TABLE} (event_date);"))
+    conn.execute(text(f"CREATE INDEX IF NOT EXISTS idx_player_prop_odds_scraped ON {PROP_ODDS_TABLE} (scraped_at_utc DESC);"))
+
+    conn.execute(text(f"""
+        CREATE OR REPLACE VIEW public.latest_player_prop_odds AS
+        WITH latest AS (
+            SELECT
+                book,
+                league,
+                MAX(scraped_at_utc) AS latest_scraped_at_utc
+            FROM {PROP_ODDS_TABLE}
+            WHERE valid = TRUE
+            GROUP BY book, league
+        )
+        SELECT p.*
+        FROM {PROP_ODDS_TABLE} p
+        JOIN latest l
+          ON l.book = p.book
+         AND l.league = p.league
+         AND l.latest_scraped_at_utc = p.scraped_at_utc
+        WHERE p.valid = TRUE;
+    """))
+
+
+def build_stake_prop_odds(df_final: pd.DataFrame, source_file: str, snapshot_id: str, scraped_at_utc: str) -> pd.DataFrame:
+    """
+    Convierte cada fila de Stake en 2 filas universales:
+      - side=over con over_price
+      - side=under con under_price
+
+    Si el CSV trae alt lines, quedan guardadas todas.
+    Si el CSV trae solo línea principal, queda guardada solo esa línea.
+    """
+    rows = []
+
+    for _, r in df_final.iterrows():
+        event_date = r.get("event_date")
+        player_name = clean_text(r.get("player_name"))
+        prop_type = clean_text(r.get("prop_type"))
+        matchup = clean_text(r.get("matchup"))
+        line = float(r.get("line"))
+
+        for side, price_col in [("over", "over_price"), ("under", "under_price")]:
+            odds_decimal = float(r.get(price_col))
+
+            row_uid = make_row_uid(
+                "stake",
+                event_date,
+                matchup,
+                player_name,
+                prop_type,
+                line,
+                side,
+                odds_decimal,
+            )
+
+            rows.append({
+                "row_uid": row_uid,
+                "snapshot_id": snapshot_id,
+                "scraped_at_source": scraped_at_utc,
+                "scraped_at_utc": scraped_at_utc,
+                "event_date": event_date,
+                "book": "stake",
+                "sport": "basketball",
+                "league": "NBA",
+                "source_file": source_file,
+                "partido": matchup,
+                "game_norm": normalize_game_norm(matchup),
+                "jugador": player_name,
+                "player_norm": normalize_player_norm(player_name),
+                "mercado_raw": prop_type,
+                "linea_raw": fmt_num(line),
+                "handicap_raw": None,
+                "odds_decimal": odds_decimal,
+                "market_key": stake_market_key(prop_type),
+                "stat_key": prop_type,
+                "side": side,
+                "threshold": line,
+                "model_line": line,
+                "event_text": f"{player_name} {fmt_num(line)} {prop_type} {side.upper()}",
+                "valid": True,
+                "error": None,
+            })
+
+    return pd.DataFrame(rows)
+
+
+def subir_prop_odds_stake(conn, df_final: pd.DataFrame, source_file: str) -> int:
+    ensure_prop_odds_tables(conn)
+
+    scraped_at_utc = datetime.now(timezone.utc).isoformat()
+    snapshot_id = f"stake_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+    df_prop = build_stake_prop_odds(
+        df_final=df_final,
+        source_file=source_file,
+        snapshot_id=snapshot_id,
+        scraped_at_utc=scraped_at_utc,
+    )
+
+    if df_prop.empty:
+        return 0
+
+    print(f"\n🎯 Subiendo cuotas universales Stake a {PROP_ODDS_TABLE}...")
+    print(f"   Snapshot: {snapshot_id}")
+    print(f"   Filas universales: {len(df_prop)}")
+
+    conn.execute(text(f"DROP TABLE IF EXISTS {PROP_ODDS_STAGING_TABLE};"))
+
+    df_prop.to_sql(
+        PROP_ODDS_STAGING_TABLE,
+        con=conn,
+        if_exists="replace",
+        index=False,
+        method="multi",
+        chunksize=1000,
+    )
+
+    conn.execute(text(f"""
+        INSERT INTO {SNAPSHOTS_TABLE}
+            (snapshot_id, book, league, scraped_at_source, scraped_at_utc, source_file, rows_total, rows_valid)
+        VALUES
+            (:snapshot_id, 'stake', 'NBA', :scraped_at_utc, :scraped_at_utc, :source_file, :rows_total, :rows_valid)
+        ON CONFLICT (snapshot_id)
+        DO UPDATE SET
+            scraped_at_source = EXCLUDED.scraped_at_source,
+            scraped_at_utc = EXCLUDED.scraped_at_utc,
+            source_file = EXCLUDED.source_file,
+            rows_total = EXCLUDED.rows_total,
+            rows_valid = EXCLUDED.rows_valid;
+    """), {
+        "snapshot_id": snapshot_id,
+        "scraped_at_utc": scraped_at_utc,
+        "source_file": source_file,
+        "rows_total": len(df_prop),
+        "rows_valid": len(df_prop),
+    })
+
+    conn.execute(text(f"""
+        INSERT INTO {PROP_ODDS_TABLE} (
+            row_uid,
+            snapshot_id,
+            scraped_at_source,
+            scraped_at_utc,
+            event_date,
+            book,
+            sport,
+            league,
+            source_file,
+            partido,
+            game_norm,
+            jugador,
+            player_norm,
+            mercado_raw,
+            linea_raw,
+            handicap_raw,
+            odds_decimal,
+            market_key,
+            stat_key,
+            side,
+            threshold,
+            model_line,
+            event_text,
+            valid,
+            error
+        )
+        SELECT
+            row_uid,
+            snapshot_id,
+            scraped_at_source::timestamptz::text,
+            scraped_at_utc::timestamptz,
+            event_date::date,
+            book,
+            sport,
+            league,
+            source_file,
+            partido,
+            game_norm,
+            jugador,
+            player_norm,
+            mercado_raw,
+            linea_raw,
+            handicap_raw,
+            odds_decimal,
+            market_key,
+            stat_key,
+            side,
+            threshold,
+            model_line,
+            event_text,
+            valid,
+            error
+        FROM {PROP_ODDS_STAGING_TABLE}
+        ON CONFLICT (row_uid)
+        DO UPDATE SET
+            snapshot_id = EXCLUDED.snapshot_id,
+            scraped_at_source = EXCLUDED.scraped_at_source,
+            scraped_at_utc = EXCLUDED.scraped_at_utc,
+            event_date = EXCLUDED.event_date,
+            book = EXCLUDED.book,
+            sport = EXCLUDED.sport,
+            league = EXCLUDED.league,
+            source_file = EXCLUDED.source_file,
+            partido = EXCLUDED.partido,
+            game_norm = EXCLUDED.game_norm,
+            jugador = EXCLUDED.jugador,
+            player_norm = EXCLUDED.player_norm,
+            mercado_raw = EXCLUDED.mercado_raw,
+            linea_raw = EXCLUDED.linea_raw,
+            handicap_raw = EXCLUDED.handicap_raw,
+            odds_decimal = EXCLUDED.odds_decimal,
+            market_key = EXCLUDED.market_key,
+            stat_key = EXCLUDED.stat_key,
+            side = EXCLUDED.side,
+            threshold = EXCLUDED.threshold,
+            model_line = EXCLUDED.model_line,
+            event_text = EXCLUDED.event_text,
+            valid = EXCLUDED.valid,
+            error = EXCLUDED.error,
+            updated_at_utc = NOW();
+    """))
+
+    conn.execute(text(f"DROP TABLE IF EXISTS {PROP_ODDS_STAGING_TABLE};"))
+
+    return len(df_prop)
+
+
+def subir_con_staging(df_final: pd.DataFrame, source_file: str = "", dry_run: bool = False) -> None:
     if dry_run:
         print("\n🧪 DRY RUN activo: no se sube nada a Supabase.")
         return
@@ -517,6 +865,9 @@ def subir_con_staging(df_final: pd.DataFrame, dry_run: bool = False) -> None:
                 f"Abortado por seguridad: staging tiene muy pocas filas ({staging_count})."
             )
 
+        # Tabla legacy: mantiene la línea principal que ya usa la web.
+        # Si en el futuro el CSV trae alt lines y esta tabla no las soporta,
+        # las alt lines igualmente quedarán guardadas en player_prop_odds.
         conn.execute(text(f"TRUNCATE TABLE {PLAYER_ODDS_TABLE};"))
 
         conn.execute(text(f"""
@@ -550,10 +901,16 @@ def subir_con_staging(df_final: pd.DataFrame, dry_run: bool = False) -> None:
                 f"Final count mismatch: player_odds={final_count}, staging={staging_count}"
             )
 
+        inserted_prop_odds = subir_prop_odds_stake(
+            conn=conn,
+            df_final=df_final,
+            source_file=source_file or "stake_csv",
+        )
+
         conn.execute(text(f"DROP TABLE IF EXISTS {STAGING_TABLE};"))
 
     print(f"✅ player_odds actualizada correctamente: {len(df_final)} filas")
-
+    print(f"✅ player_prop_odds actualizada correctamente: {inserted_prop_odds} filas Stake")
 
 # ============================================================
 # ARCHIVADO
@@ -638,7 +995,7 @@ def main() -> None:
             target_tz=args.target_tz,
         )
 
-        subir_con_staging(df_final, dry_run=args.dry_run)
+        subir_con_staging(df_final, source_file=csv_path.name, dry_run=args.dry_run)
         archivar_csv(csv_path, no_archive=args.no_archive, dry_run=args.dry_run)
 
         print("\n✅ Proceso terminado correctamente.")

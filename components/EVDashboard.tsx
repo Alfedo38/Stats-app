@@ -89,7 +89,7 @@ const BANNER_CONFIG: Record<Bookmaker, { emoji: string; name: string; desc: stri
     desc: 'Ludo evalúa props de jugadores y detecta valor matemático en las líneas de Stake. Cada ticket combina picks validados por hit rate histórico.',
   },
   betano: {
-    emoji: '🔵',
+    emoji: '🟠',
     name: 'Cerebro EV+ · Betano',
     desc: 'Ludo evalúa hitos de Betano (24+, 8+, etc.) y calcula la probabilidad real de superarlos. Cada pick tiene EV positivo sobre la cuota de mercado.',
   },
@@ -131,11 +131,12 @@ function formatTabDate(dateStr: string): string {
 // ─── Mini Calendario ─────────────────────────────────────────────────────────
 
 function MiniCalendar({
-  availableDates, selectedDate, todayStr, onSelect, onClose,
+  availableDates, selectedDate, todayStr, accentColor, onSelect, onClose,
 }: {
   availableDates: CalendarEntry[];
   selectedDate: string | null;
   todayStr: string;
+  accentColor: string;
   onSelect: (date: string) => void;
   onClose: () => void;
 }) {
@@ -157,17 +158,17 @@ function MiniCalendar({
   const daysInMonth    = new Date(year, month + 1, 0).getDate();
 
   return (
-    <div className="bg-[#0a0a0a] border border-[#222] rounded-2xl p-4 shadow-[0_20px_60px_rgba(0,0,0,0.95)] w-[280px]">
+    <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-4 shadow-[0_20px_60px_rgba(0,0,0,0.95)] w-[280px]">
       <div className="flex items-center justify-between mb-4">
-        <button onClick={prevMonth} className="p-1 text-[#666] hover:text-white transition-colors"><ChevronLeft size={15}/></button>
-        <span className="text-xs font-black uppercase tracking-widest text-white">{MONTHS_ES[month]} {year}</span>
-        <button onClick={nextMonth} className="p-1 text-[#666] hover:text-white transition-colors"><ChevronRight size={15}/></button>
-        <button onClick={onClose} className="p-1 text-[#444] hover:text-white transition-colors ml-1"><X size={13}/></button>
+        <button onClick={prevMonth} className="p-1 text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"><ChevronLeft size={15}/></button>
+        <span className="text-xs font-black uppercase tracking-widest text-[var(--text)]">{MONTHS_ES[month]} {year}</span>
+        <button onClick={nextMonth} className="p-1 text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"><ChevronRight size={15}/></button>
+        <button onClick={onClose} className="p-1 text-[var(--text-muted)] hover:text-[var(--text)] transition-colors ml-1"><X size={13}/></button>
       </div>
 
       <div className="grid grid-cols-7 mb-1">
         {['L','M','Mi','J','V','S','D'].map(d => (
-          <div key={d} className="text-center text-[9px] font-black text-[#444] py-1">{d}</div>
+          <div key={d} className="text-center text-[9px] font-black text-[var(--text-muted)] py-1">{d}</div>
         ))}
       </div>
 
@@ -187,11 +188,16 @@ function MiniCalendar({
               onClick={() => hasData && onSelect(dateStr)}
               disabled={!hasData}
               className={`relative flex flex-col items-center justify-center h-8 rounded-lg text-[11px] font-black transition-all ${
-                isSelected   ? 'bg-[#10b981] text-black' :
-                isToday      ? 'border border-[#10b981]/40 text-[#10b981]' :
-                hasData      ? 'text-white hover:bg-[#1a1a1a] cursor-pointer' :
-                               'text-[#2a2a2a] cursor-default'
+                hasData ? 'cursor-pointer' : 'text-[#2a2a2a] cursor-default'
               }`}
+              style={isSelected
+                ? { background: accentColor, color: '#050505' }
+                : isToday
+                  ? { border: `1px solid ${accentColor}66`, color: accentColor }
+                  : hasData
+                    ? { color: 'white' }
+                    : undefined
+              }
             >
               {day}
               {hasData && !isSelected && (
@@ -202,11 +208,11 @@ function MiniCalendar({
         })}
       </div>
 
-      <div className="flex items-center gap-3 mt-4 pt-3 border-t border-[#1a1a1a]">
+      <div className="flex items-center gap-3 mt-4 pt-3 border-t border-[var(--border)]">
         {[['bg-emerald-500','Verificado'],['bg-[#10b981]','Pendiente'],['bg-yellow-500','Parcial']].map(([color, label]) => (
           <div key={label} className="flex items-center gap-1">
             <span className={`w-1.5 h-1.5 rounded-full ${color}`}/>
-            <span className="text-[8px] text-[#444] font-black uppercase">{label}</span>
+            <span className="text-[8px] text-[var(--text-muted)] font-black uppercase">{label}</span>
           </div>
         ))}
       </div>
@@ -216,39 +222,42 @@ function MiniCalendar({
 
 // ─── TicketCard ───────────────────────────────────────────────────────────────
 
-function TicketCard({ ticket }: { ticket: Ticket }) {
+function TicketCard({ ticket, bookmaker, accentColor }: { ticket: Ticket; bookmaker: Bookmaker; accentColor: string }) {
   const [expanded, setExpanded] = useState(true);
   const result      = getTicketResult(ticket.plays);
   const failedPlays = ticket.plays.filter(p => p.resultado === false);
+  const ticketName = bookmaker === 'betano' ? ticket.name.replace(/^🟢|^🔵/, '🟠') : ticket.name;
 
   const borderClass =
     result === 'won'  ? 'border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.08)]' :
     result === 'lost' ? 'border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.08)]' :
-    'border-[#1a1a1a]';
+    'border-[var(--border)]';
 
   return (
-    <div className={`border rounded-2xl overflow-hidden transition-all bg-[#0a0a0a] ${borderClass}`}>
+    <div className={`border rounded-2xl overflow-hidden transition-all bg-[var(--surface)] ${borderClass}`}>
       <button
         onClick={() => setExpanded(v => !v)}
-        className="w-full flex items-center justify-between p-4 hover:bg-[#111] transition-colors"
+        className="w-full flex items-center justify-between p-4 hover:bg-[var(--surface-soft)] transition-colors"
       >
         <div className="flex items-center gap-3 min-w-0">
           {result === 'won'     && <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 shadow-[0_0_6px_rgba(16,185,129,0.8)]"/>}
           {result === 'lost'    && <span className="w-2 h-2 rounded-full bg-red-500 shrink-0 shadow-[0_0_6px_rgba(239,68,68,0.8)]"/>}
           {result === 'pending' && <span className="w-2 h-2 rounded-full bg-[#333] shrink-0"/>}
-          <span className="text-white font-black text-xs uppercase tracking-tight truncate">{ticket.name}</span>
+          <span className="text-[var(--text)] font-black text-xs uppercase tracking-tight truncate">{ticketName}</span>
         </div>
         <div className="flex items-center gap-3 shrink-0 ml-3">
-          <span className={`text-xs font-black px-2 py-1 rounded-lg ${
-            result === 'won'  ? 'bg-emerald-500/20 text-emerald-400' :
-            result === 'lost' ? 'bg-red-500/20 text-red-400' :
-            'bg-[#10b981]/20 text-[#10b981]'
-          }`}>
+          <span
+            className={`text-xs font-black px-2 py-1 rounded-lg ${
+              result === 'won'  ? 'bg-emerald-500/20 text-emerald-400' :
+              result === 'lost' ? 'bg-red-500/20 text-red-400' : ''
+            }`}
+            style={result === 'pending' ? { background: `${accentColor}20`, color: accentColor } : undefined}
+          >
             {ticket.total_odds?.toFixed(2)}x
           </span>
           {result === 'won'  && <span className="text-[9px] font-black text-emerald-400 hidden md:block">✓ Ganado</span>}
           {result === 'lost' && <span className="text-[9px] font-black text-red-400 hidden md:block">✗ {failedPlays.length} fall{failedPlays.length === 1 ? 'ó':'aron'}</span>}
-          {expanded ? <ChevronUp size={14} className="text-[#444]"/> : <ChevronDown size={14} className="text-[#444]"/>}
+          {expanded ? <ChevronUp size={14} className="text-[var(--text-muted)]"/> : <ChevronDown size={14} className="text-[var(--text-muted)]"/>}
         </div>
       </button>
 
@@ -264,7 +273,7 @@ function TicketCard({ ticket }: { ticket: Ticket }) {
               ))}
             </div>
           )}
-          {ticket.plays.map((play, i) => <LudoPlayCard key={i} play={play}/>)}
+          {ticket.plays.map((play, i) => <LudoPlayCard key={i} play={play} bookmaker={bookmaker}/>)}
         </div>
       )}
     </div>
@@ -279,7 +288,7 @@ export default function EVDashboard({
 
   const familyLabels = FAMILY_CONFIG[bookmaker];
   const banner       = BANNER_CONFIG[bookmaker];
-  const accentColor  = bookmaker === 'betano' ? '#2563eb' : '#10b981';
+  const accentColor  = bookmaker === 'betano' ? '#f97316' : '#10b981';
 
   const defaultTab: TabType = today ? 'HOY' : yesterday ? 'AYER' : 'MANANA';
   const [activeTab,    setActiveTab]    = useState<TabType>(defaultTab);
@@ -386,9 +395,9 @@ export default function EVDashboard({
 
   if (!yesterday && !today && !tomorrow) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 bg-[#0a0a0a] border border-[#1a1a1a] rounded-2xl">
-        <AlertCircle size={40} className="text-[#444] mb-4"/>
-        <p className="text-[#666] font-bold uppercase tracking-widest text-sm">
+      <div className="flex flex-col items-center justify-center h-64 bg-[var(--surface)] border border-[var(--border)] rounded-2xl">
+        <AlertCircle size={40} className="text-[var(--text-muted)] mb-4"/>
+        <p className="text-[var(--text-muted)] font-bold uppercase tracking-widest text-sm">
           No hay picks de {bookmaker === 'betano' ? 'Betano' : 'Stake'} disponibles.
         </p>
       </div>
@@ -410,20 +419,25 @@ export default function EVDashboard({
           <Zap size={18} style={{ color: accentColor }}/>
         </div>
         <div>
-          <h3 className="text-white font-black uppercase text-sm mb-1">
+          <h3 className="text-[var(--text)] font-black uppercase text-sm mb-1">
             {banner.emoji} {banner.name}
           </h3>
-          <p className="text-[#666] text-xs leading-relaxed">
+          <p className="text-[var(--text-muted)] text-xs leading-relaxed">
             {banner.desc}{' '}
-            <strong style={{ color: accentColor }}>Verde</strong> = ganado ·{' '}
+            {bookmaker === 'betano' && (
+              <>
+                <strong style={{ color: accentColor }}>Naranja</strong> = Betano ·{' '}
+              </>
+            )}
+            <strong className="text-emerald-400">Verde</strong> = ganado ·{' '}
             <strong className="text-red-400">Rojo</strong> = fallado ·{' '}
-            <span className="text-[#555]">Gris</span> = pendiente.
+            <span className="text-[var(--text-muted)]">Gris</span> = pendiente.
           </p>
         </div>
       </div>
 
       {/* ── TABS + HISTORIAL ─────────────────────────────────────────────── */}
-      <div className="flex items-end justify-between border-b border-[#222] pb-0">
+      <div className="flex items-end justify-between border-b border-[var(--border)] pb-0">
         <div className="flex gap-0">
           {yesterday && (
             <button
@@ -431,7 +445,7 @@ export default function EVDashboard({
               className={`pb-3 px-4 text-xs font-black uppercase tracking-widest transition-all ${
                 activeTab === 'AYER'
                   ? `border-b-2 text-[${accentColor}]`
-                  : 'text-[#555] hover:text-[#aaa]'
+                  : 'text-[var(--text-muted)] hover:text-[#aaa]'
               }`}
               style={activeTab === 'AYER' ? { color: accentColor, borderBottomColor: accentColor } : {}}
             >
@@ -487,8 +501,8 @@ export default function EVDashboard({
             onClick={() => setCalendarOpen(v => !v)}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
               calendarOpen
-                ? 'bg-[#111] text-white border-[#333]'
-                : 'bg-[#0a0a0a] border-[#222] text-[#555] hover:text-white hover:border-[#333]'
+                ? 'bg-[var(--surface-soft)] text-[var(--text)] border-[var(--border-strong)]'
+                : 'bg-[var(--surface)] border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] hover:border-[var(--border-strong)]'
             }`}
           >
             <Calendar size={13}/> Historial
@@ -500,6 +514,7 @@ export default function EVDashboard({
                 availableDates={calendarEntries}
                 selectedDate={calendarDate}
                 todayStr={dates.todayStr}
+                accentColor={accentColor}
                 onSelect={handleCalendarSelect}
                 onClose={() => setCalendarOpen(false)}
               />
@@ -522,13 +537,13 @@ export default function EVDashboard({
 
           {/* MENÚ IZQUIERDO */}
           <div className="w-full lg:w-[260px] shrink-0">
-            <p className="text-[9px] font-black uppercase tracking-widest text-[#444] mb-3 px-1">
+            <p className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-3 px-1">
               {gamesForTab.length} partido{gamesForTab.length !== 1 ? 's' : ''}
             </p>
             <div className="flex flex-col gap-2">
               {gamesForTab.length === 0 ? (
-                <div className="p-6 text-center border border-dashed border-[#222] rounded-2xl">
-                  <p className="text-[#444] text-xs font-bold uppercase tracking-widest">Sin picks para esta fecha</p>
+                <div className="p-6 text-center border border-dashed border-[var(--border)] rounded-2xl">
+                  <p className="text-[var(--text-muted)] text-xs font-bold uppercase tracking-widest">Sin picks para esta fecha</p>
                 </div>
               ) : gamesForTab.map(game => {
                 const isSelected  = activeGame === game;
@@ -554,8 +569,8 @@ export default function EVDashboard({
                         {shortMatchup(game)}
                       </p>
                     </div>
-                    <p className="text-[9px] text-[#444] font-bold truncate">{game}</p>
-                    <p className="text-[8px] text-[#333] font-black uppercase tracking-widest mt-1">
+                    <p className="text-[9px] text-[var(--text-muted)] font-bold truncate">{game}</p>
+                    <p className="text-[8px] text-[var(--text-soft)] font-black uppercase tracking-widest mt-1">
                       {ticketCount} {ticketCount === 1 ? 'pick' : 'picks'}
                     </p>
                   </button>
@@ -568,13 +583,13 @@ export default function EVDashboard({
           <div className="flex-1 min-w-0">
             {activeGame ? (
               <div className="flex flex-col gap-5">
-                <h2 className="text-2xl font-black uppercase tracking-tighter text-white leading-tight">
+                <h2 className="text-2xl font-black uppercase tracking-tighter text-[var(--text)] leading-tight">
                   {activeGame}
                 </h2>
 
                 {/* OVER / UNDER — solo si hay ambos (Betano siempre es OVER) */}
                 {availableSides.length > 1 && (
-                  <div className="flex bg-[#111] p-1 rounded-xl border border-[#222] w-fit">
+                  <div className="flex bg-[var(--surface-soft)] p-1 rounded-xl border border-[var(--border)] w-fit">
                     {availableSides.map(side => {
                       const count = allTicketsForGame.filter(t => t.side === side).length;
                       return (
@@ -584,9 +599,9 @@ export default function EVDashboard({
                           className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
                             activeSide === side
                               ? side === 'OVER'
-                                ? 'bg-orange-500 text-white shadow-[0_0_10px_rgba(249,115,22,0.3)]'
-                                : 'bg-cyan-500 text-white shadow-[0_0_10px_rgba(6,182,212,0.3)]'
-                              : 'text-[#555] hover:text-white'
+                                ? 'bg-orange-500 text-[var(--text)] shadow-[0_0_10px_rgba(249,115,22,0.3)]'
+                                : 'bg-cyan-500 text-[var(--text)] shadow-[0_0_10px_rgba(6,182,212,0.3)]'
+                              : 'text-[var(--text-muted)] hover:text-[var(--text)]'
                           }`}
                         >
                           {side === 'OVER' ? '🔥' : '🧊'} {side}
@@ -608,7 +623,7 @@ export default function EVDashboard({
                           onClick={() => setActiveFamily(family)}
                           className="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border"
                           style={activeFamily === family
-                            ? { background: '#1a1a1a', color: 'white', borderColor: '#444' }
+                            ? { background: `${accentColor}18`, color: 'white', borderColor: `${accentColor}55` }
                             : { background: '#0a0a0a', color: '#555', borderColor: '#1a1a1a' }
                           }
                         >
@@ -622,23 +637,23 @@ export default function EVDashboard({
 
                 {/* TICKETS */}
                 {visibleTickets.length === 0 ? (
-                  <div className="border border-dashed border-[#222] rounded-2xl p-10 text-center">
-                    <p className="text-[#444] text-xs font-black uppercase tracking-widest">
+                  <div className="border border-dashed border-[var(--border)] rounded-2xl p-10 text-center">
+                    <p className="text-[var(--text-muted)] text-xs font-black uppercase tracking-widest">
                       Sin picks disponibles
                     </p>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-4">
                     {visibleTickets.map((ticket, idx) => (
-                      <TicketCard key={idx} ticket={ticket}/>
+                      <TicketCard key={idx} ticket={ticket} bookmaker={bookmaker} accentColor={accentColor}/>
                     ))}
                   </div>
                 )}
 
               </div>
             ) : (
-              <div className="border border-dashed border-[#1a1a1a] rounded-2xl p-12 text-center">
-                <p className="text-[#444] text-xs font-black uppercase tracking-widest">
+              <div className="border border-dashed border-[var(--border)] rounded-2xl p-12 text-center">
+                <p className="text-[var(--text-muted)] text-xs font-black uppercase tracking-widest">
                   Seleccioná un partido para ver los picks
                 </p>
               </div>

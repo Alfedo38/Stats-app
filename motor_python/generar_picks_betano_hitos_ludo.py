@@ -43,6 +43,66 @@ from betano_hitos_utils import (
     write_csv_dicts,
 )
 
+
+def load_env_file() -> None:
+    """Carga .env.local/.env para que el cálculo de hit-rate pueda leer DB_PASSWORD.
+
+    Importante: carga TODOS los env encontrados, no solo el primero.
+    En este proyecto .env.local puede tener Supabase/API y ../.env puede tener DB_PASSWORD.
+    No pisa variables ya exportadas.
+    """
+    candidates = []
+    for base in [Path.cwd(), Path(__file__).resolve().parent, Path.home() / "stats-app"]:
+        candidates.append(base / ".env.local")
+        candidates.append(base / ".env")
+        for parent in base.parents:
+            candidates.append(parent / ".env.local")
+            candidates.append(parent / ".env")
+            if parent == Path.home():
+                break
+
+    seen = set()
+    loaded_files = []
+    loaded_keys = 0
+
+    for env_path in candidates:
+        env_path = env_path.resolve()
+        if env_path in seen:
+            continue
+        seen.add(env_path)
+        if not env_path.exists() or not env_path.is_file():
+            continue
+
+        file_loaded = 0
+        try:
+            with env_path.open("r", encoding="utf-8") as f:
+                for raw_line in f:
+                    line = raw_line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    if line.startswith("export "):
+                        line = line[len("export "):].strip()
+                    key, value = line.split("=", 1)
+                    key = key.strip()
+                    value = value.strip().strip('"').strip("'")
+                    if key and key not in os.environ:
+                        os.environ[key] = value
+                        file_loaded += 1
+        except Exception:
+            continue
+
+        if file_loaded:
+            loaded_files.append(str(env_path))
+            loaded_keys += file_loaded
+
+    if loaded_files:
+        print(f"✅ Env para hit-rate cargado: {len(loaded_files)} archivo(s), {loaded_keys} variables nuevas | DB_PASSWORD={bool(os.getenv('DB_PASSWORD'))}")
+    else:
+        print(f"⚠️ No se cargó ningún .env para hit-rate | DB_PASSWORD={bool(os.getenv('DB_PASSWORD'))}")
+
+
+load_env_file()
+
 ODDS_TABLE = "odds_betano_hitos"
 PICKS_TABLE = "picks_betano_hitos"
 
@@ -148,6 +208,177 @@ def to_float(v: Any, default: float | None = None) -> float | None:
     except Exception:
         return default
 
+def to_int(v: Any, default: int = 0) -> int:
+    try:
+        if v is None or v == "":
+            return default
+        return int(float(str(v).replace(",", ".")))
+    except Exception:
+        return default
+
+
+def get_pg_engine_optional():
+    """Conexión opcional a Postgres/Supabase para calcular hit-rate L5/L10.
+
+    Si falta DB_PASSWORD o SQLAlchemy, no rompe el pipeline: devuelve None.
+    """
+    password = os.getenv("DB_PASSWORD")
+    if not password:
+        return None
+    try:
+        from sqlalchemy import create_engine
+        from sqlalchemy.engine import URL
+    except Exception:
+        return None
+
+    db_url = URL.create(
+        drivername="postgresql",
+        username=os.getenv("DB_USERNAME", "postgres.xxhdctrvjsngwbagamns"),
+        password=password,
+        host=os.getenv("DB_HOST", "aws-1-sa-east-1.pooler.supabase.com"),
+        port=int(os.getenv("DB_PORT", "6543")),
+        database=os.getenv("DB_NAME", "postgres"),
+        query={"sslmode": "require"},
+    )
+    return create_engine(db_url, pool_pre_ping=True)
+
+
+def load_hit_history(player_ids: list[int]):
+    """Carga historial mínimo para hit-rate. Es opcional y tolerante a columnas."""
+    if not player_ids:
+        return None
+    engine = get_pg_engine_optional()
+    if engine is None:
+        return None
+
+    import pandas as pd
+    from sqlalchemy import text
+
+    base_cols = "player_id, game_date, game_id, pts, reb, ast, fg3m"
+    extra_cols = ", stl, blk"
+    query_template = """
+        SELECT {cols}
+        FROM v_ludo_train_model_ready
+        WHERE player_id = ANY(:player_ids)
+          AND game_date >= '2025-10-01'
+          AND min > 0
+        ORDER BY player_id, game_date, game_id
+    """
+    try:
+        df = pd.read_sql(text(query_template.format(cols=base_cols + extra_cols)), engine, params={"player_ids": player_ids})
+    except Exception:
+        try:
+            df = pd.read_sql(text(query_template.format(cols=base_cols)), engine, params={"player_ids": player_ids})
+        except Exception as e:
+            print(f"⚠️ No pude calcular hit-rate L5/L10 desde Postgres: {e}")
+            return None
+
+    if df.empty:
+        return None
+
+    df["game_date"] = pd.to_datetime(df["game_date"], errors="coerce")
+    for c in ["pts", "reb", "ast", "fg3m", "stl", "blk"]:
+        if c not in df.columns:
+            df[c] = None
+        df[c] = pd.to_numeric(df[c], errors="coerce")
+
+    df["PTS"] = df["pts"]
+    df["REB"] = df["reb"]
+    df["AST"] = df["ast"]
+    df["3PM"] = df["fg3m"]
+    df["PRA"] = df["PTS"] + df["REB"] + df["AST"]
+    df["PR"] = df["PTS"] + df["REB"]
+    df["PA"] = df["PTS"] + df["AST"]
+    df["RA"] = df["REB"] + df["AST"]
+    df["STL"] = df["stl"]
+    df["BLK"] = df["blk"]
+    return df
+
+
+def add_hit_rates(picks: list[dict], args) -> list[dict]:
+    """Agrega hit_l5/hit_l10 a picks de hitos Betano.
+
+    Prioridad: hito 9+ se evalúa como línea modelo 8.5, o sea valor > 8.5.
+    Si no hay historial disponible, mantiene N/D sin romper nada.
+    """
+    if not getattr(args, "with_hit_rates", True) or not picks:
+        return picks
+
+    player_ids = sorted({to_int(p.get("player_id"), 0) for p in picks if to_int(p.get("player_id"), 0) > 0})
+    hist = load_hit_history(player_ids)
+    if hist is None or hist.empty:
+        print("ℹ️ Hit-rate L5/L10 no disponible; se mantiene N/D.")
+        return picks
+
+    enriched = 0
+    grouped = {int(pid): g.sort_values(["game_date", "game_id"]).copy() for pid, g in hist.groupby("player_id")}
+    for p in picks:
+        pid = to_int(p.get("player_id"), 0)
+        stat = norm_stat(p.get("stat_key"))
+        line = to_float(p.get("model_line"), None)
+        g = grouped.get(pid)
+        if g is None or line is None or stat not in g.columns:
+            p.setdefault("hit_rate", "N/D")
+            p.setdefault("hit_l5", "")
+            p.setdefault("n_l5", "")
+            p.setdefault("hit_l10", "")
+            p.setdefault("n_l10", "")
+            p.setdefault("hr_l5", "")
+            p.setdefault("hr_l10", "")
+            continue
+
+        vals10 = g.tail(10)[stat].dropna()
+        vals5 = vals10.tail(5)
+        n10 = int(len(vals10))
+        n5 = int(len(vals5))
+        hit10 = int((vals10 > line).sum()) if n10 else 0
+        hit5 = int((vals5 > line).sum()) if n5 else 0
+        hr10 = hit10 / n10 if n10 else 0.0
+        hr5 = hit5 / n5 if n5 else 0.0
+
+        p["hit_l5"] = str(hit5)
+        p["n_l5"] = str(n5)
+        p["hit_l10"] = str(hit10)
+        p["n_l10"] = str(n10)
+        p["hr_l5"] = f"{hr5:.6f}"
+        p["hr_l10"] = f"{hr10:.6f}"
+        p["hit_rate"] = f"{hit5}/{n5} | {hit10}/{n10}"
+        enriched += 1
+
+    print(f"✅ Hit-rate L5/L10 calculado para {enriched}/{len(picks)} picks")
+    return picks
+
+
+
+
+def keep_by_ev_or_hit_rate(p: dict, args) -> tuple[bool, str]:
+    """Filtro final del pool.
+
+    Mantiene la lógica vieja por EV, pero permite conservar picks de cuota baja
+    cuando vienen con respaldo real L5/L10. Si no hay hit-rate, solo aplica EV.
+    """
+    ev = float(to_float(p.get("ev"), 0.0) or 0.0)
+    if ev >= args.min_ev:
+        return True, "EV"
+
+    hit5 = to_int(p.get("hit_l5"), 0)
+    n5 = to_int(p.get("n_l5"), 0)
+    hit10 = to_int(p.get("hit_l10"), 0)
+    n10 = to_int(p.get("n_l10"), 0)
+    prob = float(to_float(p.get("prob_model"), 0.0) or 0.0)
+
+    if n5 < 5 or prob < args.hr_override_min_prob or ev < args.hr_override_min_ev:
+        return False, "DESCARTADO"
+
+    # 5/5 manda, pero usamos L10 como confirmación si está disponible.
+    if hit5 >= 5 and (n10 < 10 or hit10 >= 7):
+        return True, "HR_5_5"
+
+    # 4/5 necesita mejor confirmación L10.
+    if hit5 >= 4 and n10 >= 10 and hit10 >= 8:
+        return True, "HR_4_5_CONF"
+
+    return False, "DESCARTADO"
 
 def row_value(row: Any, col: str | None, default: Any = None) -> Any:
     if not col:
@@ -430,6 +661,13 @@ def ensure_picks_table(con: sqlite3.Connection) -> None:
         "pred_game_norm": "TEXT",
         "game_match": "INTEGER DEFAULT 0",
         "team_game_match": "INTEGER DEFAULT 0",
+        "hit_l5": "INTEGER DEFAULT 0",
+        "n_l5": "INTEGER DEFAULT 0",
+        "hit_l10": "INTEGER DEFAULT 0",
+        "n_l10": "INTEGER DEFAULT 0",
+        "hr_l5": "REAL DEFAULT 0",
+        "hr_l10": "REAL DEFAULT 0",
+        "hit_rate": "TEXT DEFAULT 'N/D'",
     }
     for col, col_type in extra_cols.items():
         if col not in existing_cols:
@@ -442,6 +680,16 @@ def ensure_picks_table(con: sqlite3.Connection) -> None:
 
 def save_picks(con: sqlite3.Connection, picks: list[dict]) -> int:
     ensure_picks_table(con)
+
+    # Importante: no acumulamos picks viejos del mismo snapshot.
+    # Si regenerás con filtros distintos, primero limpiamos ese snapshot y
+    # después insertamos el pool nuevo. Esto evita que el publicador mezcle
+    # líneas anteriores con la corrida actual.
+    if picks:
+        snapshot_id = str(picks[0].get("snapshot_id", "")).strip()
+        if snapshot_id:
+            con.execute(f"DELETE FROM {PICKS_TABLE} WHERE snapshot_id = ?", (snapshot_id,))
+
     inserted = 0
     for p in picks:
         con.execute(f"""
@@ -449,8 +697,8 @@ def save_picks(con: sqlite3.Connection, picks: list[dict]) -> int:
             pick_uid, created_at_utc, snapshot_id, book, partido, game_norm, jugador, player_norm, pred_player,
             player_id, team, pred_game, pred_game_norm, game_match, team_game_match, mercado_raw, linea_raw,
             stat_key, side, threshold, model_line, odds_decimal, pred_mean, pred_std, prob_model, prob_implied,
-            edge_prob, ev, ev_pct, row_uid
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            edge_prob, ev, ev_pct, row_uid, hit_l5, n_l5, hit_l10, n_l10, hr_l5, hr_l10, hit_rate
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             p["pick_uid"], p["created_at_utc"], p["snapshot_id"], p["book"], p["partido"], p.get("game_norm", ""), p["jugador"],
             p["player_norm"], p.get("pred_player", ""), p.get("player_id", ""), p.get("team", ""), p.get("pred_game", ""),
@@ -458,6 +706,13 @@ def save_picks(con: sqlite3.Connection, picks: list[dict]) -> int:
             float(p["model_line"]), float(p["odds_decimal"]), float(p["pred_mean"]), float(p["pred_std"]),
             float(p["prob_model"]), float(p["prob_implied"]), float(p["edge_prob"]), float(p["ev"]),
             float(p["ev_pct"]), p["row_uid"],
+            to_int(p.get("hit_l5"), 0),
+            to_int(p.get("n_l5"), 0),
+            to_int(p.get("hit_l10"), 0),
+            to_int(p.get("n_l10"), 0),
+            float(to_float(p.get("hr_l5"), 0.0) or 0.0),
+            float(to_float(p.get("hr_l10"), 0.0) or 0.0),
+            str(p.get("hit_rate", "N/D") or "N/D"),
         ))
         inserted += 1
     con.commit()
@@ -467,14 +722,14 @@ def save_picks(con: sqlite3.Connection, picks: list[dict]) -> int:
 def print_table(picks: list[dict], top: int) -> None:
     print("\nTOP PICKS BETANO HITOS")
     print("-" * 140)
-    print(f"{'#':>2} {'EV%':>7} {'Prob':>7} {'Imp':>7} {'Cuota':>6} {'Stat':>4} {'Jugador':<24} {'Hito':<7} {'Pred':>6} {'Std':>5} Partido")
+    print(f"{'#':>2} {'EV%':>7} {'Prob':>7} {'Imp':>7} {'Cuota':>6} {'Stat':>4} {'Jugador':<24} {'Hito':<7} {'HR':>11} {'Pred':>6} {'Std':>5} Partido")
     print("-" * 140)
     for i, p in enumerate(picks[:top], 1):
         print(
             f"{i:>2} {float(p['ev_pct']):>7.2f} {float(p['prob_model'])*100:>6.1f}% "
             f"{float(p['prob_implied'])*100:>6.1f}% {float(p['odds_decimal']):>6.2f} "
             f"{p['stat_key']:>4} {p['jugador'][:24]:<24} {p['linea_raw']:<7} "
-            f"{float(p['pred_mean']):>6.2f} {float(p['pred_std']):>5.2f} {p['partido'][:40]}"
+            f"{str(p.get('hit_rate', 'N/D'))[:11]:>11} {float(p['pred_mean']):>6.2f} {float(p['pred_std']):>5.2f} {p['partido'][:40]}"
         )
 
 
@@ -563,11 +818,14 @@ def main() -> None:
     ap.add_argument("--top", type=int, default=20)
     ap.add_argument("--min-ev", type=float, default=0.03, help="EV mínimo decimal. 0.03 = +3%%")
     ap.add_argument("--min-prob", type=float, default=0.0)
-    ap.add_argument("--min-odds", type=float, default=1.25)
+    ap.add_argument("--min-odds", type=float, default=1.20)
     ap.add_argument("--max-odds", type=float, default=15.0)
     ap.add_argument("--output-dir", default="picks_generados")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--save-db", action="store_true", help="Guarda picks en tabla picks_betano_hitos.")
+    ap.add_argument("--with-hit-rates", action=argparse.BooleanOptionalAction, default=True, help="Calcula hit-rate L5/L10 desde v_ludo_train_model_ready si hay DB_PASSWORD.")
+    ap.add_argument("--hr-override-min-ev", type=float, default=0.03, help="EV decimal mínimo para conservar picks por 5/5 o 4/5 aunque no lleguen a --min-ev. 0.03 = +3%%.")
+    ap.add_argument("--hr-override-min-prob", type=float, default=0.60, help="Probabilidad mínima para conservar picks por hit-rate.")
 
     # Overrides de columnas para adaptar a tu tabla real sin tocar código.
     ap.add_argument("--player-col")
@@ -636,10 +894,33 @@ def main() -> None:
         p = make_pick(odd, pred, args.min_prob, args.min_odds, args.max_odds)
         if not p:
             continue
-        if float(p["ev"]) >= args.min_ev:
-            picks.append(p)
+        picks.append(p)
 
-    picks.sort(key=lambda x: float(x["ev"]), reverse=True)
+    picks = add_hit_rates(picks, args)
+
+    before_ev_filter = len(picks)
+    kept: list[dict] = []
+    kept_by_reason = {"EV": 0, "HR_5_5": 0, "HR_4_5_CONF": 0}
+    for p in picks:
+        ok, reason = keep_by_ev_or_hit_rate(p, args)
+        if ok:
+            p["keep_reason"] = reason
+            kept_by_reason[reason] = kept_by_reason.get(reason, 0) + 1
+            kept.append(p)
+    picks = kept
+    print(
+        f"Filtro EV/HR: {before_ev_filter} → {len(picks)} | "
+        f"EV={kept_by_reason.get('EV', 0)} | "
+        f"5/5={kept_by_reason.get('HR_5_5', 0)} | "
+        f"4/5+L10={kept_by_reason.get('HR_4_5_CONF', 0)}"
+    )
+
+    picks.sort(key=lambda x: (
+        to_int(x.get("hit_l5"), 0) >= 5,
+        to_int(x.get("hit_l5"), 0),
+        to_int(x.get("hit_l10"), 0),
+        float(x.get("ev", 0.0)),
+    ), reverse=True)
 
     if args.front_ready:
         picks = apply_front_ready_filter(picks, args)
@@ -649,7 +930,7 @@ def main() -> None:
     game_mismatch = sum(1 for p in picks if str(p.get("game_match", "0")) != "1")
     team_mismatch = sum(1 for p in picks if str(p.get("team_game_match", "0")) != "1")
     print(f"Sin match predicción: {unmatched}")
-    print(f"Picks con EV >= {args.min_ev*100:.2f}%: {len(picks)}")
+    print(f"Picks finales EV/HR: {len(picks)} | EV mínimo base={args.min_ev*100:.2f}%")
     print(f"Picks sin match exacto de partido: {game_mismatch}")
     print(f"Picks cuyo equipo no aparece en el partido: {team_mismatch}")
     print_table(picks, args.top)

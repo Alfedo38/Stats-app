@@ -30,20 +30,20 @@ export default function GameCarousel({ games }: { games: any[] }) {
   return (
     <section className="space-y-4 relative group">
       <div className="flex items-center justify-between px-1">
-        <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-[#666] flex items-center gap-2">
+        <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--text-muted)] flex items-center gap-2">
           <Tv size={14} className="text-red-500" />
           Cartelera en Vivo (Hora ARG)
         </h3>
         <div className="flex gap-2">
           <button
             onClick={() => scroll('left')}
-            className="p-1.5 bg-[#111] hover:bg-[#222] rounded-lg text-[#444] hover:text-white transition-all"
+            className="p-1.5 bg-[var(--surface-soft)] hover:bg-[var(--surface-hover)] rounded-lg text-[var(--text-muted)] hover:text-[var(--text)] transition-all"
           >
             <ChevronLeft size={16} />
           </button>
           <button
             onClick={() => scroll('right')}
-            className="p-1.5 bg-[#111] hover:bg-[#222] rounded-lg text-[#444] hover:text-white transition-all"
+            className="p-1.5 bg-[var(--surface-soft)] hover:bg-[var(--surface-hover)] rounded-lg text-[var(--text-muted)] hover:text-[var(--text)] transition-all"
           >
             <ChevronRight size={16} />
           </button>
@@ -63,10 +63,10 @@ export default function GameCarousel({ games }: { games: any[] }) {
           return (
             <div
               key={game.id}
-              className="min-w-[280px] snap-center bg-[#0a0a0a] border border-[#1a1a1a] p-5 rounded-3xl flex flex-col justify-between gap-4 hover:border-[#333] transition-colors shadow-xl"
+              className="min-w-[280px] snap-center bg-[var(--surface)] border border-[var(--border)] p-5 rounded-3xl flex flex-col justify-between gap-4 hover:border-[var(--border-strong)] transition-colors shadow-xl"
             >
               <div className="flex justify-between items-center">
-                <span className="text-[9px] font-black uppercase tracking-widest text-[#444]">
+                <span className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]">
                   {game.status.type.description}
                 </span>
 
@@ -79,7 +79,7 @@ export default function GameCarousel({ games }: { games: any[] }) {
                   className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
                     isLive
                       ? "bg-red-500/10 text-red-500 animate-pulse"
-                      : "bg-[#111] text-[#666]"
+                      : "bg-[var(--surface-soft)] text-[var(--text-muted)]"
                   }`}
                 >
                   {isLive ? status : formatArgTime(game.date)}
@@ -94,7 +94,7 @@ export default function GameCarousel({ games }: { games: any[] }) {
                       {away.team.abbreviation}
                     </span>
                   </div>
-                  <span className={`text-lg font-black ${isLive ? "text-white" : "text-[#444]"}`}>
+                  <span className={`text-lg font-black ${isLive ? "text-[var(--text)]" : "text-[var(--text-muted)]"}`}>
                     {away.score}
                   </span>
                 </div>
@@ -105,7 +105,7 @@ export default function GameCarousel({ games }: { games: any[] }) {
                       {home.team.abbreviation}
                     </span>
                   </div>
-                  <span className={`text-lg font-black ${isLive ? "text-white" : "text-[#444]"}`}>
+                  <span className={`text-lg font-black ${isLive ? "text-[var(--text)]" : "text-[var(--text-muted)]"}`}>
                     {home.score}
                   </span>
                 </div>
@@ -113,8 +113,8 @@ export default function GameCarousel({ games }: { games: any[] }) {
             </div>
           );
         }) : (
-          <div className="w-full bg-[#0a0a0a] border border-dashed border-[#1a1a1a] p-8 rounded-3xl text-center">
-            <p className="text-[#444] text-[10px] font-black uppercase tracking-widest">
+          <div className="w-full bg-[var(--surface)] border border-dashed border-[var(--border)] p-8 rounded-3xl text-center">
+            <p className="text-[var(--text-muted)] text-[10px] font-black uppercase tracking-widest">
               No hay partidos en el radar
             </p>
           </div>

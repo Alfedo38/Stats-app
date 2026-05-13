@@ -1,0 +1,417 @@
+{
+  "data": {
+    "currencyConfiguration": {
+      "baseRates": [
+        {
+          "currency": "eth",
+          "baseRate": 2258.866
+        },
+        {
+          "currency": "btc",
+          "baseRate": 79491.26
+        },
+        {
+          "currency": "ltc",
+          "baseRate": 56.980057
+        },
+        {
+          "currency": "doge",
+          "baseRate": 0.11316057
+        },
+        {
+          "currency": "bch",
+          "baseRate": 433.27557
+        },
+        {
+          "currency": "xrp",
+          "baseRate": 1.4297969
+        },
+        {
+          "currency": "trx",
+          "baseRate": 0.35038543
+        },
+        {
+          "currency": "eos",
+          "baseRate": 0.09182736
+        },
+        {
+          "currency": "bnb",
+          "baseRate": 670.6908
+        },
+        {
+          "currency": "ape",
+          "baseRate": 0.14896469
+        },
+        {
+          "currency": "busd",
+          "baseRate": 0.9813543
+        },
+        {
+          "currency": "cro",
+          "baseRate": 0.07616146
+        },
+        {
+          "currency": "dai",
+          "baseRate": 1
+        },
+        {
+          "currency": "link",
+          "baseRate": 10.192641
+        },
+        {
+          "currency": "pol",
+          "baseRate": 0.09737098
+        },
+        {
+          "currency": "sand",
+          "baseRate": 0.07751938
+        },
+        {
+          "currency": "shib",
+          "baseRate": 6.28884e-06
+        },
+        {
+          "currency": "sol",
+          "baseRate": 90.90909
+        },
+        {
+          "currency": "trump",
+          "baseRate": 2.35
+        },
+        {
+          "currency": "uni",
+          "baseRate": 3.6337209
+        },
+        {
+          "currency": "usdc",
+          "baseRate": 1
+        },
+        {
+          "currency": "usdt",
+          "baseRate": 0.999001
+        },
+        {
+          "currency": "aed",
+          "baseRate": 0.27224773
+        },
+        {
+          "currency": "ars",
+          "baseRate": 0.00067512825
+        },
+        {
+          "currency": "bam",
+          "baseRate": 0.5988931
+        },
+        {
+          "currency": "bdt",
+          "baseRate": 0.008146578
+        },
+        {
+          "currency": "bhd",
+          "baseRate": 2.650762
+        },
+        {
+          "currency": "bob",
+          "baseRate": 0.14470965
+        },
+        {
+          "currency": "brl",
+          "baseRate": 0.20303744
+        },
+        {
+          "currency": "cad",
+          "baseRate": 0.72962505
+        },
+        {
+          "currency": "clp",
+          "baseRate": 0.0011263291
+        },
+        {
+          "currency": "cny",
+          "baseRate": 0.14725372
+        },
+        {
+          "currency": "crc",
+          "baseRate": 0.002196726
+        },
+        {
+          "currency": "dkk",
+          "baseRate": 0.15669683
+        },
+        {
+          "currency": "egp",
+          "baseRate": 0.018894948
+        },
+        {
+          "currency": "eur",
+          "baseRate": 1.1708395
+        },
+        {
+          "currency": "ghs",
+          "baseRate": 0.088495575
+        },
+        {
+          "currency": "gtq",
+          "baseRate": 0.13107823
+        },
+        {
+          "currency": "huf",
+          "baseRate": 0.0032708645
+        },
+        {
+          "currency": "inr",
+          "baseRate": 0.010456542
+        },
+        {
+          "currency": "ils",
+          "baseRate": 0.34357178
+        },
+        {
+          "currency": "idr",
+          "baseRate": 5.7115867e-05
+        },
+        {
+          "currency": "isk",
+          "baseRate": 0.008153282
+        },
+        {
+          "currency": "jod",
+          "baseRate": 1.4104372
+        },
+        {
+          "currency": "jpy",
+          "baseRate": 0.006334814
+        },
+        {
+          "currency": "kes",
+          "baseRate": 0.0077411365
+        },
+        {
+          "currency": "khr",
+          "baseRate": 0.00024931438
+        },
+        {
+          "currency": "krw",
+          "baseRate": 0.0006713993
+        },
+        {
+          "currency": "kwd",
+          "baseRate": 3.2440464
+        },
+        {
+          "currency": "kzt",
+          "baseRate": 0.0021556476
+        },
+        {
+          "currency": "mad",
+          "baseRate": 0.10900667
+        },
+        {
+          "currency": "mxn",
+          "baseRate": 0.05821491
+        },
+        {
+          "currency": "mwk",
+          "baseRate": 0.0005766206
+        },
+        {
+          "currency": "myr",
+          "baseRate": 0.25442055
+        },
+        {
+          "currency": "ngn",
+          "baseRate": 0.0007299643
+        },
+        {
+          "currency": "nok",
+          "baseRate": 0.109085694
+        },
+        {
+          "currency": "nzd",
+          "baseRate": 0.59361416
+        },
+        {
+          "currency": "omr",
+          "baseRate": 2.6007736
+        },
+        {
+          "currency": "pen",
+          "baseRate": 0.29167658
+        },
+        {
+          "currency": "php",
+          "baseRate": 0.016285453
+        },
+        {
+          "currency": "pkr",
+          "baseRate": 0.0035897198
+        },
+        {
+          "currency": "pln",
+          "baseRate": 0.27571025
+        },
+        {
+          "currency": "qar",
+          "baseRate": 0.27428868
+        },
+        {
+          "currency": "rub",
+          "baseRate": 0.013481975
+        },
+        {
+          "currency": "rwf",
+          "baseRate": 0.00068189076
+        },
+        {
+          "currency": "sar",
+          "baseRate": 0.26586044
+        },
+        {
+          "currency": "sgd",
+          "baseRate": 0.78573114
+        },
+        {
+          "currency": "tnd",
+          "baseRate": 0.34326267
+        },
+        {
+          "currency": "thb",
+          "baseRate": 0.030902348
+        },
+        {
+          "currency": "try",
+          "baseRate": 0.022021845
+        },
+        {
+          "currency": "twd",
+          "baseRate": 0.03171482
+        },
+        {
+          "currency": "tzs",
+          "baseRate": 0.00038496332
+        },
+        {
+          "currency": "ugx",
+          "baseRate": 0.00026668762
+        },
+        {
+          "currency": "usd",
+          "baseRate": 1
+        },
+        {
+          "currency": "uzs",
+          "baseRate": 8.233465e-05
+        },
+        {
+          "currency": "vnd",
+          "baseRate": 3.795e-05
+        },
+        {
+          "currency": "xaf",
+          "baseRate": 0.0017849326
+        },
+        {
+          "currency": "xof",
+          "baseRate": 0.0017849326
+        },
+        {
+          "currency": "zar",
+          "baseRate": 0.06093384
+        },
+        {
+          "currency": "zmw",
+          "baseRate": 0.05297992
+        },
+        {
+          "currency": "gold",
+          "baseRate": 0.0001
+        },
+        {
+          "currency": "sweeps",
+          "baseRate": 1
+        }
+      ],
+      "launchedFiatCurrencies": [
+        "ars",
+        "cad",
+        "clp",
+        "ghs",
+        "idr",
+        "inr",
+        "jpy",
+        "kes",
+        "mxn",
+        "ngn",
+        "pen",
+        "try",
+        "vnd",
+        "usd",
+        "twd",
+        "aed",
+        "sar",
+        "crc",
+        "mad",
+        "kwd",
+        "myr",
+        "qar",
+        "tnd",
+        "sgd",
+        "pln",
+        "bob",
+        "pkr",
+        "nzd",
+        "eur",
+        "bhd",
+        "xof",
+        "isk",
+        "bam",
+        "php",
+        "tzs",
+        "egp",
+        "ugx"
+      ],
+      "displayFiatCurrencies": [
+        "ars",
+        "cad",
+        "clp",
+        "ghs",
+        "idr",
+        "inr",
+        "jpy",
+        "kes",
+        "mxn",
+        "ngn",
+        "pen",
+        "try",
+        "vnd",
+        "usd",
+        "twd",
+        "aed",
+        "sar",
+        "crc",
+        "mad",
+        "kwd",
+        "myr",
+        "qar",
+        "tnd",
+        "sgd",
+        "pln",
+        "bob",
+        "pkr",
+        "nzd",
+        "eur",
+        "bhd",
+        "xof",
+        "isk",
+        "bam",
+        "php",
+        "tzs",
+        "egp",
+        "ugx",
+        "cny",
+        "krw",
+        "rub"
+      ]
+    }
+  }
+}

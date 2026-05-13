@@ -58,3 +58,11 @@ modelos_ai/
 
 # --- Scraper & Puppeteer/Playwright ---
 browser_profile/
+# Motor de Datos / Scraping (Solo Local)
+*.py
+/browser_profile/
+/nba_data_pipeline/
+/outputs/
+/motor/
+/potenciales/
+__pycache__/

@@ -10,7 +10,7 @@ function ResultAvatar({ src, type }: { src: string; type: 'player' | 'team' }) {
   const [imgError, setImgError] = useState(false);
 
   return (
-    <div className="w-10 h-10 rounded-full bg-[#1a1a1a] overflow-hidden shrink-0 border border-[#222] flex items-center justify-center">
+    <div className="w-10 h-10 rounded-full bg-[var(--brand-soft)] overflow-hidden shrink-0 border border-[var(--border)] flex items-center justify-center">
       {!imgError ? (
         <img
           src={src}
@@ -20,8 +20,8 @@ function ResultAvatar({ src, type }: { src: string; type: 'player' | 'team' }) {
         />
       ) : (
         type === 'player'
-          ? <User size={16} className="text-[#333]" />
-          : <Users size={16} className="text-[#333]" />
+          ? <User size={16} className="text-[var(--text-soft)]" />
+          : <Users size={16} className="text-[var(--text-soft)]" />
       )}
     </div>
   );
@@ -88,7 +88,7 @@ export default function SearchBar() {
           {loading ? (
             <Loader2 size={18} className="text-[#10b981] animate-spin" />
           ) : (
-            <Search size={18} className="text-[#444]" />
+            <Search size={18} className="text-[var(--text-muted)]" />
           )}
         </div>
 
@@ -98,13 +98,13 @@ export default function SearchBar() {
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => query.length >= 2 && setIsOpen(true)}
           placeholder="BUSCAR JUGADOR O EQUIPO..."
-          className="w-full bg-[#0a0a0a] border border-[#222] text-white rounded-2xl pl-12 pr-12 py-3.5 focus:border-[#10b981] focus:ring-1 focus:ring-[#10b981]/20 transition-all outline-none font-black uppercase tracking-widest text-[10px]"
+          className="w-full bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] rounded-2xl pl-12 pr-12 py-3.5 focus:border-[#10b981] focus:ring-1 focus:ring-[#10b981]/20 transition-all outline-none font-black uppercase tracking-widest text-[10px]"
         />
 
         {query && (
           <button
             onClick={() => { setQuery(''); setResults([]); }}
-            className="absolute inset-y-0 right-4 flex items-center text-[#444] hover:text-white transition-colors"
+            className="absolute inset-y-0 right-4 flex items-center text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
           >
             <X size={16} />
           </button>
@@ -112,12 +112,12 @@ export default function SearchBar() {
       </div>
 
       {isOpen && results.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-[#0a0a0a] border border-[#222] rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,1)] max-h-[400px] overflow-y-auto z-[110]">
+        <div className="absolute top-full left-0 right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,1)] max-h-[400px] overflow-y-auto z-[110]">
           {results.map((item) => (
             <button
               key={`${item.type}-${item.id}`}
               onClick={() => handleSelect(item)}
-              className="w-full flex items-center gap-4 p-4 hover:bg-[#111] border-b border-[#111] last:border-0 transition-colors group text-left"
+              className="w-full flex items-center gap-4 p-4 hover:bg-[var(--surface-soft)] border-b border-[var(--border)] last:border-0 transition-colors group text-left"
             >
               {/* ✅ FIX: Ahora usa el componente con estado propio — 
                   si la imagen carga bien, no se muestra el ícono.
@@ -125,15 +125,15 @@ export default function SearchBar() {
               <ResultAvatar src={item.image} type={item.type} />
 
               <div className="flex-1 flex flex-col">
-                <span className="text-white font-black uppercase text-xs group-hover:text-[#10b981] transition-colors">
+                <span className="text-[var(--text)] font-black uppercase text-xs group-hover:text-[#10b981] transition-colors">
                   {item.display_name}
                 </span>
-                <span className="text-[#444] font-bold text-[8px] uppercase tracking-widest">
+                <span className="text-[var(--text-muted)] font-bold text-[8px] uppercase tracking-widest">
                   {item.subtitle}
                 </span>
               </div>
 
-              <ChevronRight size={14} className="text-[#222] group-hover:text-white transition-colors" />
+              <ChevronRight size={14} className="text-[var(--text-soft)] group-hover:text-[var(--text)] transition-colors" />
             </button>
           ))}
         </div>

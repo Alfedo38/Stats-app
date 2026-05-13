@@ -25,7 +25,7 @@ export default async function EVPlaysPage({
   const hasAnyData = yesterday || today || tomorrow;
 
   return (
-    <main className="min-h-screen bg-black text-white p-4 md:p-8">
+    <main className="min-h-screen bg-[var(--bg)] text-[var(--text)] p-4 md:p-8">
       <div className="max-w-7xl mx-auto space-y-8">
 
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -33,7 +33,7 @@ export default async function EVPlaysPage({
             <h1 className="text-3xl font-black italic uppercase tracking-tighter">
               <span className="text-[#10b981]">EV+</span>
             </h1>
-            <p className="text-[#666] text-[10px] font-bold uppercase tracking-widest mt-1">
+            <p className="text-[var(--text-muted)] text-[10px] font-bold uppercase tracking-widest mt-1">
               Pronósticos matemáticos
             </p>
           </div>
@@ -43,9 +43,9 @@ export default async function EVPlaysPage({
         </div>
 
         {!hasAnyData ? (
-          <div className="border border-[#10b981]/20 bg-[#10b981]/10 p-6 rounded-lg text-center max-w-md mx-auto">
+          <div className="border border-[#10b981]/20 bg-[#10b981]/10 p-6 rounded-2xl text-center max-w-md mx-auto">
             <p className="text-[#10b981] font-bold animate-pulse">⚙️ Procesando modelos...</p>
-            <p className="text-sm text-gray-400 mt-2">
+            <p className="text-sm text-[var(--text-muted)] mt-2">
               Los algoritmos están analizando las líneas de{' '}
               {activeBook === 'betano' ? 'Betano' : 'Stake'}.
               Volvé en unos minutos.

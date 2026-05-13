@@ -24,21 +24,21 @@ export default async function RedditHypePage() {
   const trendingPlayers = await getRedditTrends();
 
   return (
-    <main className="min-h-screen bg-black text-white p-4 md:p-8">
+    <main className="min-h-screen bg-[var(--bg)] text-[var(--text)] p-4 md:p-8">
       <div className="max-w-5xl mx-auto space-y-8">
 
         {/* Cabecera */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-black italic uppercase tracking-tighter flex items-center gap-3">
               Radar <span className="text-orange-500">Social</span>
               <Flame size={28} className="text-orange-500" />
             </h1>
-            <p className="text-[#666] text-[10px] font-bold uppercase tracking-widest mt-1">
+            <p className="text-[var(--text-muted)] text-[10px] font-bold uppercase tracking-widest mt-1">
               Escaneando r/sportsbook en tiempo real
             </p>
           </div>
-          <div className="flex items-center gap-2 bg-[#111] border border-[#222] px-4 py-2 rounded-xl">
+          <div className="flex items-center gap-2 bg-[var(--surface-soft)] border border-[var(--border)] px-4 py-2 rounded-xl">
             <span className="relative flex h-3 w-3">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-3 w-3 bg-orange-500" />
@@ -50,15 +50,15 @@ export default async function RedditHypePage() {
         </div>
 
         {/* Banner Explicativo */}
-        <div className="bg-[#111] border border-[#222] rounded-2xl p-5 flex items-start gap-4">
+        <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-5 flex items-start gap-4">
           <div className="bg-orange-500/20 p-3 rounded-xl shrink-0 mt-1">
             <MessageSquare size={20} className="text-orange-500" />
           </div>
           <div>
-            <h3 className="text-white font-black uppercase text-sm mb-1">
+            <h3 className="text-[var(--text)] font-black uppercase text-sm mb-1">
               El Termómetro de la Comunidad
             </h3>
-            <p className="text-[#888] text-xs leading-relaxed">
+            <p className="text-[var(--text-muted)] text-xs leading-relaxed">
               El Radar analiza miles de comentarios en Reddit. Las tarjetas naranjas indican un
               <strong className="text-orange-500"> Hype alto</strong> (tendencia fuerte). Las rojas son apuestas que la
               comunidad está ignorando o esquivando hoy. Cuidado: seguir a la multitud no siempre garantiza ganar.
@@ -68,8 +68,8 @@ export default async function RedditHypePage() {
 
         {/* Grid de jugadores */}
         {trendingPlayers.length === 0 ? (
-          <div className="bg-[#111] border border-[#222] p-8 rounded-3xl text-center">
-            <p className="text-[#666] font-bold uppercase tracking-widest">
+          <div className="bg-[var(--surface)] border border-[var(--border)] p-8 rounded-3xl text-center">
+            <p className="text-[var(--text-muted)] font-bold uppercase tracking-widest">
               El radar está en silencio. No hay tendencias detectadas aún.
             </p>
           </div>
@@ -84,10 +84,10 @@ export default async function RedditHypePage() {
               return (
                 <div
                   key={player.id}
-                  className={`bg-[#0a0a0a] border p-6 rounded-3xl relative overflow-hidden transition-all ${
+                  className={`bg-[var(--surface)] border p-6 rounded-3xl relative overflow-hidden transition-all ${
                     isHot
-                      ? 'border-[#1a1a1a] hover:border-orange-500/50'
-                      : 'border-[#1a1a1a] hover:border-red-500/30'
+                      ? 'border-[var(--border)] hover:border-orange-500/50'
+                      : 'border-[var(--border)] hover:border-red-500/30'
                   }`}
                 >
                   {/* Resplandor de fondo */}
@@ -98,9 +98,9 @@ export default async function RedditHypePage() {
                   {/* Header de la card */}
                   <div className="flex justify-between items-start mb-6 relative z-10">
                     <div className="flex gap-4 items-center">
-                      <div className={`w-12 h-12 rounded-full border flex items-center justify-center shrink-0 bg-[#111] ${
+                      <div className={`w-12 h-12 rounded-full border flex items-center justify-center shrink-0 bg-[var(--surface-soft)] ${
                         isHot
-                          ? 'border-[#333] shadow-[0_0_15px_rgba(249,115,22,0.15)]'
+                          ? 'border-[var(--border-strong)] shadow-[0_0_15px_rgba(249,115,22,0.15)]'
                           : 'border-red-900/50 shadow-[0_0_15px_rgba(239,68,68,0.1)]'
                       }`}>
                         <span className={`font-black text-xl ${isHot ? 'text-orange-500' : 'text-red-500'}`}>
@@ -108,10 +108,10 @@ export default async function RedditHypePage() {
                         </span>
                       </div>
                       <div>
-                        <h2 className="text-xl font-black uppercase tracking-tighter text-white">
+                        <h2 className="text-xl font-black uppercase tracking-tighter text-[var(--text)]">
                           {player.player_name}
                         </h2>
-                        <p className="text-[10px] text-[#666] font-black uppercase tracking-widest">
+                        <p className="text-[10px] text-[var(--text-muted)] font-black uppercase tracking-widest">
                           {player.team_abbr}
                         </p>
                       </div>
@@ -120,15 +120,15 @@ export default async function RedditHypePage() {
                       <span className={`text-3xl font-black ${isHot ? 'text-orange-500' : 'text-red-500'}`}>
                         {player.hype_score}
                       </span>
-                      <span className="text-xs font-black text-[#555]"> / 100</span>
-                      <p className="text-[8px] uppercase tracking-widest text-[#444] font-bold">Hype Score</p>
+                      <span className="text-xs font-black text-[var(--text-muted)]"> / 100</span>
+                      <p className="text-[8px] uppercase tracking-widest text-[var(--text-muted)] font-bold">Hype Score</p>
                     </div>
                   </div>
 
                   {/* Footer de la card */}
-                  <div className="flex items-center justify-between relative z-10 bg-[#111] p-4 rounded-2xl border border-[#222]">
+                  <div className="flex items-center justify-between relative z-10 bg-[var(--surface-soft)] p-4 rounded-2xl border border-[var(--border)]">
                     <div>
-                      <p className="text-[9px] text-[#666] font-black uppercase tracking-widest mb-1">
+                      <p className="text-[9px] text-[var(--text-muted)] font-black uppercase tracking-widest mb-1">
                         Consenso Público
                       </p>
                       <p className={`text-sm font-black uppercase flex items-center gap-2 ${
@@ -139,10 +139,10 @@ export default async function RedditHypePage() {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-[9px] text-[#666] font-black uppercase tracking-widest mb-1">
+                      <p className="text-[9px] text-[var(--text-muted)] font-black uppercase tracking-widest mb-1">
                         Menciones
                       </p>
-                      <p className="text-sm font-black text-white">{player.mentions} 💬</p>
+                      <p className="text-sm font-black text-[var(--text)]">{player.mentions} 💬</p>
                     </div>
                   </div>
 

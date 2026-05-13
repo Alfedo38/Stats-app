@@ -21,15 +21,15 @@ export default function TeamGrid({ teams }: { teams: any[] }) {
   return (
     <div className="space-y-6">
       {/* BOTONES DE FILTRO */}
-      <div className="flex bg-[#0a0a0a] p-1 rounded-xl border border-[#222] w-full max-w-xs mx-auto md:mx-0">
+      <div className="flex bg-[var(--surface)] p-1 rounded-xl border border-[var(--border)] w-full max-w-xs mx-auto md:mx-0">
         {['ALL', 'EAST', 'WEST'].map((f) => (
           <button 
             key={f} 
             onClick={() => setFilter(f as any)}
             className={`flex-1 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
               filter === f 
-                ? 'bg-[#1a1a1a] text-[#10b981] shadow-md border border-[#333]' 
-                : 'text-[#666] hover:text-white border border-transparent'
+                ? 'bg-[var(--brand-soft)] text-[#10b981] shadow-md border border-[var(--border-strong)]' 
+                : 'text-[var(--text-muted)] hover:text-[var(--text)] border border-transparent'
             }`}
           >
             {f}
@@ -45,7 +45,7 @@ export default function TeamGrid({ teams }: { teams: any[] }) {
             key={team.id} 
             className="block no-underline group"
           >
-            <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-[1.2rem] p-3 hover:bg-[#111] hover:border-[#10b981]/50 transition-all flex flex-col items-center gap-2">
+            <div className="bg-[var(--surface)] border border-[var(--border)] rounded-[1.2rem] p-3 hover:bg-[var(--surface-soft)] hover:border-[#10b981]/50 transition-all flex flex-col items-center gap-2">
               
               {/* Contenedor del Logo con tamaño fijo */}
               <div className="h-[40px] w-full flex items-center justify-center overflow-hidden">
@@ -60,7 +60,7 @@ export default function TeamGrid({ teams }: { teams: any[] }) {
                 )}
               </div>
 
-              <h3 className="font-black text-[9px] text-[#555] group-hover:text-[#888] uppercase tracking-widest transition-colors">
+              <h3 className="font-black text-[9px] text-[var(--text-muted)] group-hover:text-[var(--text-muted)] uppercase tracking-widest transition-colors">
                 {team.abbreviation}
               </h3>
             </div>
@@ -71,7 +71,7 @@ export default function TeamGrid({ teams }: { teams: any[] }) {
       {/* MENSAJE SI NO HAY EQUIPOS (Debug) */}
       {filteredTeams.length === 0 && (
         <div className="text-center py-10">
-          <p className="text-[#444] text-[10px] uppercase font-black tracking-widest">
+          <p className="text-[var(--text-muted)] text-[10px] uppercase font-black tracking-widest">
             No teams found in this conference
           </p>
         </div>

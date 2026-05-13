@@ -422,38 +422,33 @@ def downgrade_quality(quality: str, max_quality: str) -> str:
 
 
 def apply_penalties(row) -> str:
+    """
+    Penalizaciones v4.5 sin tracking.
+
+    Antes:
+    - Bajaba calidad si faltaba tracking.
+    - Bajaba AST_FALLBACK por venir de modelo fallback.
+
+    Ahora:
+    - NO usa tracking_status.
+    - NO castiga AST_FALLBACK.
+    - Solo ajusta por cuota baja, porque eso sí afecta valor real.
+    """
     quality = str(row["quality"])
 
     if quality == "DESCARTAR":
         return quality
 
-    prop = str(row["prop_type"])
-    model_key = str(row.get("model_key") or "")
-    tracking = str(row.get("tracking_status") or "")
-    edge_score = as_float(row.get("edge_score"))
     price = as_float(row.get("price"))
     consistency_joya = bool(row.get("consistency_joya", False))
 
+    # Penalización suave por cuota baja.
+    # No descartamos: solo evitamos vender como JOYA algo que paga demasiado poco.
     if not consistency_joya:
         if price < 1.35:
             quality = downgrade_quality(quality, "EXCELENTE")
         if price < 1.28:
             quality = downgrade_quality(quality, "BUENA")
-
-    if prop == "AST" and model_key == "AST_FALLBACK" and not consistency_joya:
-        quality = downgrade_quality(quality, "EXCELENTE")
-        if edge_score < 1.50:
-            quality = downgrade_quality(quality, "BUENA")
-
-    if tracking in {"TRACKING_FALTANTE_TOTAL", "POTENTIAL_AST_FALTANTE"} and not consistency_joya:
-        quality = downgrade_quality(quality, "EXCELENTE")
-
-    tracking_sensitive = {"AST", "PA", "RA", "PRA", "REB", "FGA"}
-    if prop in tracking_sensitive and tracking == "TRACKING_FALTANTE_TOTAL" and not consistency_joya:
-        if edge_score < 1.70:
-            quality = downgrade_quality(quality, "BUENA")
-        else:
-            quality = downgrade_quality(quality, "EXCELENTE")
 
     return quality
 
@@ -550,15 +545,14 @@ def dedupe_alternatives(df: pd.DataFrame) -> pd.DataFrame:
 
 def apply_visibility_filter(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Filtro de visibilidad v4.4.
+    Filtro de visibilidad v4.5 sin tracking.
 
-    No cambia las predicciones ni la auditoría base: solo evita que salgan
-    en tickets cosas flojas tipo 3/5 + 6/10 o mercados sensibles con tracking incompleto.
+    Mantiene filtros sanos:
+    - mínimo 3 aciertos en L5
+    - BUENA/RADAR necesita respaldo reciente
+    - no usa tracking_status para descartar
     """
     out = df.copy()
-
-    sensitive_props = {"AST", "REB", "PRA", "PR", "PA", "RA", "FGA"}
-    bad_tracking = {"TRACKING_FALTANTE_TOTAL", "POTENTIAL_AST_FALTANTE"}
 
     for col in ["hit_l5", "hit_l10", "hr_l5", "hr_l10", "edge_score"]:
         if col in out.columns:
@@ -577,23 +571,8 @@ def apply_visibility_filter(df: pd.DataFrame) -> pd.DataFrame:
     )
     weak_radar = radar_like & (~radar_ok)
 
-    # Props sensibles con tracking incompleto: pedir base fuerte.
-    tracking_status = out["tracking_status"].fillna("").astype(str)
-    prop_type = out["prop_type"].fillna("").astype(str)
-
-    sensitive_missing_tracking = (
-        active
-        & prop_type.isin(sensitive_props)
-        & tracking_status.isin(bad_tracking)
-    )
-    sensitive_ok = (
-        (out["hit_l5"] >= 4)
-        & (out["hit_l10"] >= 8)
-        & (out["edge_score"] >= 1.20)
-    )
-    weak_sensitive = sensitive_missing_tracking & (~sensitive_ok)
-
-    to_discard = weak_l5 | weak_radar | weak_sensitive
+    # Sin castigo por tracking faltante.
+    to_discard = weak_l5 | weak_radar
 
     out.loc[to_discard, "quality"] = "DESCARTAR"
     out.loc[to_discard, "quality_ord"] = 0
@@ -792,6 +771,290 @@ def pool_main_combo(df: pd.DataFrame, matchup: Optional[str] = None, side: Optio
     FULL GAME combinadas/mega. Misma base de value, pero se usa con menor prioridad.
     """
     return pool_main_value(df, matchup=matchup, side=side)
+
+
+
+# ============================================================
+# HR-FIRST TICKETS
+# ============================================================
+
+def _hr_quality(row) -> str:
+    """
+    Calidad basada SOLO en cumplimiento reciente.
+    """
+    hit_l5 = as_int(row.get("hit_l5"))
+    hit_l10 = as_int(row.get("hit_l10"))
+
+    if hit_l5 >= 5 and hit_l10 >= 9:
+        return "JOYA"
+    if (hit_l5 >= 5 and hit_l10 >= 8) or (hit_l5 >= 4 and hit_l10 >= 9):
+        return "EXCELENTE"
+    if hit_l5 >= 4 and hit_l10 >= 8:
+        return "BUENA"
+
+    return "RADAR"
+
+
+def sort_for_hr_ticket(rows: pd.DataFrame) -> pd.DataFrame:
+    if rows.empty:
+        return rows.copy()
+
+    out = rows.copy()
+
+    for col in ["hit_l5", "hit_l10", "hr_l5", "hr_l10", "edge_score", "price"]:
+        if col in out.columns:
+            out[col] = pd.to_numeric(out[col], errors="coerce").fillna(0)
+
+    return out.sort_values(
+        ["hit_l5", "hit_l10", "hr_l5", "hr_l10", "edge_score", "price"],
+        ascending=[False, False, False, False, False, False],
+    )
+
+
+def pick_unique_hr(rows: pd.DataFrame, n: int, used_players: Optional[set] = None) -> pd.DataFrame:
+    """
+    Selecciona picks HR sin repetir jugador dentro del mismo ticket.
+    Esto evita combinadas correlacionadas tipo PTS + PR + PRA del mismo jugador.
+    """
+    if used_players is None:
+        used_players = set()
+
+    if rows.empty or n <= 0:
+        return rows.iloc[0:0].copy()
+
+    rows = sort_for_hr_ticket(rows)
+
+    picked = []
+    local_used = set(used_players)
+
+    for _, r in rows.iterrows():
+        pid = r.get("player_id")
+        if pid in local_used:
+            continue
+
+        picked.append(r)
+        local_used.add(pid)
+
+        if len(picked) >= n:
+            break
+
+    if not picked:
+        return rows.iloc[0:0].copy()
+
+    return pd.DataFrame(picked)
+
+
+def hr_ticket_pool(
+    df: pd.DataFrame,
+    matchup: Optional[str] = None,
+    side: Optional[str] = None,
+    family: Optional[str] = "MAIN",
+    min_hit_l5: int = 4,
+    min_hit_l10: int = 8,
+    min_price: float = 1.20,
+) -> pd.DataFrame:
+    """
+    Pool basado principalmente en hit-rate reciente.
+
+    No depende de:
+    - tracking_status
+    - quality previa
+    - edge_score mínimo
+    - candidate_basic
+
+    Sí mantiene barreras sanas:
+    - línea mínima
+    - no micro-líneas
+    - precio válido
+    - muestra completa L5/L10
+    """
+    g = df.copy()
+
+    if matchup is not None:
+        g = g[g["matchup"] == matchup].copy()
+
+    if side is not None:
+        g = g[g["side"] == side].copy()
+
+    if family is not None:
+        g = g[g["market_family"] == family].copy()
+
+    for col in ["hit_l5", "hit_l10", "n_l5", "n_l10", "price", "edge_score", "hr_l5", "hr_l10"]:
+        if col in g.columns:
+            g[col] = pd.to_numeric(g[col], errors="coerce").fillna(0)
+
+    g = g[
+        (g["n_l5"] >= 5)
+        & (g["n_l10"] >= 10)
+        & (g["hit_l5"] >= min_hit_l5)
+        & (g["hit_l10"] >= min_hit_l10)
+        & (g["price"] >= min_price)
+        & (~g["micro_line_final"])
+        & (g["line_min_ok"])
+    ].copy()
+
+    if g.empty:
+        return g
+
+    # Recalificamos para que el front no muestre DESCARTAR en tickets HR.
+    g["quality"] = g.apply(_hr_quality, axis=1)
+    g["quality_ord"] = g["quality"].map(QUALITY_ORDER).fillna(0).astype(int)
+    g["bucket"] = "HR"
+
+    return sort_for_hr_ticket(g)
+
+
+def add_hr_candidate_ticket(
+    candidates: list[dict],
+    name: str,
+    rows: pd.DataFrame,
+    min_len: int,
+    max_len: int,
+    priority: int,
+) -> None:
+    """
+    Agrega ticket HR. Nunca genera singles.
+    """
+    if min_len < 2:
+        min_len = 2
+
+    picked = pick_unique_hr(rows, max_len)
+
+    if len(picked) < min_len:
+        return
+
+    ticket = make_ticket(name.replace("{n}", str(len(picked))), picked)
+    candidates.append({
+        "priority": priority,
+        "ticket": ticket,
+        "signature": ticket_signature(ticket),
+    })
+
+
+def add_hr_matchup_candidates(candidates: list[dict], df: pd.DataFrame, matchup: str) -> None:
+    """
+    Candidatos HR por partido.
+
+    Reglas:
+    - ELITE: 5/5 + 9/10+
+    - FUERTE: 4/5 + 8/10+
+    - X5: solo si hay 5 jugadores distintos que cumplan HR fuerte
+    """
+    # Side-specific: OVERS y UNDERS separados.
+    for side in ["OVER", "UNDER"]:
+        elite = hr_ticket_pool(
+            df,
+            matchup=matchup,
+            side=side,
+            family="MAIN",
+            min_hit_l5=5,
+            min_hit_l10=9,
+            min_price=1.20,
+        )
+
+        fuerte = hr_ticket_pool(
+            df,
+            matchup=matchup,
+            side=side,
+            family="MAIN",
+            min_hit_l5=4,
+            min_hit_l10=8,
+            min_price=1.20,
+        )
+
+        add_hr_candidate_ticket(
+            candidates,
+            f"💎 HR {side} ELITE X2",
+            elite,
+            min_len=2,
+            max_len=2,
+            priority=180,
+        )
+
+        add_hr_candidate_ticket(
+            candidates,
+            f"🔥 HR {side} FUERTE X2",
+            fuerte,
+            min_len=2,
+            max_len=2,
+            priority=170,
+        )
+
+        add_hr_candidate_ticket(
+            candidates,
+            f"🧨 HR {side} FUERTE X5",
+            fuerte,
+            min_len=5,
+            max_len=5,
+            priority=150,
+        )
+
+        # Si no llega a X5, permite X3/X4 para no perder buen material por partido.
+        add_hr_candidate_ticket(
+            candidates,
+            f"📊 HR {side} COMBO X{{n}}",
+            fuerte,
+            min_len=3,
+            max_len=5,
+            priority=130,
+        )
+
+    # Mixtos por partido: mezcla OVER/UNDER si del mismo partido no alcanza por lado.
+    elite_mix = hr_ticket_pool(
+        df,
+        matchup=matchup,
+        side=None,
+        family="MAIN",
+        min_hit_l5=5,
+        min_hit_l10=9,
+        min_price=1.20,
+    )
+
+    fuerte_mix = hr_ticket_pool(
+        df,
+        matchup=matchup,
+        side=None,
+        family="MAIN",
+        min_hit_l5=4,
+        min_hit_l10=8,
+        min_price=1.20,
+    )
+
+    add_hr_candidate_ticket(
+        candidates,
+        "💎 HR MIX ELITE X2",
+        elite_mix,
+        min_len=2,
+        max_len=2,
+        priority=175,
+    )
+
+    add_hr_candidate_ticket(
+        candidates,
+        "🔥 HR MIX FUERTE X2",
+        fuerte_mix,
+        min_len=2,
+        max_len=2,
+        priority=165,
+    )
+
+    add_hr_candidate_ticket(
+        candidates,
+        "🧨 HR MIX FUERTE X5",
+        fuerte_mix,
+        min_len=5,
+        max_len=5,
+        priority=145,
+    )
+
+    add_hr_candidate_ticket(
+        candidates,
+        "📊 HR MIX COMBO X{n}",
+        fuerte_mix,
+        min_len=3,
+        max_len=5,
+        priority=125,
+    )
 
 
 def pool_tech_x2(df: pd.DataFrame, matchup: Optional[str] = None, side: Optional[str] = None) -> pd.DataFrame:
@@ -1096,6 +1359,9 @@ def build_matchup_block(df: pd.DataFrame, matchup: str, run_date: str, max_ticke
     """
     candidates = []
 
+    # HR-FIRST por partido: arma tickets usando 4/5, 5/5 y 8/10+ sin depender de tracking/edge.
+    add_hr_matchup_candidates(candidates, df, matchup)
+
     # Primero FULL GAME, porque es el corazón de Ludo.
     for side in ["OVER", "UNDER"]:
         add_main_side_candidates(candidates, df, matchup, side)
@@ -1142,6 +1408,19 @@ def build_tickets(df: pd.DataFrame, run_date: str, include_global: bool = False,
 # SAVE
 # ============================================================
 
+def count_tickets_in_blocks(tickets_json: list[dict]) -> int:
+    total = 0
+    if not isinstance(tickets_json, list):
+        return 0
+    for block in tickets_json:
+        if not isinstance(block, dict):
+            continue
+        tickets = block.get("tickets", [])
+        if isinstance(tickets, list):
+            total += len(tickets)
+    return total
+
+
 def save_ludo_picks(
     engine,
     tickets_json: list[dict],
@@ -1151,8 +1430,17 @@ def save_ludo_picks(
 ) -> None:
     OUT_JSON.write_text(json.dumps(tickets_json, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    total_tickets = count_tickets_in_blocks(tickets_json)
+
     if dry_run:
         print(f"🧪 DRY RUN: no se guarda en ludo_picks. Preview: {OUT_JSON.resolve()}")
+        return
+
+    # Barrera crítica: no insertar picks vacíos ni pisar picks anteriores.
+    if not tickets_json or total_tickets <= 0:
+        print(f"🛑 No hay tickets visibles para {run_date}. No se inserta ludo_picks.")
+        print("   No se marcan picks anteriores como SUPERSEDED.")
+        print(f"📄 Preview local vacío: {OUT_JSON.resolve()}")
         return
 
     with engine.begin() as conn:

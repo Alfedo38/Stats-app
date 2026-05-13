@@ -7,12 +7,54 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 // ─── Helpers de fecha ─────────────────────────────────────────────────────────
 
+const ARG_TZ = 'America/Argentina/Buenos_Aires';
+
+function formatArgDateKey(date: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: ARG_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+
+  const year = parts.find(p => p.type === 'year')?.value;
+  const month = parts.find(p => p.type === 'month')?.value;
+  const day = parts.find(p => p.type === 'day')?.value;
+
+  if (!year || !month || !day) {
+    throw new Error('No pude formatear la fecha de Argentina');
+  }
+
+  return `${year}-${month}-${day}`;
+}
+
+function addDaysToDateKey(dateStr: string, offset: number): string {
+  const [year, month, day] = dateStr.split('-').map(Number);
+
+  // Usamos mediodía UTC para evitar que el cambio de zona horaria lo mande
+  // al día anterior/siguiente al formatear en Argentina.
+  const d = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  d.setUTCDate(d.getUTCDate() + offset);
+
+  return formatArgDateKey(d);
+}
+
 function getArgDateStr(offset: number = 0): string {
-  const d = new Date();
-  d.setDate(d.getDate() + offset);
-  return d.toLocaleDateString('en-CA', {
-    timeZone: 'America/Argentina/Buenos_Aires',
-  });
+  const todayArg = formatArgDateKey(new Date());
+  return offset === 0 ? todayArg : addDaysToDateKey(todayArg, offset);
+}
+
+function normalizeDateKey(value: any): string | null {
+  if (!value) return null;
+
+  const raw = String(value);
+  const match = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (match) return match[1];
+
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return null;
+
+  return formatArgDateKey(d);
 }
 
 // ─── Merge de resultados en bloques ──────────────────────────────────────────
@@ -78,11 +120,13 @@ async function getPicksForDates(table: 'ludo_picks' | 'betano_picks') {
 
   const { data, error } = await supabase
     .from(table)
-    .select('json_data, results_data, status, pick_date')
+    .select('json_data, results_data, status, pick_date, created_at')
     .in('status', ['PENDING', 'SETTLED', 'PARTIAL'])
     .gte('pick_date', yesterdayStr)
+    .lte('pick_date', tomorrowStr)
+    .order('pick_date', { ascending: false })
     .order('created_at', { ascending: false })
-    .limit(5);
+    .limit(20);
 
   if (error || !data || data.length === 0) {
     return {
@@ -93,18 +137,28 @@ async function getPicksForDates(table: 'ludo_picks' | 'betano_picks') {
 
   const allBlocks: any[] = [];
   for (const row of data) {
+    const rowDate = normalizeDateKey(row.pick_date);
     const blocks = mergeResultsIntoBlocks(row.json_data || [], row.results_data);
-    allBlocks.push(...blocks);
+
+    for (const block of blocks) {
+      const blockDate = normalizeDateKey(block.game_date) || rowDate;
+      allBlocks.push({
+        ...block,
+        game_date: blockDate || block.game_date,
+      });
+    }
   }
 
+  const isVisibleBlock = (b: any) => !b.matchup?.startsWith('🌎');
+
   const yesterday = allBlocks.filter(b =>
-    b.game_date === yesterdayStr && !b.matchup?.startsWith('🌎')
+    normalizeDateKey(b.game_date) === yesterdayStr && isVisibleBlock(b)
   );
   const today = allBlocks.filter(b =>
-    b.game_date === todayStr && !b.matchup?.startsWith('🌎')
+    normalizeDateKey(b.game_date) === todayStr && isVisibleBlock(b)
   );
   const tomorrow = allBlocks.filter(b =>
-    b.game_date === tomorrowStr && !b.matchup?.startsWith('🌎')
+    normalizeDateKey(b.game_date) === tomorrowStr && isVisibleBlock(b)
   );
 
   return {

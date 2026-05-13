@@ -8,16 +8,66 @@
 
 @layer base {
   html {
-    color-scheme: dark;
+    color-scheme: light;
 
-    /* ✅ FIX: Variable CSS compartida entre layout y Sidebar.
-       El layout la usa para el padding-top en mobile.
-       El Sidebar la usa para definir la altura de la top bar.
-       Si cambia la altura, se toca solo acá. */
-    --topbar-height: 4rem; /* 64px — h-16 de Tailwind */
+    /* Altura compartida entre layout y Sidebar para la topbar mobile */
+    --topbar-height: 4rem;
+
+    /* Tema claro */
+    --bg: #f6f8fb;
+    --surface: #ffffff;
+    --surface-soft: #f1f5f9;
+    --surface-hover: #eaf0f7;
+
+    --text: #0f172a;
+    --text-muted: #64748b;
+    --text-soft: #94a3b8;
+
+    --border: #dbe3ef;
+    --border-strong: #cbd5e1;
+
+    --brand: #10b981;
+    --brand-soft: #d1fae5;
+
+    --success: #16a34a;
+    --success-soft: #dcfce7;
+
+    --danger: #dc2626;
+    --danger-soft: #fee2e2;
+
+    --warning: #d97706;
+    --warning-soft: #fef3c7;
   }
 
-  /* En desktop no hay top bar — reseteamos la variable */
+  html.dark {
+    color-scheme: dark;
+
+    /* Tema oscuro */
+    --bg: #050505;
+    --surface: #0a0a0a;
+    --surface-soft: #111111;
+    --surface-hover: #171717;
+
+    --text: #f8fafc;
+    --text-muted: #94a3b8;
+    --text-soft: #64748b;
+
+    --border: #1f2937;
+    --border-strong: #334155;
+
+    --brand: #10b981;
+    --brand-soft: rgba(16, 185, 129, 0.12);
+
+    --success: #22c55e;
+    --success-soft: rgba(34, 197, 94, 0.12);
+
+    --danger: #ef4444;
+    --danger-soft: rgba(239, 68, 68, 0.12);
+
+    --warning: #f59e0b;
+    --warning-soft: rgba(245, 158, 11, 0.12);
+  }
+
   @media (min-width: 768px) {
     html {
       --topbar-height: 0px;
@@ -25,24 +75,40 @@
   }
 
   body {
-    @apply bg-[#050505] text-neutral-200 antialiased;
+    background: var(--bg);
+    color: var(--text);
     margin: 0;
     padding: 0;
+    @apply antialiased;
   }
 }
 
 @layer utilities {
-  .text-brand { color: #10b981; }
-  .bg-brand { background-color: #10b981; }
+  .text-brand { color: var(--brand); }
+  .bg-brand { background-color: var(--brand); }
+
+  .bg-app { background-color: var(--bg); }
+  .bg-surface { background-color: var(--surface); }
+  .bg-surface-soft { background-color: var(--surface-soft); }
+  .bg-surface-hover { background-color: var(--surface-hover); }
+
+  .text-app { color: var(--text); }
+  .text-muted { color: var(--text-muted); }
+  .text-soft { color: var(--text-soft); }
+
+  .border-app { border-color: var(--border); }
+  .border-app-strong { border-color: var(--border-strong); }
 }
 
 /* Ocultar barra de scroll — Chrome, Safari, Opera */
-.no-scrollbar::-webkit-scrollbar {
+.no-scrollbar::-webkit-scrollbar,
+.hide-scrollbar::-webkit-scrollbar {
   display: none;
 }
 
 /* Ocultar barra de scroll — IE, Edge, Firefox */
-.no-scrollbar {
+.no-scrollbar,
+.hide-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }

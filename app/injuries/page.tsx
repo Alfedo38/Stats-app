@@ -1,4 +1,5 @@
-import { getNBAInjuries } from '@/lib/api';
+// app/injuries/page.tsx
+import { PrismaClient } from '@prisma/client';
 import { ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
 
@@ -8,34 +9,76 @@ export const metadata = {
   title: 'Injury Report | MoskProps',
 };
 
-export default async function InjuriesPage() {
-  const realTeams = await getNBAInjuries();
+const prisma = new PrismaClient();
 
-  // 🧪 DATOS DE PRUEBA — solo visibles en desarrollo local, NUNCA en producción
+const ARG_TZ = 'America/Argentina/Buenos_Aires';
+
+function getTodayArg(): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: ARG_TZ,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date());
+  const y = parts.find(p => p.type === 'year')?.value;
+  const m = parts.find(p => p.type === 'month')?.value;
+  const d = parts.find(p => p.type === 'day')?.value;
+  return `${y}-${m}-${d}`;
+}
+
+async function getInjuriesFromDB() {
+  const todayStr = getTodayArg();
+
+  const rows = await prisma.nba_injuries.findMany({
+    where: { fetch_date: todayStr },
+    orderBy: { team_name: 'asc' },
+  });
+
+  // Agrupar por equipo
+  const teamsMap = new Map<string, any>();
+  for (const row of rows) {
+    if (!teamsMap.has(row.team_id)) {
+      teamsMap.set(row.team_id, {
+        id:          row.team_id,
+        displayName: row.team_name,
+        logo:        row.team_logo,
+        injuries:    [],
+      });
+    }
+    teamsMap.get(row.team_id).injuries.push({
+      athlete: { id: row.player_id, shortName: row.player_name },
+      status:  row.status,
+      comment: row.comment,
+    });
+  }
+
+  return Array.from(teamsMap.values());
+}
+
+export default async function InjuriesPage() {
+  const realTeams = await getInjuriesFromDB();
+
+  // 🧪 Datos de prueba solo en desarrollo
   const fakeTeams = [
     {
       id: "fake-1",
       displayName: "Los Angeles Lakers",
       logo: "https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/lal.png",
       injuries: [
-        { athlete: { id: "p1", shortName: "LeBron James" }, status: "Questionable", comment: "Ankle Soreness" },
-        { athlete: { id: "p2", shortName: "Anthony Davis" }, status: "Probable", comment: "Eye" },
-        { athlete: { id: "p3", shortName: "Cam Reddish" }, status: "Out", comment: "Ankle" }
-      ]
+        { athlete: { id: "p1", shortName: "LeBron James" },   status: "Questionable", comment: "Ankle Soreness" },
+        { athlete: { id: "p2", shortName: "Anthony Davis" },  status: "Probable",     comment: "Eye" },
+        { athlete: { id: "p3", shortName: "Cam Reddish" },    status: "Out",          comment: "Ankle" },
+      ],
     },
     {
       id: "fake-2",
       displayName: "Golden State Warriors",
       logo: "https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/gs.png",
       injuries: [
-        { athlete: { id: "p4", shortName: "Stephen Curry" }, status: "Out", comment: "Ankle Sprain" },
-        { athlete: { id: "p5", shortName: "Draymond Green" }, status: "Doubtful", comment: "Back" }
-      ]
-    }
+        { athlete: { id: "p4", shortName: "Stephen Curry" },   status: "Out",      comment: "Ankle Sprain" },
+        { athlete: { id: "p5", shortName: "Draymond Green" },  status: "Doubtful", comment: "Back" },
+      ],
+    },
   ];
 
-  // ✅ FIX: Los datos fake solo aparecen en desarrollo local.
-  // En producción, si ESPN no devuelve datos, se muestra la tabla vacía.
   const teams = process.env.NODE_ENV === 'development' && realTeams.length === 0
     ? fakeTeams
     : realTeams;
@@ -70,7 +113,7 @@ export default async function InjuriesPage() {
               Sin lesionados reportados hoy
             </p>
             <p className="text-[var(--text-soft)] text-[10px] font-bold uppercase tracking-widest mt-2">
-              ESPN no reportó lesiones o el servicio no está disponible
+              El sync del día aún no corrió o la NBA no publicó el reporte
             </p>
           </div>
         ) : (
@@ -80,10 +123,10 @@ export default async function InjuriesPage() {
                 <thead>
                   <tr className="bg-[var(--surface-soft)] border-b border-[var(--border)]">
                     <th className="p-5 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] w-56">Equipo</th>
-                    <th className="p-4 text-[10px] font-black uppercase tracking-widest text-green-500 bg-green-500/5 text-center border-x border-[var(--border)]">Probable</th>
+                    <th className="p-4 text-[10px] font-black uppercase tracking-widest text-green-500  bg-green-500/5  text-center border-x border-[var(--border)]">Probable</th>
                     <th className="p-4 text-[10px] font-black uppercase tracking-widest text-yellow-500 bg-yellow-500/5 text-center">Questionable</th>
                     <th className="p-4 text-[10px] font-black uppercase tracking-widest text-orange-500 bg-orange-500/5 text-center border-x border-[var(--border)]">Doubtful</th>
-                    <th className="p-4 text-[10px] font-black uppercase tracking-widest text-red-600 bg-red-600/5 text-center">OUT</th>
+                    <th className="p-4 text-[10px] font-black uppercase tracking-widest text-red-600    bg-red-600/5    text-center">OUT</th>
                   </tr>
                 </thead>
                 <tbody>

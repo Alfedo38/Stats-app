@@ -11,7 +11,6 @@ export const metadata = {
 export default async function EVPlaysPage({
   searchParams,
 }: {
-  // ✅ Next.js 15: searchParams es una Promise, hay que awaitearlo
   searchParams: Promise<{ book?: string }>;
 }) {
   const params = await searchParams;
@@ -21,13 +20,13 @@ export default async function EVPlaysPage({
     ? await getBetanoPlays()
     : await getEvPlays();
 
-  const { yesterday, today, tomorrow, dates } = picksData;
-  const hasAnyData = yesterday || today || tomorrow;
+  const { yesterday, today, tomorrow, calendar, dates } = picksData as any;
+  const hasAnyData = yesterday || today || tomorrow || calendar;
 
   return (
     <main className="min-h-screen bg-[var(--bg)] text-[var(--text)] p-4 md:p-8">
       <div className="max-w-7xl mx-auto space-y-8">
-
+        
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
             <h1 className="text-3xl font-black italic uppercase tracking-tighter">
@@ -37,8 +36,6 @@ export default async function EVPlaysPage({
               Pronósticos matemáticos
             </p>
           </div>
-
-          {/* ✅ Pasamos activeBook como prop para que el selector sepa cuál está activo */}
           <BookmakerSelector activeBook={activeBook} />
         </div>
 
@@ -56,6 +53,7 @@ export default async function EVPlaysPage({
             yesterday={yesterday}
             today={today}
             tomorrow={tomorrow}
+            calendar={calendar}
             dates={dates}
             bookmaker={activeBook}
           />

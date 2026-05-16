@@ -102,7 +102,7 @@ async function fetchPicksFromTable(
     .from(table)
     .select('json_data, results_data, status, pick_date')
     .eq('pick_date', dateStr)
-    .in('status', ['PENDING', 'SETTLED', 'PARTIAL'])
+    .in('status', ['ACTIVE', 'PENDING', 'SETTLED', 'PARTIAL'])
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -118,27 +118,57 @@ async function getPicksForDates(table: 'ludo_picks' | 'betano_picks') {
   const todayStr     = getArgDateStr(0);
   const tomorrowStr  = getArgDateStr(1);
 
-  const { data, error } = await supabase
-    .from(table)
-    .select('json_data, results_data, status, pick_date, created_at')
-    .in('status', ['PENDING', 'SETTLED', 'PARTIAL'])
-    .gte('pick_date', yesterdayStr)
-    .lte('pick_date', tomorrowStr)
-    .order('pick_date', { ascending: false })
-    .order('created_at', { ascending: false })
-    .limit(20);
+  let data: any[] = [];
+  let error = null;
+
+  try {
+    // ✅ CORRECCIÓN MODO DIOS: Traemos los datos directo con Prisma saltándonos Supabase JS
+    if (table === 'ludo_picks') {
+      data = await prisma.$queryRaw`
+        SELECT json_data, results_data, status, pick_date::text, created_at
+        FROM ludo_picks
+        WHERE status IN ('ACTIVE', 'PENDING', 'SETTLED', 'PARTIAL')
+        ORDER BY pick_date DESC, created_at DESC
+        LIMIT 20
+      `;
+    } else {
+      data = await prisma.$queryRaw`
+        SELECT json_data, results_data, status, pick_date::text, created_at
+        FROM betano_picks
+        WHERE status IN ('ACTIVE', 'PENDING', 'SETTLED', 'PARTIAL')
+        ORDER BY pick_date DESC, created_at DESC
+        LIMIT 20
+      `;
+    }
+  } catch (err) {
+    error = err;
+    console.error("Error en Prisma Direct Query:", err);
+  }
 
   if (error || !data || data.length === 0) {
     return {
-      yesterday: null, today: null, tomorrow: null,
+      yesterday: null, today: null, tomorrow: null, calendar: null,
       dates: { yesterdayStr, todayStr, tomorrowStr },
+      debug_data: data, debug_error: error,
     };
   }
 
   const allBlocks: any[] = [];
   for (const row of data) {
     const rowDate = normalizeDateKey(row.pick_date);
-    const blocks = mergeResultsIntoBlocks(row.json_data || [], row.results_data);
+    
+    // Validamos el parseo de los objetos JSON por si vienen mapeados como string
+    let jsonData = row.json_data;
+    if (typeof jsonData === 'string') {
+      try { jsonData = JSON.parse(jsonData); } catch(e) {}
+    }
+    
+    let resultsData = row.results_data;
+    if (typeof resultsData === 'string') {
+      try { resultsData = JSON.parse(resultsData); } catch(e) {}
+    }
+
+    const blocks = mergeResultsIntoBlocks(jsonData || [], resultsData);
 
     for (const block of blocks) {
       const blockDate = normalizeDateKey(block.game_date) || rowDate;
@@ -151,21 +181,24 @@ async function getPicksForDates(table: 'ludo_picks' | 'betano_picks') {
 
   const isVisibleBlock = (b: any) => !b.matchup?.startsWith('🌎');
 
-  const yesterday = allBlocks.filter(b =>
-    normalizeDateKey(b.game_date) === yesterdayStr && isVisibleBlock(b)
-  );
-  const today = allBlocks.filter(b =>
-    normalizeDateKey(b.game_date) === todayStr && isVisibleBlock(b)
-  );
-  const tomorrow = allBlocks.filter(b =>
-    normalizeDateKey(b.game_date) === tomorrowStr && isVisibleBlock(b)
-  );
+  const yesterday = allBlocks.filter(b => normalizeDateKey(b.game_date) === yesterdayStr && isVisibleBlock(b));
+  const today = allBlocks.filter(b => normalizeDateKey(b.game_date) === todayStr && isVisibleBlock(b));
+  const tomorrow = allBlocks.filter(b => normalizeDateKey(b.game_date) === tomorrowStr && isVisibleBlock(b));
+  
+  // ✅ Pestaña calendario para capturar los partidos de días subsiguientes
+  const calendar = allBlocks.filter(b => {
+    const d = normalizeDateKey(b.game_date);
+    return d && d > tomorrowStr && isVisibleBlock(b);
+  });
 
   return {
     yesterday: yesterday.length > 0 ? yesterday : null,
     today:     today.length     > 0 ? today     : null,
     tomorrow:  tomorrow.length  > 0 ? tomorrow  : null,
+    calendar:  calendar.length  > 0 ? calendar  : null,
     dates: { yesterdayStr, todayStr, tomorrowStr },
+    debug_data: data,
+    debug_error: error,
   };
 }
 
@@ -320,7 +353,7 @@ export async function getEvPlays() {
   } catch (e) {
     console.error('Error en getEvPlays:', e);
     return {
-      yesterday: null, today: null, tomorrow: null,
+      yesterday: null, today: null, tomorrow: null, calendar: null,
       dates: { yesterdayStr: '', todayStr: '', tomorrowStr: '' },
     };
   }
@@ -334,7 +367,7 @@ export async function getBetanoPlays() {
   } catch (e) {
     console.error('Error en getBetanoPlays:', e);
     return {
-      yesterday: null, today: null, tomorrow: null,
+      yesterday: null, today: null, tomorrow: null, calendar: null,
       dates: { yesterdayStr: '', todayStr: '', tomorrowStr: '' },
     };
   }

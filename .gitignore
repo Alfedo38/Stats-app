@@ -1,33 +1,15 @@
-# =========================
+# =========================================
 # DEPENDENCIAS NODE / NEXT.JS
 # =========================
 node_modules/
 .pnp
 .pnp.js
-
-# Testing
 coverage/
-
-# Next.js build output
 .next/
 out/
 build/
 
-# =========================
-# DEPENDENCIAS PYTHON
-# =========================
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-
-# Entornos virtuales (por si stats-api es uno)
-venv/
-.venv/
-env/
-.env_python/
-
-# =========================
+# =========================================
 # VARIABLES DE ENTORNO Y SECRETOS (¡CRÍTICO!)
 # =========================
 .env
@@ -37,7 +19,7 @@ env/
 .env.production.local
 *.pem
 
-# =========================
+# =========================================
 # LOGS Y ARCHIVOS LOCALES
 # =========================
 *.log
@@ -46,23 +28,45 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# =========================
+# =========================================
 # ARCHIVOS DEL SISTEMA OPERATIVO
 # =========================
 .DS_Store
 Thumbs.db
-# --- Motor Python & Machine Learning ---
+
+# =========================================
+# MOTOR DE DATOS PYTHON & SCRAPING (Solo Local)
+# =========================================
+# Ignorar todos los scripts y cachés
+*.py
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Entornos virtuales
+venv/
+.venv/
+env/
+.env_python/
+
+# Modelos AI y variables guardadas
 *.pkl
 modelos_ai/
 
-# --- Scraper & Puppeteer/Playwright ---
-browser_profile/
-# Motor de Datos / Scraping (Solo Local)
-*.py
-/browser_profile/
-/nba_data_pipeline/
-/outputs/
+# Carpetas del Motor Quant
 /motor/
+/motor_python/
 /potenciales/
-__pycache__/
+/nba_data_pipeline/
+
+# Scraper, Sesiones y Temporales
+/browser_profile/
+browser_profile/
+
+# Outputs y archivos pesados generados
+/outputs/
+/outputs_csv/
+/outputs_json/
+/outputs_tracking/
+*.csv

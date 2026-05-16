@@ -217,3 +217,18 @@ model upcoming_matches_lol {
   // -----------------------
   updated_at   DateTime @default(now())
 }
+model nba_injuries {
+  id           Int      @id @default(autoincrement())
+  fetch_date   String   // "2026-05-14" — día del reporte
+  team_id      String
+  team_name    String
+  team_logo    String
+  player_id    String
+  player_name  String
+  status       String   // Out, Questionable, Doubtful, Probable
+  comment      String?
+  created_at   DateTime @default(now())
+
+  @@index([fetch_date])
+  @@index([fetch_date, team_id])
+}

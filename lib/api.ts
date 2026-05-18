@@ -274,42 +274,139 @@ export async function getPlayerData(playerId: string) {
 
     let player = await prisma.players.findUnique({ where: { id } });
 
-    const stats = await prisma.player_game_logs.findMany({
-      where: { player_id: id },
-      orderBy: { game_date: 'desc' },
-    });
+    // ✅ Nueva fuente para el gráfico del jugador:
+    // Esta vista ya trae partido completo + Q1 + H1 + H2_REG en la misma fila.
+    // El componente espera columnas tipo q1_pts, h1_pts, h2_pts, etc.
+    const { data: periodStats, error: periodError } = await supabase
+      .from('v_ludo_player_game_logs_clean_periods_v2')
+      .select('*')
+      .eq('player_id', id)
+      .order('game_date', { ascending: false });
 
-    const { data: q1Data } = await supabase
-      .from('player_q1_stats')
-      .select('game_id, q1_pts, q1_reb, q1_ast, q1_oreb, q1_dreb')
-      .eq('player_id', id);
-
-    const q1Dict: Record<number, any> = {};
-    if (q1Data) {
-      q1Data.forEach((q1: any) => { q1Dict[Number(q1.game_id)] = q1; });
+    if (periodError) {
+      console.error('Error leyendo v_ludo_player_game_logs_clean_periods_v2:', periodError);
     }
 
-    if (!player && stats.length > 0) {
-      const fullName = stats[0].player_name || 'Jugador';
-      const nameParts = fullName.split(' ');
-      player = {
-        id, full_name: fullName,
-        first_name: nameParts[0],
-        last_name: nameParts.slice(1).join(' '),
-        team_id: null, api_id: null,
-        jersey_number: null, position: null, image_url: null,
+    const normalizeDate = (value: any) => {
+      if (!value) return null;
+      if (value instanceof Date) return value.toISOString();
+      const raw = String(value);
+      const match = raw.match(/^\d{4}-\d{2}-\d{2}/);
+      if (match) return match[0];
+      const d = new Date(raw);
+      return Number.isNaN(d.getTime()) ? raw : d.toISOString();
+    };
+
+    const num = (value: any) => {
+      if (value === null || value === undefined || value === '') return 0;
+      const n = Number(value);
+      return Number.isFinite(n) ? n : 0;
+    };
+
+    const withStatAliases = (s: any) => {
+      const row = {
+        ...s,
+        game_date: normalizeDate(s.game_date),
+
+        // Full game aliases para que los componentes acepten variantes.
+        pts: num(s.pts),
+        reb: num(s.reb),
+        ast: num(s.ast),
+        oreb: num(s.oreb),
+        dreb: num(s.dreb),
+        stl: num(s.stl),
+        blk: num(s.blk),
+        tov: num(s.tov ?? s.to),
+        to: num(s.to ?? s.tov),
+        pf: num(s.pf),
+        fgm: num(s.fgm),
+        fga: num(s.fga),
+        fg3m: num(s.fg3m ?? s['3ptm'] ?? s['3pm']),
+        fg3a: num(s.fg3a ?? s['3pta']),
+        ftm: num(s.ftm),
+        fta: num(s.fta),
       } as any;
-    }
 
-    const serializedStats = stats.map(s => {
-      const q1 = q1Dict[Number(s.game_id)] || {};
-      return {
+      row.pr = num(s.pr ?? row.pts + row.reb);
+      row.pa = num(s.pa ?? row.pts + row.ast);
+      row.ra = num(s.ra ?? row.reb + row.ast);
+      row.pra = num(s.pra ?? row.pts + row.reb + row.ast);
+      row.pts_reb = row.pr;
+      row.pts_ast = row.pa;
+      row.reb_ast = row.ra;
+      row.pts_reb_ast = row.pra;
+      row['3ptm'] = row.fg3m;
+      row['3pta'] = row.fg3a;
+      row.stl_blk = row.stl + row.blk;
+
+      for (const prefix of ['q1', 'h1', 'h2']) {
+        row[`${prefix}_pts`] = num(s[`${prefix}_pts`]);
+        row[`${prefix}_reb`] = num(s[`${prefix}_reb`]);
+        row[`${prefix}_ast`] = num(s[`${prefix}_ast`]);
+        row[`${prefix}_oreb`] = num(s[`${prefix}_oreb`]);
+        row[`${prefix}_dreb`] = num(s[`${prefix}_dreb`]);
+        row[`${prefix}_stl`] = num(s[`${prefix}_stl`]);
+        row[`${prefix}_blk`] = num(s[`${prefix}_blk`]);
+        row[`${prefix}_tov`] = num(s[`${prefix}_tov`] ?? s[`${prefix}_to`]);
+        row[`${prefix}_to`] = num(s[`${prefix}_to`] ?? s[`${prefix}_tov`]);
+        row[`${prefix}_pf`] = num(s[`${prefix}_pf`]);
+        row[`${prefix}_fgm`] = num(s[`${prefix}_fgm`]);
+        row[`${prefix}_fga`] = num(s[`${prefix}_fga`]);
+        row[`${prefix}_fg3m`] = num(s[`${prefix}_fg3m`] ?? s[`${prefix}_3ptm`] ?? s[`${prefix}_3pm`]);
+        row[`${prefix}_3ptm`] = row[`${prefix}_fg3m`];
+        row[`${prefix}_fg3a`] = num(s[`${prefix}_fg3a`] ?? s[`${prefix}_3pta`]);
+        row[`${prefix}_3pta`] = row[`${prefix}_fg3a`];
+        row[`${prefix}_ftm`] = num(s[`${prefix}_ftm`]);
+        row[`${prefix}_fta`] = num(s[`${prefix}_fta`]);
+
+        row[`${prefix}_pr`] = num(s[`${prefix}_pr`] ?? s[`${prefix}_pts_reb`] ?? row[`${prefix}_pts`] + row[`${prefix}_reb`]);
+        row[`${prefix}_pa`] = num(s[`${prefix}_pa`] ?? s[`${prefix}_pts_ast`] ?? row[`${prefix}_pts`] + row[`${prefix}_ast`]);
+        row[`${prefix}_ra`] = num(s[`${prefix}_ra`] ?? s[`${prefix}_reb_ast`] ?? row[`${prefix}_reb`] + row[`${prefix}_ast`]);
+        row[`${prefix}_pra`] = num(s[`${prefix}_pra`] ?? s[`${prefix}_pts_reb_ast`] ?? row[`${prefix}_pts`] + row[`${prefix}_reb`] + row[`${prefix}_ast`]);
+
+        row[`${prefix}_pts_reb`] = row[`${prefix}_pr`];
+        row[`${prefix}_pts_ast`] = row[`${prefix}_pa`];
+        row[`${prefix}_reb_ast`] = row[`${prefix}_ra`];
+        row[`${prefix}_pts_reb_ast`] = row[`${prefix}_pra`];
+        row[`${prefix}_stl_blk`] = row[`${prefix}_stl`] + row[`${prefix}_blk`];
+      }
+
+      return row;
+    };
+
+    let serializedStats = Array.isArray(periodStats)
+      ? periodStats.map(withStatAliases)
+      : [];
+
+    // Fallback seguro: si por algún motivo la vista nueva no devuelve filas,
+    // mantenemos el comportamiento viejo con Prisma para no romper la página.
+    if (serializedStats.length === 0) {
+      const stats = await prisma.player_game_logs.findMany({
+        where: { player_id: id },
+        orderBy: { game_date: 'desc' },
+      });
+
+      serializedStats = stats.map((s: any) => withStatAliases({
         ...s,
         game_date: s.game_date ? s.game_date.toISOString() : null,
-        q1_pts: q1.q1_pts || 0, q1_reb: q1.q1_reb || 0,
-        q1_ast: q1.q1_ast || 0, q1_oreb: q1.q1_oreb || 0, q1_dreb: q1.q1_dreb || 0,
-      };
-    });
+      }));
+    }
+
+    if (!player && serializedStats.length > 0) {
+      const fullName = serializedStats[0].player_name || 'Jugador';
+      const nameParts = fullName.split(' ');
+      player = {
+        id,
+        full_name: fullName,
+        first_name: nameParts[0],
+        last_name: nameParts.slice(1).join(' '),
+        team_id: null,
+        api_id: null,
+        jersey_number: null,
+        position: null,
+        image_url: null,
+      } as any;
+    }
 
     return { player, stats: serializedStats };
   } catch (e) {

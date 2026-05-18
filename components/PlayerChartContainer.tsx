@@ -26,26 +26,87 @@ interface PlayerChartContainerProps {
   stakeOdds?: StakePlayerOdd[];
 }
 
-function getStatValue(s: any, statId: string, q1Mode: boolean): number {
-  let val = 0;
+type SplitScope = "FULL" | "Q1" | "H1" | "H2_REG";
 
-  if (statId.includes("+")) {
-    const parts = statId.split("+");
-    val = parts.reduce((acc, part) => {
-      const key = q1Mode ? `q1_${part}` : part;
-      return acc + (Number(s[key]) || 0);
-    }, 0);
-  } else {
-    const key = q1Mode ? `q1_${statId}` : statId;
-    const rawVal = Number(s[key]) || 0;
-    val = statId === "usage_pct" ? rawVal * 100 : rawVal;
+type SplitScopeOption = {
+  id: SplitScope;
+  label: string;
+  badgeLabel: string;
+  prefix: "" | "q1" | "h1" | "h2";
+};
+
+const SPLIT_SCOPE_OPTIONS: SplitScopeOption[] = [
+  { id: "FULL", label: "PARTIDO", badgeLabel: "DATOS PARTIDO", prefix: "" },
+  { id: "Q1", label: "1ER CUARTO", badgeLabel: "DATOS 1ER CUARTO", prefix: "q1" },
+  { id: "H1", label: "1RA MITAD", badgeLabel: "DATOS 1RA MITAD", prefix: "h1" },
+  { id: "H2_REG", label: "2DA MITAD", badgeLabel: "DATOS 2DA MITAD", prefix: "h2" },
+];
+
+const SPLIT_SCOPE_BY_ID = SPLIT_SCOPE_OPTIONS.reduce<Record<SplitScope, SplitScopeOption>>((acc, option) => {
+  acc[option.id] = option;
+  return acc;
+}, {} as Record<SplitScope, SplitScopeOption>);
+
+function normalizeSplitCode(value: any): SplitScope | null {
+  const code = String(value || "").trim().toUpperCase();
+  if (code === "Q1") return "Q1";
+  if (code === "H1") return "H1";
+  if (code === "H2" || code === "H2_REG") return "H2_REG";
+  if (code === "FULL" || code === "PARTIDO") return "FULL";
+  return null;
+}
+
+function isPeriodRowForScope(s: any, scope: SplitScope) {
+  return scope !== "FULL" && normalizeSplitCode(s?.split_code) === scope;
+}
+
+function getScopedKey(statId: string, scope: SplitScope) {
+  const prefix = SPLIT_SCOPE_BY_ID[scope]?.prefix;
+  return prefix ? `${prefix}_${statId}` : statId;
+}
+
+function getRawStatValue(s: any, statId: string, scope: SplitScope): number {
+  const isPeriodRow = isPeriodRowForScope(s, scope);
+
+  const aliases: Record<string, string[]> = {
+    "pts+ast": ["pa"],
+    "pts+reb": ["pr"],
+    "reb+ast": ["ra"],
+    "pts+reb+ast": ["pra"],
+    "3pt": ["fg3m", "3pm", "three_pm"],
+    "3ptm": ["fg3m", "3pm", "three_pm"],
+    "3pta": ["fg3a", "three_pa"],
+    "to": ["tov", "turnovers"],
+  };
+
+  const directCandidates = [statId, ...(aliases[statId] || [])];
+  const scopedCandidates = directCandidates.flatMap((key) => [getScopedKey(key, scope), key]);
+  const candidates = isPeriodRow ? directCandidates : scopedCandidates;
+
+  for (const key of candidates) {
+    if (s?.[key] !== null && s?.[key] !== undefined && s?.[key] !== "") {
+      const parsed = Number(s[key]);
+      if (Number.isFinite(parsed)) return statId === "usage_pct" ? parsed * 100 : parsed;
+    }
   }
 
-  return val;
+  return 0;
+}
+
+function getStatValue(s: any, statId: string, scope: SplitScope): number {
+  if (statId.includes("+")) {
+    return statId
+      .split("+")
+      .reduce((acc, part) => acc + getRawStatValue(s, part, scope), 0);
+  }
+
+  return getRawStatValue(s, statId, scope);
 }
 
 function getMinutesValue(raw: any) {
   const value =
+    raw?.period_minutes ??
+    raw?.min_text ??
     raw?.min ??
     raw?.minutes ??
     raw?.mins ??
@@ -74,6 +135,22 @@ function getMinutesLabel(raw: any) {
   const minutes = getMinutesValue(raw);
   if (minutes === null) return "S/D";
   return `${Math.round(minutes)}m`;
+}
+
+function getScopedMinutesRaw(raw: any, scope: SplitScope) {
+  if (scope === "FULL") return null;
+
+  const prefix = SPLIT_SCOPE_BY_ID[scope]?.prefix;
+  if (!prefix) return null;
+
+  return (
+    raw?.[`${prefix}_min`] ??
+    raw?.[`${prefix}_minutes`] ??
+    raw?.[`${prefix}_mins`] ??
+    raw?.[`${prefix}_min_text`] ??
+    (isPeriodRowForScope(raw, scope) ? raw?.min_text : null) ??
+    null
+  );
 }
 
 function getOpponent(item: any) {
@@ -199,8 +276,8 @@ function formatLineValue(value: number, activeStat: string) {
 
 const HIDDEN_MAIN_STATS = new Set(["potential_ast", "rebound_chances"]);
 
-function getOpportunityOverlayConfig(activeStat: string, isQ1Mode: boolean) {
-  if (isQ1Mode) return null;
+function getOpportunityOverlayConfig(activeStat: string, scope: SplitScope) {
+  if (scope !== "FULL") return null;
 
   if (activeStat === "ast") {
     return {
@@ -227,7 +304,7 @@ export default function PlayerChartContainer({ stats, navStats, playerName, stak
   const [activeStat, setActiveStat] = useState("pts");
   const [lastN, setLastN] = useState(10);
   const [lineValue, setLineValue] = useState(18.5);
-  const [isQ1Mode, setIsQ1Mode] = useState(false);
+  const [activeScope, setActiveScope] = useState<SplitScope>("FULL");
   const [showGameLog, setShowGameLog] = useState(false);
 
   const visibleNavStats = useMemo(
@@ -240,9 +317,12 @@ export default function PlayerChartContainer({ stats, navStats, playerName, stak
     navStats.find((s) => s.id === activeStat)?.label ||
     activeStat.toUpperCase();
 
+  const activeScopeOption = SPLIT_SCOPE_BY_ID[activeScope];
+  const isFullScope = activeScope === "FULL";
+
   const opportunityOverlay = useMemo(
-    () => getOpportunityOverlayConfig(activeStat, isQ1Mode),
-    [activeStat, isQ1Mode]
+    () => getOpportunityOverlayConfig(activeStat, activeScope),
+    [activeStat, activeScope]
   );
 
   const selectedStakeOdds = useMemo(
@@ -255,10 +335,22 @@ export default function PlayerChartContainer({ stats, navStats, playerName, stak
     [selectedStakeOdds]
   );
 
+  const scopedRawStats = useMemo(() => {
+    const rawStats = stats || [];
+
+    if (activeScope === "FULL") {
+      const fullRows = rawStats.filter((s: any) => !s?.split_code || normalizeSplitCode(s.split_code) === "FULL");
+      return fullRows.length > 0 ? fullRows : rawStats;
+    }
+
+    const longRows = rawStats.filter((s: any) => normalizeSplitCode(s?.split_code) === activeScope);
+    return longRows.length > 0 ? longRows : rawStats;
+  }, [stats, activeScope]);
+
   const uniqueStats = useMemo(() => {
     return Array.from(
       new Map(
-        (stats || []).map((s: any) => {
+        scopedRawStats.map((s: any) => {
           const fechaUnica = s.game_date
             ? String(s.game_date).split("T")[0]
             : s.date || s.id || s.game_id;
@@ -266,25 +358,26 @@ export default function PlayerChartContainer({ stats, navStats, playerName, stak
         })
       ).values()
     );
-  }, [stats]);
+  }, [scopedRawStats]);
 
   useEffect(() => {
-    if (!isQ1Mode && selectedStakeOdd?.line != null && Number.isFinite(Number(selectedStakeOdd.line))) {
+    if (isFullScope && selectedStakeOdd?.line != null && Number.isFinite(Number(selectedStakeOdd.line))) {
       setLineValue(normalizeLineForStat(Number(selectedStakeOdd.line), activeStat));
       return;
     }
 
     if (uniqueStats.length > 0) {
       const recent = uniqueStats.slice(0, 10);
-      const total = recent.reduce((sum, s) => sum + getStatValue(s, activeStat, isQ1Mode), 0);
+      const total = recent.reduce((sum, s) => sum + getStatValue(s, activeStat, activeScope), 0);
       const avg = total / (recent.length || 1);
       setLineValue(getAutoLine(avg, activeStat));
     }
-  }, [activeStat, uniqueStats, isQ1Mode, selectedStakeOdd]);
+  }, [activeStat, uniqueStats, activeScope, isFullScope, selectedStakeOdd]);
 
   const processedStats = uniqueStats.map((s: any) => ({
     ...s,
-    value: Number(getStatValue(s, activeStat, isQ1Mode).toFixed(1)),
+    period_minutes: getScopedMinutesRaw(s, activeScope),
+    value: Number(getStatValue(s, activeStat, activeScope).toFixed(1)),
     is_percentage: activeStat === "usage_pct",
   }));
 
@@ -371,27 +464,22 @@ export default function PlayerChartContainer({ stats, navStats, playerName, stak
       {/* CONTROLES */}
       <div className="flex flex-col md:flex-row justify-between items-center bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-4 gap-6 shadow-xl">
         <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
-          <div className="flex bg-[var(--surface-soft)] p-1 rounded-xl border border-[var(--border)]">
-            <button
-              className={`flex items-center gap-2 px-4 py-2 text-[10px] font-black rounded-lg transition-all ${
-                !isQ1Mode
-                  ? "bg-[#10b981] text-black shadow-[0_0_10px_rgba(16,185,129,0.3)]"
-                  : "text-[var(--text-muted)] hover:text-[var(--text)]"
-              }`}
-              onClick={() => setIsQ1Mode(false)}
-            >
-              <Clock size={12} /> PARTIDO
-            </button>
-            <button
-              className={`flex items-center gap-2 px-4 py-2 text-[10px] font-black rounded-lg transition-all ${
-                isQ1Mode
-                  ? "bg-[#10b981] text-black shadow-[0_0_10px_rgba(16,185,129,0.3)]"
-                  : "text-[var(--text-muted)] hover:text-[var(--text)]"
-              }`}
-              onClick={() => setIsQ1Mode(true)}
-            >
-              1ER CUARTO
-            </button>
+          <div className="flex bg-[var(--surface-soft)] p-1 rounded-xl border border-[var(--border)] overflow-x-auto max-w-full">
+            {SPLIT_SCOPE_OPTIONS.map((scope) => (
+              <button
+                key={scope.id}
+                type="button"
+                className={`shrink-0 flex items-center gap-2 px-4 py-2 text-[10px] font-black rounded-lg transition-all ${
+                  activeScope === scope.id
+                    ? "bg-[#10b981] text-black shadow-[0_0_10px_rgba(16,185,129,0.3)]"
+                    : "text-[var(--text-muted)] hover:text-[var(--text)]"
+                }`}
+                onClick={() => setActiveScope(scope.id)}
+              >
+                {scope.id === "FULL" && <Clock size={12} />}
+                {scope.label}
+              </button>
+            ))}
           </div>
 
           <div className="bg-[#222] w-[1px] hidden md:block" />
@@ -416,7 +504,7 @@ export default function PlayerChartContainer({ stats, navStats, playerName, stak
         <div className="flex items-center gap-6 md:gap-8 w-full md:w-auto justify-between md:justify-end">
           <div className="flex flex-col items-start md:items-end">
             <span className="text-[8px] text-[var(--text-muted)] font-black uppercase tracking-[0.2em] flex items-center gap-1 mb-1">
-              <Sparkles size={10} className="text-[#10b981]" /> {selectedStakeOdd ? "Stake Line" : "Custom Line"}
+              <Sparkles size={10} className="text-[#10b981]" /> {isFullScope && selectedStakeOdd ? "Stake Line" : "Custom Line"}
             </span>
 
             <div className="flex items-center bg-[var(--bg)] px-2 py-1 rounded-lg border border-[var(--border)]">
@@ -467,9 +555,9 @@ export default function PlayerChartContainer({ stats, navStats, playerName, stak
       {/* GRÁFICA + ALT LINES */}
       <div className="grid grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_320px] gap-4 items-stretch">
         <div className="bg-[var(--surface)] p-4 md:p-6 rounded-[2rem] border border-[var(--border)] shadow-2xl relative min-w-0">
-          {isQ1Mode && (
+          {!isFullScope && (
             <div className="absolute top-6 right-6 px-3 py-1 bg-[#10b981]/10 border border-[#10b981]/30 text-[#10b981] text-[10px] font-black rounded-md tracking-wider z-10">
-              DATOS 1ER CUARTO
+              {activeScopeOption.badgeLabel}
             </div>
           )}
           <div className="min-h-[410px] w-full relative">
@@ -563,14 +651,14 @@ export default function PlayerChartContainer({ stats, navStats, playerName, stak
                 Game Log
               </p>
               <h3 className="text-[var(--text)] font-black uppercase tracking-tight">
-                {showGameLog ? "Ocultar detalle" : `Ver detalle de últimos ${visibleStats.length}`}
+                {showGameLog ? "Ocultar detalle" : `Ver detalle de últimos ${visibleStats.length} · ${activeScopeOption.label}`}
               </h3>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
             <p className="hidden md:block text-[10px] text-[var(--text-muted)] font-black uppercase tracking-widest text-right">
-              Línea: {formatLineValue(lineValue, activeStat)} {activeStatLabel}
+              Línea: {formatLineValue(lineValue, activeStat)} {activeStatLabel} · {activeScopeOption.label}
             </p>
             {showGameLog ? <ChevronUp size={18} className="text-[#10b981]" /> : <ChevronDown size={18} className="text-[#10b981]" />}
           </div>

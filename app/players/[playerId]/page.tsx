@@ -52,6 +52,81 @@ function normalizeMinutes(s: any) {
   );
 }
 
+
+const PERIOD_PREFIXES = ["q1", "h1", "h2"] as const;
+
+const PERIOD_NUMERIC_FIELDS = [
+  "pts",
+  "reb",
+  "ast",
+  "fgm",
+  "fga",
+  "fg3m",
+  "fg3a",
+  "ftm",
+  "fta",
+  "oreb",
+  "dreb",
+  "stl",
+  "blk",
+  "tov",
+  "to",
+  "pf",
+  "pr",
+  "pa",
+  "ra",
+  "pra",
+  "pts_reb",
+  "pts_ast",
+  "reb_ast",
+  "pts_reb_ast",
+  "stl_blk",
+  "3ptm",
+  "3pta",
+] as const;
+
+function firstDefined(...values: any[]) {
+  return values.find((value) => value !== null && value !== undefined && value !== "");
+}
+
+function toNumber(value: any, fallback = 0) {
+  if (value === null || value === undefined || value === "") return fallback;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function normalizePeriodColumns(s: any) {
+  const row = { ...s };
+
+  for (const prefix of PERIOD_PREFIXES) {
+    // Minutos por tramo. El componente lee primero period_minutes/min_text,
+    // pero dejamos aliases explícitos por si el dato llega ancho desde la vista.
+    row[`${prefix}_min`] = firstDefined(row[`${prefix}_min`], row[`${prefix}_min_text`]);
+    row[`${prefix}_minutes`] = firstDefined(row[`${prefix}_minutes`], row[`${prefix}_min`]);
+
+    // Aliases para combinadas. PlayerChartContainer puede calcular PTS+REB+AST
+    // sumando bases, pero estos aliases evitan inconsistencias si otro panel los lee directo.
+    row[`${prefix}_pr`] = toNumber(firstDefined(row[`${prefix}_pr`], row[`${prefix}_pts_reb`]), 0);
+    row[`${prefix}_pa`] = toNumber(firstDefined(row[`${prefix}_pa`], row[`${prefix}_pts_ast`]), 0);
+    row[`${prefix}_ra`] = toNumber(firstDefined(row[`${prefix}_ra`], row[`${prefix}_reb_ast`]), 0);
+    row[`${prefix}_pra`] = toNumber(firstDefined(row[`${prefix}_pra`], row[`${prefix}_pts_reb_ast`]), 0);
+    row[`${prefix}_to`] = toNumber(firstDefined(row[`${prefix}_to`], row[`${prefix}_tov`]), 0);
+    row[`${prefix}_3ptm`] = toNumber(firstDefined(row[`${prefix}_3ptm`], row[`${prefix}_fg3m`]), 0);
+    row[`${prefix}_3pta`] = toNumber(firstDefined(row[`${prefix}_3pta`], row[`${prefix}_fg3a`]), 0);
+
+    const stl = toNumber(row[`${prefix}_stl`], 0);
+    const blk = toNumber(row[`${prefix}_blk`], 0);
+    row[`${prefix}_stl_blk`] = toNumber(firstDefined(row[`${prefix}_stl_blk`], stl + blk), 0);
+
+    for (const field of PERIOD_NUMERIC_FIELDS) {
+      const key = `${prefix}_${field}`;
+      if (row[key] !== undefined) row[key] = toNumber(row[key], 0);
+    }
+  }
+
+  return row;
+}
+
 function getSafePlayerName(player: any, stats: any[]) {
   const fromPlayer =
     player?.full_name ||
@@ -86,17 +161,18 @@ export default async function PlayerPage(props: any) {
 
     const cleanStats = rawStats
       .map((s: any) => {
-        const minutes = normalizeMinutes(s);
+        const row = normalizePeriodColumns(s);
+        const minutes = normalizeMinutes(row);
 
         return {
-          ...s,
-          game_date: normalizeDate(s.game_date),
+          ...row,
+          game_date: normalizeDate(row.game_date),
           min: minutes,
           minutes,
-          usage_pct: Number(s.usage_pct) || 0,
-          potential_ast: Number(s.potential_ast || s.pot_ast) || 0,
-          rebound_chances: Number(s.rebound_chances) || 0,
-          touches: Number(s.touches) || 0,
+          usage_pct: Number(row.usage_pct) || 0,
+          potential_ast: Number(row.potential_ast || row.pot_ast) || 0,
+          rebound_chances: Number(row.rebound_chances) || 0,
+          touches: Number(row.touches) || 0,
         };
       })
       .sort(

@@ -79,6 +79,7 @@ const FAMILY_CONFIG: Record<Bookmaker, Record<string, string>> = {
     MAIN:  '🎯 Principales',
     COMBO: '🔗 Combinados',
     SPEC:  '💥 Especiales',
+    RADAR: '🟠 Radar',
   },
 };
 

@@ -1,0 +1,27 @@
+./components/Footer.tsx
+./components/Sidebar.tsx
+./browser_profile/Crowd Deny/2026.4.23.60/Preload Data
+./browser_profile/Subresource Filter/Unindexed Rules/9.67.0/Filtering Rules
+./browser_profile/ZxcvbnData/3/surnames.txt
+./browser_profile/ZxcvbnData/3/english_wikipedia.txt
+./browser_profile/ZxcvbnData/3/female_names.txt
+./browser_profile/ZxcvbnData/3/passwords.txt
+./browser_profile/ZxcvbnData/3/us_tv_and_film.txt
+./browser_profile/SSLErrorAssistant/7/ssl_error_assistant.pb
+./app/api/draft/route.ts
+./app/api/sync-upcoming/route.ts
+./app/lol/players/[playerName]/page.tsx
+./app/lol/players/page.tsx
+./app/lol/page.tsx
+./app/lol/[league]/[team]/page.tsx
+./app/lol/[league]/page.tsx
+./app/lol/leagues/LeaguesClient.tsx
+./app/lol/leagues/page.tsx
+./app/lol/teams/TeamsClient.tsx
+./app/lol/teams/page.tsx
+./motor_python/stake_props/raw/debug_46467903.html
+./motor_python/stake_props/raw/debug_46467938.html
+./motor_python/stake_props/raw/debug_46467876.html
+./motor_python/betano_props/debug/85141304_initial.html
+./next.config.mjs
+./prisma/schema.prisma

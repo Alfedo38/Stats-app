@@ -21,14 +21,7 @@ export default function Footer() {
         <div className="text-center max-w-sm">
           <p className="text-[var(--text-muted)] text-[9px] uppercase tracking-wider leading-relaxed">
             Datos de planteles y recursos gráficos provistos por la comunidad de{' '}
-            <a 
-              href="https://www.thesportsdb.com/" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-[var(--text-muted)] hover:text-[#10b981] underline decoration-[#333] transition-colors"
-            >
-              TheSportsDB
-            </a>.
+            
           </p>
         </div>
 

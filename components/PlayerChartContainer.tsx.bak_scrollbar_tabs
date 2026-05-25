@@ -444,7 +444,7 @@ export default function PlayerChartContainer({ stats, navStats, playerName, stak
           </span>
         </div>
 
-        <div className="mt-3 flex items-center gap-2 overflow-x-auto whitespace-nowrap max-w-full pb-2 pr-2 [scrollbar-width:thin] [scrollbar-color:#10b981_#0b1018] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-[var(--bg)] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#10b981]/60 hover:[&::-webkit-scrollbar-thumb]:bg-[#10b981]">
+        <div className="mt-3 flex items-center gap-2 overflow-x-auto whitespace-nowrap max-w-full pb-1 no-scrollbar">
           {visibleNavStats.map((stat) => {
             const active = activeStat === stat.id;
 

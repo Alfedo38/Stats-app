@@ -1,0 +1,234 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// 🏀 BASQUETBOL (NBA) - INTOCABLE
+// ==========================================
+
+model teams {
+  id           Int       @id @default(autoincrement())
+  api_id       Int?
+  name         String?   @db.VarChar(100)
+  city         String?   @db.VarChar(100)
+  abbreviation String?   @db.VarChar(10)
+  logo_url     String?
+  players      players[]
+}
+
+model players {
+  id               Int                @id
+  api_id           Int?
+  team_id          Int?
+  first_name       String?            @db.VarChar(100)
+  last_name        String?            @db.VarChar(100)
+  full_name        String?            @db.VarChar(200)
+  jersey_number    Int?
+  position         String?            @db.VarChar(50)
+  image_url        String?
+  player_game_logs player_game_logs[]
+  teams            teams?             @relation(fields: [team_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model player_game_logs {
+  id                Int       @id @default(autoincrement())
+  player_id         Int?
+  player_name       String?
+  team_abbreviation String?
+  pts               Float?
+  reb               Float?
+  ast               Float?
+  game_date         DateTime? @db.Date
+  season_year       String?   @db.VarChar(50)
+  season_type       String?   @db.VarChar(50)
+  team_id           Int?
+  team_name         String?   @db.VarChar(50)
+  game_id           Int?
+  matchup           String?   @db.VarChar(50)
+  home_away         String?   @db.VarChar(50)
+  opponent_abbr     String?   @db.VarChar(50)
+  opponent_team     String?   @db.VarChar(50) // 🔥 CLAVE PARA EL CARA A CARA (Agregado explícitamente para H2H)
+  wl                String?   @db.VarChar(50)
+  min               Float?    @db.Real
+  stl               Float?    @db.Real
+  blk               Float?    @db.Real
+  tov               Float?    @db.Real
+  pf                Float?    @db.Real
+  fgm               Float?    @db.Real
+  fga               Float?    @db.Real
+  fg3m              Float?    @db.Real
+  fg3a              Float?    @db.Real
+  updated_at        String?   @db.VarChar(50)
+  pulled_for_date   String?   @db.VarChar(50)
+  players           players?  @relation(fields: [player_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  // ==========================================
+  // 🔥 MÉTRICAS SHARP (Agregadas para el Modelo Avanzado)
+  // ==========================================
+  ftm               Float?    // Tiros libres anotados (Free Throws Made)
+  fta               Float?    // Tiros libres intentados (Free Throws Attempted)
+  usage_pct         Float?    // Porcentaje de Uso (Usage %)
+  touches           Float?    // Veces que tocó la pelota
+  rebound_chances   Float?    // Chances reales de rebote (reboundChancesTotal)
+  passes_made       Float?    // Pases totales realizados
+  potential_ast     Float?    // Asistencias potenciales (reservado para futuro)
+}
+
+model player_odds {
+  player_name String
+  prop_type   String
+  line        Float?
+  matchup     String?
+  over_price  Float?  @db.Real
+  under_price Float?  @db.Real
+  updated_at  String? @db.VarChar(50)
+
+  @@id([player_name, prop_type]) // Ahora permite tener Puntos, Rebotes y Asistencias del mismo jugador
+}
+
+model game_odds {
+  event_id   String  @id
+  matchup    String
+  home_team  String?
+  away_team  String?
+  spread     Float?  // Hándicap (Ej: -6.5 para el favorito)
+  total      Float?  // Over/Under del partido (Ej: 224.5)
+  updated_at String?
+}
+
+model reddit_trends {
+  id          Int      @id @default(autoincrement())
+  player_name String   @unique
+  team_abbr   String?
+  mentions    Int      @default(0)
+  sentiment   String?  // Ej: "OVER", "UNDER"
+  hype_score  Int      @default(0)
+  trend       String?  // "up" o "down"
+  updated_at  DateTime @default(now())
+}
+
+// ==========================================
+// 🏥 PARTE MÉDICO (INJURY REPORT)
+// ==========================================
+model player_injuries {
+  player_name String  @id
+  team        String?
+  position    String?
+  status      String? // "Out", "Day-To-Day", "Expected to be out"
+  description String?
+  updated_at  String?
+}
+
+// ==========================================
+// 🛡️ DEFENSA VS. POSICIÓN (DvP)
+// ==========================================
+model team_dvp {
+  team         String  // Ej: "LAL" (Los Angeles Lakers)
+  position     String  // Ej: "PG" (Point Guard), "C" (Center)
+  pts_allowed  Float   // Promedio de puntos permitidos a esa posición
+  reb_allowed  Float   // Promedio de rebotes permitidos
+  ast_allowed  Float   // Promedio de asistencias permitidas
+  threes_allow Float   // Promedio de triples permitidos
+  updated_at   String?
+
+  @@id([team, position]) // Identificador único: Equipo + Posición
+}
+
+// ==========================================
+// 🐉 LEAGUE OF LEGENDS (Sufijo _lol)
+// ==========================================
+
+model matches_lol {
+  id              String   @id @default(uuid())
+  game_id         String   
+  league          String   
+  date            DateTime
+  season          String   
+  
+  team_name       String
+  side            String   
+  win             Boolean
+  game_length     Int      
+  
+  // --- Mercados de Primeros Objetivos ---
+  first_blood     Boolean
+  first_tower     Boolean
+  first_dragon    Boolean
+  first_baron     Boolean
+  
+  // --- NUEVO: Mercados Over/Under Totales ---
+  towers          Int?     // Torres totales destruidas por el equipo
+  dragons         Int?     // Dragones totales asegurados
+  
+  // --- Economía y Macro Juego ---
+  team_kills      Int
+  team_deaths     Int
+  gold_diff_at_15 Int?     
+  dpm             Float?   
+  wards_placed    Int?     
+  wards_cleared   Int?
+  
+  @@unique([game_id, team_name]) 
+  @@index([league, date])
+}
+
+model player_stats_lol {
+  id                 String   @id @default(uuid())
+  game_id            String   
+  team_name          String?  // <-- NUEVO Y VITAL: Para saber a qué equipo pertenece el jugador
+  player_name        String
+  champion           String
+  position           String   
+  
+  // --- Mercados de Jugador ---
+  kills              Int
+  deaths             Int
+  assists            Int
+  creep_score        Int      
+  cs_per_min         Float?
+  damage_share       Float?   
+  gold_share         Float?   
+  vision_score       Int?
+
+  // --- NUEVO: Props de Primera Sangre ---
+  first_blood_kill   Boolean? // ¿Fue el asesino de la primera sangre?
+  first_blood_victim Boolean? // ¿Fue la víctima de la primera sangre?
+  
+  @@index([player_name, champion])
+  @@index([game_id])
+}
+
+model upcoming_matches_lol {
+  id           String   @id @default(uuid())
+  panda_id     Int      @unique
+  scheduled_at DateTime
+  league       String
+  team_a       String
+  team_b       String
+  // --- NUEVAS COLUMNAS ---
+  score_a      Int?     @default(0)
+  score_b      Int?     @default(0)
+  status       String   @default("upcoming") // "upcoming" o "finished"
+  // -----------------------
+  updated_at   DateTime @default(now())
+}
+model nba_injuries {
+  id           Int      @id @default(autoincrement())
+  fetch_date   String   // "2026-05-14" — día del reporte
+  team_id      String
+  team_name    String
+  team_logo    String
+  player_id    String
+  player_name  String
+  status       String   // Out, Questionable, Doubtful, Probable
+  comment      String?
+  created_at   DateTime @default(now())
+
+  @@index([fetch_date])
+  @@index([fetch_date, team_id])
+}

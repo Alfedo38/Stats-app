@@ -306,7 +306,7 @@ export default function AltLinesPanel({
             {hasStakeOdds ? "Stake Odds" : "Alt Lines"}
           </p>
           <h3 className="text-[var(--text)] font-black uppercase tracking-tight">
-            {hasStakeOdds ? `Real · ${statLabel}` : `Histórico · ${statLabel}`}
+            {hasStakeOdds ? `Real ${statLabel}` : `Histórico ${statLabel}`}
           </h3>
         </div>
         <Target size={17} className="text-red-500" />

@@ -1,0 +1,441 @@
+import PlayerChartContainer from "@/components/PlayerChartContainer";
+import WNBATeamMatesPanel from "@/components/WNBATeamMatesPanel";
+import { createClient } from "@supabase/supabase-js";
+import { ArrowLeft, GitMerge, MousePointer2, Target, Zap } from "lucide-react";
+import Link from "next/link";
+
+export const dynamic = "force-dynamic";
+
+type Params = Promise<{ playerId: string }>;
+type SearchParams =
+  | Record<string, string | string[] | undefined>
+  | Promise<Record<string, string | string[] | undefined>>;
+
+type Profile = {
+  player_id: number;
+  player_name: string;
+  team_id: number;
+  team_abbr: string;
+  jersey: string | null;
+  position: string | null;
+  height: string | null;
+  country: string | null;
+  school: string | null;
+  season: string;
+  season_type: string;
+  gp: number | null;
+  min: number | null;
+  pts: number | null;
+  reb: number | null;
+  ast: number | null;
+  stl: number | null;
+  blk: number | null;
+  turnovers: number | null;
+  fg_pct: number | null;
+  fg3_pct: number | null;
+  ft_pct: number | null;
+  ts_pct: number | null;
+  usg_pct: number | null;
+  pie: number | null;
+};
+
+type Log = {
+  game_id: string;
+  game_date: string;
+  player_id: number;
+  player_name: string;
+  team_id?: number | null;
+  team_abbreviation: string;
+  opponent_abbr: string;
+  home_away: string;
+  wl: string | null;
+  minutes: string | null;
+  pts: number | null;
+  reb: number | null;
+  ast: number | null;
+  stl: number | null;
+  blk: number | null;
+  turnovers: number | null;
+  pf?: number | null;
+  fgm: number | null;
+  fga: number | null;
+  fg_pct: number | null;
+  fg3m: number | null;
+  fg3a: number | null;
+  fg3_pct: number | null;
+  ftm: number | null;
+  fta: number | null;
+  ft_pct: number | null;
+  plus_minus: number | null;
+  ts_pct: number | null;
+  usg_pct: number | null;
+  pie?: number | null;
+};
+
+type RosterRow = {
+  player_id: number;
+  player_name: string;
+  team_id: number;
+  team_abbr: string;
+  pts: number | null;
+  reb: number | null;
+  ast: number | null;
+};
+
+const NAV_STATS = [
+  { id: "pts", label: "PTS" },
+  { id: "ast", label: "AST" },
+  { id: "reb", label: "REB" },
+  { id: "pts+ast", label: "PTS+AST" },
+  { id: "pts+reb", label: "PTS+REB" },
+  { id: "reb+ast", label: "REB+AST" },
+  { id: "pts+reb+ast", label: "P+R+A" },
+  { id: "fgm", label: "FGM" },
+  { id: "fga", label: "FGA" },
+  { id: "fg3m", label: "3PTM" },
+  { id: "fg3a", label: "3PTA" },
+  { id: "blk", label: "BLK" },
+  { id: "stl", label: "STL" },
+  { id: "stl+blk", label: "STL+BLK" },
+  { id: "tov", label: "TO" },
+  { id: "pf", label: "PF" },
+  { id: "usage_pct", label: "USG%" },
+];
+
+function getOne(value: string | string[] | undefined, fallback: string) {
+  if (Array.isArray(value)) return value[0] ?? fallback;
+  return value ?? fallback;
+}
+
+function normalizeDate(value: unknown) {
+  let fixedDate = value ? String(value) : null;
+  if (fixedDate && fixedDate.includes("T")) {
+    fixedDate = fixedDate.split("T")[0] + "T12:00:00";
+  } else if (fixedDate) {
+    fixedDate = fixedDate + "T12:00:00";
+  }
+  return fixedDate;
+}
+
+function normalizeMinutes(value: unknown) {
+  if (value === null || value === undefined || value === "") return null;
+  return value;
+}
+
+function toNumber(value: unknown, fallback = 0) {
+  if (value === null || value === undefined || value === "") return fallback;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function formatPct(value: number | null | undefined) {
+  if (value === null || value === undefined) return "S/D";
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "S/D";
+  return `${(n * 100).toFixed(1)}%`;
+}
+
+function formatAvg(value: number | "S/D") {
+  return value === "S/D" ? "S/D" : value.toFixed(1);
+}
+
+function getSafePlayerName(profile: Profile | null, stats: Log[]) {
+  return profile?.player_name || stats?.[0]?.player_name || "Jugadora WNBA";
+}
+
+function splitName(playerName: string) {
+  const parts = playerName.trim().split(/\s+/).filter(Boolean);
+  const firstName = parts[0] || "Jugadora";
+  const lastName = parts.slice(1).join(" ") || "WNBA";
+  return { firstName, lastName };
+}
+
+function getMatchup(row: Log) {
+  const opponent = row.opponent_abbr || "---";
+  const loc = row.home_away === "AWAY" ? "@" : "vs";
+  return `${row.team_abbreviation || "WNBA"} ${loc} ${opponent}`;
+}
+
+function prepareStats(logs: Log[]) {
+  return logs
+    .map((row) => {
+      const pts = toNumber(row.pts);
+      const reb = toNumber(row.reb);
+      const ast = toNumber(row.ast);
+      const stl = toNumber(row.stl);
+      const blk = toNumber(row.blk);
+      const turnovers = toNumber(row.turnovers);
+      const fg3m = toNumber(row.fg3m);
+      const fg3a = toNumber(row.fg3a);
+      const minutes = normalizeMinutes(row.minutes);
+
+      return {
+        ...row,
+        game_date: normalizeDate(row.game_date),
+        matchup: getMatchup(row),
+        min: minutes,
+        minutes,
+        pts,
+        reb,
+        ast,
+        fgm: toNumber(row.fgm),
+        fga: toNumber(row.fga),
+        fg3m,
+        fg3a,
+        blk,
+        stl,
+        tov: turnovers,
+        turnovers,
+        pf: toNumber(row.pf),
+        pts_reb: pts + reb,
+        pts_ast: pts + ast,
+        reb_ast: reb + ast,
+        pts_reb_ast: pts + reb + ast,
+        pra: pts + reb + ast,
+        stl_blk: stl + blk,
+        usage_pct: toNumber(row.usg_pct),
+        ts_pct: toNumber(row.ts_pct),
+        potential_ast: 0,
+        rebound_chances: 0,
+        touches: 0,
+      };
+    })
+    .sort(
+      (a, b) =>
+        new Date(b.game_date || 0).getTime() - new Date(a.game_date || 0).getTime()
+    );
+}
+
+export default async function WNBAPlayerPage({
+  params,
+  searchParams,
+}: {
+  params: Params;
+  searchParams?: SearchParams;
+}) {
+  try {
+    const { playerId } = await params;
+    const sp = await Promise.resolve(searchParams ?? {});
+    const season = getOne(sp.season, "2026");
+    const seasonType = getOne(sp.season_type, "Regular Season");
+
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey =
+      process.env.SUPABASE_SERVICE_KEY ||
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      return (
+        <main className="min-h-screen bg-[var(--bg)] text-[var(--text)] p-6">
+          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-6">
+            Faltan variables de Supabase.
+          </div>
+        </main>
+      );
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      auth: { persistSession: false },
+    });
+
+    const [profileRes, logsRes] = await Promise.all([
+      supabase
+        .from("v_wnba_team_roster")
+        .select("*")
+        .eq("player_id", Number(playerId))
+        .eq("season", season)
+        .eq("season_type", seasonType)
+        .limit(1)
+        .maybeSingle(),
+
+      supabase
+        .from("v_wnba_player_game_logs")
+        .select("*")
+        .eq("player_id", Number(playerId))
+        .order("game_date", { ascending: false })
+        .limit(80)
+        .limit(60),
+    ]);
+
+    if (profileRes.error) throw profileRes.error;
+    if (logsRes.error) throw logsRes.error;
+
+    const profile = profileRes.data as Profile | null;
+    const rawLogs = (logsRes.data ?? []) as Log[];
+    const cleanStats = prepareStats(rawLogs);
+
+    const playerName = getSafePlayerName(profile, rawLogs);
+    const { firstName, lastName } = splitName(playerName);
+
+    const teamAbbr =
+      profile?.team_abbr ||
+      cleanStats.find((s: any) => s?.team_abbreviation)?.team_abbreviation ||
+      null;
+
+    const teamId = profile?.team_id || cleanStats.find((s: any) => s?.team_id)?.team_id || null;
+
+    const rosterRes = teamId
+      ? await supabase
+          .from("v_wnba_team_roster")
+          .select("player_id, player_name, team_id, team_abbr, pts, reb, ast")
+          .eq("team_id", Number(teamId))
+          .eq("season", season)
+          .eq("season_type", seasonType)
+          .order("pts", { ascending: false })
+      : { data: [], error: null };
+
+    if (rosterRes.error) throw rosterRes.error;
+
+    const teammates = ((rosterRes.data ?? []) as RosterRow[]).map((p) => ({
+      id: p.player_id,
+      full_name: p.player_name,
+      player_name: p.player_name,
+      team_abbreviation: p.team_abbr,
+      team_abbr: p.team_abbr,
+      pts: p.pts,
+      reb: p.reb,
+      ast: p.ast,
+    }));
+
+    const last5 = cleanStats.slice(0, 5);
+    const calcAvg = (key: string): number | "S/D" => {
+      if (!last5.length) return 0;
+      const sum = last5.reduce((acc: number, curr: any) => acc + (Number(curr[key]) || 0), 0);
+      return sum / last5.length;
+    };
+
+    const usageDisplay = formatPct(profile?.usg_pct ?? null);
+    const tsDisplay = formatPct(profile?.ts_pct ?? null);
+    const minAvg = profile?.min != null ? Number(profile.min) : calcAvg("min");
+    const plusMinusAvg = calcAvg("plus_minus");
+
+    return (
+      <main className="min-h-screen bg-[var(--bg)] text-[var(--text)] font-sans pb-20">
+        <nav className="border-b border-[var(--border)] bg-[var(--surface)]/95 backdrop-blur-md sticky top-0 z-50 px-6 py-4">
+          <Link
+            href={teamId ? `/wnba/teams/${teamId}?season=${season}&season_type=${encodeURIComponent(seasonType)}` : "/wnba/teams"}
+            className="text-[var(--text-muted)] hover:text-[#10b981] transition-colors flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"
+          >
+            <ArrowLeft size={14} /> Volver al Equipo
+          </Link>
+        </nav>
+
+        <div className="p-4 md:p-8 max-w-[1500px] mx-auto space-y-4">
+          <div className="relative bg-[var(--surface)] border border-[var(--border)] rounded-[2rem] px-5 py-6 md:px-8 md:py-7 overflow-hidden group hover:border-[var(--border-strong)] transition-colors">
+            <div className="absolute top-0 right-0 w-[360px] h-[360px] bg-[#10b981] opacity-[0.04] blur-[110px] rounded-full pointer-events-none" />
+
+            <div className="relative z-20 flex items-center justify-between gap-5">
+              <div className="min-w-0">
+                <p className="text-[#10b981] text-[10px] font-black uppercase tracking-[0.28em] mb-3 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#10b981]" />
+                  WNBA Player Analytics
+                </p>
+
+                <h1 className="text-[clamp(2.4rem,6vw,5.6rem)] font-black italic tracking-tighter leading-[0.9] uppercase break-words">
+                  {firstName}
+                  <br />
+                  <span className="text-[#10b981]">{lastName}</span>
+                </h1>
+
+                <p className="mt-4 text-[10px] md:text-xs text-[var(--text-muted)] font-black uppercase tracking-[0.18em]">
+                  {[teamAbbr || "WNBA", profile?.jersey ? `#${profile.jersey}` : null, profile?.position || null, season, seasonType].filter(Boolean).join(" · ")}
+                </p>
+              </div>
+
+              <div className="hidden md:flex w-24 h-24 rounded-full border border-[var(--border)] bg-[var(--surface-soft)] items-center justify-center shrink-0 shadow-xl">
+                <span className="font-black text-4xl tracking-tighter text-[var(--text-soft)] group-hover:text-[var(--text-muted)] transition-colors uppercase">
+                  {firstName?.charAt(0)}{lastName?.charAt(0)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-4 flex flex-wrap items-center justify-around gap-6 shadow-xl">
+            <div className="flex items-center gap-3">
+              <Zap size={18} className="text-[#10b981]" />
+              <div>
+                <p className="text-[8px] font-black text-[var(--text-muted)] uppercase tracking-widest">
+                  Usage Rate
+                </p>
+                <p className="text-xl font-black italic">{usageDisplay}</p>
+              </div>
+            </div>
+
+            <div className="w-[1px] h-8 bg-[var(--border)] hidden md:block" />
+
+            <div className="flex items-center gap-3">
+              <GitMerge size={18} className="text-blue-500" />
+              <div>
+                <p className="text-[8px] font-black text-[var(--text-muted)] uppercase tracking-widest">
+                  True Shooting
+                </p>
+                <p className="text-xl font-black italic">{tsDisplay}</p>
+              </div>
+            </div>
+
+            <div className="w-[1px] h-8 bg-[var(--border)] hidden md:block" />
+
+            <div className="flex items-center gap-3">
+              <Target size={18} className="text-red-500" />
+              <div>
+                <p className="text-[8px] font-black text-[var(--text-muted)] uppercase tracking-widest">
+                  Minutos
+                </p>
+                <p className="text-xl font-black italic">{formatAvg(minAvg)}</p>
+              </div>
+            </div>
+
+            <div className="w-[1px] h-8 bg-[var(--border)] hidden md:block" />
+
+            <div className="flex items-center gap-3">
+              <MousePointer2 size={18} className="text-orange-500" />
+              <div>
+                <p className="text-[8px] font-black text-[var(--text-muted)] uppercase tracking-widest">
+                  Plus / Minus L5
+                </p>
+                <p className="text-xl font-black italic">{formatAvg(plusMinusAvg)}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-[320px_minmax(0,1fr)] gap-5 items-start">
+            <WNBATeamMatesPanel
+              teamAbbr={teamAbbr ? String(teamAbbr).toUpperCase() : null}
+              players={teammates}
+              currentPlayerId={playerId}
+              season={season}
+              seasonType={seasonType}
+            />
+
+            <PlayerChartContainer
+              stats={cleanStats}
+              navStats={NAV_STATS}
+              playerName={playerName}
+              stakeOdds={[]}
+            />
+          </div>
+        </div>
+      </main>
+    );
+  } catch (error: any) {
+    console.error("WNBA_PLAYER_PAGE_ERROR:", error);
+
+    return (
+      <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] flex flex-col items-center justify-center p-10 text-center">
+        <h1 className="text-red-500 font-black text-3xl mb-4 uppercase tracking-tighter">
+          Error al cargar la jugadora WNBA
+        </h1>
+        <p className="text-[var(--text-muted)] text-xs font-bold uppercase tracking-widest">
+          {error?.message || "Intentá de nuevo en unos segundos"}
+        </p>
+        <Link
+          href="/wnba/teams"
+          className="mt-8 border border-[var(--border)] px-6 py-3 rounded-xl uppercase text-xs font-black tracking-widest hover:bg-[var(--surface-hover)] hover:text-[#10b981] transition-all"
+        >
+          Volver a Equipos WNBA
+        </Link>
+      </div>
+    );
+  }
+}

@@ -170,9 +170,7 @@ function formatDateShort(value: any) {
 }
 
 function formatStatValue(value: any, isPercentage?: boolean) {
-  if (value === null || value === undefined || value === "") return "S/D";
-  const n = Number(value);
-  if (!Number.isFinite(n)) return "S/D";
+  const n = Number(value) || 0;
   const formatted = Number.isInteger(n) ? String(n) : n.toFixed(1);
   return isPercentage ? `${formatted}%` : formatted;
 }
@@ -428,41 +426,38 @@ export default function PlayerChartContainer({ stats, navStats, playerName, stak
   return (
     <div className="space-y-5">
       {/* MENÚ DE ESTADÍSTICAS */}
-      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-3 shadow-xl">
-        <div className="flex items-center justify-between gap-3 px-1">
-          <div>
-            <p className="text-[8px] text-[#10b981] font-black uppercase tracking-[0.22em]">
-              Estadística
-            </p>
-            <p className="text-[11px] text-[var(--text-muted)] font-black uppercase tracking-widest mt-1">
-              Seleccioná la métrica del histórico
-            </p>
-          </div>
-
-          <span className="shrink-0 rounded-full border border-[#10b981]/30 bg-[#10b981]/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-[#10b981]">
-            {activeStatLabel}
-          </span>
+      <div className="space-y-2 border-b border-[var(--border)] pb-2">
+        <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3">
+          <label className="block text-[8px] text-[#10b981] font-black uppercase tracking-[0.22em] mb-2">
+            Selector rápido de stat
+          </label>
+          <select
+            value={activeStat}
+            onChange={(e) => setActiveStat(e.target.value)}
+            className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-2 text-[var(--text)] text-xs font-black uppercase tracking-widest focus:outline-none focus:border-[#10b981]"
+          >
+            {visibleNavStats.map((stat) => (
+              <option key={stat.id} value={stat.id}>
+                {stat.label}
+              </option>
+            ))}
+          </select>
         </div>
 
-        <div className="mt-3 flex items-center gap-2 overflow-x-auto whitespace-nowrap max-w-full pb-2 pr-2 [scrollbar-width:thin] [scrollbar-color:#10b981_#0b1018] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-[var(--bg)] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#10b981]/60 hover:[&::-webkit-scrollbar-thumb]:bg-[#10b981]">
-          {visibleNavStats.map((stat) => {
-            const active = activeStat === stat.id;
-
-            return (
-              <button
-                key={stat.id}
-                type="button"
-                onClick={() => setActiveStat(stat.id)}
-                className={`shrink-0 rounded-xl border px-3 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${
-                  active
-                    ? "border-[#10b981]/60 bg-[#10b981] text-black shadow-[0_0_14px_rgba(16,185,129,0.22)]"
-                    : "border-[var(--border)] bg-[var(--bg)] text-[var(--text-muted)] hover:border-[#10b981]/35 hover:text-[var(--text)]"
-                }`}
-              >
-                {stat.label}
-              </button>
-            );
-          })}
+        <div className="flex items-center gap-5 overflow-x-auto whitespace-nowrap max-w-full pb-2 pr-4">
+          {visibleNavStats.map((stat) => (
+            <button
+              key={stat.id}
+              onClick={() => setActiveStat(stat.id)}
+              className={`shrink-0 py-3 text-[10px] font-black uppercase tracking-widest border-b-2 transition-all ${
+                activeStat === stat.id
+                  ? "border-[#10b981] text-[#10b981] drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]"
+                  : "border-transparent text-[var(--text-muted)] hover:text-[#aaa]"
+              }`}
+            >
+              {stat.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -509,7 +504,7 @@ export default function PlayerChartContainer({ stats, navStats, playerName, stak
         <div className="flex items-center gap-6 md:gap-8 w-full md:w-auto justify-between md:justify-end">
           <div className="flex flex-col items-start md:items-end">
             <span className="text-[8px] text-[var(--text-muted)] font-black uppercase tracking-[0.2em] flex items-center gap-1 mb-1">
-              <Sparkles size={10} className="text-[#10b981]" /> {isFullScope && selectedStakeOdd ? "Línea Stake" : "Línea manual"}
+              <Sparkles size={10} className="text-[#10b981]" /> {isFullScope && selectedStakeOdd ? "Stake Line" : "Custom Line"}
             </span>
 
             <div className="flex items-center bg-[var(--bg)] px-2 py-1 rounded-lg border border-[var(--border)]">

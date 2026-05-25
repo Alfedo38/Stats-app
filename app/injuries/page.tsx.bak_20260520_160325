@@ -22,7 +22,7 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 type InjuryRow = {
-  id: string | number | bigint;
+  id: string | number;
   source: string;
   snapshot_key: string;
   report_ts: Date | string;
@@ -43,7 +43,7 @@ type TeamGroup = {
   displayName: string;
   logo: string;
   injuries: {
-    id: string | number | bigint;
+    id: string | number;
     athlete: {
       shortName: string;
     };
@@ -89,11 +89,6 @@ const TEAM_NAMES: Record<string, string> = {
   UTA: 'Utah Jazz',
   WAS: 'Washington Wizards',
 };
-
-const FULL_TEAM_NAME_TO_CODE: Record<string, string> = Object.fromEntries(
-  Object.entries(TEAM_NAMES).map(([code, name]) => [name.toUpperCase(), code])
-);
-
 
 const ESPN_LOGO_CODES: Record<string, string> = {
   ATL: 'atl',
@@ -152,28 +147,12 @@ const STATUS_COLUMNS = [
 ];
 
 function cleanTeamCode(team: string | null): string {
-  const raw = String(team || 'UNK').trim();
-
-  if (!raw) return 'UNK';
-
-  const upper = raw.toUpperCase();
-
-  // nbainjuries suele traer nombres completos: "Oklahoma City Thunder"
-  if (FULL_TEAM_NAME_TO_CODE[upper]) {
-    return FULL_TEAM_NAME_TO_CODE[upper];
-  }
-
-  // Si ya viene como código: "OKC", "SAS", etc.
-  if (TEAM_NAMES[upper]) {
-    return upper;
-  }
-
-  return upper;
+  return String(team || 'UNK').trim().toUpperCase();
 }
 
 function getTeamName(team: string | null): string {
   const code = cleanTeamCode(team);
-  return TEAM_NAMES[code] || String(team || code || 'Unknown Team');
+  return TEAM_NAMES[code] || code;
 }
 
 function getTeamLogo(team: string | null): string {

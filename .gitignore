@@ -12,6 +12,8 @@ build/
 # =========================================
 # VARIABLES DE ENTORNO Y SECRETOS (¡CRÍTICO!)
 # =========================
+.env*
+!.env.example
 .env
 .env.local
 .env.development.local
@@ -70,3 +72,6 @@ browser_profile/
 /outputs_json/
 /outputs_tracking/
 *.csv
+
+# Scripts locales de automatización
+*.sh

@@ -112,3 +112,150 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+/* ─────────────────────────────────────────────────────────────────────────────
+   MOSKPROPS — Mobile responsive + animation patches
+   Add these to your globals.css (or a separate file imported there)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* ── 1. Animación fade-in al cambiar métrica/filtro (item #13) ─────────────── */
+/* Apply to the chart wrapper div in PlayerChartContainer */
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+
+.chart-animate {
+  animation: fadeSlideIn 0.22s ease-out both;
+}
+
+/* Trigger on key change by adding key={activeStat} to the chart wrapper:
+   <div key={activeStat} className="min-h-[410px] w-full relative chart-animate"> */
+
+
+/* ── 2. Mobile responsive patches (item #39) ───────────────────────────────── */
+
+/* Player page grid: sidebar hidden on mobile, full width on ≤xl */
+@media (max-width: 1279px) {
+  /* The xl:grid-cols-[280px_...] layout collapses to single column */
+  /* Next.js Tailwind handles this — ensure these classes are in your layout:   */
+  /* grid-cols-1 xl:grid-cols-[280px_minmax(0,1fr)_300px]                       */
+}
+
+/* Stat nav horizontal scroll — ensure scrollbar is hidden on mobile */
+.stat-nav-scroll {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.stat-nav-scroll::-webkit-scrollbar { display: none; }
+
+/* PlayerHeader: stack on mobile */
+@media (max-width: 767px) {
+  /* Name size down on very small screens */
+  .player-name-display {
+    font-size: clamp(1.75rem, 8vw, 3rem) !important;
+  }
+
+  /* KPI grid: 2 cols on mobile */
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* GameSelector: full width */
+  .game-selector-trigger {
+    width: 100%;
+  }
+
+  /* OddsComparisonTable: hide book column on very small */
+  .odds-book-col {
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* Chart container min-height on mobile */
+@media (max-width: 640px) {
+  .chart-container {
+    min-height: 320px !important;
+  }
+}
+
+/* StatFilters: wrap chips on mobile */
+@media (max-width: 480px) {
+  .stat-filters-row {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+}
+
+/* Recharts responsive: prevent overflow on small screens */
+.recharts-wrapper {
+  max-width: 100%;
+}
+
+/* ── 3. Skeleton shimmer color in dark mode ─────────────────────────────────── */
+/* The default bg-[var(--surface-soft)] already adapts, but this ensures        */
+/* the animate-pulse has correct dark mode bg:                                  */
+
+@media (prefers-color-scheme: dark) {
+  .animate-pulse {
+    --tw-pulse-from: rgb(255 255 255 / 0.05);
+    --tw-pulse-to:   rgb(255 255 255 / 0.02);
+  }
+}
+
+/* ── 4. No scrollbar utility (used throughout components) ──────────────────── */
+/* Already handled by Tailwind plugin but adding as fallback: */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* ── 5. Touch targets — minimum 44px on mobile ─────────────────────────────── */
+@media (max-width: 767px) {
+  /* Stat nav buttons */
+  .stat-nav-btn {
+    min-height: 44px;
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  /* Line value +/- buttons */
+  .line-adjust-btn {
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Slider touch area */
+  input[type="range"] {
+    min-height: 24px;
+    cursor: pointer;
+  }
+}
+
+/* ── 6. Sticky sidebar on desktop ──────────────────────────────────────────── */
+/* Already applied via Tailwind xl:sticky xl:top-24 on TeamMatesPanel and       */
+/* InjuryWithWOPanel — ensure the outer column doesn't clip with overflow       */
+
+.sticky-column {
+  align-self: start;
+}
+
+/* ── 7. Print styles — hide interactive elements ──────────────────────────── */
+@media print {
+  .game-selector,
+  .share-button,
+  .stat-filters,
+  .alt-lines-panel,
+  .odds-table {
+    display: none !important;
+  }
+}

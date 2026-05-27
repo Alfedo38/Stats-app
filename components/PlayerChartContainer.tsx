@@ -1,11 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import PlayerChart from "@/components/PlayerChart";
 import AltLinesPanel from "@/components/AltLinesPanel";
 import SupportingDataGrid from "@/components/SupportingDataGrid";
 import PickInsightPanel from "@/components/PickInsightPanel";
-import { ChevronDown, ChevronUp, Clock, Gauge, Sparkles, Table2, Target, TrendingUp } from "lucide-react";
+import StatFilters, { type ActiveFilter } from "@/components/StatFilters";
+import OddsComparisonTable, { type BookOdd } from "@/components/OddsComparisonTable";
+import GameLogTable from "@/components/GameLogTable";
+import ShareButton from "@/components/ShareButton";
+import { usePlayerUrlState } from "@/hooks/usePlayerUrlState";
+import { Clock, Gauge, Sparkles, Target, TrendingUp, LayoutList } from "lucide-react";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type StakePlayerOdd = {
   player_name: string;
@@ -24,6 +31,10 @@ interface PlayerChartContainerProps {
   navStats: { id: string; label: string }[];
   playerName?: string;
   stakeOdds?: StakePlayerOdd[];
+  /** W/O filters coming from InjuryWithWOPanel — merged with internal threshold filters */
+  externalFilters?: ActiveFilter[];
+  /** Called when external filters should be removed (e.g. user clicks X on a W/O chip) */
+  onRemoveExternalFilter?: (id: string) => void;
 }
 
 type SplitScope = "FULL" | "Q1" | "H1" | "H2_REG";
@@ -35,17 +46,23 @@ type SplitScopeOption = {
   prefix: "" | "q1" | "h1" | "h2";
 };
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+
 const SPLIT_SCOPE_OPTIONS: SplitScopeOption[] = [
-  { id: "FULL", label: "PARTIDO", badgeLabel: "DATOS PARTIDO", prefix: "" },
-  { id: "Q1", label: "1ER CUARTO", badgeLabel: "DATOS 1ER CUARTO", prefix: "q1" },
-  { id: "H1", label: "1RA MITAD", badgeLabel: "DATOS 1RA MITAD", prefix: "h1" },
-  { id: "H2_REG", label: "2DA MITAD", badgeLabel: "DATOS 2DA MITAD", prefix: "h2" },
+  { id: "FULL",    label: "PARTIDO",    badgeLabel: "DATOS PARTIDO",    prefix: ""   },
+  { id: "Q1",      label: "1ER CUARTO", badgeLabel: "DATOS 1ER CUARTO", prefix: "q1" },
+  { id: "H1",      label: "1RA MITAD",  badgeLabel: "DATOS 1RA MITAD",  prefix: "h1" },
+  { id: "H2_REG",  label: "2DA MITAD",  badgeLabel: "DATOS 2DA MITAD",  prefix: "h2" },
 ];
 
-const SPLIT_SCOPE_BY_ID = SPLIT_SCOPE_OPTIONS.reduce<Record<SplitScope, SplitScopeOption>>((acc, option) => {
-  acc[option.id] = option;
-  return acc;
-}, {} as Record<SplitScope, SplitScopeOption>);
+const SPLIT_SCOPE_BY_ID = SPLIT_SCOPE_OPTIONS.reduce<Record<SplitScope, SplitScopeOption>>(
+  (acc, o) => { acc[o.id] = o; return acc; },
+  {} as Record<SplitScope, SplitScopeOption>
+);
+
+const HIDDEN_MAIN_STATS = new Set(["potential_ast", "rebound_chances"]);
+
+// ─── Pure helpers (unchanged from original) ───────────────────────────────────
 
 function normalizeSplitCode(value: any): SplitScope | null {
   const code = String(value || "").trim().toUpperCase();
@@ -67,66 +84,43 @@ function getScopedKey(statId: string, scope: SplitScope) {
 
 function getRawStatValue(s: any, statId: string, scope: SplitScope): number {
   const isPeriodRow = isPeriodRowForScope(s, scope);
-
   const aliases: Record<string, string[]> = {
-    "pts+ast": ["pa"],
-    "pts+reb": ["pr"],
-    "reb+ast": ["ra"],
-    "pts+reb+ast": ["pra"],
-    "3pt": ["fg3m", "3pm", "three_pm"],
-    "3ptm": ["fg3m", "3pm", "three_pm"],
-    "3pta": ["fg3a", "three_pa"],
-    "to": ["tov", "turnovers"],
+    "pts+ast": ["pa"], "pts+reb": ["pr"], "reb+ast": ["ra"],
+    "pts+reb+ast": ["pra"], "3pt": ["fg3m","3pm","three_pm"],
+    "3ptm": ["fg3m","3pm","three_pm"], "3pta": ["fg3a","three_pa"],
+    "to": ["tov","turnovers"],
   };
-
   const directCandidates = [statId, ...(aliases[statId] || [])];
   const scopedCandidates = directCandidates.flatMap((key) => [getScopedKey(key, scope), key]);
   const candidates = isPeriodRow ? directCandidates : scopedCandidates;
-
   for (const key of candidates) {
     if (s?.[key] !== null && s?.[key] !== undefined && s?.[key] !== "") {
       const parsed = Number(s[key]);
       if (Number.isFinite(parsed)) return statId === "usage_pct" ? parsed * 100 : parsed;
     }
   }
-
   return 0;
 }
 
 function getStatValue(s: any, statId: string, scope: SplitScope): number {
   if (statId.includes("+")) {
-    return statId
-      .split("+")
-      .reduce((acc, part) => acc + getRawStatValue(s, part, scope), 0);
+    return statId.split("+").reduce((acc, part) => acc + getRawStatValue(s, part, scope), 0);
   }
-
   return getRawStatValue(s, statId, scope);
 }
 
-function getMinutesValue(raw: any) {
-  const value =
-    raw?.period_minutes ??
-    raw?.min_text ??
-    raw?.min ??
-    raw?.minutes ??
-    raw?.mins ??
-    raw?.minutos ??
-    raw?.minutes_played ??
-    raw?.mp ??
-    null;
-
+function getMinutesValue(raw: any): number | null {
+  const value = raw?.period_minutes ?? raw?.min_text ?? raw?.min ?? raw?.minutes ??
+    raw?.mins ?? raw?.minutos ?? raw?.minutes_played ?? raw?.mp ?? null;
   if (value === null || value === undefined || value === "") return null;
-
   if (typeof value === "string") {
     if (value.includes(":")) {
-      const minutes = Number(value.split(":")[0]);
-      return Number.isNaN(minutes) ? null : minutes;
+      const m = Number(value.split(":")[0]);
+      return Number.isNaN(m) ? null : m;
     }
-
     const parsed = Number(value.replace("m", ""));
     return Number.isNaN(parsed) ? null : parsed;
   }
-
   const parsed = Number(value);
   return Number.isNaN(parsed) ? null : parsed;
 }
@@ -139,23 +133,17 @@ function getMinutesLabel(raw: any) {
 
 function getScopedMinutesRaw(raw: any, scope: SplitScope) {
   if (scope === "FULL") return null;
-
   const prefix = SPLIT_SCOPE_BY_ID[scope]?.prefix;
   if (!prefix) return null;
-
   return (
-    raw?.[`${prefix}_min`] ??
-    raw?.[`${prefix}_minutes`] ??
-    raw?.[`${prefix}_mins`] ??
-    raw?.[`${prefix}_min_text`] ??
-    (isPeriodRowForScope(raw, scope) ? raw?.min_text : null) ??
-    null
+    raw?.[`${prefix}_min`] ?? raw?.[`${prefix}_minutes`] ?? raw?.[`${prefix}_mins`] ??
+    raw?.[`${prefix}_min_text`] ?? (isPeriodRowForScope(raw, scope) ? raw?.min_text : null) ?? null
   );
 }
 
 function getOpponent(item: any) {
-  const matchupParts = item?.matchup ? String(item.matchup).trim().split(" ") : [];
-  return matchupParts.length > 0 ? matchupParts[matchupParts.length - 1] : "---";
+  const parts = item?.matchup ? String(item.matchup).trim().split(" ") : [];
+  return parts.length > 0 ? parts[parts.length - 1] : "---";
 }
 
 function getGameLocation(item: any) {
@@ -177,61 +165,37 @@ function formatStatValue(value: any, isPercentage?: boolean) {
   return isPercentage ? `${formatted}%` : formatted;
 }
 
-
 function getStakePropType(activeStat: string) {
-  const stat = activeStat.toLowerCase();
-
   const map: Record<string, string> = {
-    pts: "PTS",
-    ast: "AST",
-    reb: "REB",
-    fg3m: "3PT",
-    "pts+ast": "PA",
-    "pts+reb": "PR",
-    "reb+ast": "RA",
-    "pts+reb+ast": "PRA",
+    pts: "PTS", ast: "AST", reb: "REB", fg3m: "3PT",
+    "pts+ast": "PA", "pts+reb": "PR", "reb+ast": "RA", "pts+reb+ast": "PRA",
   };
-
-  return map[stat] || null;
+  return map[activeStat.toLowerCase()] || null;
 }
 
 function findStakeOddsForStat(stakeOdds: StakePlayerOdd[] | undefined, activeStat: string) {
   const propType = getStakePropType(activeStat);
   if (!propType || !stakeOdds?.length) return [];
-
   return stakeOdds
-    .filter((odd) => String(odd.prop_type).toUpperCase() === propType)
-    .filter((odd) => odd.line !== null && odd.line !== undefined)
+    .filter((o) => String(o.prop_type).toUpperCase() === propType)
+    .filter((o) => o.line !== null && o.line !== undefined)
     .sort((a, b) => Number(a.line) - Number(b.line));
 }
 
 function pickPrimaryStakeOdd(odds: StakePlayerOdd[]) {
   if (!odds.length) return null;
-
-  // Si hay varias líneas reales, tomamos como principal la más balanceada
-  // entre Over y Under. Si el scraper solo trae una, usa esa.
   return [...odds].sort((a, b) => {
-    const aOver = Number(a.over_price);
-    const aUnder = Number(a.under_price);
-    const bOver = Number(b.over_price);
-    const bUnder = Number(b.under_price);
-
-    const aBalanced = Number.isFinite(aOver) && Number.isFinite(aUnder) ? Math.abs(aOver - aUnder) : 999;
-    const bBalanced = Number.isFinite(bOver) && Number.isFinite(bUnder) ? Math.abs(bOver - bUnder) : 999;
-
-    if (aBalanced !== bBalanced) return aBalanced - bBalanced;
+    const aO = Number(a.over_price), aU = Number(a.under_price);
+    const bO = Number(b.over_price), bU = Number(b.under_price);
+    const aB = Number.isFinite(aO) && Number.isFinite(aU) ? Math.abs(aO - aU) : 999;
+    const bB = Number.isFinite(bO) && Number.isFinite(bU) ? Math.abs(bO - bU) : 999;
+    if (aB !== bB) return aB - bB;
     return Number(a.line) - Number(b.line);
   })[0];
 }
 
 function usesIntegerLine(activeStat: string) {
-  return [
-    "usage_pct",
-    "potential_ast",
-    "rebound_chances",
-    "touches",
-    "passes_made",
-  ].includes(activeStat);
+  return ["usage_pct","potential_ast","rebound_chances","touches","passes_made"].includes(activeStat);
 }
 
 function normalizeHalfLine(value: number) {
@@ -245,30 +209,17 @@ function normalizeLineForStat(value: number, activeStat: string) {
   return normalizeHalfLine(value);
 }
 
-function getLineStep(activeStat: string) {
-  // Las líneas principales se mueven de a 1:
-  // PTS 19.5 -> 18.5, no 19.0. Contexto como USG/TOUCHES va 67 -> 66.
-  return 1;
-}
+function getLineStep(_activeStat: string) { return 1; }
 
 function getAutoLine(avg: number, activeStat: string) {
-  if (usesIntegerLine(activeStat)) {
-    return Math.max(0, Math.round(avg));
-  }
-
+  if (usesIntegerLine(activeStat)) return Math.max(0, Math.round(avg));
   if (avg <= 1) return 0.5;
   return normalizeHalfLine(avg);
 }
 
 function adjustLine(prev: number, direction: -1 | 1, activeStat: string) {
-  const step = getLineStep(activeStat);
-
-  if (usesIntegerLine(activeStat)) {
-    return Math.max(0, Math.round(prev) + direction * step);
-  }
-
-  const normalized = normalizeHalfLine(prev);
-  return Math.max(0.5, Number((normalized + direction * step).toFixed(1)));
+  if (usesIntegerLine(activeStat)) return Math.max(0, Math.round(prev) + direction);
+  return Math.max(0.5, Number((normalizeHalfLine(prev) + direction).toFixed(1)));
 }
 
 function formatLineValue(value: number, activeStat: string) {
@@ -276,39 +227,69 @@ function formatLineValue(value: number, activeStat: string) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
-const HIDDEN_MAIN_STATS = new Set(["potential_ast", "rebound_chances"]);
-
 function getOpportunityOverlayConfig(activeStat: string, scope: SplitScope) {
   if (scope !== "FULL") return null;
-
-  if (activeStat === "ast") {
-    return {
-      key: "potential_ast",
-      label: "Pot. AST",
-      color: "#60a5fa",
-      ratioLabel: "Conversión",
-    };
-  }
-
-  if (activeStat === "reb") {
-    return {
-      key: "rebound_chances",
-      label: "Chances Reb.",
-      color: "#a78bfa",
-      ratioLabel: "Captura",
-    };
-  }
-
+  if (activeStat === "ast") return { key: "potential_ast", label: "Pot. AST", color: "#60a5fa", ratioLabel: "Conversión" };
+  if (activeStat === "reb") return { key: "rebound_chances", label: "Chances Reb.", color: "#a78bfa", ratioLabel: "Captura" };
   return null;
 }
 
-export default function PlayerChartContainer({ stats, navStats, playerName, stakeOdds = [] }: PlayerChartContainerProps) {
-  const [activeStat, setActiveStat] = useState("pts");
-  const [lastN, setLastN] = useState(10);
-  const [lineValue, setLineValue] = useState(18.5);
-  const [activeScope, setActiveScope] = useState<SplitScope>("FULL");
-  const [showGameLog, setShowGameLog] = useState(false);
+// ─── Main component ───────────────────────────────────────────────────────────
 
+export default function PlayerChartContainer({
+  stats,
+  navStats,
+  playerName,
+  stakeOdds = [],
+  externalFilters = [],
+  onRemoveExternalFilter,
+}: PlayerChartContainerProps) {
+
+  // ── Core state — synced to URL ─────────────────────────────────────────────
+  const {
+    activeStat, setActiveStat,
+    lineValue,  setLineValue,
+    lastN,      setLastN,
+    activeScope, setActiveScope,
+    shareUrl,
+    hasLineParam,
+  } = usePlayerUrlState({ defaultStat: "pts", defaultLine: 18.5 });
+
+  // ── Filter state ────────────────────────────────────────────────────────────
+  const [activeFilters,       setActiveFilters]       = useState<ActiveFilter[]>([]);
+  const [showSupportingData,  setShowSupportingData]  = useState(true);
+
+  // ── Filter handlers ─────────────────────────────────────────────────────────
+
+  const addOrUpdateFilter = useCallback((filter: ActiveFilter) => {
+    setActiveFilters((prev) => {
+      const without = prev.filter((f) => f.id !== filter.id);
+      return [...without, filter];
+    });
+  }, []);
+
+  const removeFilter = useCallback((id: string) => {
+    setActiveFilters((prev) => prev.filter((f) => f.id !== id));
+  }, []);
+
+  const clearAllFilters = useCallback(() => {
+    setActiveFilters([]);
+  }, []);
+
+  /** Called by SupportingDataGrid sliders */
+  const handleMetricFilter = useCallback(
+    (metricId: string, label: string, minValue: number | null) => {
+      const filterId = `threshold:${metricId}`;
+      if (minValue === null) {
+        removeFilter(filterId);
+      } else {
+        addOrUpdateFilter({ id: filterId, label, type: "threshold", value: minValue });
+      }
+    },
+    [addOrUpdateFilter, removeFilter]
+  );
+
+  // ── Derived nav stats ───────────────────────────────────────────────────────
   const visibleNavStats = useMemo(
     () => navStats.filter((stat) => !HIDDEN_MAIN_STATS.has(stat.id)),
     [navStats]
@@ -321,30 +302,19 @@ export default function PlayerChartContainer({ stats, navStats, playerName, stak
 
   const activeScopeOption = SPLIT_SCOPE_BY_ID[activeScope];
   const isFullScope = activeScope === "FULL";
+  const opportunityOverlay = useMemo(() => getOpportunityOverlayConfig(activeStat, activeScope), [activeStat, activeScope]);
 
-  const opportunityOverlay = useMemo(
-    () => getOpportunityOverlayConfig(activeStat, activeScope),
-    [activeStat, activeScope]
-  );
+  // ── Stake odds ───────────────────────────────────────────────────────────────
+  const selectedStakeOdds = useMemo(() => findStakeOddsForStat(stakeOdds, activeStat), [stakeOdds, activeStat]);
+  const selectedStakeOdd  = useMemo(() => pickPrimaryStakeOdd(selectedStakeOdds), [selectedStakeOdds]);
 
-  const selectedStakeOdds = useMemo(
-    () => findStakeOddsForStat(stakeOdds, activeStat),
-    [stakeOdds, activeStat]
-  );
-
-  const selectedStakeOdd = useMemo(
-    () => pickPrimaryStakeOdd(selectedStakeOdds),
-    [selectedStakeOdds]
-  );
-
+  // ── Raw scoped stats ─────────────────────────────────────────────────────────
   const scopedRawStats = useMemo(() => {
     const rawStats = stats || [];
-
     if (activeScope === "FULL") {
       const fullRows = rawStats.filter((s: any) => !s?.split_code || normalizeSplitCode(s.split_code) === "FULL");
       return fullRows.length > 0 ? fullRows : rawStats;
     }
-
     const longRows = rawStats.filter((s: any) => normalizeSplitCode(s?.split_code) === activeScope);
     return longRows.length > 0 ? longRows : rawStats;
   }, [stats, activeScope]);
@@ -353,29 +323,30 @@ export default function PlayerChartContainer({ stats, navStats, playerName, stak
     return Array.from(
       new Map(
         scopedRawStats.map((s: any) => {
-          const fechaUnica = s.game_date
-            ? String(s.game_date).split("T")[0]
-            : s.date || s.id || s.game_id;
-          return [fechaUnica, s];
+          const key = s.game_date ? String(s.game_date).split("T")[0] : s.date || s.id || s.game_id;
+          return [key, s];
         })
       ).values()
     );
   }, [scopedRawStats]);
 
+  // ── Auto-set line value ───────────────────────────────────────────────────────
   useEffect(() => {
+    if (hasLineParam) return;
+
     if (isFullScope && selectedStakeOdd?.line != null && Number.isFinite(Number(selectedStakeOdd.line))) {
       setLineValue(normalizeLineForStat(Number(selectedStakeOdd.line), activeStat));
       return;
     }
-
     if (uniqueStats.length > 0) {
       const recent = uniqueStats.slice(0, 10);
       const total = recent.reduce((sum, s) => sum + getStatValue(s, activeStat, activeScope), 0);
       const avg = total / (recent.length || 1);
       setLineValue(getAutoLine(avg, activeStat));
     }
-  }, [activeStat, uniqueStats, activeScope, isFullScope, selectedStakeOdd]);
+  }, [activeStat, uniqueStats, activeScope, isFullScope, selectedStakeOdd, hasLineParam, setLineValue]);
 
+  // ── Processed stats ───────────────────────────────────────────────────────────
   const processedStats = uniqueStats.map((s: any) => ({
     ...s,
     period_minutes: getScopedMinutesRaw(s, activeScope),
@@ -383,62 +354,94 @@ export default function PlayerChartContainer({ stats, navStats, playerName, stak
     is_percentage: activeStat === "usage_pct",
   }));
 
-  const visibleStats = processedStats.slice(0, lastN).reverse();
-  const tableStats = [...visibleStats].reverse();
-  const values = visibleStats.map((s) => Number(s.value) || 0);
+  // ── Apply filters (internal threshold + external W/O) ────────────────────────
+  const filteredStats = useMemo(() => {
+    let result = processedStats.slice(0, lastN).reverse();
 
-  const avgValue =
-    visibleStats.length > 0
-      ? (visibleStats.reduce((a, b) => a + b.value, 0) / visibleStats.length).toFixed(1)
-      : "0.0";
+    const allFilters = [...activeFilters, ...externalFilters];
 
-  const hits = visibleStats.filter((s) => s.value >= lineValue).length;
-  const hitRateNumber = visibleStats.length > 0 ? Math.round((hits / visibleStats.length) * 100) : 0;
-  const hitRate = String(hitRateNumber);
+    for (const filter of allFilters) {
+      if (filter.type === "threshold" && filter.value !== undefined) {
+        const metricId = filter.id.replace("threshold:", "");
 
-  const minutesValues = visibleStats
-    .map((s) => getMinutesValue(s))
-    .filter((m): m is number => m !== null);
+        if (metricId === "minutes") {
+          result = result.filter((s) => {
+            const m = getMinutesValue(s);
+            return m === null || m >= filter.value!;
+          });
+        } else {
+          result = result.filter((s) => {
+            const raw = s?.[metricId];
+            if (raw === null || raw === undefined) return true;
+            const n = Number(raw);
+            return Number.isNaN(n) || n >= filter.value!;
+          });
+        }
+      }
+      // "context" and "wo" filters display as chips but filtering is data-dependent
+    }
 
-  const avgMinutes =
-    minutesValues.length > 0
-      ? (minutesValues.reduce((sum, m) => sum + m, 0) / minutesValues.length).toFixed(1)
-      : "S/D";
+    return result;
+  }, [processedStats, lastN, activeFilters, externalFilters]);
+
+  const visibleStats = filteredStats;
+  const values       = visibleStats.map((s) => Number(s.value) || 0);
+
+  // ── Derived metrics ───────────────────────────────────────────────────────────
+  const avgValue = visibleStats.length > 0
+    ? (visibleStats.reduce((a, b) => a + b.value, 0) / visibleStats.length).toFixed(1)
+    : "0.0";
+
+  const hits           = visibleStats.filter((s) => s.value >= lineValue).length;
+  const hitRateNumber  = visibleStats.length > 0 ? Math.round((hits / visibleStats.length) * 100) : 0;
+  const hitRate        = String(hitRateNumber);
+
+  const minutesValues  = visibleStats.map((s) => getMinutesValue(s)).filter((m): m is number => m !== null);
+  const avgMinutes     = minutesValues.length > 0
+    ? (minutesValues.reduce((sum, m) => sum + m, 0) / minutesValues.length).toFixed(1)
+    : "S/D";
 
   const lowMinuteGames = minutesValues.filter((m) => m < 20).length;
 
   const trendLabel =
-    hitRateNumber >= 60
-      ? "Tendencia fuerte"
-      : hitRateNumber >= 50
-        ? "Tendencia media"
-        : "Tendencia baja";
+    hitRateNumber >= 60 ? "Tendencia fuerte" :
+    hitRateNumber >= 50 ? "Tendencia media"  : "Tendencia baja";
 
   const volumeLabel =
-    avgMinutes === "S/D"
-      ? "Sin minutos"
-      : Number(avgMinutes) >= 30
-        ? "Volumen alto"
-        : Number(avgMinutes) >= 24
-          ? "Volumen medio"
-          : "Volumen bajo";
+    avgMinutes === "S/D" ? "Sin minutos" :
+    Number(avgMinutes) >= 30 ? "Volumen alto" :
+    Number(avgMinutes) >= 24 ? "Volumen medio" : "Volumen bajo";
 
   const lineInputStep = usesIntegerLine(activeStat) ? "1" : "any";
 
+  // ── Infer most correlated metric (simple heuristic) ───────────────────────────
+  const correlatedMetric = useMemo(() => {
+    if (activeStat === "ast") return "minutes";
+    if (activeStat === "reb") return "minutes";
+    if (activeStat === "pts") return "usage_pct";
+    if (activeStat === "fg3m") return "fg3a";
+    return "minutes";
+  }, [activeStat]);
+
+  // ── Clear filters when stat changes ──────────────────────────────────────────
+  useEffect(() => {
+    setActiveFilters([]);
+  }, [activeStat]);
+
+  // ─────────────────────────────────────────────────────────────────────────────
+
   return (
     <div className="space-y-5">
+
       {/* MENÚ DE ESTADÍSTICAS */}
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-3 shadow-xl">
         <div className="flex items-center justify-between gap-3 px-1">
           <div>
-            <p className="text-[8px] text-[#10b981] font-black uppercase tracking-[0.22em]">
-              Estadística
-            </p>
+            <p className="text-[8px] text-[#10b981] font-black uppercase tracking-[0.22em]">Estadística</p>
             <p className="text-[11px] text-[var(--text-muted)] font-black uppercase tracking-widest mt-1">
               Seleccioná la métrica del histórico
             </p>
           </div>
-
           <span className="shrink-0 rounded-full border border-[#10b981]/30 bg-[#10b981]/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-[#10b981]">
             {activeStatLabel}
           </span>
@@ -447,7 +450,6 @@ export default function PlayerChartContainer({ stats, navStats, playerName, stak
         <div className="mt-3 flex items-center gap-2 overflow-x-auto whitespace-nowrap max-w-full pb-2 pr-2 [scrollbar-width:thin] [scrollbar-color:#10b981_#0b1018] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-[var(--bg)] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#10b981]/60 hover:[&::-webkit-scrollbar-thumb]:bg-[#10b981]">
           {visibleNavStats.map((stat) => {
             const active = activeStat === stat.id;
-
             return (
               <button
                 key={stat.id}
@@ -509,19 +511,17 @@ export default function PlayerChartContainer({ stats, navStats, playerName, stak
         <div className="flex items-center gap-6 md:gap-8 w-full md:w-auto justify-between md:justify-end">
           <div className="flex flex-col items-start md:items-end">
             <span className="text-[8px] text-[var(--text-muted)] font-black uppercase tracking-[0.2em] flex items-center gap-1 mb-1">
-              <Sparkles size={10} className="text-[#10b981]" /> {isFullScope && selectedStakeOdd ? "Línea Stake" : "Línea manual"}
+              <Sparkles size={10} className="text-[#10b981]" />
+              {isFullScope && selectedStakeOdd ? "Línea Stake" : "Línea manual"}
             </span>
-
             <div className="flex items-center bg-[var(--bg)] px-2 py-1 rounded-lg border border-[var(--border)]">
               <Target size={14} className="text-red-500 ml-2" />
-
               <button
                 onClick={() => setLineValue((prev) => adjustLine(prev, -1, activeStat))}
                 className="px-3 text-[var(--text-muted)] hover:text-[var(--text)] font-black text-xl transition-colors select-none"
               >
                 -
               </button>
-
               <input
                 type="number"
                 step={lineInputStep}
@@ -530,7 +530,6 @@ export default function PlayerChartContainer({ stats, navStats, playerName, stak
                 onBlur={() => setLineValue((prev) => normalizeLineForStat(prev, activeStat))}
                 className="bg-transparent border-none text-2xl font-black w-16 text-center focus:outline-none text-[var(--text)] p-0 tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
-
               <button
                 onClick={() => setLineValue((prev) => adjustLine(prev, 1, activeStat))}
                 className="px-3 text-[var(--text-muted)] hover:text-[var(--text)] font-black text-xl transition-colors select-none"
@@ -546,16 +545,34 @@ export default function PlayerChartContainer({ stats, navStats, playerName, stak
             <span className="text-[8px] text-[var(--text-muted)] font-black uppercase tracking-[0.2em] mb-1">
               AVG: {avgValue}{activeStat === "usage_pct" ? "%" : ""}
             </span>
-            <span
-              className={`text-3xl font-black tabular-nums leading-none ${
-                hitRateNumber >= 50 ? "text-[#10b981]" : "text-red-500"
-              }`}
-            >
+            <span className={`text-3xl font-black tabular-nums leading-none ${hitRateNumber >= 50 ? "text-[#10b981]" : "text-red-500"}`}>
               {hitRate}%
             </span>
           </div>
         </div>
       </div>
+
+      {/* SHARE BUTTON */}
+      <div className="flex justify-end">
+        <ShareButton onShare={shareUrl} />
+      </div>
+
+      {/* FILTROS ACTIVOS — internos (sliders) + externos (W/O) en un solo lugar */}
+      <StatFilters
+        filters={[...activeFilters, ...externalFilters]}
+        totalGames={processedStats.slice(0, lastN).length}
+        filteredGames={visibleStats.length}
+        onRemove={(id) => {
+          // internal filter
+          removeFilter(id);
+          // external filter (W/O from injury panel)
+          onRemoveExternalFilter?.(id);
+        }}
+        onClearAll={() => {
+          clearAllFilters();
+          externalFilters.forEach((f) => onRemoveExternalFilter?.(f.id));
+        }}
+      />
 
       {/* GRÁFICA + ALT LINES */}
       <div className="grid grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_320px] gap-4 items-stretch">
@@ -563,6 +580,12 @@ export default function PlayerChartContainer({ stats, navStats, playerName, stak
           {!isFullScope && (
             <div className="absolute top-6 right-6 px-3 py-1 bg-[#10b981]/10 border border-[#10b981]/30 text-[#10b981] text-[10px] font-black rounded-md tracking-wider z-10">
               {activeScopeOption.badgeLabel}
+            </div>
+          )}
+          {/* Filter count badge */}
+          {activeFilters.length > 0 && (
+            <div className="absolute top-6 left-6 px-3 py-1 bg-orange-500/10 border border-orange-500/30 text-orange-400 text-[10px] font-black rounded-md tracking-wider z-10">
+              {visibleStats.length} partidos
             </div>
           )}
           <div className="min-h-[410px] w-full relative">
@@ -619,10 +642,16 @@ export default function PlayerChartContainer({ stats, navStats, playerName, stak
           </p>
           <p className="text-[9px] text-[var(--text-muted)] font-black uppercase tracking-widest mt-2 flex items-center gap-1">
             <TrendingUp size={10} /> L{lastN}
+            {(activeFilters.length + externalFilters.length) > 0 && (
+              <span className="text-orange-400 ml-1">
+                · {activeFilters.length + externalFilters.length} filtro{activeFilters.length + externalFilters.length > 1 ? "s" : ""}
+              </span>
+            )}
           </p>
         </div>
       </div>
 
+      {/* PICK INSIGHT PANEL */}
       <PickInsightPanel
         stats={visibleStats}
         lineValue={lineValue}
@@ -634,109 +663,53 @@ export default function PlayerChartContainer({ stats, navStats, playerName, stak
         lastN={visibleStats.length}
       />
 
-      <SupportingDataGrid
-        stats={visibleStats}
-        activeStat={activeStat}
-        activeStatLabel={activeStatLabel}
-      />
+      {/* SUPPORTING DATA GRID — now with sliders + hide toggle */}
+      <div>
+        <div className="flex items-center justify-between mb-3 px-1">
+          <p className="text-[9px] text-[var(--text-muted)] font-black uppercase tracking-widest flex items-center gap-2">
+            <LayoutList size={12} />
+            Supporting Data
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowSupportingData(p => !p)}
+            className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text)] transition-colors border border-[var(--border)] px-2.5 py-1 rounded-lg"
+          >
+            {showSupportingData ? "Ocultar" : "Mostrar"}
+          </button>
+        </div>
 
-      {/* TABLA GAME LOG COLAPSABLE */}
-      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-[2rem] overflow-hidden shadow-2xl">
-        <button
-          type="button"
-          onClick={() => setShowGameLog((prev) => !prev)}
-          className="w-full px-5 py-4 flex items-center justify-between gap-4 hover:bg-white/[0.02] transition-colors"
-        >
-          <div className="flex items-center gap-3 text-left">
-            <div className="w-9 h-9 rounded-full border border-[#10b981]/25 bg-[#10b981]/10 flex items-center justify-center">
-              <Table2 size={16} className="text-[#10b981]" />
-            </div>
-            <div>
-              <p className="text-[9px] text-[#10b981] font-black uppercase tracking-[0.25em]">
-                Game Log
-              </p>
-              <h3 className="text-[var(--text)] font-black uppercase tracking-tight">
-                {showGameLog ? "Ocultar detalle" : `Ver detalle de últimos ${visibleStats.length} · ${activeScopeOption.label}`}
-              </h3>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <p className="hidden md:block text-[10px] text-[var(--text-muted)] font-black uppercase tracking-widest text-right">
-              Línea: {formatLineValue(lineValue, activeStat)} {activeStatLabel} · {activeScopeOption.label}
-            </p>
-            {showGameLog ? <ChevronUp size={18} className="text-[#10b981]" /> : <ChevronDown size={18} className="text-[#10b981]" />}
-          </div>
-        </button>
-
-        {showGameLog && (
-          <div className="overflow-x-auto border-t border-[var(--border)]">
-            <table className="w-full text-left">
-              <thead className="bg-[var(--bg)]/60">
-                <tr className="text-[9px] text-[var(--text-muted)] uppercase tracking-widest">
-                  <th className="px-5 py-3 font-black">Fecha</th>
-                  <th className="px-5 py-3 font-black">Rival</th>
-                  <th className="px-5 py-3 font-black text-right">MIN</th>
-                  <th className="px-5 py-3 font-black text-right">{activeStatLabel}</th>
-                  <th className="px-5 py-3 font-black text-right">Línea</th>
-                  <th className="px-5 py-3 font-black text-right">Resultado</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {tableStats.map((s: any, idx: number) => {
-                  const isOver = Number(s.value) >= lineValue;
-                  const minutes = getMinutesValue(s);
-                  const isLowMinutes = minutes !== null && minutes < 20;
-
-                  return (
-                    <tr
-                      key={`${s.game_id || s.game_date}-${idx}`}
-                      className="border-t border-[var(--border)] hover:bg-white/[0.03] transition-colors"
-                    >
-                      <td className="px-5 py-3 text-xs text-[#aaa] font-bold whitespace-nowrap">
-                        {formatDateShort(s.game_date)}
-                      </td>
-
-                      <td className="px-5 py-3 text-xs text-[var(--text)] font-black uppercase whitespace-nowrap">
-                        {getGameLocation(s)} {getOpponent(s)}
-                      </td>
-
-                      <td
-                        className={`px-5 py-3 text-xs text-right font-black tabular-nums whitespace-nowrap ${
-                          isLowMinutes ? "text-orange-400" : "text-[#10b981]"
-                        }`}
-                      >
-                        {getMinutesLabel(s)} {isLowMinutes ? "⚠" : ""}
-                      </td>
-
-                      <td className="px-5 py-3 text-xs text-right text-[var(--text)] font-black tabular-nums whitespace-nowrap">
-                        {formatStatValue(s.value, activeStat === "usage_pct")}
-                      </td>
-
-                      <td className="px-5 py-3 text-xs text-right text-[#777] font-black tabular-nums whitespace-nowrap">
-                        {formatLineValue(lineValue, activeStat)}
-                      </td>
-
-                      <td className="px-5 py-3 text-right whitespace-nowrap">
-                        <span
-                          className={`text-[9px] font-black uppercase px-2 py-1 rounded-md border ${
-                            isOver
-                              ? "text-[#10b981] border-[#10b981]/30 bg-[#10b981]/10"
-                              : "text-red-400 border-red-500/30 bg-red-500/10"
-                          }`}
-                        >
-                          {isOver ? "Over" : "Under"}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+        {showSupportingData && (
+          <SupportingDataGrid
+            stats={visibleStats}
+            activeStat={activeStat}
+            activeStatLabel={activeStatLabel}
+            onFilterChange={handleMetricFilter}
+            correlatedMetric={correlatedMetric}
+          />
         )}
       </div>
+
+      {/* ODDS COMPARISON TABLE */}
+      {selectedStakeOdds.length > 0 && (
+        <OddsComparisonTable
+          odds={selectedStakeOdds as BookOdd[]}
+          lineValue={lineValue}
+          statLabel={activeStatLabel}
+          hitRate={hitRateNumber}
+          avgValue={Number(avgValue)}
+        />
+      )}
+
+      {/* GAME LOG — sortable, extracted component */}
+      <GameLogTable
+        stats={visibleStats}
+        lineValue={lineValue}
+        activeStatLabel={activeStatLabel}
+        activeScopeLabel={activeScopeOption.label}
+        activeStat={activeStat}
+        formatLine={(v) => formatLineValue(v, activeStat)}
+      />
     </div>
   );
 }

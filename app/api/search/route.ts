@@ -43,9 +43,9 @@ export async function GET(request: Request) {
     const teamResults = teams.map(t => ({
       id: t.abbreviation,
       type: 'team',
-      display_name: t.name.toUpperCase(),
+      display_name: (t.name ?? '').toUpperCase(),
       subtitle: `Team - ${t.abbreviation}`,
-      image: `https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/${t.abbreviation.toLowerCase()}.png`
+      image: `https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/${(t.abbreviation ?? '').toLowerCase()}.png`
     }));
 
     // Unimos todo, poniendo los equipos primero si la búsqueda es corta

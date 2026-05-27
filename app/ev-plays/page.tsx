@@ -53,7 +53,6 @@ export default async function EVPlaysPage({
             yesterday={yesterday}
             today={today}
             tomorrow={tomorrow}
-            calendar={calendar}
             dates={dates}
             bookmaker={activeBook}
           />

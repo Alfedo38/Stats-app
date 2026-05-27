@@ -226,7 +226,10 @@ export async function getTeamPlayers(teamAbbr: string) {
       select: { player_id: true },
     });
 
-    const playerIds = candidates.map(c => c.player_id);
+    const playerIds = candidates
+      .map(c => c.player_id)
+      .filter((id): id is number => typeof id === 'number');
+
     if (playerIds.length === 0) return [];
 
     const recentLogs = await prisma.player_game_logs.findMany({
@@ -236,6 +239,8 @@ export async function getTeamPlayers(teamAbbr: string) {
 
     const logsByPlayer: Record<number, any[]> = {};
     for (const log of recentLogs) {
+      if (typeof log.player_id !== 'number') continue;
+
       if (!logsByPlayer[log.player_id]) logsByPlayer[log.player_id] = [];
       if (logsByPlayer[log.player_id].length < 5) {
         logsByPlayer[log.player_id].push(log);

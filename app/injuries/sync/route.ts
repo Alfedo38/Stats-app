@@ -19,15 +19,21 @@ function getTodayArg(): string {
   return `${y}-${m}-${d}`;
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const todayStr = getTodayArg();
+    const url = new URL(req.url);
+    const force = url.searchParams.get("force") === "1";
 
     // Si ya hay datos de hoy, no volvemos a llamar a ESPN
     const existing = await prisma.nba_injuries.findFirst({ where: { fetch_date: todayStr } });
-    if (existing) {
+    if (existing && !force) {
       const count = await prisma.nba_injuries.count({ where: { fetch_date: todayStr } });
       return NextResponse.json({ success: true, cached: true, count, date: todayStr });
+    }
+
+    if (force) {
+      await prisma.nba_injuries.deleteMany({ where: { fetch_date: todayStr } });
     }
 
     // Fetch ESPN
@@ -48,10 +54,11 @@ export async function GET() {
       (team.injuries || []).map((injury: any) => ({
         fetch_date:  todayStr,
         team_id:     String(team.id),
+        team_abbreviation: String(team.abbreviation || team.shortDisplayName || '').toUpperCase(),
         team_name:   team.displayName,
         team_logo:   team.logo,
         player_id:   String(injury.athlete?.id || ''),
-        player_name: injury.athlete?.shortName || injury.athlete?.displayName || '',
+        player_name: injury.athlete?.displayName || injury.athlete?.shortName || '',
         status:      injury.status || '',
         comment:     injury.comment || null,
       }))

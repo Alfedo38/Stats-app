@@ -331,7 +331,7 @@ export default function InjuryWithWOPanel({
   // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
-    <aside className={`bg-[var(--surface)] border border-[var(--border)] rounded-[2rem] overflow-hidden shadow-2xl ${className}`}>
+    <aside className={`bg-[var(--surface)] border border-red-500/20 rounded-[1.5rem] overflow-hidden shadow-2xl shadow-red-500/5 ${className}`}>
 
       {/* ── Header ─────────────────────────────────────────────────────────────── */}
       <div className="px-5 py-4 border-b border-[var(--border)]">
@@ -387,16 +387,16 @@ export default function InjuryWithWOPanel({
           )}
         </div>
 
-        {/* Latest snapshot badge */}
+        {/* Snapshot badge */}
         <div className="mt-2 flex items-center justify-end">
           <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded border border-red-500/30 text-red-400 bg-red-500/10">
-            Latest Snapshot
+            Snapshot
           </span>
         </div>
       </div>
 
       {/* ── Body ───────────────────────────────────────────────────────────────── */}
-      <div className="p-3 max-h-[600px] overflow-y-auto no-scrollbar">
+      <div className="p-3 max-h-[220px] xl:max-h-[240px] overflow-y-auto [scrollbar-width:thin] [scrollbar-color:#ef4444_transparent]">
 
         {/* Loading */}
         {loading && (

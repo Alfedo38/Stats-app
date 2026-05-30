@@ -1,7 +1,6 @@
 "use client";
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { AlertCircle, ChevronDown, ChevronUp, Calendar, ChevronLeft, ChevronRight, X, Zap } from 'lucide-react';
-import LudoPlayCard from './LudoPlayCard';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -274,7 +273,18 @@ function TicketCard({ ticket, bookmaker, accentColor }: { ticket: Ticket; bookma
               ))}
             </div>
           )}
-          {ticket.plays.map((play, i) => <LudoPlayCard key={i} play={play} bookmaker={bookmaker}/>)}
+          {ticket.plays.map((play, i) => (
+              <div key={i} className="flex items-center justify-between gap-3 p-3 bg-[var(--bg)] border border-[var(--border)] rounded-xl">
+                <div className="min-w-0">
+                  <p className="text-xs font-black uppercase truncate text-[var(--text)]">{play.player}</p>
+                  <p className="text-[8px] font-bold text-[var(--text-muted)] uppercase tracking-widest">{play.team} · {play.prop} {play.line}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-sm font-black text-[#10b981]">{play.edge_pct > 0 ? "+" : ""}{play.edge_pct?.toFixed ? play.edge_pct.toFixed(1) : play.edge_pct}%</p>
+                  <p className="text-[8px] text-[var(--text-muted)] font-bold">{play.odds > 0 ? "+" : ""}{play.odds}</p>
+                </div>
+              </div>
+            ))}
         </div>
       )}
     </div>
@@ -314,8 +324,8 @@ export default function EVDashboard({
   useEffect(() => {
     if (!calendarOpen || calendarEntries.length > 0) return;
     const endpoint = bookmaker === 'betano'
-      ? '/api/ludo-calendar?book=betano'
-      : '/api/ludo-calendar';
+      ? '/api/ev-plays?book=betano'
+      : '/api/ev-plays';
     fetch(endpoint).then(r => r.json()).then(setCalendarEntries).catch(() => {});
   }, [calendarOpen, bookmaker]);
 
@@ -328,7 +338,7 @@ export default function EVDashboard({
     setCalendarOpen(false);
     try {
       const bookParam = bookmaker === 'betano' ? '&book=betano' : '';
-      const res  = await fetch(`/api/ludo-picks?date=${date}${bookParam}`);
+      const res  = await fetch(`/api/ev-picks?date=${date}${bookParam}`);
       const data = await res.json();
       setCalendarBlocks(data?.blocks?.filter((b: Block) => !b.matchup?.startsWith('🌎')) || null);
       setCalendarDate(date);

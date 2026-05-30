@@ -1,144 +1,188 @@
-import { getTopPerformers } from '@/lib/api';
-import { Target, Zap, Trophy, ChevronRight, ShieldCheck } from 'lucide-react';
-import Link from 'next/link';
+// app/trending/page.tsx — VERSIÓN FINAL
+import Link from "next/link";
+import { ArrowLeft, Target, Zap, Trophy, GitMerge, TrendingUp, TrendingDown, Minus, Flame } from "lucide-react";
+import { getTopPerformers, getRedditTrends } from "@/lib/api";
+import { getTeamColor } from "@/lib/teamColors";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
+export const metadata = { title: "On Fire | MoskProps" };
 
-export const metadata = {
-  title: 'Métricas On Fire',
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface PlayerStat {
+  id: number; full_name: string; team_abbr: string;
+  pts_avg: number; reb_avg: number; ast_avg: number;
+}
+
+type Trend = {
+  id: number; player_name: string; team_abbr?: string | null;
+  mentions: number; sentiment?: string | null; hype_score: number; trend?: string | null;
 };
 
-// ✅ FIX: Tipos propios en vez de any.
-// Antes, (data as any)[section.key] y player: any hacían que TypeScript
-// no pudiera avisarte si cambiaba la estructura de getTopPerformers().
-// Ahora, si cambia la función, el compilador te avisa en qué páginas rompe.
-interface PlayerStat {
-  id: number;
-  full_name: string;
-  team_abbr: string;
-  pts_avg: number;
-  reb_avg: number;
-  ast_avg: number;
+// ─── Player card ──────────────────────────────────────────────────────────────
+
+function PlayerCard({ player, rank, statValue, statLabel, accentColor, trend }: {
+  player: PlayerStat; rank: number; statValue: number;
+  statLabel: string; accentColor: string; trend?: Trend | null;
+}) {
+  const teamColor = getTeamColor(player.team_abbr);
+  const initials  = player.full_name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
+  const trendDir  = trend?.trend ?? null;
+
+  return (
+    <Link
+      href={`/players/${player.id}`}
+      className="group flex items-center gap-4 p-4 bg-[var(--surface)] border border-[var(--border)] rounded-2xl hover:border-[var(--border-strong)] transition-all"
+    >
+      {/* Rank */}
+      <div className="text-2xl font-black tabular-nums text-[var(--border)] group-hover:text-[var(--text-muted)] transition-colors w-7 text-center shrink-0">
+        {rank}
+      </div>
+
+      {/* Avatar */}
+      <div className="w-12 h-12 rounded-2xl flex items-center justify-center border font-black text-sm shrink-0"
+        style={{ background: `${teamColor}15`, borderColor: `${teamColor}30`, color: teamColor }}>
+        {initials}
+      </div>
+
+      {/* Info */}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-black uppercase tracking-tight text-[var(--text)] truncate group-hover:text-[#10b981] transition-colors">
+          {player.full_name}
+        </p>
+        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+          <span className="text-[8px] font-black uppercase tracking-widest text-[var(--text-muted)]">
+            {player.team_abbr}
+          </span>
+          {/* Mini stats */}
+          {["PTS","REB","AST"].map((s, i) => {
+            const val = [player.pts_avg, player.reb_avg, player.ast_avg][i];
+            return (
+              <span key={s} className="text-[8px] font-black tabular-nums text-[var(--text-muted)]">
+                <span className="text-[var(--text-soft)]">{s}</span> {val.toFixed(1)}
+              </span>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Stat value */}
+      <div className="text-right shrink-0">
+        <p className="text-2xl font-black tabular-nums" style={{ color: rank === 1 ? accentColor : "var(--text)" }}>
+          {statValue.toFixed(1)}
+        </p>
+        <p className="text-[8px] text-[var(--text-muted)] font-black uppercase tracking-widest">{statLabel} avg</p>
+      </div>
+
+      {/* Social trend (if any) */}
+      {trend && (
+        <div className="flex flex-col items-center gap-1 shrink-0 pl-2 border-l border-[var(--border)]">
+          {trendDir === "up"   && <TrendingUp   size={13} className="text-[#10b981]" />}
+          {trendDir === "down" && <TrendingDown  size={13} className="text-red-400"   />}
+          {!trendDir            && <Minus         size={13} className="text-[var(--text-muted)]" />}
+          <span className={`text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full border ${
+            trend.sentiment === "OVER"  ? "text-[#10b981] border-[#10b981]/30 bg-[#10b981]/08" :
+            trend.sentiment === "UNDER" ? "text-red-400   border-red-400/30   bg-red-400/08"   :
+            "text-[var(--text-muted)] border-[var(--border)]"
+          }`}>
+            {trend.sentiment ?? "—"}
+          </span>
+          <span className="text-[7px] font-black tabular-nums text-[var(--text-muted)] flex items-center gap-0.5">
+            <Flame size={8} className="text-orange-400" />{trend.hype_score}
+          </span>
+        </div>
+      )}
+    </Link>
+  );
 }
 
-interface TopPerformers {
-  puntos: PlayerStat[];
-  rebotes: PlayerStat[];
-  asistencias: PlayerStat[];
-  pra: PlayerStat[];
+// ─── Section ──────────────────────────────────────────────────────────────────
+
+function Section({ icon: Icon, title, color, players, statKey, statLabel, trends }: {
+  icon: any; title: string; color: string;
+  players: PlayerStat[]; statKey: keyof PlayerStat; statLabel: string;
+  trends: Trend[];
+}) {
+  const sorted = [...players].sort((a, b) => Number(b[statKey]) - Number(a[statKey])).slice(0, 5);
+
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center border"
+          style={{ background: `${color}18`, borderColor: `${color}30` }}>
+          <Icon size={15} style={{ color }} />
+        </div>
+        <div>
+          <p className="text-[8px] font-black uppercase tracking-[0.25em] text-[var(--text-muted)]">Top 5 L5 partidos</p>
+          <h2 className="text-sm font-black uppercase tracking-tight" style={{ color }}>{title}</h2>
+        </div>
+      </div>
+      <div className="space-y-2">
+        {sorted.map((p, i) => {
+          const tr = trends.find(t =>
+            t.player_name.toLowerCase().includes(p.full_name.split(" ").pop()?.toLowerCase() ?? "")
+          );
+          return (
+            <PlayerCard
+              key={p.id}
+              player={p}
+              rank={i + 1}
+              statValue={Number(p[statKey])}
+              statLabel={statLabel}
+              accentColor={color}
+              trend={tr ?? null}
+            />
+          );
+        })}
+      </div>
+    </section>
+  );
 }
 
-interface Section {
-  title: string;
-  key: keyof TopPerformers;
-  statKey: keyof PlayerStat;
-  icon: React.ReactNode;
-  label: string;
-  color: string;
-}
+// ─── Page ──────────────────────────────────────────────────────────────────────
 
-export default async function OnFirePage() {
-  const data = await getTopPerformers() as TopPerformers;
+export default async function TrendingPage() {
+  const [data, trends] = await Promise.all([
+    getTopPerformers(),
+    getRedditTrends(),
+  ]);
 
-  const sections: Section[] = [
-    {
-      title: 'Líderes en Puntos',
-      key: 'puntos',
-      statKey: 'pts_avg',
-      icon: <Target className="text-orange-500" />,
-      label: 'PTS',
-      color: 'border-orange-500/20'
-    },
-    {
-      title: 'Líderes en Rebotes',
-      key: 'rebotes',
-      statKey: 'reb_avg',
-      icon: <Zap className="text-blue-500" />,
-      label: 'REB',
-      color: 'border-blue-500/20'
-    },
-    {
-      title: 'Líderes en Asistencias',
-      key: 'asistencias',
-      statKey: 'ast_avg',
-      icon: <Trophy className="text-green-500" />,
-      label: 'AST',
-      color: 'border-green-500/20'
-    },
+  const { puntos, rebotes, asistencias, pra } = data as any;
+
+  const sections = [
+    { icon: Zap,       title: "Puntos",      color: "#10b981", players: puntos,      statKey: "pts_avg" as const, statLabel: "PTS" },
+    { icon: Target,    title: "Rebotes",     color: "#3b82f6", players: rebotes,     statKey: "reb_avg" as const, statLabel: "REB" },
+    { icon: GitMerge,  title: "Asistencias", color: "#f59e0b", players: asistencias, statKey: "ast_avg" as const, statLabel: "AST" },
+    { icon: Trophy,    title: "PRA",         color: "#8b5cf6", players: pra,         statKey: "pts_avg" as const, statLabel: "PRA" },
   ];
 
   return (
-    <main className="min-h-screen bg-[var(--bg)] text-[var(--text)] p-4 md:p-8 pb-20">
-      <div className="max-w-6xl mx-auto space-y-12">
+    <main className="min-h-screen bg-[var(--bg)] text-[var(--text)] pb-20">
+      <nav className="border-b border-[var(--border)] bg-[var(--surface)]/95 backdrop-blur-md sticky top-0 z-50 px-6 py-4">
+        <Link href="/" className="text-[var(--text-muted)] hover:text-[#10b981] transition-colors flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
+          <ArrowLeft size={14} /> Inicio
+        </Link>
+      </nav>
 
-        <div className="flex justify-between items-center border-b border-[var(--border)] pb-8">
-          <div>
-            <h1 className="text-4xl font-black italic uppercase tracking-tighter">
-              Métricas <span className="text-[#10b981]">On Fire</span>
-            </h1>
-            <p className="text-[var(--text-muted)] text-[10px] font-bold uppercase tracking-[0.4em] mt-2">
-              Datos Puros de Base de Datos • Temporada 25/26
-            </p>
-          </div>
-          <div className="flex items-center gap-2 bg-[#10b981]/5 border border-[#10b981]/20 px-4 py-2 rounded-xl">
-            <ShieldCheck size={14} className="text-[#10b981]" />
-            <span className="text-[9px] font-black uppercase text-[#10b981]">Filtro Médico Activo</span>
-          </div>
+      <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-10">
+        <header>
+          <p className="text-[9px] font-black uppercase tracking-[0.35em] text-[#10b981] mb-2 flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse inline-block" />
+            Últimos 5 partidos
+          </p>
+          <h1 className="text-5xl md:text-6xl font-black italic uppercase tracking-tighter leading-none">
+            On <span className="text-[#10b981]">Fire</span>
+          </h1>
+          <p className="text-[var(--text-muted)] text-sm mt-2">
+            Rankings actualizados + sentimiento social de Reddit para cada jugador.
+          </p>
+        </header>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+          {sections.map(s => (
+            <Section key={s.title} {...s} trends={trends as Trend[]} />
+          ))}
         </div>
-
-        {sections.map((section) => (
-          <section key={section.key} className="space-y-6">
-            <div className="flex items-center gap-3">
-              {section.icon}
-              <h2 className="text-xs font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">
-                {section.title}
-              </h2>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* ✅ FIX: player tipado como PlayerStat — TypeScript ahora
-                  avisa si accedés a una propiedad que no existe */}
-              {data[section.key]?.map((player: PlayerStat) => (
-                <Link
-                  href={`/players/${player.id}`}
-                  key={player.id}
-                  className={`group relative bg-[var(--surface)] border ${section.color} p-6 rounded-[2.5rem] hover:bg-[var(--surface-hover)] transition-all overflow-hidden`}
-                >
-                  <div className="flex justify-between items-start relative z-10 mb-8">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-2xl bg-[var(--surface-soft)] border border-[var(--border)] flex items-center justify-center font-black text-[var(--text-muted)] text-xs group-hover:text-[var(--text)] transition-colors">
-                        {player.team_abbr}
-                      </div>
-                      <div>
-                        <h3 className="text-xl font-black uppercase tracking-tighter leading-none">
-                          {player.full_name}
-                        </h3>
-                        <p className="text-[9px] text-[var(--text-muted)] font-bold uppercase mt-1 tracking-widest">
-                          Temporada 25/26
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-[var(--surface-soft)] border border-[var(--border)] p-6 rounded-3xl text-center relative z-10">
-                    <p className="text-4xl font-black text-[var(--text)]">
-                      {/* ✅ FIX: tipado correcto permite acceso seguro sin cast */}
-                      {(player[section.statKey] as number)?.toFixed(1) ?? '0.0'}
-                    </p>
-                    <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mt-1">
-                      Promedio {section.label}
-                    </p>
-                  </div>
-
-                  <div className="mt-6 flex items-center justify-center text-[9px] font-black uppercase text-[var(--text-muted)] group-hover:text-[var(--text)] transition-colors tracking-[0.2em]">
-                    Analizar Perfil <ChevronRight size={12} className="ml-1" />
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </section>
-        ))}
-
       </div>
     </main>
   );

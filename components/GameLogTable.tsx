@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { getMinutesValue, getMinutesLabel, getOpponent, getGameLocation, formatDateShort } from "@/lib/playerUtils";
 import { Table2, ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -33,32 +34,7 @@ interface GameLogTableProps {
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
-function getMinutesValue(raw: GameLogStat): number | null {
-  const value =
-    raw?.period_minutes ?? raw?.min_text ?? raw?.min ?? raw?.minutes ??
-    raw?.mins ?? raw?.minutos ?? raw?.minutes_played ?? raw?.mp ?? null;
-  if (value === null || value === undefined || value === "") return null;
-  if (typeof value === "string") {
-    if (value.includes(":")) {
-      const m = Number(value.split(":")[0]);
-      return Number.isNaN(m) ? null : m;
-    }
-    const p = Number(value.replace("m", ""));
-    return Number.isNaN(p) ? null : p;
-  }
-  const p = Number(value);
-  return Number.isNaN(p) ? null : p;
-}
 
-function getMinutesLabel(raw: GameLogStat): string {
-  const m = getMinutesValue(raw);
-  return m === null ? "S/D" : `${Math.round(m)}m`;
-}
-
-function getOpponent(item: GameLogStat): string {
-  const parts = item?.matchup ? String(item.matchup).trim().split(" ") : [];
-  return parts.length > 0 ? parts[parts.length - 1] : "---";
-}
 
 function getLocation(item: GameLogStat): string {
   return item?.matchup?.includes("@") ? "@" : "vs";

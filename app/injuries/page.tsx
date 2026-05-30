@@ -1,6 +1,6 @@
 // app/injuries/page.tsx
 import { PrismaClient } from '@prisma/client';
-import { ChevronLeft, RefreshCw } from 'lucide-react';
+import { ChevronLeft, RefreshCw, CalendarDays } from 'lucide-react';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -23,15 +23,15 @@ if (process.env.NODE_ENV !== 'production') {
 
 type InjuryRow = {
   id: string | number | bigint;
-  source: string;
-  snapshot_key: string;
-  report_ts: Date | string;
+  source: string | null;
+  snapshot_key: string | null;
+  report_ts: Date | string | null;
   game_date: Date | string | null;
   game_time_et: string | null;
   matchup: string | null;
   team: string | null;
-  player_name_raw: string;
-  player_name: string;
+  player_name_raw: string | null;
+  player_name: string | null;
   current_status: string | null;
   normalized_status: string | null;
   severity: number | null;
@@ -43,10 +43,8 @@ type TeamGroup = {
   displayName: string;
   logo: string;
   injuries: {
-    id: string | number | bigint;
-    athlete: {
-      shortName: string;
-    };
+    id: string;
+    athlete: { shortName: string };
     status: string;
     normalizedStatus: string;
     severity: number;
@@ -94,7 +92,6 @@ const FULL_TEAM_NAME_TO_CODE: Record<string, string> = Object.fromEntries(
   Object.entries(TEAM_NAMES).map(([code, name]) => [name.toUpperCase(), code])
 );
 
-
 const ESPN_LOGO_CODES: Record<string, string> = {
   ATL: 'atl',
   BOS: 'bos',
@@ -129,83 +126,81 @@ const ESPN_LOGO_CODES: Record<string, string> = {
 };
 
 const STATUS_COLUMNS = [
-  {
-    key: 'PROBABLE',
-    label: 'Probable',
-    headerClass: 'text-green-500 bg-green-500/5',
-  },
-  {
-    key: 'QUESTIONABLE',
-    label: 'Questionable',
-    headerClass: 'text-yellow-500 bg-yellow-500/5',
-  },
-  {
-    key: 'DOUBTFUL',
-    label: 'Doubtful',
-    headerClass: 'text-orange-500 bg-orange-500/5',
-  },
-  {
-    key: 'OUT',
-    label: 'OUT',
-    headerClass: 'text-red-600 bg-red-600/5',
-  },
+  { key: 'PROBABLE', label: 'Probable', headerClass: 'text-green-400 bg-green-500/5 border-green-500/20' },
+  { key: 'QUESTIONABLE', label: 'Questionable', headerClass: 'text-yellow-300 bg-yellow-500/5 border-yellow-500/20' },
+  { key: 'DOUBTFUL', label: 'Doubtful', headerClass: 'text-orange-400 bg-orange-500/5 border-orange-500/20' },
+  { key: 'OUT', label: 'OUT', headerClass: 'text-red-400 bg-red-500/5 border-red-500/20' },
 ];
 
-function cleanTeamCode(team: string | null): string {
+function cleanTeamCode(team: string | null | undefined): string {
   const raw = String(team || 'UNK').trim();
-
   if (!raw) return 'UNK';
-
   const upper = raw.toUpperCase();
-
-  // nbainjuries suele traer nombres completos: "Oklahoma City Thunder"
-  if (FULL_TEAM_NAME_TO_CODE[upper]) {
-    return FULL_TEAM_NAME_TO_CODE[upper];
-  }
-
-  // Si ya viene como código: "OKC", "SAS", etc.
-  if (TEAM_NAMES[upper]) {
-    return upper;
-  }
-
+  if (FULL_TEAM_NAME_TO_CODE[upper]) return FULL_TEAM_NAME_TO_CODE[upper];
+  if (TEAM_NAMES[upper]) return upper;
   return upper;
 }
 
-function getTeamName(team: string | null): string {
+function getTeamName(team: string | null | undefined): string {
   const code = cleanTeamCode(team);
   return TEAM_NAMES[code] || String(team || code || 'Unknown Team');
 }
 
-function getTeamLogo(team: string | null): string {
+function getTeamLogo(team: string | null | undefined): string {
   const code = cleanTeamCode(team);
   const espnCode = ESPN_LOGO_CODES[code];
-
-  if (!espnCode) {
-    return 'https://a.espncdn.com/i/teamlogos/leagues/500/nba.png';
-  }
-
+  if (!espnCode) return 'https://a.espncdn.com/i/teamlogos/leagues/500/nba.png';
   return `https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/${espnCode}.png`;
 }
 
 function normalizeStatusForUi(status: string | null, fallback: string | null): string {
   const value = String(status || fallback || 'UNKNOWN').trim().toUpperCase();
-
   if (value.includes('OUT')) return 'OUT';
   if (value.includes('DOUBTFUL')) return 'DOUBTFUL';
   if (value.includes('QUESTIONABLE')) return 'QUESTIONABLE';
   if (value.includes('PROBABLE')) return 'PROBABLE';
   if (value.includes('AVAILABLE')) return 'AVAILABLE';
-
   return value || 'UNKNOWN';
 }
 
-function formatDateTime(value: Date | string | null | undefined): string {
+function ymdFromDate(date: Date): string {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return formatter.format(date);
+}
+
+function isYmd(value: unknown): value is string {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function addDaysYmd(ymd: string, days: number): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d + days, 12, 0, 0));
+  return date.toISOString().slice(0, 10);
+}
+
+function formatDateOnly(value: Date | string | null | undefined): string {
   if (!value) return 'Sin fecha';
-
+  const raw = String(value);
+  const ymd = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (ymd) return `${ymd[3]}/${ymd[2]}`;
   const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return raw;
+  return new Intl.DateTimeFormat('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    timeZone: 'America/Argentina/Buenos_Aires',
+  }).format(date);
+}
 
+function formatDateTime(value: Date | string | null | undefined): string {
+  if (!value) return 'Sin reporte cargado';
+  const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
-
   return new Intl.DateTimeFormat('es-AR', {
     dateStyle: 'short',
     timeStyle: 'short',
@@ -213,8 +208,42 @@ function formatDateTime(value: Date | string | null | undefined): string {
   }).format(date);
 }
 
-async function getLatestInjuriesFromDB() {
+async function getGameScopedInjuriesFromDB(baseDate: string) {
+  const nextDate = addDaysYmd(baseDate, 1);
+
   const rows = await prisma.$queryRaw<InjuryRow[]>`
+    WITH scoped AS (
+      SELECT
+        id,
+        source,
+        snapshot_key,
+        report_ts,
+        game_date,
+        game_time_et,
+        matchup,
+        team,
+        player_name_raw,
+        player_name,
+        current_status,
+        normalized_status,
+        severity,
+        reason,
+        ROW_NUMBER() OVER (
+          PARTITION BY
+            UPPER(COALESCE(team, '')),
+            LOWER(COALESCE(player_name, player_name_raw, '')),
+            UPPER(COALESCE(normalized_status, current_status, ''))
+          ORDER BY
+            report_ts DESC NULLS LAST,
+            severity DESC NULLS LAST,
+            id DESC
+        ) AS rn
+      FROM public.v_nba_injuries_latest
+      WHERE game_date::date BETWEEN ${baseDate}::date AND ${nextDate}::date
+        AND UPPER(COALESCE(normalized_status, current_status, '')) NOT LIKE '%AVAILABLE%'
+        AND UPPER(COALESCE(normalized_status, current_status, '')) NOT LIKE '%ACTIVE%'
+        AND UPPER(COALESCE(normalized_status, current_status, '')) <> 'UNKNOWN'
+    )
     SELECT
       id,
       source,
@@ -230,16 +259,18 @@ async function getLatestInjuriesFromDB() {
       normalized_status,
       severity,
       reason
-    FROM public.v_nba_injuries_latest
+    FROM scoped
+    WHERE rn = 1
     ORDER BY
-      severity DESC NULLS LAST,
+      game_date ASC NULLS LAST,
       team ASC NULLS LAST,
-      player_name ASC
+      severity DESC NULLS LAST,
+      player_name ASC NULLS LAST
   `;
 
   const snapshot = rows[0]
     ? {
-        source: rows[0].source,
+        source: rows[0].source || 'NBA_INJURIES',
         snapshotKey: rows[0].snapshot_key,
         reportTs: rows[0].report_ts,
       }
@@ -249,10 +280,9 @@ async function getLatestInjuriesFromDB() {
 
   for (const row of rows) {
     const teamCode = cleanTeamCode(row.team);
-    const normalizedStatus = normalizeStatusForUi(
-      row.normalized_status,
-      row.current_status
-    );
+    const normalizedStatus = normalizeStatusForUi(row.normalized_status, row.current_status);
+
+    if (!STATUS_COLUMNS.some((col) => col.key === normalizedStatus)) continue;
 
     if (!teamsMap.has(teamCode)) {
       teamsMap.set(teamCode, {
@@ -264,13 +294,11 @@ async function getLatestInjuriesFromDB() {
     }
 
     teamsMap.get(teamCode)!.injuries.push({
-      id: row.id,
-      athlete: {
-        shortName: row.player_name || row.player_name_raw,
-      },
+      id: String(row.id),
+      athlete: { shortName: row.player_name || row.player_name_raw || 'Sin nombre' },
       status: row.current_status || normalizedStatus,
       normalizedStatus,
-      severity: row.severity || 0,
+      severity: Number(row.severity || 0),
       comment: row.reason,
       matchup: row.matchup,
       gameDate: row.game_date,
@@ -280,78 +308,124 @@ async function getLatestInjuriesFromDB() {
 
   return {
     snapshot,
-    teams: Array.from(teamsMap.values()).sort((a, b) =>
-      a.displayName.localeCompare(b.displayName)
-    ),
+    teams: Array.from(teamsMap.values()).sort((a, b) => a.displayName.localeCompare(b.displayName)),
     count: rows.length,
+    baseDate,
+    nextDate,
   };
 }
 
-export default async function InjuriesPage() {
-  const { snapshot, teams, count } = await getLatestInjuriesFromDB();
+function StatusPill({ injury }: { injury: TeamGroup['injuries'][number] }) {
+  return (
+    <div className="group/item relative rounded-xl border border-white/5 bg-black/35 px-3 py-2 hover:border-emerald-400/30 transition-all">
+      <div className="text-[11px] font-black text-white leading-tight">
+        {injury.athlete.shortName}
+      </div>
+      <div className="mt-1 flex flex-wrap items-center gap-1 text-[8px] font-black uppercase tracking-widest text-slate-500">
+        {injury.matchup && <span>{injury.matchup}</span>}
+        {injury.gameDate && <span>{formatDateOnly(injury.gameDate)}</span>}
+        {injury.gameTimeEt && <span>{injury.gameTimeEt} ET</span>}
+      </div>
+
+      <div className="absolute bottom-full left-1/2 z-50 mb-2 hidden w-64 -translate-x-1/2 rounded-xl border border-emerald-400/20 bg-black p-3 text-center text-[10px] leading-relaxed text-white shadow-2xl group-hover/item:block">
+        <p className="mb-1 font-black uppercase text-red-400">{injury.status}</p>
+        <p className="text-slate-300">{injury.comment || 'Sin detalle adicional'}</p>
+      </div>
+    </div>
+  );
+}
+
+export default async function InjuriesPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ date?: string }> | { date?: string };
+}) {
+  const resolvedSearchParams = await searchParams;
+  const requestedDate = resolvedSearchParams?.date;
+  const baseDate = isYmd(requestedDate) ? requestedDate : ymdFromDate(new Date());
+  const { snapshot, teams, count, nextDate } = await getGameScopedInjuriesFromDB(baseDate);
 
   return (
     <main className="min-h-screen bg-[var(--bg)] text-[var(--text)] p-4 md:p-8 pb-20">
-      <div className="max-w-6xl mx-auto space-y-8">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-[var(--border)] pb-6">
+      <div className="mx-auto max-w-7xl space-y-7">
+        <div className="flex flex-col gap-4 border-b border-[var(--border)] pb-6 md:flex-row md:items-end md:justify-between">
           <div className="flex items-center gap-4">
-            <Link
-              href="/"
-              className="text-[var(--text-muted)] hover:text-[#10b981] transition-colors"
-            >
+            <Link href="/" className="text-[var(--text-muted)] hover:text-emerald-400 transition-colors">
               <ChevronLeft size={24} />
             </Link>
 
             <div>
-              <h1 className="text-3xl font-black italic uppercase tracking-tighter flex items-center gap-3">
+              <h1 className="flex items-center gap-3 text-3xl font-black italic uppercase tracking-tighter">
                 Injury <span className="text-red-500">Report</span> 🚑
               </h1>
-
-              <p className="text-[10px] uppercase tracking-widest font-bold text-[var(--text-muted)] mt-1">
-                Fuente: {snapshot?.source || 'nbainjuries'} · Filas: {count}
+              <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
+                Solo equipos con partido {formatDateOnly(baseDate)} / {formatDateOnly(nextDate)} · Filas: {count}
               </p>
             </div>
           </div>
 
-          <div className="flex flex-col md:items-end gap-2">
-            <span className="w-fit text-[9px] font-black uppercase text-red-500 bg-red-500/10 px-3 py-1 rounded-md border border-red-500/20 animate-pulse">
-              Latest Snapshot
+          <div className="flex flex-col gap-2 md:items-end">
+            <span className="w-fit rounded-md border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[9px] font-black uppercase text-emerald-400">
+              Game scoped snapshot
             </span>
-
-            <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest font-bold text-[var(--text-muted)]">
+            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
               <RefreshCw size={12} />
-              <span>
-                {snapshot ? formatDateTime(snapshot.reportTs) : 'Sin reporte cargado'}
+              <span>{snapshot ? formatDateTime(snapshot.reportTs) : 'Sin reporte para esas fechas'}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-emerald-500/15 bg-emerald-500/[0.03] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-emerald-300">
+              <CalendarDays size={14} />
+              Ventana activa
+            </div>
+            <div className="flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-widest">
+              <span className="rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1 text-emerald-300">
+                {baseDate}
               </span>
+              <span className="rounded-full border border-cyan-400/25 bg-cyan-400/10 px-3 py-1 text-cyan-300">
+                {nextDate}
+              </span>
+              <Link
+                href={`/injuries?date=${addDaysYmd(baseDate, -1)}`}
+                className="rounded-full border border-white/10 px-3 py-1 text-slate-400 hover:border-emerald-400/30 hover:text-emerald-300"
+              >
+                Día anterior
+              </Link>
+              <Link
+                href={`/injuries?date=${addDaysYmd(baseDate, 1)}`}
+                className="rounded-full border border-white/10 px-3 py-1 text-slate-400 hover:border-emerald-400/30 hover:text-emerald-300"
+              >
+                Día siguiente
+              </Link>
             </div>
           </div>
         </div>
 
         {teams.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 border border-dashed border-[var(--border)] rounded-3xl">
-            <p className="text-[var(--text-muted)] font-black uppercase tracking-widest text-sm">
-              Sin injury report cargado
+          <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-[var(--border)] py-20 text-center">
+            <p className="text-sm font-black uppercase tracking-widest text-[var(--text-muted)]">
+              Sin injury report para equipos con partido en esa ventana
             </p>
-
-            <p className="text-[var(--text-soft)] text-[10px] font-bold uppercase tracking-widest mt-2 text-center max-w-md">
-              Corré el sync de nbainjuries o revisá que exista la vista
-              public.v_nba_injuries_latest
+            <p className="mt-2 max-w-md text-[10px] font-bold uppercase tracking-widest text-[var(--text-soft)]">
+              La página ahora filtra solo lesiones asociadas a partidos de hoy o mañana. Si esperabas datos, revisá game_date en public.v_nba_injuries_latest.
             </p>
           </div>
         ) : (
           <div className="overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[850px]">
+              <table className="w-full min-w-[900px] border-collapse text-left">
                 <thead>
-                  <tr className="bg-[var(--surface-soft)] border-b border-[var(--border)]">
-                    <th className="p-5 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] w-64">
-                      Equipo
+                  <tr className="border-b border-[var(--border)] bg-[var(--surface-soft)]">
+                    <th className="w-72 p-5 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">
+                      Equipo / partido
                     </th>
-
                     {STATUS_COLUMNS.map((col) => (
                       <th
                         key={col.key}
-                        className={`p-4 text-[10px] font-black uppercase tracking-widest text-center border-x border-[var(--border)] ${col.headerClass}`}
+                        className={`border-x p-4 text-center text-[10px] font-black uppercase tracking-widest ${col.headerClass}`}
                       >
                         {col.label}
                       </th>
@@ -360,86 +434,46 @@ export default async function InjuriesPage() {
                 </thead>
 
                 <tbody>
-                  {teams.map((team) => (
-                    <tr
-                      key={team.id}
-                      className="border-b border-[var(--border)] hover:bg-[var(--surface-hover)] transition-colors group"
-                    >
-                      <td className="p-5 border-r border-[var(--border)] bg-[var(--surface)] align-top">
-                        <div className="flex items-center gap-3">
-                          <img
-                            src={team.logo}
-                            className="w-7 h-7 object-contain drop-shadow-lg"
-                            alt={team.displayName}
-                          />
-
-                          <div className="flex flex-col">
-                            <span className="font-black uppercase text-xs tracking-tighter group-hover:text-[#10b981] transition-colors">
-                              {team.displayName}
-                            </span>
-
-                            <span className="text-[9px] font-bold uppercase tracking-widest text-[var(--text-soft)]">
-                              {team.id}
-                            </span>
-                          </div>
-                        </div>
-                      </td>
-
-                      {STATUS_COLUMNS.map((col) => {
-                        const playersInCol = team.injuries.filter(
-                          (injury) => injury.normalizedStatus === col.key
-                        );
-
-                        return (
-                          <td
-                            key={col.key}
-                            className="p-3 text-center border-r border-[var(--border)] last:border-0 align-top"
-                          >
-                            <div className="flex flex-col gap-2">
-                              {playersInCol.length === 0 ? (
-                                <span className="text-[var(--text-soft)] text-[10px]">
-                                  —
+                  {teams.map((team) => {
+                    const firstGame = team.injuries[0];
+                    return (
+                      <tr key={team.id} className="group border-b border-[var(--border)] transition-colors hover:bg-[var(--surface-hover)]">
+                        <td className="border-r border-[var(--border)] bg-[var(--surface)] p-5 align-top">
+                          <div className="flex items-center gap-3">
+                            <img src={team.logo} className="h-8 w-8 object-contain drop-shadow-lg" alt={team.displayName} />
+                            <div className="flex flex-col">
+                              <span className="text-xs font-black uppercase tracking-tighter transition-colors group-hover:text-emerald-400">
+                                {team.displayName}
+                              </span>
+                              <span className="text-[9px] font-bold uppercase tracking-widest text-[var(--text-soft)]">
+                                {team.id}
+                              </span>
+                              {firstGame?.matchup && (
+                                <span className="mt-1 text-[9px] font-black uppercase tracking-widest text-cyan-300">
+                                  {firstGame.matchup} · {formatDateOnly(firstGame.gameDate)}
                                 </span>
-                              ) : (
-                                playersInCol.map((injury) => (
-                                  <div
-                                    key={`${team.id}-${injury.id}`}
-                                    className="group/item relative py-1 px-2 rounded-lg hover:bg-[var(--surface-hover)] transition-all"
-                                  >
-                                    <span className="text-[10px] font-bold text-[var(--text)] group-hover/item:text-[#10b981] cursor-default">
-                                      {injury.athlete.shortName}
-                                    </span>
-
-                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 hidden group-hover/item:block bg-[var(--surface)] border border-[var(--border-strong)] p-3 rounded-xl text-[9px] z-50 shadow-[0_10px_30px_rgba(0,0,0,0.18)] text-[var(--text)] text-center leading-relaxed">
-                                      <p className="font-black uppercase text-red-500 mb-1">
-                                        {injury.status}
-                                      </p>
-
-                                      <p className="text-[var(--text-muted)]">
-                                        {injury.comment || 'No detail'}
-                                      </p>
-
-                                      {injury.matchup && (
-                                        <p className="mt-2 text-[var(--text-soft)] uppercase font-bold">
-                                          {injury.matchup}
-                                        </p>
-                                      )}
-
-                                      {injury.gameTimeEt && (
-                                        <p className="mt-1 text-[var(--text-soft)] uppercase font-bold">
-                                          {injury.gameTimeEt} ET
-                                        </p>
-                                      )}
-                                    </div>
-                                  </div>
-                                ))
                               )}
                             </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
+                          </div>
+                        </td>
+
+                        {STATUS_COLUMNS.map((col) => {
+                          const playersInCol = team.injuries.filter((injury) => injury.normalizedStatus === col.key);
+                          return (
+                            <td key={col.key} className="border-r border-[var(--border)] p-3 align-top text-center last:border-0">
+                              <div className="flex flex-col gap-2">
+                                {playersInCol.length === 0 ? (
+                                  <span className="text-[10px] text-[var(--text-soft)]">—</span>
+                                ) : (
+                                  playersInCol.map((injury) => <StatusPill key={`${team.id}-${injury.id}`} injury={injury} />)
+                                )}
+                              </div>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

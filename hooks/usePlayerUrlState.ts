@@ -27,7 +27,37 @@ interface PlayerUrlState {
 }
 
 const VALID_SCOPES: SplitScope[] = ["FULL", "Q1", "H1", "H2_REG"];
-const VALID_N = [5, 10, 20];
+const VALID_N = [5, 10, 20, 30];
+const STAT_ALIASES: Record<string, string> = {
+  PTS: "pts",
+  REB: "reb",
+  AST: "ast",
+  PRA: "pts+reb+ast",
+  PR: "pts+reb",
+  PA: "pts+ast",
+  RA: "reb+ast",
+  "3PT": "fg3m",
+  "3PM": "fg3m",
+  "3PTM": "fg3m",
+  "3PA": "fg3a",
+  "3PTA": "fg3a",
+  FGM: "fgm",
+  FGA: "fga",
+  BLK: "blk",
+  BLOCKS: "blk",
+  STL: "stl",
+  STEALS: "stl",
+  "STL+BLK": "stl+blk",
+  STOCKS: "stl+blk",
+  PF: "pf",
+  FOULS: "pf",
+  USG: "usage_pct",
+  "USG%": "usage_pct",
+  USAGE: "usage_pct",
+  TOUCHES: "touches",
+  TO: "tov",
+  TOV: "tov",
+};
 
 function parseScope(raw: string | null, fallback: SplitScope): SplitScope {
   const upper = (raw ?? "").toUpperCase() as SplitScope;
@@ -44,10 +74,16 @@ function parseLine(raw: string | null, fallback: number): number {
   return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
+function normalizeStat(raw: string | null, fallback: string) {
+  const value = String(raw || fallback).trim();
+  const upper = value.toUpperCase();
+  return STAT_ALIASES[upper] || value.toLowerCase();
+}
+
 export function usePlayerUrlState({
   defaultStat = "pts",
   defaultLine = 18.5,
-  defaultN = 10,
+  defaultN = 30,
   defaultScope = "FULL",
 }: UsePlayerUrlStateOptions = {}): PlayerUrlState {
   const router = useRouter();
@@ -57,7 +93,7 @@ export function usePlayerUrlState({
 
   const hasLineParam = searchParams.has("line");
 
-  const activeStat = searchParams.get("stat") || defaultStat;
+  const activeStat = normalizeStat(searchParams.get("stat"), defaultStat);
   const lineValue = parseLine(searchParams.get("line"), defaultLine);
   const lastN = parseN(searchParams.get("n"), defaultN);
   const activeScope = parseScope(searchParams.get("scope"), defaultScope);
@@ -90,9 +126,9 @@ export function usePlayerUrlState({
 
   const setActiveStat = useCallback(
     (v: string) => {
-      updateParams({ stat: v, line: null });
+      updateParams({ stat: normalizeStat(v, defaultStat), line: null });
     },
-    [updateParams]
+    [updateParams, defaultStat]
   );
 
   const setLineValue = useCallback(

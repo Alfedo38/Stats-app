@@ -1,0 +1,51 @@
+/* MOSKPROPS — Player page visual polish v4 */
+
+.mp-range {
+  border-radius: 999px;
+  outline: none;
+}
+
+.mp-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: #050505;
+  border: 2px solid currentColor;
+  box-shadow: 0 0 0 4px rgba(16,185,129,0.12), 0 0 18px rgba(16,185,129,0.35);
+}
+
+.mp-range::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: #050505;
+  border: 2px solid currentColor;
+  box-shadow: 0 0 0 4px rgba(16,185,129,0.12), 0 0 18px rgba(16,185,129,0.35);
+}
+
+.mp-neon-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(16,185,129,0.75) transparent;
+}
+
+.mp-neon-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.mp-neon-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.mp-neon-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #10b981, #22d3ee);
+  border-radius: 999px;
+}
+
+@media (min-width: 768px) {
+  .sidebar-compact-shadow {
+    box-shadow: 16px 0 55px rgba(0,0,0,0.22);
+  }
+}

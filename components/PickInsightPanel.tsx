@@ -9,6 +9,7 @@ import {
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
+import { getMinutesValue } from "@/lib/playerUtils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -25,30 +26,6 @@ type PickInsightPanelProps = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function getMinutesValue(raw: any): number | null {
-  const value =
-    raw?.min ??
-    raw?.minutes ??
-    raw?.mins ??
-    raw?.minutos ??
-    raw?.minutes_played ??
-    raw?.mp ??
-    null;
-
-  if (value === null || value === undefined || value === "") return null;
-
-  if (typeof value === "string") {
-    if (value.includes(":")) {
-      const m = Number(value.split(":")[0]);
-      return Number.isNaN(m) ? null : m;
-    }
-    const parsed = Number(value.replace("m", ""));
-    return Number.isNaN(parsed) ? null : parsed;
-  }
-
-  const parsed = Number(value);
-  return Number.isNaN(parsed) ? null : parsed;
-}
 
 function median(values: number[]) {
   if (!values.length) return 0;

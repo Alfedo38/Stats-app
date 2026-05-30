@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Mantener en true hasta terminar la limpieza TypeScript global del proyecto.
+  // Cuando `npm run build` no muestre errores de tipos, cambiar ambos a false.
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -11,6 +13,10 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: 'www.thesportsdb.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'a.espncdn.com',
       },
     ],
   },

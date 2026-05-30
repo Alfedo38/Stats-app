@@ -179,6 +179,8 @@ function buildOddRows(stakeOdds: StakeOdd[] | undefined, values: number[], statI
         total: cleanValues.length,
         rate,
         isCurrent: Math.abs(line - currentLine) < 0.001,
+        // La misma línea puede venir repetida por book/source o por snapshots cercanos.
+        // No usamos esto como React key final porque puede duplicarse.
         normalizedKey: `${formatLineValue(line, statId)}-${odd.prop_type}`,
       };
     })
@@ -210,14 +212,14 @@ function StakeOddsRows({
       </div>
 
       <div className={rows.length > 3 ? "space-y-2 max-h-[360px] overflow-y-auto pr-1" : "space-y-2"}>
-        {rows.map((odd) => {
+        {rows.map((odd, index) => {
           const overBE = getBreakEven(odd.over_price);
           const underBE = getBreakEven(odd.under_price);
 
           return (
             <button
               type="button"
-              key={odd.normalizedKey}
+              key={`${odd.normalizedKey}-${odd.book || "stake"}-${odd.source || "src"}-${odd.over_price ?? "noO"}-${odd.under_price ?? "noU"}-${index}`}
               onClick={() => onSelectLine(odd.line)}
               className={`w-full text-left rounded-2xl border p-3 transition-all ${
                 odd.isCurrent

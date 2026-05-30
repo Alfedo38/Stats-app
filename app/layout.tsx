@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter, Oswald } from 'next/font/google';
 import './globals.css';
+import './player-page-polish.css';
 import Sidebar from '@/components/Sidebar';
 import Footer from '@/components/Footer';
 
@@ -51,7 +52,7 @@ export default function RootLayout({
         <Sidebar />
 
         <div
-          className="flex-1 md:pl-64 min-h-screen flex flex-col"
+          className="flex-1 md:pl-[72px] min-h-screen flex flex-col"
           style={{ paddingTop: 'var(--topbar-height, 0px)' }}
         >
           <div className="md:pt-0 flex-grow">

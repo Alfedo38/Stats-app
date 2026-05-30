@@ -221,6 +221,7 @@ model nba_injuries {
   id           Int      @id @default(autoincrement())
   fetch_date   String   // "2026-05-14" — día del reporte
   team_id      String
+  team_abbreviation String?
   team_name    String
   team_logo    String
   player_id    String
@@ -231,4 +232,5 @@ model nba_injuries {
 
   @@index([fetch_date])
   @@index([fetch_date, team_id])
+  @@index([fetch_date, team_abbreviation])
 }

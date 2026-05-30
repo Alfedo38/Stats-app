@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useMemo, useRef, useState } from "react";
+import { formatDateOnly, formatMinutes, formatNumber, getDateSortValue, getMinutesValue } from "@/lib/formatters";
 import {
   Bar,
   CartesianGrid,
@@ -8,447 +10,406 @@ import {
   LabelList,
   Line,
   ReferenceLine,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
 
-// ─── Helpers ───────────────────────────────────────────────────────────────────
+type PlayerChartProps = {
+  data: any[];
+  statKey?: string;
+  lineValue: number;
+  overlayKey?: string | null;
+  overlayLabel?: string;
+  overlayColor?: string;
+  overlayRatioLabel?: string;
+  side?: "over" | "under";
+};
 
-function getStatDisplay(value: any, isPercentage?: boolean) {
-  const n = Number(value) || 0;
-  const formatted = Number.isInteger(n) ? String(n) : n.toFixed(1);
-  return isPercentage ? `${formatted}%` : formatted;
+const CHART_HEIGHT = 490;
+const FALLBACK_WIDTH = 900;
+const OVER_COLOR = "#10b981";
+const UNDER_COLOR = "#ef4444";
+const PUSH_COLOR = "#f59e0b";
+
+function formatDate(value: any, withYear = false) {
+  return formatDateOnly(value, { year: withYear });
 }
 
-function getMinutesValue(raw: any) {
-  const value =
-    raw?.min ?? raw?.minutes ?? raw?.mins ?? raw?.minutos ??
-    raw?.minutes_played ?? raw?.mp ?? null;
-  if (value === null || value === undefined || value === "") return null;
-  if (typeof value === "string") {
-    if (value.includes(":")) {
-      const m = Number(value.split(":")[0]);
-      return Number.isNaN(m) ? null : m;
-    }
-    const parsed = Number(value.replace("m", ""));
-    return Number.isNaN(parsed) ? null : parsed;
-  }
-  const parsed = Number(value);
-  return Number.isNaN(parsed) ? null : parsed;
+function getOpponent(row: any) {
+  const direct =
+    row.opponent_clean ||
+    row.opponent ||
+    row.opp ||
+    row.opponent_abbr ||
+    row.matchup_opponent ||
+    row.opponent_team ||
+    row.vs_team ||
+    row.team_abbreviation_opp;
+
+  if (direct) return String(direct).toUpperCase();
+
+  const matchup = String(row.matchup || "");
+  const parts = matchup.match(/([A-Z]{2,3})\s*(?:@|vs\.?|VS)\s*([A-Z]{2,3})/i);
+  if (parts) return parts[2]?.toUpperCase() || "S/D";
+
+  return "S/D";
 }
 
-function getMinutesLabel(raw: any) {
-  const m = getMinutesValue(raw);
-  if (m === null) return "S/D";
-  return `${Math.round(m)}m`;
+function getGameResult(row: any) {
+  const raw = row.game_result ?? row.wl ?? row.result ?? row.outcome ?? null;
+  if (!raw) return null;
+  const s = String(raw).trim().toUpperCase();
+  if (s === "W" || s === "WIN") return "W";
+  if (s === "L" || s === "LOSS") return "L";
+  return s.slice(0, 1);
 }
 
-function getOpponent(item: any) {
-  const parts = item?.matchup ? String(item.matchup).trim().split(" ") : [];
-  return parts.length > 0 ? parts[parts.length - 1] : "---";
+function getMinutes(row: any) {
+  const value = getMinutesValue(row);
+  return formatMinutes(value);
 }
 
-function getGameLocation(item: any) {
-  return item?.matchup?.includes("@") ? "@" : "vs";
+function getBarState(value: number, line: number, side: "over" | "under" = "over") {
+  if (!Number.isFinite(value) || !Number.isFinite(line)) return "neutral";
+  if (Math.abs(value - line) < 0.0001) return "push";
+  const isHit = side === "under" ? value < line : value > line;
+  return isHit ? "over" : "under";
 }
 
-function formatRatio(actual: number, opportunity: number | null) {
-  if (!opportunity || opportunity <= 0) return "S/D";
-  return `${Math.round((actual / opportunity) * 100)}%`;
-}
-
-// ─── Custom Tooltip ───────────────────────────────────────────────────────────
-
-const CustomTooltip = ({ active, payload }: any) => {
+function CustomTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null;
-  const data = payload[0]?.payload;
-  if (!data) return null;
 
-  const dateObj   = new Date(data.game_date);
-  const shortDate = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  const oppTeam   = getOpponent(data);
-  const logoId    = oppTeam.toLowerCase();
-  const actual    = Number(data.value) || 0;
-  const display   = getStatDisplay(actual, data.is_percentage);
-  const location  = getGameLocation(data);
-  const isOver    = actual >= (data.lineValue ?? 0);
-  const opportunity = data.__opportunity === null || data.__opportunity === undefined
-    ? null : Number(data.__opportunity);
+  // Cuando hay overlay punteado, Recharts puede poner primero la línea y no la barra.
+  // Forzamos a leer siempre el payload de la barra principal.
+  const barPayload =
+    payload.find((p: any) => p?.dataKey === "value") ?? payload[0];
 
-  // W/L badge
-  const wl = data.game_result; // "W" | "L" | null — if available in your data
+  const row = barPayload?.payload;
+  if (!row) return null;
+
+  const value = Number(row.value);
+  const line = Number(row.lineValue);
+  const side = row._chartSide === "under" ? "under" : "over";
+  const state = getBarState(value, line, side);
+  const color = state === "over" ? OVER_COLOR : state === "under" ? UNDER_COLOR : PUSH_COLOR;
 
   return (
-    <div className="bg-[var(--surface)] border border-[var(--border)] p-4 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.8)] flex flex-col gap-3 min-w-[220px]">
-      <div className="flex justify-between items-center border-b border-[var(--border)] pb-2">
-        <span className="text-[var(--text-muted)] text-[9px] font-black uppercase tracking-widest">
-          {shortDate}
-        </span>
-        <div className="flex items-center gap-2">
-          {wl && (
-            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded border ${
-              wl === "W"
-                ? "text-[#10b981] border-[#10b981]/30 bg-[#10b981]/10"
-                : "text-red-400 border-red-500/30 bg-red-500/10"
-            }`}>
-              {wl}
-            </span>
-          )}
-          <span className={`text-[9px] font-black uppercase tracking-widest ${isOver ? "text-[#10b981]" : "text-red-400"}`}>
-            {isOver ? "Over" : "Under"}
+    <div className="rounded-2xl border border-[#10b981]/25 bg-black/95 p-3 shadow-2xl shadow-[#10b981]/10 backdrop-blur-xl">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-[10px] font-black uppercase tracking-widest text-cyan-300">
+          {formatDate(row.game_date)} · vs {getOpponent(row)}
+        </div>
+        {getGameResult(row) && (
+          <span className={`rounded-lg border px-2 py-0.5 text-[9px] font-black ${getGameResult(row) === "W" ? "border-[#10b981]/40 text-[#10b981] bg-[#10b981]/10" : "border-red-500/40 text-red-400 bg-red-500/10"}`}>
+            {getGameResult(row)}
           </span>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <span className="text-[var(--text-muted)] text-xs font-bold italic uppercase">{location}</span>
-          <img
-            src={`https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/${logoId}.png`}
-            alt={oppTeam}
-            className="w-7 h-7 object-contain drop-shadow-md"
-            onError={(e) => { e.currentTarget.src = "https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/nba.png"; }}
-          />
-          <span className="text-[var(--text)] font-black text-sm uppercase">{oppTeam}</span>
-        </div>
-        <span className={`font-black text-3xl tabular-nums leading-none ${isOver ? "text-[#10b981]" : "text-red-400"}`}>
-          {display}
-        </span>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[var(--border)]">
-        <div>
-          <p className="text-[8px] text-[var(--text-muted)] uppercase font-black tracking-widest">Minutos</p>
-          <p className="text-[var(--text)] text-sm font-black">{getMinutesLabel(data)}</p>
-        </div>
-        <div>
-          <p className="text-[8px] text-[var(--text-muted)] uppercase font-black tracking-widest">Línea</p>
-          <p className="text-[var(--text)] text-sm font-black tabular-nums">{data.lineValue ?? "-"}</p>
-        </div>
-        {opportunity !== null && Number.isFinite(opportunity) && opportunity > 0 && (
-          <>
-            <div>
-              <p className="text-[8px] text-[var(--text-muted)] uppercase font-black tracking-widest">
-                {data.__opportunityLabel ?? "Oportunidad"}
-              </p>
-              <p className="text-sm font-black tabular-nums" style={{ color: data.__opportunityColor ?? "#60a5fa" }}>
-                {getStatDisplay(opportunity)}
-              </p>
-            </div>
-            <div>
-              <p className="text-[8px] text-[var(--text-muted)] uppercase font-black tracking-widest">
-                {data.__ratioLabel ?? "Ratio"}
-              </p>
-              <p className="text-[var(--text)] text-sm font-black tabular-nums">
-                {formatRatio(actual, opportunity)}
-              </p>
-            </div>
-          </>
         )}
       </div>
+
+      <div className="mt-2 flex items-end gap-2">
+        <div className="text-4xl font-black tabular-nums" style={{ color }}>
+          {Number.isFinite(value) ? formatNumber(value, 1) : "S/D"}
+        </div>
+        <div className="mb-1 rounded-lg border px-2 py-1 text-[9px] font-black uppercase tracking-widest" style={{ borderColor: `${color}66`, color }}>
+          {state === "over" ? "Hit" : state === "under" ? "Miss" : "Push"}
+        </div>
+      </div>
+
+      <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] font-bold text-[var(--text-muted)]">
+        <div className="rounded-lg bg-white/[0.03] px-2 py-1">Línea: <span className="text-white">{Number.isFinite(line) ? line : "S/D"}</span></div>
+        <div className="rounded-lg bg-white/[0.03] px-2 py-1">MIN: <span className="text-white">{getMinutes(row)}</span></div>
+      </div>
+
+      {Number.isFinite(Number(row._overlayValue)) && row._overlayLabel && (
+        <div className="mt-2 rounded-lg border border-cyan-400/25 bg-cyan-400/10 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-cyan-300">
+          {row._overlayLabel}: {formatNumber(row._overlayValue, 1)}
+        </div>
+      )}
     </div>
   );
-};
+}
 
-// ─── X Axis tick — date / rival / minutes / W-L ───────────────────────────────
+function ValueLabel(props: any) {
+  const { x, y, width, value } = props;
+  const n = Number(value);
 
-const makeXAxisTick = (dataArray: any[]) => {
-  const CustomXAxisTick = ({ x, y, index }: any) => {
-    const item = dataArray[index];
-    if (!item) return null;
-
-    const dateObj   = new Date(item.game_date);
-    const shortDate = `${dateObj.getMonth() + 1}/${dateObj.getDate()}`;
-    const oppPrefix = getGameLocation(item);
-    const oppTeam   = getOpponent(item);
-    const wl        = item.game_result as string | undefined; // "W" | "L" if in data
-
-    return (
-      <g transform={`translate(${x},${y})`}>
-        {/* Date */}
-        <text x={0} y={16} textAnchor="middle" fill="#38bdf8" fontSize={13} fontWeight={900}>
-          {shortDate}
-        </text>
-
-        {/* Opponent */}
-        <text x={0} y={34} textAnchor="middle" fill="#d1d5db" fontSize={11} fontWeight={900} className="uppercase">
-          {oppPrefix} {oppTeam}
-        </text>
-
-        {/* Minutes */}
-        <text x={0} y={52} textAnchor="middle" fill="#10b981" fontSize={11} fontWeight={900} className="uppercase">
-          {getMinutesLabel(item)}
-        </text>
-
-        {/* W/L — only rendered if game_result exists in your data */}
-        {wl && (
-          <text
-            x={0}
-            y={68}
-            textAnchor="middle"
-            fill={wl === "W" ? "#10b981" : "#f87171"}
-            fontSize={10}
-            fontWeight={900}
-          >
-            {wl}
-          </text>
-        )}
-      </g>
-    );
-  };
-  return CustomXAxisTick;
-};
-
-// ─── Bar value label ──────────────────────────────────────────────────────────
-
-const ValueLabel = (props: any) => {
-  const { x, y, width, height, value, payload } = props;
-  const label  = getStatDisplay(value, payload?.is_percentage);
-  const inside = height > 26;
+  if (!Number.isFinite(n)) return null;
 
   return (
     <text
       x={x + width / 2}
-      y={inside ? y + 20 : y - 8}
+      y={y - 8}
       textAnchor="middle"
-      fill={inside ? "#050505" : "#ffffff"}
-      fontSize={13}
-      fontWeight={950}
-      className="tabular-nums"
-      paintOrder="stroke"
-      stroke={inside ? "rgba(255,255,255,0.18)" : "rgba(0,0,0,0.85)"}
-      strokeWidth={inside ? 0.5 : 2.5}
+      fill="var(--text)"
+      fontSize={10}
+      fontWeight={900}
     >
-      {label}
+      {Number.isInteger(n) ? n : n.toFixed(1)}
     </text>
   );
-};
+}
 
-// ─── Overlay (opportunity) label ──────────────────────────────────────────────
-
-const OpportunityLabel = (props: any) => {
+function OverlayPointLabel(props: any) {
   const { x, y, value, payload } = props;
   const n = Number(value);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  const color = payload?.__opportunityColor ?? "#60a5fa";
-  return (
-    <text
-      x={x}
-      y={y - 12}
-      textAnchor="middle"
-      fill={color}
-      fontSize={10}
-      fontWeight={950}
-      className="tabular-nums"
-      paintOrder="stroke"
-      stroke="rgba(0,0,0,0.9)"
-      strokeWidth={3}
-    >
-      {getStatDisplay(n)}
-    </text>
-  );
-};
-
-// ─── Floating stake line label ────────────────────────────────────────────────
-// Recharts ReferenceLine label rendered as a custom SVG element
-
-const StakeLineLabel = ({ viewBox, lineValue, isPercentage }: any) => {
-  if (!viewBox) return null;
-  const { x, y, width } = viewBox;
-  const label = isPercentage ? `${lineValue}%` : String(lineValue);
-  const px    = (x ?? 0) + (width ?? 0) - 4;
+  if (!Number.isFinite(n) || payload?._hideOverlayLabel) return null;
+  const label = formatNumber(n, 1);
 
   return (
     <g>
-      {/* Pill background */}
-      <rect
-        x={px - label.length * 5.5 - 8}
-        y={y - 11}
-        width={label.length * 5.5 + 16}
-        height={18}
-        rx={9}
-        fill="#10b981"
-      />
+      <circle cx={x} cy={y - 16} r={11} fill="#020617" stroke={payload?._overlayColor || "#22d3ee"} strokeWidth={1.5} />
       <text
-        x={px - label.length * 5.5 / 2}
-        y={y + 3}
+        x={x}
+        y={y - 12}
         textAnchor="middle"
-        fill="#000"
-        fontSize={10}
+        fill={payload?._overlayColor || "#22d3ee"}
+        fontSize={8}
         fontWeight={900}
       >
         {label}
       </text>
     </g>
   );
-};
-
-// ─── Main component ───────────────────────────────────────────────────────────
+}
 
 export default function PlayerChart({
   data,
-  statKey = "pts",
-  lineValue = 24.5,
+  statKey = "value",
+  lineValue,
   overlayKey,
   overlayLabel,
-  overlayColor = "#60a5fa",
-  overlayRatioLabel = "Ratio",
-}: {
-  data: any[];
-  statKey?: string;
-  lineValue?: number;
-  overlayKey?: string;
-  overlayLabel?: string;
-  overlayColor?: string;
-  overlayRatioLabel?: string;
-}) {
-  if (!data || data.length === 0) {
+  overlayColor = "#22d3ee",
+  overlayRatioLabel,
+  side = "over",
+}: PlayerChartProps) {
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const [chartWidth, setChartWidth] = useState(FALLBACK_WIDTH);
+
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+
+    const measure = () => {
+      const rect = el.getBoundingClientRect();
+      const width = Math.floor(rect.width || el.clientWidth || FALLBACK_WIDTH);
+      setChartWidth(Math.max(320, width));
+    };
+
+    measure();
+
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    window.addEventListener("resize", measure);
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, []);
+
+  const chartData = useMemo(() => {
+    return Array.isArray(data)
+      ? data
+          .map((row) => {
+            const rawValue = Number(row?.[statKey] ?? row?.value);
+            const rawOverlay = overlayKey ? Number(row?.[overlayKey]) : NaN;
+            const value = Number.isFinite(rawValue) ? rawValue : 0;
+            const result = getGameResult(row);
+            const opp = getOpponent(row);
+
+            return {
+              ...row,
+              value,
+              lineValue,
+              _chartSide: side,
+              _xLabel: `${opp}${result ? ` · ${result}` : ""}`,
+              _barState: getBarState(value, lineValue, side),
+              _overlayValue: Number.isFinite(rawOverlay) ? rawOverlay : null,
+              _overlayLabel: overlayLabel || overlayRatioLabel || overlayKey || "",
+              _overlayColor: overlayColor,
+              _hideOverlayLabel: false,
+            };
+          })
+          .sort((a, b) => getDateSortValue(a.game_date) - getDateSortValue(b.game_date))
+          .map((row, index, arr) => {
+            const gameId = row.game_id ?? row.game_key ?? row.game_date ?? "game";
+            const dateKey = row.game_date ?? row.date ?? "sin-fecha";
+            const uniqueOpponents = new Set(arr.map((r) => getOpponent(r)).filter(Boolean));
+            const repeatedOpponentView = uniqueOpponents.size <= 1;
+            const result = getGameResult(row);
+            const dateLabel = formatDate(row.game_date);
+            const opponentLabel = getOpponent(row);
+            const compactLabel = repeatedOpponentView
+              ? dateLabel
+              : `${dateLabel} · ${opponentLabel}${result ? ` ${result}` : ""}`;
+
+            return {
+              ...row,
+              // Clave única para Recharts. Si filtrás VS OKC, el label OKC se repite muchas veces;
+              // usar el rival como dataKey rompe el hover/tooltip y puede mostrar otra fila o 0.
+              _xKey: `${dateKey}-${gameId}-${index}`,
+              xLabel: compactLabel,
+              _xLabel: compactLabel,
+              _hideOverlayLabel: arr.length > 30 || (arr.length > 18 && index % 2 !== 0),
+            };
+          })
+      : [];
+  }, [data, statKey, lineValue, overlayKey, overlayLabel, overlayRatioLabel, side]);
+
+  const labelByXKey = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const row of chartData) {
+      map.set(String(row._xKey), String(row._xLabel ?? row.xLabel ?? ""));
+    }
+    return map;
+  }, [chartData]);
+
+  const hasRows = chartData.length > 0;
+  const hasRealValues = chartData.some((row) => Number(row.value) > 0);
+  const hasOverlay =
+    Boolean(overlayKey) &&
+    chartData.some((row) => Number.isFinite(Number(row._overlayValue)) && Number(row._overlayValue) > 0);
+
+  if (!hasRows) {
     return (
-      <div className="text-[var(--text-muted)] text-center flex flex-col items-center justify-center h-full gap-2">
-        <span className="font-bold uppercase tracking-widest text-xs">Sin datos recientes</span>
+      <div className="flex h-[470px] w-full min-w-0 items-center justify-center rounded-2xl border border-dashed border-red-500/40 bg-red-500/5 p-6 text-center">
+        <div>
+          <p className="text-sm font-black uppercase tracking-widest text-red-400">
+            Sin datos para graficar
+          </p>
+          <p className="mt-2 text-xs font-bold text-[var(--text-muted)]">
+            El gráfico recibió data vacía.
+          </p>
+        </div>
       </div>
     );
   }
 
-  const isPercentage = Boolean(data[0]?.is_percentage);
-
-  const sortedData = [...data]
-    .map((item) => ({ ...item, lineValue }))
-    .sort((a, b) => new Date(a.game_date).getTime() - new Date(b.game_date).getTime());
-
-  const hasOverlay = Boolean(
-    overlayKey &&
-    sortedData.some((item) => {
-      const n = Number(item?.[overlayKey]);
-      return Number.isFinite(n) && n > 0;
-    })
-  );
-
-  const chartData = sortedData.map((item) => {
-    const opportunity = hasOverlay && overlayKey ? Number(item?.[overlayKey]) : null;
-    return {
-      ...item,
-      __opportunity:
-        opportunity !== null && Number.isFinite(opportunity) && opportunity > 0
-          ? opportunity
-          : null,
-      __opportunityLabel: overlayLabel,
-      __opportunityColor: overlayColor,
-      __ratioLabel: overlayRatioLabel,
-    };
-  });
-
-  // Extra bottom margin if W/L data exists (adds a 4th row in x tick)
-  const hasWL     = chartData.some((d) => d.game_result);
-  const bottomMgn = hasWL ? 82 : 66;
-
-  const XAxisTick = makeXAxisTick(chartData);
+  if (!hasRealValues) {
+    return (
+      <div className="flex h-[470px] w-full min-w-0 items-center justify-center rounded-2xl border border-dashed border-yellow-500/40 bg-yellow-500/5 p-6 text-center">
+        <div>
+          <p className="text-sm font-black uppercase tracking-widest text-yellow-400">
+            Hay {chartData.length} partidos, pero la métrica vale 0
+          </p>
+          <p className="mt-2 text-xs font-bold text-[var(--text-muted)]">
+            La columna <code>{statKey}</code> llegó sin valores útiles.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="w-full h-[430px] relative">
-      {hasOverlay && (
-        <div className="absolute left-3 top-1 z-10 flex items-center gap-2 rounded-full border border-[#1f2937] bg-[var(--bg)]/70 px-3 py-1.5 backdrop-blur-sm">
-          <span
-            className="w-2 h-2 rounded-full shadow-[0_0_10px_currentColor]"
-            style={{ backgroundColor: overlayColor, color: overlayColor }}
-          />
-          <span className="text-[9px] text-[#9ca3af] font-black uppercase tracking-[0.18em]">
-            {overlayLabel}
-          </span>
-        </div>
-      )}
+    <div
+      ref={wrapRef}
+      className="w-full min-w-0 overflow-hidden relative"
+      style={{ height: CHART_HEIGHT, minHeight: CHART_HEIGHT }}
+    >
+      <ComposedChart
+        width={chartWidth}
+        height={CHART_HEIGHT}
+        data={chartData}
+        margin={{ top: 42, right: 34, left: -10, bottom: 62 }}
+      >
+        <defs>
+          <linearGradient id="mp-bar-over" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#34d399" stopOpacity="1" />
+            <stop offset="100%" stopColor="#047857" stopOpacity="0.88" />
+          </linearGradient>
+          <linearGradient id="mp-bar-under" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#fb7185" stopOpacity="1" />
+            <stop offset="100%" stopColor="#b91c1c" stopOpacity="0.88" />
+          </linearGradient>
+          <linearGradient id="mp-bar-push" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#fbbf24" stopOpacity="1" />
+            <stop offset="100%" stopColor="#b45309" stopOpacity="0.88" />
+          </linearGradient>
+          <linearGradient id="mp-grid-glow" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#10b981" stopOpacity="0.18" />
+            <stop offset="50%" stopColor="#22d3ee" stopOpacity="0.08" />
+            <stop offset="100%" stopColor="#a855f7" stopOpacity="0.12" />
+          </linearGradient>
+        </defs>
 
-      <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart
-          data={chartData}
-          margin={{ top: hasOverlay ? 46 : 34, right: 48, left: -20, bottom: bottomMgn }}
+        <CartesianGrid vertical={false} stroke="url(#mp-grid-glow)" strokeDasharray="4 6" />
+
+        <XAxis
+          dataKey="_xKey"
+          interval={chartData.length > 14 ? 1 : 0}
+          angle={chartData.length > 14 ? -35 : 0}
+          textAnchor={chartData.length > 14 ? "end" : "middle"}
+          height={chartData.length > 14 ? 74 : 46}
+          tickFormatter={(value) => labelByXKey.get(String(value)) ?? ""}
+          tick={{ fill: "#67e8f9", fontSize: 10, fontWeight: 900 }}
+          axisLine={{ stroke: "rgba(16,185,129,0.35)" }}
+          tickLine={false}
+        />
+
+        <YAxis
+          yAxisId="left"
+          tick={{ fill: "#34d399", fontSize: 10, fontWeight: 900 }}
+          axisLine={false}
+          tickLine={false}
+          allowDecimals={false}
+          domain={[0, "dataMax + 5"]}
+        />
+
+        <Tooltip content={<CustomTooltip />} />
+
+        <ReferenceLine
+          yAxisId="left"
+          y={lineValue}
+          stroke="#f8fafc"
+          strokeWidth={2.5}
+          strokeDasharray="7 5"
+          label={{
+            value: `Línea ${lineValue}`,
+            position: "right",
+            fill: "#10b981",
+            fontSize: 11,
+            fontWeight: 900,
+          }}
+        />
+
+        <Bar
+          yAxisId="left"
+          dataKey="value"
+          radius={[10, 10, 2, 2]}
+          maxBarSize={64}
+          minPointSize={4}
+          isAnimationActive={false}
         >
-          <defs>
-            <linearGradient id="neonGreen" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%"   stopColor="#34d399" stopOpacity={1}    />
-              <stop offset="100%" stopColor="#059669" stopOpacity={0.3}  />
-            </linearGradient>
-            <linearGradient id="neonRed" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%"   stopColor="#f87171" stopOpacity={1}    />
-              <stop offset="100%" stopColor="#dc2626" stopOpacity={0.3}  />
-            </linearGradient>
-          </defs>
+          <LabelList content={<ValueLabel />} />
+          {chartData.map((row, index) => (
+            <Cell
+              key={`bar-${row.game_id || row.game_date || index}`}
+              fill={row._barState === "over" ? "url(#mp-bar-over)" : row._barState === "under" ? "url(#mp-bar-under)" : "url(#mp-bar-push)"}
+              stroke={row._barState === "over" ? "#6ee7b7" : row._barState === "under" ? "#fca5a5" : "#fde68a"}
+              strokeWidth={1}
+            />
+          ))}
+        </Bar>
 
-          <CartesianGrid vertical={false} stroke="#111" opacity={0.35} />
-
-          <XAxis
-            dataKey="game_date"
-            tick={<XAxisTick />}
-            axisLine={false}
-            tickLine={false}
-            interval={0}
-          />
-
-          <YAxis
-            tick={{ fill: "#444", fontSize: 10, fontWeight: 900 }}
-            axisLine={false}
-            tickLine={false}
-            dx={-10}
-            tickFormatter={(v) => isPercentage ? `${v}%` : v}
-          />
-
-          <Tooltip
-            content={<CustomTooltip />}
-            cursor={{ fill: "#ffffff", opacity: 0.04 }}
-          />
-
-          {/* ── Stake line — white dashed + green floating label ───────────── */}
-          <ReferenceLine
-            y={lineValue}
-            stroke="rgba(255,255,255,0.55)"
-            strokeDasharray="6 4"
-            strokeWidth={1.5}
-            label={
-              <StakeLineLabel
-                lineValue={isPercentage ? `${lineValue}%` : lineValue}
-                isPercentage={isPercentage}
-              />
-            }
-          />
-
-          {/* ── Bars — wider, more rounded ─────────────────────────────────── */}
-          <Bar
-            dataKey={statKey}
-            radius={[8, 8, 0, 0]}
-            maxBarSize={56}
+        {hasOverlay && (
+          <Line
+            yAxisId="left"
+            type="monotone"
+            dataKey="_overlayValue"
+            name={overlayLabel || overlayKey || "Potencial"}
+            stroke={overlayColor}
+            strokeWidth={2.5}
+            strokeDasharray="7 5"
+            dot={{ r: 3, strokeWidth: 2, fill: "#050505", stroke: overlayColor }}
+            activeDot={{ r: 5 }}
+            connectNulls
             isAnimationActive={false}
           >
-            <LabelList content={<ValueLabel />} />
-            {chartData.map((entry, index) => {
-              const val = Number(entry[statKey]) || 0;
-              return (
-                <Cell
-                  key={`cell-${index}`}
-                  fill={val >= lineValue ? "url(#neonGreen)" : "url(#neonRed)"}
-                />
-              );
-            })}
-          </Bar>
-
-          {hasOverlay && (
-            <Line
-              type="monotone"
-              dataKey="__opportunity"
-              stroke={overlayColor}
-              strokeWidth={2.5}
-              strokeDasharray="5 5"
-              dot={{ r: 4, fill: "#050505", stroke: overlayColor, strokeWidth: 2 }}
-              activeDot={{ r: 6, fill: overlayColor, stroke: "#050505", strokeWidth: 2 }}
-              connectNulls={false}
-              isAnimationActive={false}
-            >
-              <LabelList content={<OpportunityLabel />} />
-            </Line>
-          )}
-        </ComposedChart>
-      </ResponsiveContainer>
+            <LabelList dataKey="_overlayValue" content={<OverlayPointLabel />} />
+          </Line>
+        )}
+      </ComposedChart>
     </div>
   );
 }

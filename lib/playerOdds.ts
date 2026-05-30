@@ -1,4 +1,5 @@
 import prisma from './prisma';
+import { Prisma } from '@prisma/client';
 
 export type StakePlayerOdd = {
   player_name: string;
@@ -35,41 +36,71 @@ function toTextOrNull(value: any): string | null {
 }
 
 function oddSortValue(odd: StakePlayerOdd) {
+  const book = String(odd.book || 'stake');
   const prop = String(odd.prop_type || '');
   const line = Number(odd.line ?? 9999);
-  return `${prop.padEnd(8, ' ')}_${line.toString().padStart(8, '0')}`;
+  return `${prop.padEnd(8, ' ')}_${line.toString().padStart(8, '0')}_${book}`;
 }
 
-async function getUniversalStakeOdds(target: string): Promise<StakePlayerOdd[]> {
+function normalizeBooks(books?: string[]) {
+  return Array.from(new Set((books || []).map((b) => String(b).trim().toLowerCase()).filter(Boolean)));
+}
+
+async function getUniversalOdds(
+  target: string,
+  options: { books?: string[] } = {}
+): Promise<StakePlayerOdd[]> {
   try {
-    const rows = await prisma.$queryRaw<any[]>`
-      SELECT
-        jugador,
-        player_norm,
-        stat_key,
-        side,
-        model_line,
-        threshold,
-        odds_decimal,
-        partido,
-        game_norm,
-        scraped_at_utc
-      FROM public.latest_player_prop_odds
-      WHERE book = 'stake'
-        AND player_norm = ${target}
-      ORDER BY stat_key ASC, model_line ASC, side ASC
-    `;
+    const books = normalizeBooks(options.books);
+
+    const rows = books.length > 0
+      ? await prisma.$queryRaw<any[]>(Prisma.sql`
+          SELECT
+            book,
+            jugador,
+            player_norm,
+            stat_key,
+            side,
+            model_line,
+            threshold,
+            odds_decimal,
+            partido,
+            game_norm,
+            scraped_at_utc
+          FROM public.latest_player_prop_odds
+          WHERE lower(book) IN (${Prisma.join(books)})
+            AND player_norm = ${target}
+          ORDER BY stat_key ASC, COALESCE(model_line, threshold) ASC, book ASC, side ASC, scraped_at_utc DESC
+        `)
+      : await prisma.$queryRaw<any[]>(Prisma.sql`
+          SELECT
+            book,
+            jugador,
+            player_norm,
+            stat_key,
+            side,
+            model_line,
+            threshold,
+            odds_decimal,
+            partido,
+            game_norm,
+            scraped_at_utc
+          FROM public.latest_player_prop_odds
+          WHERE player_norm = ${target}
+          ORDER BY stat_key ASC, COALESCE(model_line, threshold) ASC, book ASC, side ASC, scraped_at_utc DESC
+        `);
 
     if (!Array.isArray(rows) || rows.length === 0) return [];
 
     const grouped = new Map<string, StakePlayerOdd>();
 
     for (const row of rows) {
+      const book = String(row.book || 'stake').toLowerCase();
       const propType = String(row.stat_key || '').toUpperCase();
       const line = toNumberOrNull(row.model_line ?? row.threshold);
       if (!propType || line === null) continue;
 
-      const key = `${propType}|${line}`;
+      const key = `${book}|${propType}|${line}`;
       const existing = grouped.get(key) || {
         player_name: row.jugador || target,
         prop_type: propType,
@@ -78,7 +109,7 @@ async function getUniversalStakeOdds(target: string): Promise<StakePlayerOdd[]> 
         over_price: null,
         under_price: null,
         updated_at: toTextOrNull(row.scraped_at_utc),
-        book: 'stake',
+        book,
         source: 'universal' as const,
       };
 
@@ -88,12 +119,16 @@ async function getUniversalStakeOdds(target: string): Promise<StakePlayerOdd[]> 
       if (side === 'over') existing.over_price = odds;
       if (side === 'under') existing.under_price = odds;
 
+      if (!existing.updated_at && row.scraped_at_utc) {
+        existing.updated_at = toTextOrNull(row.scraped_at_utc);
+      }
+
       grouped.set(key, existing);
     }
 
     return Array.from(grouped.values()).sort((a, b) => oddSortValue(a).localeCompare(oddSortValue(b)));
   } catch (error) {
-    console.warn('getUniversalStakeOdds fallback:', error);
+    console.warn('getUniversalOdds fallback:', error);
     return [];
   }
 }
@@ -102,8 +137,6 @@ async function getLegacyStakeOdds(playerName: string): Promise<StakePlayerOdd[]>
   const target = normalizeName(playerName);
   if (!target) return [];
 
-  // La tabla legacy es chica. Traer y normalizar en memoria evita problemas con apóstrofes:
-  // De'Aaron, De’Aaron, de aaron, etc.
   const rows = await prisma.player_odds.findMany({
     orderBy: [{ prop_type: 'asc' }],
   });
@@ -124,12 +157,24 @@ async function getLegacyStakeOdds(playerName: string): Promise<StakePlayerOdd[]>
     .sort((a, b) => oddSortValue(a).localeCompare(oddSortValue(b)));
 }
 
-export async function getPlayerStakeOdds(playerName: string): Promise<StakePlayerOdd[]> {
+export async function getPlayerOddsMultiBook(
+  playerName: string,
+  options: { books?: string[] } = {}
+): Promise<StakePlayerOdd[]> {
   const target = normalizeName(playerName);
   if (!target) return [];
 
-  const universal = await getUniversalStakeOdds(target);
+  const universal = await getUniversalOdds(target, options);
   if (universal.length > 0) return universal;
 
-  return getLegacyStakeOdds(playerName);
+  const books = normalizeBooks(options.books);
+  if (books.length === 0 || books.includes('stake')) {
+    return getLegacyStakeOdds(playerName);
+  }
+
+  return [];
+}
+
+export async function getPlayerStakeOdds(playerName: string): Promise<StakePlayerOdd[]> {
+  return getPlayerOddsMultiBook(playerName, { books: ['stake'] });
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { TrendingUp, RefreshCw } from "lucide-react";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -20,6 +20,8 @@ interface OddsComparisonTableProps {
   statLabel: string;          // e.g. "PTS"
   hitRate?: number;           // 0-100 — used for +EV detection
   avgValue?: number;          // used for edge calc
+  /** Called when the user clicks a line to use it on the chart */
+  onSelectLine?: (line: number) => void;
 }
 
 // ─── Book display config ───────────────────────────────────────────────────────
@@ -95,7 +97,7 @@ function isEV(priceStr: string, hitRate: number, forOver: boolean): boolean {
 
 // ─── Column header ─────────────────────────────────────────────────────────────
 
-function ColHead({ children, align = "right" }: { children: React.ReactNode; align?: "left" | "right" | "center" }) {
+function ColHead({ children, align = "right" }: { children: ReactNode; align?: "left" | "right" | "center" }) {
   const cls = align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left";
   return (
     <th className={`px-4 py-2.5 text-[8px] font-black uppercase tracking-[0.25em] text-[var(--text-muted)] ${cls}`}>
@@ -112,6 +114,7 @@ export default function OddsComparisonTable({
   statLabel,
   hitRate = 50,
   avgValue,
+  onSelectLine,
 }: OddsComparisonTableProps) {
 
   // ── Filter to rows matching active line (or closest line) ──────────────────
@@ -195,6 +198,12 @@ export default function OddsComparisonTable({
           </h3>
         </div>
         <div className="flex items-center gap-3">
+          {/* Click hint */}
+          {onSelectLine && (
+            <span className="hidden sm:inline text-[8px] font-black uppercase tracking-widest text-[var(--text-muted)] border border-[var(--border)] px-2 py-0.5 rounded-full">
+              Clic en línea → gráfico
+            </span>
+          )}
           {/* Legend */}
           <div className="hidden sm:flex items-center gap-3 text-[8px] font-black uppercase tracking-widest text-[var(--text-muted)]">
             <span className="flex items-center gap-1">
@@ -232,12 +241,18 @@ export default function OddsComparisonTable({
               const isEVOver  = oFmt.american !== "—" && isEV(oFmt.american, hitRate, true);
               const isEVUnder = uFmt.american !== "—" && isEV(uFmt.american, hitRate, false);
 
-              const lineMatch = Math.abs(Number(row.line) - lineValue) < 0.26;
+              const lineMatch   = Math.abs(Number(row.line) - lineValue) < 0.26;
+              const lineNum     = Number(row.line);
+              const canSelect   = onSelectLine && Number.isFinite(lineNum);
 
               return (
                 <tr
                   key={`${bookKey}-${idx}`}
-                  className="border-t border-[var(--border)] hover:bg-white/[0.02] transition-colors"
+                  className={`border-t border-[var(--border)] transition-colors ${
+                    canSelect ? "cursor-pointer" : ""
+                  } ${lineMatch ? "bg-[#10b981]/[0.04]" : "hover:bg-white/[0.02]"}`}
+                  onClick={() => canSelect && onSelectLine!(lineNum)}
+                  title={canSelect ? `Usar línea ${lineNum.toFixed(1)} en el gráfico` : undefined}
                 >
                   {/* Book name */}
                   <td className="px-4 py-3 whitespace-nowrap">
@@ -247,12 +262,17 @@ export default function OddsComparisonTable({
                     </div>
                   </td>
 
-                  {/* Line */}
+                  {/* Line — clickable pill */}
                   <td className="px-4 py-3 text-center">
-                    <span className={`text-xs font-black tabular-nums ${
-                      lineMatch ? "text-[var(--text)]" : "text-[var(--text-muted)]"
+                    <span className={`inline-flex items-center gap-1 text-xs font-black tabular-nums px-2 py-0.5 rounded-full transition-all ${
+                      lineMatch
+                        ? "bg-[#10b981]/20 border border-[#10b981]/40 text-[#10b981]"
+                        : canSelect
+                        ? "border border-transparent hover:border-[#10b981]/30 hover:text-[#10b981] text-[var(--text-muted)]"
+                        : "text-[var(--text-muted)]"
                     }`}>
-                      {Number(row.line).toFixed(1)}
+                      {lineMatch && <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] inline-block" />}
+                      {lineNum.toFixed(1)}
                     </span>
                   </td>
 
@@ -316,11 +336,11 @@ export default function OddsComparisonTable({
         {rows[0]?.updated_at && (
           <div className="flex items-center gap-1 text-[var(--text-muted)]">
             <RefreshCw size={9} />
-            <span className="text-[8px] font-bold tabular-nums">
+            <span suppressHydrationWarning className="text-[8px] font-bold tabular-nums">
               {new Date(rows[0].updated_at).toLocaleTimeString("es-AR", {
                 hour: "2-digit", minute: "2-digit",
                 timeZone: "America/Argentina/Buenos_Aires",
-              })}
+              }).replace(/[\u00A0\u202F]/g, " ")}
             </span>
           </div>
         )}
@@ -328,22 +348,3 @@ export default function OddsComparisonTable({
     </div>
   );
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// CÓMO CONECTAR con tu stakeOdds de PlayerChartContainer:
-//
-// Tu StakePlayerOdd tiene: { line, over_price, under_price, book, source }
-// El tipo BookOdd espera:  { book, line, over_price, under_price }
-// Son compatibles — solo hacé el cast:
-//
-//   <OddsComparisonTable
-//     odds={selectedStakeOdds as BookOdd[]}
-//     lineValue={lineValue}
-//     statLabel={activeStatLabel}
-//     hitRate={hitRateNumber}
-//     avgValue={Number(avgValue)}
-//   />
-//
-// Si tu tabla de odds en la BD tiene filas por casa (book="betmgm", book="fanduel", etc.)
-// el componente las agrupa y detecta automáticamente el mejor precio y +EV.
-// ─────────────────────────────────────────────────────────────────────────────

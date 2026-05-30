@@ -128,6 +128,87 @@ function formatTabDate(dateStr: string): string {
   return d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
 }
 
+
+function cleanTicketName(name: string, playsCount: number, totalOdds: number): string {
+  const plain = String(name || '')
+    .replace(/[🔥💎🚀💣🧨⚡🟢🔵🟠🎯🏀]/g, '')
+    .replace(/HR\s*/gi, '')
+    .replace(/OVER|UNDER/gi, '')
+    .replace(/FUERTE|ELITE|RADAR|VIP|X\d+/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (plain && plain.length > 3) return plain;
+
+  if (playsCount <= 2 || totalOdds <= 2) return 'Combinada conservadora';
+  if (playsCount <= 3 || totalOdds <= 3) return 'Combinada balanceada';
+  return 'Combinada agresiva';
+}
+
+function getTicketRisk(playsCount: number, totalOdds: number): { label: string; className: string } {
+  if (playsCount <= 2 || totalOdds <= 2) {
+    return { label: 'Riesgo bajo', className: 'border-emerald-500/35 bg-emerald-500/10 text-emerald-300' };
+  }
+  if (playsCount <= 3 || totalOdds <= 3) {
+    return { label: 'Riesgo medio', className: 'border-cyan-400/35 bg-cyan-400/10 text-cyan-300' };
+  }
+  return { label: 'Riesgo alto', className: 'border-orange-400/35 bg-orange-400/10 text-orange-300' };
+}
+
+function formatDecimalOdd(value: unknown): string {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0 || n === 99) return '—';
+  return `${n.toFixed(2)}x`;
+}
+
+function formatLine(value: unknown): string {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '—';
+  return Number.isInteger(n) ? String(n) : n.toFixed(1).replace(/\.0$/, '');
+}
+
+function formatSigned(value: unknown, suffix = ''): string {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '—';
+  const sign = n > 0 ? '+' : '';
+  return `${sign}${n.toFixed(1)}${suffix}`;
+}
+
+function getPlayResultLabel(play: Play): { label: string; className: string } | null {
+  if (play.resultado === true) return { label: 'Hit', className: 'border-emerald-500/35 bg-emerald-500/10 text-emerald-300' };
+  if (play.resultado === false) return { label: 'Miss', className: 'border-red-500/35 bg-red-500/10 text-red-300' };
+  return null;
+}
+
+function buildPlayReasons(play: Play, ticketSide: Side): string[] {
+  const reasons: string[] = [];
+  const line = Number(play.line ?? play.threshold);
+  const proj = Number(play.proj);
+  const diff = Number.isFinite(Number(play.diff)) ? Number(play.diff) : proj - line;
+  const edge = Number(play.edge_pct);
+
+  if (play.hit_rate) reasons.push(`HR ${play.hit_rate}`);
+  if (Number.isFinite(proj) && Number.isFinite(line)) reasons.push(`Proy. ${formatLine(proj)} vs línea ${formatLine(line)}`);
+  if (Number.isFinite(diff)) reasons.push(`Margen ${formatSigned(diff)}`);
+  if (Number.isFinite(edge)) reasons.push(`Valor ${formatSigned(edge, '%')}`);
+  if (play.safe_line != null && play.safe_odds != null && play.safe_odds !== 99) reasons.push(`Alternativa segura ${formatLine(play.safe_line)} @ ${formatDecimalOdd(play.safe_odds)}`);
+
+  if (reasons.length === 0) reasons.push(`${ticketSide} ${formatLine(line)} con cuota ${formatDecimalOdd(play.odds)}`);
+  return reasons.slice(0, 4);
+}
+
+function getMainReason(play: Play): string {
+  const analysis = String(play.analysis || '').replace(/\s+/g, ' ').trim();
+  if (analysis) return analysis.length > 150 ? `${analysis.slice(0, 147)}...` : analysis;
+
+  const line = Number(play.line ?? play.threshold);
+  const proj = Number(play.proj);
+  if (Number.isFinite(line) && Number.isFinite(proj)) {
+    return `La proyección queda ${proj >= line ? 'por encima' : 'por debajo'} de la línea: ${formatLine(proj)} vs ${formatLine(line)}.`;
+  }
+  return 'Pick generado por Ludo con ventaja histórica y valor relativo frente a la línea disponible.';
+}
+
 // ─── Mini Calendario ─────────────────────────────────────────────────────────
 
 function MiniCalendar({
@@ -226,7 +307,8 @@ function TicketCard({ ticket, bookmaker, accentColor }: { ticket: Ticket; bookma
   const [expanded, setExpanded] = useState(true);
   const result      = getTicketResult(ticket.plays);
   const failedPlays = ticket.plays.filter(p => p.resultado === false);
-  const ticketName = bookmaker === 'betano' ? ticket.name.replace(/^🟢|^🔵/, '🟠') : ticket.name;
+  const ticketTitle = cleanTicketName(ticket.name, ticket.plays.length, Number(ticket.total_odds));
+  const risk        = getTicketRisk(ticket.plays.length, Number(ticket.total_odds));
 
   const borderClass =
     result === 'won'  ? 'border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.08)]' :
@@ -237,54 +319,97 @@ function TicketCard({ ticket, bookmaker, accentColor }: { ticket: Ticket; bookma
     <div className={`border rounded-2xl overflow-hidden transition-all bg-[var(--surface)] ${borderClass}`}>
       <button
         onClick={() => setExpanded(v => !v)}
-        className="w-full flex items-center justify-between p-4 hover:bg-[var(--surface-soft)] transition-colors"
+        className="w-full flex items-center justify-between gap-4 p-4 hover:bg-[var(--surface-soft)] transition-colors"
       >
-        <div className="flex items-center gap-3 min-w-0">
-          {result === 'won'     && <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 shadow-[0_0_6px_rgba(16,185,129,0.8)]"/>}
-          {result === 'lost'    && <span className="w-2 h-2 rounded-full bg-red-500 shrink-0 shadow-[0_0_6px_rgba(239,68,68,0.8)]"/>}
-          {result === 'pending' && <span className="w-2 h-2 rounded-full bg-[#333] shrink-0"/>}
-          <span className="text-[var(--text)] font-black text-xs uppercase tracking-tight truncate">{ticketName}</span>
+        <div className="min-w-0 text-left">
+          <div className="flex items-center gap-2 mb-1.5">
+            {result === 'won'     && <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 shadow-[0_0_6px_rgba(16,185,129,0.8)]"/>}
+            {result === 'lost'    && <span className="w-2 h-2 rounded-full bg-red-500 shrink-0 shadow-[0_0_6px_rgba(239,68,68,0.8)]"/>}
+            {result === 'pending' && <span className="w-2 h-2 rounded-full bg-[#333] shrink-0"/>}
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">
+              {ticket.plays.length} pick{ticket.plays.length === 1 ? '' : 's'} · {ticket.side}
+            </p>
+            <span className={`hidden sm:inline-flex rounded-full border px-2 py-0.5 text-[8px] font-black uppercase tracking-widest ${risk.className}`}>
+              {risk.label}
+            </span>
+          </div>
+          <h3 className="text-[var(--text)] font-black text-sm uppercase tracking-tight truncate">
+            {ticketTitle}
+          </h3>
         </div>
-        <div className="flex items-center gap-3 shrink-0 ml-3">
-          <span
-            className={`text-xs font-black px-2 py-1 rounded-lg ${
-              result === 'won'  ? 'bg-emerald-500/20 text-emerald-400' :
-              result === 'lost' ? 'bg-red-500/20 text-red-400' : ''
-            }`}
-            style={result === 'pending' ? { background: `${accentColor}20`, color: accentColor } : undefined}
-          >
-            {ticket.total_odds?.toFixed(2)}x
-          </span>
-          {result === 'won'  && <span className="text-[9px] font-black text-emerald-400 hidden md:block">✓ Ganado</span>}
-          {result === 'lost' && <span className="text-[9px] font-black text-red-400 hidden md:block">✗ {failedPlays.length} fall{failedPlays.length === 1 ? 'ó':'aron'}</span>}
+
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="text-right">
+            <p className="text-[8px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">Cuota total</p>
+            <p
+              className={`text-base font-black tabular-nums ${
+                result === 'won'  ? 'text-emerald-400' :
+                result === 'lost' ? 'text-red-400' : ''
+              }`}
+              style={result === 'pending' ? { color: accentColor } : undefined}
+            >
+              {formatDecimalOdd(ticket.total_odds)}
+            </p>
+          </div>
           {expanded ? <ChevronUp size={14} className="text-[var(--text-muted)]"/> : <ChevronDown size={14} className="text-[var(--text-muted)]"/>}
         </div>
       </button>
 
       {expanded && (
-        <div className="px-4 pb-4 flex flex-col gap-2">
+        <div className="px-4 pb-4 flex flex-col gap-3">
           {failedPlays.length > 0 && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2 mb-1">
-              <p className="text-[9px] font-black text-red-400 uppercase tracking-widest mb-1">✗ Líneas que fallaron:</p>
+            <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2">
+              <p className="text-[9px] font-black text-red-400 uppercase tracking-widest mb-1">Líneas que fallaron</p>
               {failedPlays.map((p, i) => (
                 <p key={i} className="text-[10px] text-red-300 font-bold">
-                  {p.player} — {p.type} {p.linea_raw || p.line} {p.prop}
+                  {p.player} — {ticket.side} {p.prop} {p.linea_raw || formatLine(p.line)}
                 </p>
               ))}
             </div>
           )}
-          {ticket.plays.map((play, i) => (
-              <div key={i} className="flex items-center justify-between gap-3 p-3 bg-[var(--bg)] border border-[var(--border)] rounded-xl">
-                <div className="min-w-0">
-                  <p className="text-xs font-black uppercase truncate text-[var(--text)]">{play.player}</p>
-                  <p className="text-[8px] font-bold text-[var(--text-muted)] uppercase tracking-widest">{play.team} · {play.prop} {play.line}</p>
+
+          {ticket.plays.map((play, i) => {
+            const resultBadge = getPlayResultLabel(play);
+            const reasons = buildPlayReasons(play, ticket.side);
+            return (
+              <article key={`${play.player_id}-${play.prop}-${play.line}-${i}`} className="rounded-2xl border border-[var(--border)] bg-[var(--bg)] p-3.5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-black uppercase truncate text-[var(--text)]">{play.player}</p>
+                    <p className="mt-1 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]">
+                      {play.team} · {play.prop} {ticket.side} {formatLine(play.line)} · cuota {formatDecimalOdd(play.odds)}
+                    </p>
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <p className="text-[8px] font-black uppercase tracking-widest text-[var(--text-muted)]">Valor</p>
+                    <p className="text-sm font-black text-[#10b981] tabular-nums">
+                      {formatSigned(play.edge_pct, '%')}
+                    </p>
+                  </div>
                 </div>
-                <div className="text-right shrink-0">
-                  <p className="text-sm font-black text-[#10b981]">{play.edge_pct > 0 ? "+" : ""}{play.edge_pct?.toFixed ? play.edge_pct.toFixed(1) : play.edge_pct}%</p>
-                  <p className="text-[8px] text-[var(--text-muted)] font-bold">{play.odds > 0 ? "+" : ""}{play.odds}</p>
+
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {resultBadge && (
+                    <span className={`rounded-full border px-2 py-1 text-[8px] font-black uppercase tracking-widest ${resultBadge.className}`}>
+                      {resultBadge.label}
+                    </span>
+                  )}
+                  {reasons.map((reason) => (
+                    <span key={reason} className="rounded-full border border-[var(--border)] bg-[var(--surface-soft)] px-2 py-1 text-[8px] font-black uppercase tracking-widest text-[var(--text-muted)]">
+                      {reason}
+                    </span>
+                  ))}
                 </div>
-              </div>
-            ))}
+
+                <div className="mt-3 rounded-xl border border-[var(--border)] bg-black/20 px-3 py-2">
+                  <p className="text-[9px] font-bold leading-relaxed text-[var(--text-soft)]">
+                    {getMainReason(play)}
+                  </p>
+                </div>
+              </article>
+            );
+          })}
         </div>
       )}
     </div>

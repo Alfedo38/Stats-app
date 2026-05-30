@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useTransition } from "react";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useCallback, useMemo, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 
 type SplitScope = "FULL" | "Q1" | "H1" | "H2_REG";
 
@@ -86,82 +86,53 @@ export function usePlayerUrlState({
   defaultN = 30,
   defaultScope = "FULL",
 }: UsePlayerUrlStateOptions = {}): PlayerUrlState {
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [isPending, startTransition] = useTransition();
 
-  const hasLineParam = searchParams.has("line");
+  // La URL solo inicializa el estado. Después NO se actualiza automáticamente para que la página sea rápida.
+  const [activeStat, setActiveStatState] = useState(() => normalizeStat(searchParams.get("stat"), defaultStat));
+  const [lineValue, setLineValueState] = useState(() => parseLine(searchParams.get("line"), defaultLine));
+  const [lastN, setLastNState] = useState(() => parseN(searchParams.get("n"), defaultN));
+  const [activeScope, setActiveScopeState] = useState<SplitScope>(() => parseScope(searchParams.get("scope"), defaultScope));
 
-  const activeStat = normalizeStat(searchParams.get("stat"), defaultStat);
-  const lineValue = parseLine(searchParams.get("line"), defaultLine);
-  const lastN = parseN(searchParams.get("n"), defaultN);
-  const activeScope = parseScope(searchParams.get("scope"), defaultScope);
+  const hasLineParam = useMemo(() => searchParams.has("line"), []);
 
-  const updateParams = useCallback(
-    (
-      updates: Partial<
-        Record<"stat" | "line" | "n" | "scope", string | null | undefined>
-      >
-    ) => {
-      const params = new URLSearchParams(searchParams.toString());
+  const setActiveStat = useCallback((v: string) => {
+    const next = normalizeStat(v, defaultStat);
+    setActiveStatState(next);
+  }, [defaultStat]);
 
-      for (const [key, val] of Object.entries(updates)) {
-        if (val === null || val === undefined || val === "") {
-          params.delete(key);
-        } else {
-          params.set(key, val);
-        }
-      }
+  const setLineValue = useCallback((v: number | ((prev: number) => number)) => {
+    setLineValueState((prev) => {
+      const next = typeof v === "function" ? v(prev) : v;
+      if (!Number.isFinite(next) || next <= 0) return prev;
+      return Number(next);
+    });
+  }, []);
 
-      const query = params.toString();
-      const nextUrl = query ? `${pathname}?${query}` : pathname;
+  const setLastN = useCallback((v: number) => {
+    const n = VALID_N.includes(Number(v)) ? Number(v) : defaultN;
+    setLastNState(n);
+  }, [defaultN]);
 
-      startTransition(() => {
-        router.replace(nextUrl, { scroll: false });
-      });
-    },
-    [router, pathname, searchParams]
-  );
-
-  const setActiveStat = useCallback(
-    (v: string) => {
-      updateParams({ stat: normalizeStat(v, defaultStat), line: null });
-    },
-    [updateParams, defaultStat]
-  );
-
-  const setLineValue = useCallback(
-    (v: number | ((prev: number) => number)) => {
-      const next = typeof v === "function" ? v(lineValue) : v;
-      if (!Number.isFinite(next) || next <= 0) return;
-      updateParams({ line: String(next) });
-    },
-    [updateParams, lineValue]
-  );
-
-  const setLastN = useCallback(
-    (v: number) => {
-      updateParams({ n: String(v) });
-    },
-    [updateParams]
-  );
-
-  const setActiveScope = useCallback(
-    (v: SplitScope) => {
-      updateParams({ scope: v, line: null });
-    },
-    [updateParams]
-  );
+  const setActiveScope = useCallback((v: SplitScope) => {
+    const next = VALID_SCOPES.includes(v) ? v : defaultScope;
+    setActiveScopeState(next);
+  }, [defaultScope]);
 
   const shareUrl = useCallback(async (): Promise<boolean> => {
     try {
-      await navigator.clipboard.writeText(window.location.href);
+      const params = new URLSearchParams();
+      params.set("stat", activeStat);
+      params.set("line", String(lineValue));
+      params.set("n", String(lastN));
+      if (activeScope !== "FULL") params.set("scope", activeScope);
+      await navigator.clipboard.writeText(`${window.location.origin}${pathname}?${params.toString()}`);
       return true;
     } catch {
       return false;
     }
-  }, []);
+  }, [activeStat, lineValue, lastN, activeScope, pathname]);
 
   return {
     activeStat,
@@ -174,6 +145,6 @@ export function usePlayerUrlState({
     setLastN,
     setActiveScope,
     shareUrl,
-    isPending,
+    isPending: false,
   };
 }

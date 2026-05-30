@@ -206,7 +206,10 @@ export async function getPlayerHistoricalExplorer(input: {
   const homeAway = normalizeHomeAway(input.homeAway);
   const minMinutes = input.minMinutes === null || input.minMinutes === undefined ? null : Number(input.minMinutes);
   const woTeammate = String(input.woTeammate || "").trim();
-  const limit = Math.min(Math.max(Number(input.limit || 1000), 20), 1000);
+  const requestedLimit = Number(input.limit || 1000);
+  // Permitir L5 real. Antes el mínimo era 20 y por eso, aunque la URL tuviera n=5,
+  // el histórico devolvía 20 partidos y el gráfico/tooltip quedaba desincronizado.
+  const limit = Math.min(Math.max(Number.isFinite(requestedLimit) ? requestedLimit : 1000, 1), 1000);
   const playerId = input.playerId != null && String(input.playerId).trim() ? String(input.playerId).trim() : null;
   const playerName = String(input.playerName || "").trim();
 

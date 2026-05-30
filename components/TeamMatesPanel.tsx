@@ -14,8 +14,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Search, Users, ArrowUpRight,
   LayoutList, Layers, ChevronDown,
@@ -187,14 +187,35 @@ function CurrentPlayerOddsCard({
   player: (TeamMate & { displayName: string }) | null;
   stakeOdds: StakeOdd[];
 }) {
-  const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const activeStat = searchParams.get("stat") || "pts";
+  const [localStat, setLocalStat] = useState(() => searchParams.get("stat") || "pts");
+  const [localLine, setLocalLine] = useState<number | null>(() => {
+    const raw = searchParams.get("line");
+    const n = raw != null ? Number(raw) : null;
+    return Number.isFinite(Number(n)) ? Number(n) : null;
+  });
+
+  useEffect(() => {
+    const onStat = (event: Event) => {
+      const stat = String((event as CustomEvent)?.detail?.stat || "").trim();
+      if (stat) setLocalStat(stat);
+    };
+    const onLine = (event: Event) => {
+      const line = Number((event as CustomEvent)?.detail?.line);
+      if (Number.isFinite(line) && line > 0) setLocalLine(line);
+    };
+    window.addEventListener("player-stat-change", onStat as EventListener);
+    window.addEventListener("player-line-change", onLine as EventListener);
+    return () => {
+      window.removeEventListener("player-stat-change", onStat as EventListener);
+      window.removeEventListener("player-line-change", onLine as EventListener);
+    };
+  }, []);
+
+  const activeStat = localStat || "pts";
   const propType = getStakePropType(activeStat);
-  const activeLineParam = searchParams.get("line");
-  const activeLine = activeLineParam != null ? Number(activeLineParam) : null;
+  const activeLine = localLine;
 
   const rawOddsForStat = useMemo(() => {
     return (stakeOdds || [])
@@ -211,10 +232,11 @@ function CurrentPlayerOddsCard({
 
   const setLine = (line: number | null) => {
     if (line == null || !Number.isFinite(Number(line))) return;
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("stat", activeStat);
-    params.set("line", String(line));
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    const next = Number(line);
+    setLocalLine(next);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("player-line-select", { detail: { line: next, stat: activeStat } }));
+    }
   };
 
   const hitRate = player.hit_rate ?? null;

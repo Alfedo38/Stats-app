@@ -587,6 +587,23 @@ export default function PlayerChartContainer({
     setActiveWoTeammateState(safe);
   }, []);
 
+  // DVP vive fuera de este componente, pero el rival real lo controla este panel.
+  // Avisamos al parent cada vez que cambia para evitar que DVP quede congelado
+  // con el rival anterior o con el próximo partido equivocado.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const effectiveOpponent = cleanOpponentParam(chartOpponent || opponent || "");
+    window.dispatchEvent(
+      new CustomEvent("player-dvp-context-change", {
+        detail: {
+          playerId: String(playerId || ""),
+          opponent: effectiveOpponent || null,
+          hasOpponentFilter: Boolean(chartOpponent),
+        },
+      }),
+    );
+  }, [playerId, chartOpponent, opponent]);
+
   const resetMainFilters = useCallback(() => {
     setActiveFilters([]);
     setFilterResetCount((count) => count + 1);

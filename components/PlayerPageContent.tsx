@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import DvpPanel from "@/components/DvpPanel";
 import TeamMatesPanel, { type TeamMate } from "@/components/TeamMatesPanel";
 import PlayerChartContainer from "@/components/PlayerChartContainer";
@@ -54,12 +54,29 @@ export default function PlayerPageContent({
 }: PlayerPageContentProps) {
   const [selectedGame, setSelectedGame] = useState<GameSlot | null>(null);
   const [externalFilters, setExternalFilters] = useState<ActiveFilter[]>([]);
+  const [dvpOpponentFromFilters, setDvpOpponentFromFilters] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDvpOpponentFromFilters(null);
+  }, [currentPlayerId]);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent)?.detail || {};
+      if (detail?.playerId && String(detail.playerId) !== String(currentPlayerId)) return;
+      const next = String(detail?.opponent || "").trim().toUpperCase();
+      setDvpOpponentFromFilters(next || null);
+    };
+
+    window.addEventListener("player-dvp-context-change", handler as EventListener);
+    return () => window.removeEventListener("player-dvp-context-change", handler as EventListener);
+  }, [currentPlayerId]);
 
   const filterTeams: string[] | undefined = selectedGame
     ? selectedGame.teams.map((t) => t.toUpperCase())
     : undefined;
 
-  const dvpOpponent = String(nextOpponent || lastOpponent || "").trim().toUpperCase();
+  const dvpOpponent = String(dvpOpponentFromFilters || lastOpponent || nextOpponent || "").trim().toUpperCase();
   const dvpKey = `${currentPlayerId}:${dvpOpponent}:${position || ""}`;
 
   const removeExternalFilter = useCallback((id: string) => {
@@ -90,7 +107,7 @@ export default function PlayerPageContent({
           playerId={currentPlayerId}
           stakeOdds={stakeOdds}
           filterTeams={filterTeams}
-          opponent={nextOpponent || lastOpponent || null}
+          opponent={lastOpponent || nextOpponent || null}
           homeAway={nextHomeAway || null}
           asOfDate={nextGameDate || null}
           externalFilters={externalFilters}

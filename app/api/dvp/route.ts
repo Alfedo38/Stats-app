@@ -27,8 +27,6 @@ function normalizePositionForDvp(position: string | null): string {
 
   if (!raw) return "G";
 
-  // public.team_dvp groups positions as C, F, F-C, G, G-F.
-  // The player page may send PG, SG, SF, PF, Point Guard, etc.
   if (["G", "PG", "SG", "POINT GUARD", "SHOOTING GUARD", "GUARD"].includes(raw)) return "G";
   if (["F", "SF", "PF", "SMALL FORWARD", "POWER FORWARD", "FORWARD"].includes(raw)) return "F";
   if (["C", "CENTER", "CENTRE"].includes(raw)) return "C";
@@ -40,6 +38,15 @@ function normalizePositionForDvp(position: string | null): string {
   if (raw.includes("FORWARD") || raw.includes("SF") || raw.includes("PF")) return "F";
 
   return raw;
+}
+
+function candidateGroups(primary: string): string[] {
+  if (primary === "G-F") return ["G-F", "G", "F"];
+  if (primary === "F-C") return ["F-C", "C", "F"];
+  if (primary === "G") return ["G", "G-F"];
+  if (primary === "F") return ["F", "G-F", "F-C"];
+  if (primary === "C") return ["C", "F-C"];
+  return [primary, "G", "F", "C"];
 }
 
 function groupLabel(group: string): string {
@@ -73,49 +80,58 @@ function metric(label: string, key: keyof TeamDvpRow, row: TeamDvpRow, avg: Leag
   };
 }
 
+async function findDvpRow(team: string, groups: string[]) {
+  const rows = await prisma.$queryRaw<TeamDvpRow[]>`
+    SELECT
+      team,
+      position,
+      pts_allowed,
+      reb_allowed,
+      ast_allowed,
+      threes_allow,
+      updated_at
+    FROM public.team_dvp
+    WHERE UPPER(team) = ${team}
+      AND position = ANY(${groups}::text[])
+    ORDER BY array_position(${groups}::text[], position)
+    LIMIT 1
+  `;
+
+  return rows[0] || null;
+}
+
+async function getLeagueAvg(positionGroup: string) {
+  const avgRows = await prisma.$queryRaw<LeagueAvgRow[]>`
+    SELECT
+      AVG(pts_allowed)::float8 AS pts_allowed,
+      AVG(reb_allowed)::float8 AS reb_allowed,
+      AVG(ast_allowed)::float8 AS ast_allowed,
+      AVG(threes_allow)::float8 AS threes_allow
+    FROM public.team_dvp
+    WHERE position = ${positionGroup}
+  `;
+
+  return avgRows[0] || {
+    pts_allowed: null,
+    reb_allowed: null,
+    ast_allowed: null,
+    threes_allow: null,
+  };
+}
+
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const team = cleanTeam(searchParams.get("team"));
     const rawPosition = searchParams.get("position") || "G";
     const positionGroup = normalizePositionForDvp(rawPosition);
+    const groups = candidateGroups(positionGroup);
 
     if (!team) {
       return NextResponse.json({ ok: false, error: "missing_team" }, { status: 400 });
     }
 
-    const rows = await prisma.$queryRaw<TeamDvpRow[]>`
-      SELECT
-        team,
-        position,
-        pts_allowed,
-        reb_allowed,
-        ast_allowed,
-        threes_allow,
-        updated_at
-      FROM public.team_dvp
-      WHERE UPPER(team) = ${team}
-        AND position = ${positionGroup}
-      LIMIT 1
-    `;
-
-    const avgRows = await prisma.$queryRaw<LeagueAvgRow[]>`
-      SELECT
-        AVG(pts_allowed)::float8 AS pts_allowed,
-        AVG(reb_allowed)::float8 AS reb_allowed,
-        AVG(ast_allowed)::float8 AS ast_allowed,
-        AVG(threes_allow)::float8 AS threes_allow
-      FROM public.team_dvp
-      WHERE position = ${positionGroup}
-    `;
-
-    const row = rows[0] || null;
-    const leagueAvg = avgRows[0] || {
-      pts_allowed: null,
-      reb_allowed: null,
-      ast_allowed: null,
-      threes_allow: null,
-    };
+    const row = await findDvpRow(team, groups);
 
     if (!row) {
       return NextResponse.json({
@@ -123,6 +139,7 @@ export async function GET(req: Request) {
         team,
         requestedPosition: rawPosition,
         positionGroup,
+        resolvedPositionGroup: positionGroup,
         positionLabel: groupLabel(positionGroup),
         found: false,
         message: `Sin datos para ${team} vs ${groupLabel(positionGroup)}`,
@@ -130,12 +147,16 @@ export async function GET(req: Request) {
       });
     }
 
+    const resolvedPositionGroup = row.position;
+    const leagueAvg = await getLeagueAvg(resolvedPositionGroup);
+
     return NextResponse.json({
       ok: true,
       team,
       requestedPosition: rawPosition,
       positionGroup,
-      positionLabel: groupLabel(positionGroup),
+      resolvedPositionGroup,
+      positionLabel: groupLabel(resolvedPositionGroup),
       found: true,
       updatedAt: row.updated_at,
       metrics: [

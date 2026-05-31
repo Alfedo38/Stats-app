@@ -3,28 +3,28 @@ import prisma from "@/lib/prisma";
 function normalizeDate(value: any): string | null {
   if (!value) return null;
   if (value instanceof Date) return value.toISOString().slice(0, 10);
-  const raw = String(value);
+  const raw = String(value).trim();
   const m = raw.match(/^\d{4}-\d{2}-\d{2}/);
   if (m) return m[0];
   const d = new Date(raw);
   return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
 }
 
-function calcAge(date: string | null) {
+function calcAgeFromBirthdate(date: string | null) {
   if (!date) return null;
-  const d = new Date(`${date}T12:00:00`);
-  if (Number.isNaN(d.getTime())) return null;
+  const [y, m, d] = date.split("-").map(Number);
+  if (!y || !m || !d) return null;
   const now = new Date();
-  let age = now.getFullYear() - d.getFullYear();
-  const m = now.getMonth() - d.getMonth();
-  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age -= 1;
+  let age = now.getFullYear() - y;
+  const monthDiff = now.getMonth() + 1 - m;
+  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < d)) age -= 1;
   return age >= 0 && age < 80 ? age : null;
 }
 
 function clean(value: any) {
   if (value === null || value === undefined || value === "") return null;
   const txt = String(value).trim();
-  if (!txt || txt.toLowerCase() === "null" || txt.toLowerCase() === "nan") return null;
+  if (!txt || txt.toLowerCase() === "null" || txt.toLowerCase() === "nan" || txt === "—") return null;
   return txt;
 }
 
@@ -37,30 +37,84 @@ function normalizeName(value: any): string {
     .toLowerCase();
 }
 
-function formatHeight(row: any) {
+function roundToInt(value: number | null): number | null {
+  return value === null || !Number.isFinite(value) ? null : Math.round(value);
+}
+
+function parseHeightCm(row: any): number | null {
   if (!row) return null;
-  const direct = clean(row.height) || clean(row.player_height);
-  if (direct) {
-    const numeric = Number(direct);
-    if (Number.isFinite(numeric) && numeric > 100) return `${Math.round(numeric)} cm`;
-    return direct;
-  }
+
+  const directCm = Number(row.height_cm ?? row.player_height_cm);
+  if (Number.isFinite(directCm) && directCm > 120 && directCm < 260) return directCm;
+
+  const directM = Number(row.height_m ?? row.player_height_m);
+  if (Number.isFinite(directM) && directM > 1.2 && directM < 2.6) return directM * 100;
 
   const inchesTotal = Number(row.player_height_inches ?? row.height_inches);
-  if (Number.isFinite(inchesTotal) && inchesTotal > 0) {
-    const feet = Math.floor(inchesTotal / 12);
-    const inches = Math.round(inchesTotal % 12);
-    return `${feet}'${inches}\"`;
+  if (Number.isFinite(inchesTotal) && inchesTotal > 48 && inchesTotal < 100) return inchesTotal * 2.54;
+
+  const raw = clean(row.height) || clean(row.player_height) || clean(row.height_original);
+  if (!raw) return null;
+
+  const lower = raw.toLowerCase();
+  const numeric = Number(lower.replace(/[^0-9.]/g, ""));
+
+  if (/cm|cent/i.test(lower) && Number.isFinite(numeric) && numeric > 120) return numeric;
+  if (/m\b|metros?|meter/i.test(lower) && Number.isFinite(numeric) && numeric > 1.2 && numeric < 2.6) return numeric * 100;
+
+  // NBA format: 6-8, 6'8", 6 ft 8 in.
+  const nba = lower.match(/(\d+)\s*(?:-|\'|ft|feet)\s*(\d+)/i);
+  if (nba) {
+    const ft = Number(nba[1]);
+    const inches = Number(nba[2]);
+    if (Number.isFinite(ft) && Number.isFinite(inches) && ft >= 4 && ft <= 8) {
+      return (ft * 12 + inches) * 2.54;
+    }
   }
+
+  // Plain inches, e.g. 80.
+  if (Number.isFinite(numeric) && numeric > 48 && numeric < 100) return numeric * 2.54;
+
+  // Plain centimeters, e.g. 203.
+  if (Number.isFinite(numeric) && numeric > 120 && numeric < 260) return numeric;
 
   return null;
 }
 
-function formatWeight(row: any) {
+function parseWeightKg(row: any): number | null {
   if (!row) return null;
-  const direct = clean(row.weight) || clean(row.player_weight);
-  if (direct) return /kg|lb|lbs/i.test(direct) ? direct : `${direct} lb`;
+
+  const directKg = Number(row.weight_kg ?? row.player_weight_kg);
+  if (Number.isFinite(directKg) && directKg > 45 && directKg < 220) return directKg;
+
+  const raw = clean(row.weight) || clean(row.player_weight) || clean(row.weight_original);
+  if (!raw) return null;
+
+  const lower = raw.toLowerCase();
+  const numeric = Number(lower.replace(/[^0-9.]/g, ""));
+  if (!Number.isFinite(numeric)) return null;
+
+  if (/kg|kilo/i.test(lower)) return numeric;
+
+  // NBA bio weights usually come as pounds even when unit is omitted.
+  if (/lb|lbs|pound/i.test(lower) || numeric > 160) return numeric * 0.45359237;
+
+  // If it is already in the plausible kg range, keep it.
+  if (numeric > 45 && numeric < 160) return numeric;
+
   return null;
+}
+
+function formatHeight(row: any) {
+  const cm = parseHeightCm(row);
+  if (cm === null) return clean(row?.height_display) || clean(row?.height) || clean(row?.player_height);
+  return `${(cm / 100).toFixed(2)} m`;
+}
+
+function formatWeight(row: any) {
+  const kg = parseWeightKg(row);
+  if (kg === null) return clean(row?.weight_display) || clean(row?.weight) || clean(row?.player_weight);
+  return `${Math.round(kg)} kg`;
 }
 
 async function queryBioView(playerId: string | number | null, playerName: string | null) {
@@ -75,7 +129,7 @@ async function queryBioView(playerId: string | number | null, playerName: string
                season_exp DESC NULLS LAST
       LIMIT 1
       `,
-      ...params
+      ...params,
     );
     return rows?.[0] || null;
   }
@@ -89,7 +143,10 @@ async function queryBioView(playerId: string | number | null, playerName: string
     const first = tokens[0];
     const last = tokens.length > 1 ? tokens[tokens.length - 1] : null;
     if (first && last && first !== last) {
-      const tokenMatch = await run(`lower(player_name) LIKE $1 AND lower(player_name) LIKE $2`, [`%${first}%`, `%${last}%`]);
+      const tokenMatch = await run(
+        `lower(player_name) LIKE $1 AND lower(player_name) LIKE $2`,
+        [`%${first}%`, `%${last}%`],
+      );
       if (tokenMatch) return tokenMatch;
     }
   }
@@ -151,7 +208,7 @@ async function queryBioFallback(playerId: string | number | null, playerName: st
        WHERE ${whereSql}
        ORDER BY COALESCE(pb.person_id, bs.player_id), COALESCE(bs.gp, 0) DESC NULLS LAST, pb.to_year DESC NULLS LAST
        LIMIT 1`,
-      ...params
+      ...params,
     );
     return rows?.[0] || null;
   }
@@ -162,7 +219,7 @@ async function queryBioFallback(playerId: string | number | null, playerName: st
     if (first && last && first !== last) {
       const tokenMatch = await run(
         `lower(COALESCE(pb.display_first_last, bs.player_name, '')) LIKE $1 AND lower(COALESCE(pb.display_first_last, bs.player_name, '')) LIKE $2`,
-        [`%${first}%`, `%${last}%`]
+        [`%${first}%`, `%${last}%`],
       );
       if (tokenMatch) return tokenMatch;
     }
@@ -200,9 +257,10 @@ export async function getPlayerBioDetails(playerId: string | number | null, play
 
   const hist = await getHistoricalPlayerRow(playerId, playerName);
   const birthdate = normalizeDate(hist?.birthdate);
-  const age = hist?.age !== null && hist?.age !== undefined && Number.isFinite(Number(hist.age))
+  const calculatedAge = calcAgeFromBirthdate(birthdate);
+  const fallbackAge = hist?.age !== null && hist?.age !== undefined && Number.isFinite(Number(hist.age))
     ? Number(hist.age)
-    : calcAge(birthdate);
+    : null;
 
   return {
     jerseyNumber: clean(local?.jersey_number) || clean(localByName?.jersey_number) || clean(hist?.jersey) || clean(hist?.jersey_number),
@@ -210,9 +268,10 @@ export async function getPlayerBioDetails(playerId: string | number | null, play
     height: formatHeight(hist),
     weight: formatWeight(hist),
     birthdate,
-    age,
+    // Always prefer current age from birthdate. Historical age can be stale by season.
+    age: calculatedAge ?? fallbackAge,
     country: clean(hist?.country),
     school: clean(hist?.college) || clean(hist?.school),
-    imageUrl: clean(local?.image_url) || clean(localByName?.image_url) || clean(hist?.headshot_url),
+    imageUrl: null,
   };
 }

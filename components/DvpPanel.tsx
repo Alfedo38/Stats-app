@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type DvpMetric = {
   key: string;
@@ -16,6 +16,7 @@ type DvpResponse = {
   team?: string;
   requestedPosition?: string;
   positionGroup?: string;
+  resolvedPositionGroup?: string;
   positionLabel?: string;
   found?: boolean;
   updatedAt?: string | null;
@@ -41,9 +42,11 @@ function normalizePositionForLabel(position: string | null | undefined) {
   if (["PG", "SG", "G", "POINT GUARD", "SHOOTING GUARD", "GUARD"].includes(raw)) return "G";
   if (["SF", "PF", "F", "SMALL FORWARD", "POWER FORWARD", "FORWARD"].includes(raw)) return "F";
   if (["C", "CENTER", "CENTRE"].includes(raw)) return "C";
+  if (["G-F", "F-G", "GF", "FG", "GUARD-FORWARD", "FORWARD-GUARD"].includes(raw)) return "G-F";
+  if (["F-C", "C-F", "FC", "CF", "FORWARD-CENTER", "CENTER-FORWARD"].includes(raw)) return "F-C";
   if (raw.includes("GUARD")) return "G";
-  if (raw.includes("FORWARD")) return "F";
   if (raw.includes("CENTER")) return "C";
+  if (raw.includes("FORWARD")) return "F";
   return raw;
 }
 
@@ -61,37 +64,49 @@ function positionLabel(group?: string) {
 export default function DvpPanel({ opponentAbbr, position }: DvpPanelProps) {
   const [data, setData] = useState<DvpResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const requestSeq = useRef(0);
 
   const team = String(opponentAbbr || "").trim().toUpperCase();
   const positionGroup = useMemo(() => normalizePositionForLabel(position), [position]);
 
   useEffect(() => {
-    let cancelled = false;
+    const seq = ++requestSeq.current;
+    const controller = new AbortController();
 
     async function run() {
-      if (!team) return;
+      if (!team) {
+        setData(null);
+        return;
+      }
+
+      // Important: clear stale panel immediately so a previous player/rival does not stay visible.
+      setData(null);
       setLoading(true);
       try {
         const res = await fetch(`/api/dvp?team=${encodeURIComponent(team)}&position=${encodeURIComponent(positionGroup)}`, {
           cache: "no-store",
+          signal: controller.signal,
         });
         const json = await res.json();
-        if (!cancelled) setData(json);
-      } catch (error) {
-        if (!cancelled) setData({ ok: false, error: "fetch_failed" });
+        if (seq === requestSeq.current) setData(json);
+      } catch (error: any) {
+        if (error?.name !== "AbortError" && seq === requestSeq.current) {
+          setData({ ok: false, error: "fetch_failed" });
+        }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (seq === requestSeq.current) setLoading(false);
       }
     }
 
     run();
-    return () => { cancelled = true; };
+    return () => controller.abort();
   }, [team, positionGroup]);
 
-  const metrics = data?.metrics || [];
-  const label = data?.positionLabel || positionLabel(positionGroup);
+  if (!team) return null;
 
-  // If the table is unavailable, keep the panel compact instead of showing a huge empty card.
+  const metrics = data?.metrics || [];
+  const label = data?.positionLabel || positionLabel(data?.resolvedPositionGroup || positionGroup);
+
   if (!loading && data?.ok === false) {
     return (
       <section className="rounded-3xl border border-red-500/20 bg-black/30 p-4">
@@ -102,12 +117,15 @@ export default function DvpPanel({ opponentAbbr, position }: DvpPanelProps) {
   }
 
   return (
-    <section className="rounded-3xl border border-emerald-400/20 bg-black/35 p-4 shadow-[0_0_28px_rgba(16,185,129,0.05)]">
+    <section
+      key={`${team}-${positionGroup}`}
+      className="rounded-3xl border border-emerald-400/20 bg-black/35 p-4 shadow-[0_0_28px_rgba(16,185,129,0.05)]"
+    >
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-300">Defensa vs posición</div>
           <h3 className="mt-1 text-lg font-black uppercase text-white">
-            {team || "Rival"} <span className="text-slate-500">vs</span> {label}
+            {team} <span className="text-slate-500">vs</span> {label}
           </h3>
         </div>
         <div className="rounded-full border border-cyan-400/20 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-cyan-200">
@@ -156,12 +174,12 @@ export default function DvpPanel({ opponentAbbr, position }: DvpPanelProps) {
         </div>
       ) : (
         <div className="mt-5 rounded-2xl border border-slate-700/60 bg-slate-950/50 p-4 text-center text-xs font-black uppercase tracking-widest text-slate-400">
-          Sin datos para {team || "rival"} · {label}
+          Sin datos para {team} · {label}
         </div>
       )}
 
       <p className="mt-3 text-[10px] font-bold leading-relaxed text-slate-500">
-        DVP agrupa posiciones como G, F, C, G-F y F-C. Valores por encima del promedio de liga indican un contexto más favorable para el over.
+        DVP usa el rival actual o filtrado y la posición del jugador. Si no existe grupo exacto, usa el grupo más cercano.
       </p>
     </section>
   );

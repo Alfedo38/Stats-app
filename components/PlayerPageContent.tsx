@@ -59,6 +59,9 @@ export default function PlayerPageContent({
     ? selectedGame.teams.map((t) => t.toUpperCase())
     : undefined;
 
+  const dvpOpponent = String(nextOpponent || lastOpponent || "").trim().toUpperCase();
+  const dvpKey = `${currentPlayerId}:${dvpOpponent}:${position || ""}`;
+
   const removeExternalFilter = useCallback((id: string) => {
     setExternalFilters((prev) => prev.filter((f) => f.id !== id));
   }, []);
@@ -95,8 +98,8 @@ export default function PlayerPageContent({
           activeInjuryContext={activeInjuryContext}
         />
 
-        {lastOpponent && position && (
-          <DvpPanel opponentAbbr={lastOpponent} position={position} />
+        {dvpOpponent && position && (
+          <DvpPanel key={dvpKey} opponentAbbr={dvpOpponent} position={position} />
         )}
       </main>
     </div>

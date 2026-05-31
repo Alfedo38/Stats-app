@@ -87,6 +87,41 @@ function splitName(player: any, name: string) {
   };
 }
 
+function parseOpponentFromMatchup(matchup: any, teamAbbr?: string | null) {
+  const raw = String(matchup || "").toUpperCase().trim();
+  const team = String(teamAbbr || "").toUpperCase().trim();
+  if (!raw) return null;
+
+  const parts = raw.includes(" VS. ")
+    ? raw.split(" VS. ")
+    : raw.includes(" VS ")
+      ? raw.split(" VS ")
+      : raw.includes(" @ ")
+        ? raw.split(" @ ")
+        : null;
+
+  if (!parts || parts.length < 2) return null;
+  const a = parts[0].trim();
+  const b = parts[1].trim();
+  if (team && a === team) return b;
+  if (team && b === team) return a;
+  return b || null;
+}
+
+function getRowOpponent(row: any, teamAbbr?: string | null) {
+  const raw =
+    row?.opponent_clean ??
+    row?.opponent_abbr ??
+    row?.opponent ??
+    row?.opponent_team ??
+    parseOpponentFromMatchup(row?.matchup, teamAbbr);
+
+  const opp = String(raw || "").toUpperCase().trim();
+  const team = String(teamAbbr || "").toUpperCase().trim();
+  if (!opp || (team && opp === team)) return parseOpponentFromMatchup(row?.matchup, teamAbbr);
+  return opp;
+}
+
 function formatAvgVal(v: number | "S/D") {
   return v === "S/D" ? "S/D" : v.toFixed(1);
 }
@@ -188,11 +223,9 @@ export default async function PlayerPage(props: any) {
       activeInjuryContextDate,
     );
 
-    // Último rival (para DvP)
-    const lastOpponent =
-      cleanStats[0]?.opponent_abbr ??
-      cleanStats[0]?.matchup?.split(" ").pop() ??
-      null;
+    // Último rival como fallback para DvP si no hay próximo partido.
+    // No usamos split simple porque puede devolver el propio equipo o quedar viejo.
+    const lastOpponent = getRowOpponent(cleanStats[0], teamAbbr);
 
     // ── KPIs con tendencia L5 vs L10 ─────────────────────────────────────────
     const last5  = cleanStats.slice(0, 5);

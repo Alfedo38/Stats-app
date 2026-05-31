@@ -1,7 +1,8 @@
-import PlayerChartContainer from "@/components/PlayerChartContainer";
+import WNBAPlayerChartPanel from "@/components/wnba/WNBAPlayerChartPanel";
 import WNBATeamMatesPanel from "@/components/WNBATeamMatesPanel";
+import { getWNBATeamTheme } from "@/components/wnba/wnbaTeamColors";
 import { createClient } from "@supabase/supabase-js";
-import { ArrowLeft, GitMerge, MousePointer2, Target, Zap } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -49,7 +50,7 @@ type Log = {
   opponent_abbr: string;
   home_away: string;
   wl: string | null;
-  minutes: string | null;
+  minutes: string | number | null;
   pts: number | null;
   reb: number | null;
   ast: number | null;
@@ -82,44 +83,9 @@ type RosterRow = {
   ast: number | null;
 };
 
-const NAV_STATS = [
-  { id: "pts", label: "PTS" },
-  { id: "ast", label: "AST" },
-  { id: "reb", label: "REB" },
-  { id: "pts+ast", label: "PTS+AST" },
-  { id: "pts+reb", label: "PTS+REB" },
-  { id: "reb+ast", label: "REB+AST" },
-  { id: "pts+reb+ast", label: "P+R+A" },
-  { id: "fgm", label: "FGM" },
-  { id: "fga", label: "FGA" },
-  { id: "fg3m", label: "3PTM" },
-  { id: "fg3a", label: "3PTA" },
-  { id: "blk", label: "BLK" },
-  { id: "stl", label: "STL" },
-  { id: "stl+blk", label: "STL+BLK" },
-  { id: "tov", label: "TO" },
-  { id: "pf", label: "PF" },
-  { id: "usage_pct", label: "USG%" },
-];
-
 function getOne(value: string | string[] | undefined, fallback: string) {
   if (Array.isArray(value)) return value[0] ?? fallback;
   return value ?? fallback;
-}
-
-function normalizeDate(value: unknown) {
-  let fixedDate = value ? String(value) : null;
-  if (fixedDate && fixedDate.includes("T")) {
-    fixedDate = fixedDate.split("T")[0] + "T12:00:00";
-  } else if (fixedDate) {
-    fixedDate = fixedDate + "T12:00:00";
-  }
-  return fixedDate;
-}
-
-function normalizeMinutes(value: unknown) {
-  if (value === null || value === undefined || value === "") return null;
-  return value;
 }
 
 function toNumber(value: unknown, fallback = 0) {
@@ -128,19 +94,30 @@ function toNumber(value: unknown, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-function formatPct(value: number | null | undefined) {
-  if (value === null || value === undefined) return "S/D";
+function minutesNum(value: any) {
+  if (value === null || value === undefined || value === "") return 0;
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  const raw = String(value).trim();
+  if (raw.includes(":")) {
+    const [m, s] = raw.split(":").map(Number);
+    return (Number.isFinite(m) ? m : 0) + (Number.isFinite(s) ? s / 60 : 0);
+  }
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function fmt(value: number | null | undefined, digits = 1) {
+  if (value === null || value === undefined) return "—";
   const n = Number(value);
-  if (!Number.isFinite(n)) return "S/D";
+  if (!Number.isFinite(n)) return "—";
+  return n.toFixed(digits);
+}
+
+function pct(value: number | null | undefined) {
+  if (value === null || value === undefined) return "—";
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "—";
   return `${(n * 100).toFixed(1)}%`;
-}
-
-function formatAvg(value: number | "S/D") {
-  return value === "S/D" ? "S/D" : value.toFixed(1);
-}
-
-function getSafePlayerName(profile: Profile | null, stats: Log[]) {
-  return profile?.player_name || stats?.[0]?.player_name || "Jugadora WNBA";
 }
 
 function splitName(playerName: string) {
@@ -150,9 +127,20 @@ function splitName(playerName: string) {
   return { firstName, lastName };
 }
 
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] ?? ""}${parts[parts.length - 1][0] ?? ""}`.toUpperCase();
+}
+
+function normalizeDate(value: unknown) {
+  const raw = value ? String(value) : "";
+  return raw.includes("T") ? raw : `${raw}T12:00:00`;
+}
+
 function getMatchup(row: Log) {
   const opponent = row.opponent_abbr || "---";
-  const loc = row.home_away === "AWAY" ? "@" : "vs";
+  const loc = String(row.home_away).toUpperCase() === "AWAY" ? "@" : "vs";
   return `${row.team_abbreviation || "WNBA"} ${loc} ${opponent}`;
 }
 
@@ -167,14 +155,14 @@ function prepareStats(logs: Log[]) {
       const turnovers = toNumber(row.turnovers);
       const fg3m = toNumber(row.fg3m);
       const fg3a = toNumber(row.fg3a);
-      const minutes = normalizeMinutes(row.minutes);
+      const min = minutesNum(row.minutes);
 
       return {
         ...row,
         game_date: normalizeDate(row.game_date),
         matchup: getMatchup(row),
-        min: minutes,
-        minutes,
+        min,
+        minutes: row.minutes,
         pts,
         reb,
         ast,
@@ -195,15 +183,9 @@ function prepareStats(logs: Log[]) {
         stl_blk: stl + blk,
         usage_pct: toNumber(row.usg_pct),
         ts_pct: toNumber(row.ts_pct),
-        potential_ast: 0,
-        rebound_chances: 0,
-        touches: 0,
       };
     })
-    .sort(
-      (a, b) =>
-        new Date(b.game_date || 0).getTime() - new Date(a.game_date || 0).getTime()
-    );
+    .sort((a, b) => new Date(b.game_date || 0).getTime() - new Date(a.game_date || 0).getTime());
 }
 
 export default async function WNBAPlayerPage({
@@ -226,18 +208,10 @@ export default async function WNBAPlayerPage({
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
     if (!supabaseUrl || !supabaseKey) {
-      return (
-        <main className="min-h-screen bg-[var(--bg)] text-[var(--text)] p-6">
-          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-6">
-            Faltan variables de Supabase.
-          </div>
-        </main>
-      );
+      return <main className="min-h-screen p-6 text-[var(--text)]">Faltan variables de Supabase.</main>;
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      auth: { persistSession: false },
-    });
+    const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
 
     const [profileRes, logsRes] = await Promise.all([
       supabase
@@ -248,14 +222,12 @@ export default async function WNBAPlayerPage({
         .eq("season_type", seasonType)
         .limit(1)
         .maybeSingle(),
-
       supabase
         .from("v_wnba_player_game_logs")
         .select("*")
         .eq("player_id", Number(playerId))
         .order("game_date", { ascending: false })
-        .limit(80)
-        .limit(60),
+        .limit(80),
     ]);
 
     if (profileRes.error) throw profileRes.error;
@@ -265,14 +237,9 @@ export default async function WNBAPlayerPage({
     const rawLogs = (logsRes.data ?? []) as Log[];
     const cleanStats = prepareStats(rawLogs);
 
-    const playerName = getSafePlayerName(profile, rawLogs);
+    const playerName = profile?.player_name || rawLogs?.[0]?.player_name || "Jugadora WNBA";
     const { firstName, lastName } = splitName(playerName);
-
-    const teamAbbr =
-      profile?.team_abbr ||
-      cleanStats.find((s: any) => s?.team_abbreviation)?.team_abbreviation ||
-      null;
-
+    const teamAbbr = profile?.team_abbr || cleanStats.find((s: any) => s?.team_abbreviation)?.team_abbreviation || null;
     const teamId = profile?.team_id || cleanStats.find((s: any) => s?.team_id)?.team_id || null;
 
     const rosterRes = teamId
@@ -298,106 +265,52 @@ export default async function WNBAPlayerPage({
       ast: p.ast,
     }));
 
-    const last5 = cleanStats.slice(0, 5);
-    const calcAvg = (key: string): number | "S/D" => {
-      if (!last5.length) return 0;
-      const sum = last5.reduce((acc: number, curr: any) => acc + (Number(curr[key]) || 0), 0);
-      return sum / last5.length;
-    };
-
-    const usageDisplay = formatPct(profile?.usg_pct ?? null);
-    const tsDisplay = formatPct(profile?.ts_pct ?? null);
-    const minAvg = profile?.min != null ? Number(profile.min) : calcAvg("min");
-    const plusMinusAvg = calcAvg("plus_minus");
+    const pra = Number(profile?.pts || 0) + Number(profile?.reb || 0) + Number(profile?.ast || 0);
+    const teamTheme = getWNBATeamTheme(teamAbbr);
 
     return (
-      <main className="min-h-screen bg-[var(--bg)] text-[var(--text)] font-sans pb-20">
-        <nav className="border-b border-[var(--border)] bg-[var(--surface)]/95 backdrop-blur-md sticky top-0 z-50 px-6 py-4">
-          <Link
-            href={teamId ? `/wnba/teams/${teamId}?season=${season}&season_type=${encodeURIComponent(seasonType)}` : "/wnba/teams"}
-            className="text-[var(--text-muted)] hover:text-[#10b981] transition-colors flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"
-          >
-            <ArrowLeft size={14} /> Volver al Equipo
-          </Link>
-        </nav>
+      <main className="min-h-screen text-[var(--text)] pb-20" style={{ background: `radial-gradient(circle at 8% 0%, ${teamTheme.glow}, transparent 28%), radial-gradient(circle at 100% 14%, ${teamTheme.soft}, transparent 22%), var(--bg)` }}>
+        <div className="p-4 pt-20 md:p-8 md:pt-8 max-w-[1560px] mx-auto space-y-5">
+          <section className="relative overflow-hidden rounded-[1.75rem] border p-5 md:p-7" style={{ borderColor: `${teamTheme.primary}55`, background: `linear-gradient(135deg, ${teamTheme.soft}, rgba(5,9,15,.97) 46%, rgba(3,6,10,.98))`, boxShadow: `0 0 38px ${teamTheme.glow}` }}>
+            <div className="pointer-events-none absolute -right-10 -top-14 text-[11rem] font-black italic leading-none opacity-[0.055]" style={{ color: teamTheme.primary }}>{String(teamAbbr || "WN").toUpperCase()}</div>
+            <Link
+              href={teamId ? `/wnba/teams/${teamId}?season=${season}&season_type=${encodeURIComponent(seasonType)}` : "/wnba/players"}
+              className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-5 relative z-10"
+            >
+              <ArrowLeft size={14} /> Volver
+            </Link>
 
-        <div className="p-4 md:p-8 max-w-[1500px] mx-auto space-y-4">
-          <div className="relative bg-[var(--surface)] border border-[var(--border)] rounded-[2rem] px-5 py-6 md:px-8 md:py-7 overflow-hidden group hover:border-[var(--border-strong)] transition-colors">
-            <div className="absolute top-0 right-0 w-[360px] h-[360px] bg-[#10b981] opacity-[0.04] blur-[110px] rounded-full pointer-events-none" />
-
-            <div className="relative z-20 flex items-center justify-between gap-5">
+            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5">
               <div className="min-w-0">
-                <p className="text-[#10b981] text-[10px] font-black uppercase tracking-[0.28em] mb-3 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-[#10b981]" />
-                  WNBA Player Analytics
-                </p>
-
-                <h1 className="text-[clamp(2.4rem,6vw,5.6rem)] font-black italic tracking-tighter leading-[0.9] uppercase break-words">
-                  {firstName}
-                  <br />
-                  <span className="text-[#10b981]">{lastName}</span>
+                <p className="text-[10px] font-black uppercase tracking-[0.28em] mb-2" style={{ color: teamTheme.primary }}>WNBA Player</p>
+                <h1 className="text-[clamp(2.5rem,6vw,5.6rem)] font-black italic tracking-tighter leading-[0.9] uppercase break-words">
+                  {firstName} <span style={{ color: teamTheme.primary }}>{lastName}</span>
                 </h1>
-
-                <p className="mt-4 text-[10px] md:text-xs text-[var(--text-muted)] font-black uppercase tracking-[0.18em]">
+                <p className="mt-3 text-[10px] md:text-xs text-[var(--text-muted)] font-black uppercase tracking-[0.18em]">
                   {[teamAbbr || "WNBA", profile?.jersey ? `#${profile.jersey}` : null, profile?.position || null, season, seasonType].filter(Boolean).join(" · ")}
                 </p>
               </div>
 
-              <div className="hidden md:flex w-24 h-24 rounded-full border border-[var(--border)] bg-[var(--surface-soft)] items-center justify-center shrink-0 shadow-xl">
-                <span className="font-black text-4xl tracking-tighter text-[var(--text-soft)] group-hover:text-[var(--text-muted)] transition-colors uppercase">
-                  {firstName?.charAt(0)}{lastName?.charAt(0)}
-                </span>
+              <div className="hidden md:flex h-20 w-20 rounded-3xl border items-center justify-center text-3xl font-black relative z-10" style={{ borderColor: `${teamTheme.primary}55`, background: teamTheme.soft, color: teamTheme.primary }}>
+                {initials(playerName)}
               </div>
             </div>
-          </div>
+          </section>
 
-          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-4 flex flex-wrap items-center justify-around gap-6 shadow-xl">
-            <div className="flex items-center gap-3">
-              <Zap size={18} className="text-[#10b981]" />
-              <div>
-                <p className="text-[8px] font-black text-[var(--text-muted)] uppercase tracking-widest">
-                  Usage Rate
-                </p>
-                <p className="text-xl font-black italic">{usageDisplay}</p>
-              </div>
-            </div>
-
-            <div className="w-[1px] h-8 bg-[var(--border)] hidden md:block" />
-
-            <div className="flex items-center gap-3">
-              <GitMerge size={18} className="text-blue-500" />
-              <div>
-                <p className="text-[8px] font-black text-[var(--text-muted)] uppercase tracking-widest">
-                  True Shooting
-                </p>
-                <p className="text-xl font-black italic">{tsDisplay}</p>
-              </div>
-            </div>
-
-            <div className="w-[1px] h-8 bg-[var(--border)] hidden md:block" />
-
-            <div className="flex items-center gap-3">
-              <Target size={18} className="text-red-500" />
-              <div>
-                <p className="text-[8px] font-black text-[var(--text-muted)] uppercase tracking-widest">
-                  Minutos
-                </p>
-                <p className="text-xl font-black italic">{formatAvg(minAvg)}</p>
-              </div>
-            </div>
-
-            <div className="w-[1px] h-8 bg-[var(--border)] hidden md:block" />
-
-            <div className="flex items-center gap-3">
-              <MousePointer2 size={18} className="text-orange-500" />
-              <div>
-                <p className="text-[8px] font-black text-[var(--text-muted)] uppercase tracking-widest">
-                  Plus / Minus L5
-                </p>
-                <p className="text-xl font-black italic">{formatAvg(plusMinusAvg)}</p>
-              </div>
-            </div>
-          </div>
+          <section className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+            <Metric label="GP" value={fmt(profile?.gp, 0)} />
+            <Metric label="MIN" value={fmt(profile?.min)} />
+            <Metric label="PTS" value={fmt(profile?.pts)} />
+            <Metric label="REB" value={fmt(profile?.reb)} />
+            <Metric label="AST" value={fmt(profile?.ast)} />
+            <Metric label="PRA" value={fmt(pra)} strong color={teamTheme.primary} />
+            <Metric label="USG%" value={pct(profile?.usg_pct)} />
+            <Metric label="TS%" value={pct(profile?.ts_pct)} />
+            <Metric label="FG%" value={pct(profile?.fg_pct)} />
+            <Metric label="3P%" value={pct(profile?.fg3_pct)} />
+            <Metric label="STL" value={fmt(profile?.stl)} />
+            <Metric label="BLK" value={fmt(profile?.blk)} />
+          </section>
 
           <div className="grid grid-cols-1 xl:grid-cols-[320px_minmax(0,1fr)] gap-5 items-start">
             <WNBATeamMatesPanel
@@ -408,34 +321,34 @@ export default async function WNBAPlayerPage({
               seasonType={seasonType}
             />
 
-            <PlayerChartContainer
-              stats={cleanStats}
-              navStats={NAV_STATS}
-              playerName={playerName}
-              stakeOdds={[]}
-            />
+            <WNBAPlayerChartPanel stats={cleanStats} teamAbbr={teamAbbr ? String(teamAbbr).toUpperCase() : null} />
           </div>
         </div>
       </main>
     );
   } catch (error: any) {
     console.error("WNBA_PLAYER_PAGE_ERROR:", error);
-
     return (
-      <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] flex flex-col items-center justify-center p-10 text-center">
-        <h1 className="text-red-500 font-black text-3xl mb-4 uppercase tracking-tighter">
-          Error al cargar la jugadora WNBA
-        </h1>
-        <p className="text-[var(--text-muted)] text-xs font-bold uppercase tracking-widest">
-          {error?.message || "Intentá de nuevo en unos segundos"}
-        </p>
-        <Link
-          href="/wnba/teams"
-          className="mt-8 border border-[var(--border)] px-6 py-3 rounded-xl uppercase text-xs font-black tracking-widest hover:bg-[var(--surface-hover)] hover:text-[#10b981] transition-all"
-        >
-          Volver a Equipos WNBA
-        </Link>
-      </div>
+      <main className="min-h-screen bg-[var(--bg)] text-[var(--text)] flex flex-col items-center justify-center p-10 text-center">
+        <h1 className="text-red-500 font-black text-3xl mb-4 uppercase tracking-tighter">Error al cargar la jugadora WNBA</h1>
+        <p className="text-[var(--text-muted)] text-xs font-bold uppercase tracking-widest">{error?.message || "Intentá de nuevo"}</p>
+        <Link href="/wnba/players" className="mt-8 border border-[var(--border)] px-6 py-3 rounded-xl uppercase text-xs font-black tracking-widest hover:text-[#10b981]">Volver a jugadoras</Link>
+      </main>
     );
   }
+}
+
+function Metric({ label, value, strong = false, color }: { label: string; value: string; strong?: boolean; color?: string }) {
+  return (
+    <div
+      className="rounded-2xl border px-4 py-3"
+      style={{
+        borderColor: strong && color ? `${color}66` : "var(--border)",
+        background: strong && color ? `${color}17` : "var(--surface)",
+      }}
+    >
+      <p className="text-[8px] font-black uppercase tracking-widest text-[var(--text-muted)]">{label}</p>
+      <p className="mt-1 text-2xl font-black italic tracking-tighter" style={{ color: strong && color ? color : undefined }}>{value}</p>
+    </div>
+  );
 }

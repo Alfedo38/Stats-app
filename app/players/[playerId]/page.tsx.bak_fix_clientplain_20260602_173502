@@ -2,7 +2,7 @@
 import PlayerHeader,      { type PlayerKPI } from "@/components/PlayerHeader";
 import SocialRadar                            from "@/components/SocialRadar";
 import PlayerPageContent                      from "@/components/PlayerPageContent";
-import { getPlayerData } from "@/lib/api";
+import { getPlayerData, getTeamPlayersForTeams } from "@/lib/api";
 import { getPlayerDataFast } from "@/lib/playerDataFast";
 import { getPlayerOddsMultiBook } from "@/lib/playerOdds";
 import { getPlayerBioDetails } from "@/lib/playerBio";
@@ -132,24 +132,22 @@ function clientPlain(value: any): any {
 
   if (typeof value === "bigint") return Number(value);
   if (value instanceof Date) return value.toISOString();
-  if (typeof value === "function") return undefined;
 
   if (typeof value === "object") {
-    // Prisma Decimal / Decimal.js, incluso cuando viene minificado.
-    const anyValue = value as any;
-
+    // Decimal.js / Prisma Decimal aunque venga minificado como constructor i
     if (
-      Array.isArray(anyValue.d) &&
-      typeof anyValue.s !== "undefined" &&
-      typeof anyValue.e !== "undefined" &&
-      typeof anyValue.toString === "function"
+      Array.isArray((value as any).d) / Prisma Decimal aunque venga minificado como constructor i
+    if (
+      Array.is &&
+      typeof (value as any).s !== "undefined" &&
+      typeof (value as any).e !== "undefined"
     ) {
-      const n = Number(anyValue.toString());
+      const n = Number(value.toString());
       return Number.isFinite(n) ? n : null;
     }
 
-    if (typeof anyValue.toNumber === "function") {
-      const n = anyValue.toNumber();
+    if (typeof (value as any).toNumber === "function") {
+      const n = (value as any).toNumber();
       return Number.isFinite(n) ? n : null;
     }
 
@@ -203,14 +201,14 @@ export default async function PlayerPage(props: any) {
     const requestedStat = typeof searchParams?.stat === "string" ? searchParams.stat : "pts";
     const requestedDate = typeof searchParams?.date === "string" ? searchParams.date.slice(0, 10) : null;
 
-    const playerDataFastStart = Date.now();
+    console.time(`[player-page] getPlayerDataFast ${playerId}`);
     let data = await getPlayerDataFast(playerId);
-    console.log(`[player-page] getPlayerDataFast ${playerId}: ${Date.now() - playerDataFastStart}ms`);
+    console.timeEnd(`[player-page] getPlayerDataFast ${playerId}`);
 
     if (!data?.player || !Array.isArray(data?.stats) || data.stats.length === 0) {
-      const playerDataFallbackStart = Date.now();
+      console.time(`[player-page] getPlayerData fallback ${playerId}`);
       data = await getPlayerData(playerId);
-      console.log(`[player-page] getPlayerData fallback ${playerId}: ${Date.now() - playerDataFallbackStart}ms`);
+      console.timeEnd(`[player-page] getPlayerData fallback ${playerId}`);
     }
     if (!data?.player) return null;
     const { player, stats } = data;
@@ -250,8 +248,9 @@ export default async function PlayerPage(props: any) {
     // - No bloqueamos HTML con injury context; PlayerChartContainer ya lo carga por API cliente.
     // ── Render inicial turbo ─────────────────────────────────────────────────
     // Compañeros queda lazy/no bloqueante por ahora.
-    // Los compañeros se cargan desde el cliente para no bloquear el HTML inicial.
-    const teammates: any[] = [];
+    const teammates = rosterTeams.length > 0
+      ? await soft("teammates", getTeamPlayersForTeams(rosterTeams, { stat: requestedStat, book: "stake" }), [] as any[], 1200)
+      : [];
 
     const [stakeOdds, bioDetails] = await Promise.all([
       soft("stakeOdds", getPlayerOddsMultiBook(playerName), [] as any[], 900),
@@ -298,9 +297,9 @@ export default async function PlayerPage(props: any) {
       { label: "Toques",           value: formatAvgVal(calcAvg("touches")),          trend: calcAvg("touches")         === "S/D" ? undefined : delta("touches"),         trendLabel: "vs L10" },
     ];
 
-    const clientStats = JSON.parse(JSON.stringify(clientPlain(cleanStats))) as any[];
-    const clientStakeOdds = JSON.parse(JSON.stringify(clientPlain(stakeOdds))) as any[];
-    const clientTeammates = JSON.parse(JSON.stringify(clientPlain(teammates))) as any[];
+    const clientStats = clientPlain(cleanStats) as any[];
+    const clientStakeOdds = clientPlain(stakeOdds) as any[];
+    const clientTeammates = clientPlain(teammates) as any[];
 
     return (
       <main className="min-h-screen bg-[var(--bg)] text-[var(--text)] font-sans pb-20">
@@ -333,7 +332,6 @@ export default async function PlayerPage(props: any) {
             stats={clientStats}
             navStats={NAV_STATS}
             playerName={playerName}
-            initialStat={requestedStat}
             stakeOdds={clientStakeOdds}
             teammates={clientTeammates}
             teamAbbr={teamAbbr ? String(teamAbbr).toUpperCase() : null}

@@ -1,0 +1,44 @@
+import prisma from "@/lib/prisma";
+
+export async function getPlayerDataFast(playerId: string | number) {
+  const id = Number(playerId);
+
+  if (!Number.isFinite(id)) {
+    return { player: null, stats: [] };
+  }
+
+  const [player, stats] = await Promise.all([
+    prisma.players.findUnique({
+      where: { id },
+    }).catch(() => null),
+
+    prisma.$queryRawUnsafe<any[]>(`
+      SELECT
+        *
+      FROM public.player_page_game_fact_cache
+      WHERE player_id = $1
+      ORDER BY game_date DESC
+      LIMIT 500
+    `, id),
+  ]);
+
+  if (!player && stats.length === 0) {
+    return { player: null, stats: [] };
+  }
+
+  const first = stats[0] || {};
+
+  const safePlayer = player || {
+    id,
+    full_name: first.player_name || "Jugador",
+    first_name: String(first.player_name || "Jugador").split(" ")[0],
+    last_name: String(first.player_name || "").split(" ").slice(1).join(" "),
+    team_abbreviation: first.team_abbreviation || null,
+    position: first.position || first.position_group || null,
+  };
+
+  return {
+    player: safePlayer,
+    stats,
+  };
+}

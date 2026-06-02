@@ -218,7 +218,7 @@ export async function getPlayerHistoricalExplorer(input: {
   if (!playerId && !playerName) throw new Error("playerId o playerName requerido");
 
   const allowedSources = [
-    "public.player_page_game_fact_cache",
+    "nba_api_data.v_player_page_game_fact",
     "nba_api_data.v_ludo_player_page_history_unified",
     "nba_api_data.v_ludo_hist_player_games",
   ];

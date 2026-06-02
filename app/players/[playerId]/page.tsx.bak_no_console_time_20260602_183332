@@ -203,14 +203,14 @@ export default async function PlayerPage(props: any) {
     const requestedStat = typeof searchParams?.stat === "string" ? searchParams.stat : "pts";
     const requestedDate = typeof searchParams?.date === "string" ? searchParams.date.slice(0, 10) : null;
 
-    const playerDataFastStart = Date.now();
+    console.time(`[player-page] getPlayerDataFast ${playerId}`);
     let data = await getPlayerDataFast(playerId);
-    console.log(`[player-page] getPlayerDataFast ${playerId}: ${Date.now() - playerDataFastStart}ms`);
+    console.timeEnd(`[player-page] getPlayerDataFast ${playerId}`);
 
     if (!data?.player || !Array.isArray(data?.stats) || data.stats.length === 0) {
-      const playerDataFallbackStart = Date.now();
+      console.time(`[player-page] getPlayerData fallback ${playerId}`);
       data = await getPlayerData(playerId);
-      console.log(`[player-page] getPlayerData fallback ${playerId}: ${Date.now() - playerDataFallbackStart}ms`);
+      console.timeEnd(`[player-page] getPlayerData fallback ${playerId}`);
     }
     if (!data?.player) return null;
     const { player, stats } = data;

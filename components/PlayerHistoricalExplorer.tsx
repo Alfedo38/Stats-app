@@ -16,6 +16,9 @@ type Props = {
   homeAway?: "HOME" | "AWAY" | string | null;
   woTeammate?: string | null;
   externalFilterCount?: number;
+  initialData?: HistoryResponse | null;
+  initialLoading?: boolean;
+  initialError?: string | null;
 };
 
 type HistoryResponse = {
@@ -152,6 +155,9 @@ export default function PlayerHistoricalExplorer({
   homeAway = null,
   woTeammate = null,
   externalFilterCount = 0,
+  initialData = undefined,
+  initialLoading = undefined,
+  initialError = null,
 }: Props) {
   const market = useMemo(() => toMarket(activeStat), [activeStat]);
   const normalizedOpponent = String(opponent || "").trim().toUpperCase() || null;
@@ -161,6 +167,13 @@ export default function PlayerHistoricalExplorer({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (initialData !== undefined || initialLoading !== undefined) {
+      setData(initialData ?? null);
+      setLoading(Boolean(initialLoading));
+      setError(initialError || null);
+      return;
+    }
+
     if (!market || !playerName || !Number.isFinite(Number(lineValue))) {
       setData(null);
       return;
@@ -201,7 +214,7 @@ export default function PlayerHistoricalExplorer({
       .finally(() => setLoading(false));
 
     return () => controller.abort();
-  }, [playerId, playerName, market, lineValue, side, normalizedOpponent, normalizedHomeAway, minMinutes, woTeammate]);
+  }, [initialData, initialLoading, initialError, playerId, playerName, market, lineValue, side, normalizedOpponent, normalizedHomeAway, minMinutes, woTeammate]);
 
   if (!market) {
     return (

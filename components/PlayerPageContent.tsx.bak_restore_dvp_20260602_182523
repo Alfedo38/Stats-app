@@ -130,9 +130,7 @@ export default function PlayerPageContent({
     ? selectedGame.teams.map((t) => t.toUpperCase())
     : undefined;
 
-  const dvpOpponent = String(
-    dvpOpponentFromFilters || nextOpponent || lastOpponent || ""
-  ).trim().toUpperCase();
+  const dvpOpponent = String(dvpOpponentFromFilters || nextOpponent || "").trim().toUpperCase();
   const dvpKey = `${currentPlayerId}:${dvpOpponent}:${position || ""}`;
 
   const removeExternalFilter = useCallback((id: string) => {

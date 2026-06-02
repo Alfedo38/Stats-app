@@ -128,6 +128,10 @@ function formatTabDate(dateStr: string): string {
   return d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
 }
 
+function hasBlocks(blocks: Block[] | null | undefined): boolean {
+  return Array.isArray(blocks) && blocks.some((block) => Array.isArray(block?.tickets) && block.tickets.length > 0);
+}
+
 
 function cleanTicketName(name: string, playsCount: number, totalOdds: number): string {
   const plain = String(name || '')
@@ -432,11 +436,15 @@ export default function EVDashboard({
   const [activeSide,   setActiveSide]   = useState<Side>('OVER');
   const [activeFamily, setActiveFamily] = useState<Family>('MAIN');
 
+  const hasInitialData = hasBlocks(yesterday) || hasBlocks(today) || hasBlocks(tomorrow);
+
   const [calendarOpen,    setCalendarOpen]    = useState(false);
   const [calendarEntries, setCalendarEntries] = useState<CalendarEntry[]>([]);
   const [calendarDate,    setCalendarDate]    = useState<string | null>(null);
   const [calendarBlocks,  setCalendarBlocks]  = useState<Block[] | null>(null);
   const [loadingCal,      setLoadingCal]      = useState(false);
+  const [loadingFallback, setLoadingFallback] = useState(!hasInitialData);
+  const [fallbackNotice,  setFallbackNotice]  = useState<string | null>(null);
 
   // Reset al cambiar de bookmaker
   useEffect(() => {
@@ -444,7 +452,55 @@ export default function EVDashboard({
     setCalendarDate(null);
     setCalendarBlocks(null);
     setCalendarEntries([]);
-  }, [bookmaker]);
+    setFallbackNotice(null);
+    setLoadingFallback(!hasInitialData);
+  }, [bookmaker, hasInitialData, today, yesterday]);
+
+  // Fallback productivo: si el Server Component no encontró “hoy”,
+  // buscamos la próxima fecha ACTIVE disponible en ludo_picks.
+  // Esto evita que /ev-plays quede vacío cuando los picks son para un partido futuro.
+  useEffect(() => {
+    if (hasInitialData) return;
+
+    let cancelled = false;
+
+    async function loadNextAvailablePicks() {
+      setLoadingFallback(true);
+      try {
+        const endpoint = bookmaker === 'betano'
+          ? '/api/ev-next-picks?book=betano'
+          : '/api/ev-next-picks?book=stake';
+        const res = await fetch(endpoint, { cache: 'no-store' });
+        const data = await res.json();
+        if (cancelled) return;
+
+        const blocks = Array.isArray(data?.blocks)
+          ? data.blocks.filter((b: Block) => !String(b?.matchup || '').startsWith('🌎'))
+          : [];
+
+        if (blocks.length > 0) {
+          setCalendarBlocks(blocks);
+          setCalendarDate(data?.pick_date || data?.date || null);
+          setActiveTab('CALENDAR');
+          setFallbackNotice(data?.message || (data?.pick_date ? `Mostrando próxima fecha disponible: ${data.pick_date}` : null));
+        } else {
+          setCalendarBlocks(null);
+          setFallbackNotice(null);
+        }
+      } catch {
+        if (!cancelled) {
+          setCalendarBlocks(null);
+          setFallbackNotice(null);
+        }
+      } finally {
+        if (!cancelled) setLoadingFallback(false);
+      }
+    }
+
+    loadNextAvailablePicks();
+
+    return () => { cancelled = true; };
+  }, [hasInitialData, bookmaker]);
 
   useEffect(() => {
     if (!calendarOpen || calendarEntries.length > 0) return;
@@ -529,12 +585,26 @@ export default function EVDashboard({
     if (availableSides.length === 1) setActiveSide(availableSides[0]);
   }, [availableSides]);
 
-  if (!yesterday && !today && !tomorrow) {
+  if (!hasInitialData && loadingFallback) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 bg-[var(--surface)] border border-[var(--border)] rounded-2xl">
+        <div className="h-9 w-9 rounded-full border-2 border-[var(--border)] border-t-[#10b981] animate-spin mb-4"/>
+        <p className="text-[var(--text-muted)] font-bold uppercase tracking-widest text-sm">
+          Buscando próxima fecha con picks de {bookmaker === 'betano' ? 'Betano' : 'Stake'}...
+        </p>
+      </div>
+    );
+  }
+
+  if (!hasInitialData && !hasBlocks(calendarBlocks)) {
     return (
       <div className="flex flex-col items-center justify-center h-64 bg-[var(--surface)] border border-[var(--border)] rounded-2xl">
         <AlertCircle size={40} className="text-[var(--text-muted)] mb-4"/>
         <p className="text-[var(--text-muted)] font-bold uppercase tracking-widest text-sm">
           No hay picks de {bookmaker === 'betano' ? 'Betano' : 'Stake'} disponibles.
+        </p>
+        <p className="mt-2 text-[10px] text-[var(--text-soft)] font-bold uppercase tracking-widest">
+          Se buscó hoy, próximas fechas activas y último pick activo.
         </p>
       </div>
     );
@@ -571,6 +641,14 @@ export default function EVDashboard({
           </p>
         </div>
       </div>
+
+      {fallbackNotice && (
+        <div className="rounded-2xl border border-cyan-400/25 bg-cyan-400/10 px-4 py-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-cyan-300">
+            {fallbackNotice}
+          </p>
+        </div>
+      )}
 
       {/* ── TABS + HISTORIAL ─────────────────────────────────────────────── */}
       <div className="flex items-end justify-between border-b border-[var(--border)] pb-0">

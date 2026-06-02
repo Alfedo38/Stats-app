@@ -2,8 +2,7 @@
 import PlayerHeader,      { type PlayerKPI } from "@/components/PlayerHeader";
 import SocialRadar                            from "@/components/SocialRadar";
 import PlayerPageContent                      from "@/components/PlayerPageContent";
-import { getPlayerData } from "@/lib/api";
-import { getPlayerDataFast } from "@/lib/playerDataFast";
+import { getPlayerActiveInjuryContext, getPlayerData, getSchedule, getTeamPlayersForTeams, getTodayScoreboard } from "@/lib/api";
 import { getPlayerOddsMultiBook } from "@/lib/playerOdds";
 import { getPlayerBioDetails } from "@/lib/playerBio";
 import { ArrowLeft } from "lucide-react";
@@ -127,72 +126,6 @@ function formatAvgVal(v: number | "S/D") {
   return v === "S/D" ? "S/D" : v.toFixed(1);
 }
 
-function clientPlain(value: any): any {
-  if (value === null || value === undefined) return value;
-
-  if (typeof value === "bigint") return Number(value);
-  if (value instanceof Date) return value.toISOString();
-  if (typeof value === "function") return undefined;
-
-  if (typeof value === "object") {
-    // Prisma Decimal / Decimal.js, incluso cuando viene minificado.
-    const anyValue = value as any;
-
-    if (
-      Array.isArray(anyValue.d) &&
-      typeof anyValue.s !== "undefined" &&
-      typeof anyValue.e !== "undefined" &&
-      typeof anyValue.toString === "function"
-    ) {
-      const n = Number(anyValue.toString());
-      return Number.isFinite(n) ? n : null;
-    }
-
-    if (typeof anyValue.toNumber === "function") {
-      const n = anyValue.toNumber();
-      return Number.isFinite(n) ? n : null;
-    }
-
-    if (Array.isArray(value)) {
-      return value.map(clientPlain);
-    }
-
-    const out: Record<string, any> = {};
-    for (const [k, v] of Object.entries(value)) {
-      if (typeof v === "function") continue;
-      out[k] = clientPlain(v);
-    }
-    return out;
-  }
-
-  return value;
-}
-
-async function soft<T>(label: string, promise: Promise<T>, fallback: T, ms = 900): Promise<T> {
-  let timer: any;
-
-  const timeout = new Promise<T>((resolve) => {
-    timer = setTimeout(() => {
-      console.warn(`[player-page] ${label} timeout ${ms}ms; usando fallback`);
-      resolve(fallback);
-    }, ms);
-  });
-
-  try {
-    const result = await Promise.race([
-      promise.catch((error) => {
-        console.warn(`[player-page] ${label} error:`, error?.message || error);
-        return fallback;
-      }),
-      timeout,
-    ]);
-
-    return result as T;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default async function PlayerPage(props: any) {
@@ -203,15 +136,7 @@ export default async function PlayerPage(props: any) {
     const requestedStat = typeof searchParams?.stat === "string" ? searchParams.stat : "pts";
     const requestedDate = typeof searchParams?.date === "string" ? searchParams.date.slice(0, 10) : null;
 
-    const playerDataFastStart = Date.now();
-    let data = await getPlayerDataFast(playerId);
-    console.log(`[player-page] getPlayerDataFast ${playerId}: ${Date.now() - playerDataFastStart}ms`);
-
-    if (!data?.player || !Array.isArray(data?.stats) || data.stats.length === 0) {
-      const playerDataFallbackStart = Date.now();
-      data = await getPlayerData(playerId);
-      console.log(`[player-page] getPlayerData fallback ${playerId}: ${Date.now() - playerDataFallbackStart}ms`);
-    }
+    const data = await getPlayerData(playerId);
     if (!data?.player) return null;
     const { player, stats } = data;
 
@@ -242,29 +167,61 @@ export default async function PlayerPage(props: any) {
       cleanStats.find((s: any) => s?.team_abbreviation)?.team_abbreviation ||
       (player as any)?.team_abbreviation || (player as any)?.team || null;
 
+    const games = await getSchedule();
     const normalizedTeamAbbr = teamAbbr ? String(teamAbbr).toUpperCase() : null;
-    const rosterTeams = normalizedTeamAbbr ? [normalizedTeamAbbr] : [];
+    const teamGames = normalizedTeamAbbr
+      ? games.filter((g) => g.teams.map((t) => t.toUpperCase()).includes(normalizedTeamAbbr))
+      : games;
 
-    // Render inicial liviano:
-    // - No bloqueamos HTML con schedule/scoreboard ESPN.
-    // - No bloqueamos HTML con injury context; PlayerChartContainer ya lo carga por API cliente.
-    // ── Render inicial turbo ─────────────────────────────────────────────────
-    // Compañeros queda lazy/no bloqueante por ahora.
-    // Los compañeros se cargan desde el cliente para no bloquear el HTML inicial.
-    const teammates: any[] = [];
+    const rosterTeams = Array.from(new Set([
+      ...(normalizedTeamAbbr ? [normalizedTeamAbbr] : []),
+      ...teamGames.flatMap((g) => g.teams.map((t) => t.toUpperCase())),
+    ])).filter(Boolean);
 
-    const [stakeOdds, bioDetails] = await Promise.all([
-      soft("stakeOdds", getPlayerOddsMultiBook(playerName), [] as any[], 900),
-      soft("bioDetails", getPlayerBioDetails(playerId, playerName), null as any, 900),
+    // ── Parallel fetches ──────────────────────────────────────────────────────
+    const [teammates, stakeOdds, scoreboard, bioDetails] = await Promise.all([
+      rosterTeams.length > 0
+        ? getTeamPlayersForTeams(rosterTeams, { stat: requestedStat, book: "stake" })
+        : Promise.resolve([]),
+      getPlayerOddsMultiBook(playerName),
+      getTodayScoreboard(),
+      getPlayerBioDetails(playerId, playerName),
     ]);
 
-    // Sin schedule server-side para no bloquear el HTML inicial.
-    // Dejamos arrays vacíos para mantener compatibilidad con PlayerPageContent.
-    const games: any[] = [];
-    const teamGames: any[] = [];
-    const nextGame = undefined;
-    const activeInjuryContextDate = requestedDate || undefined;
-    const activeInjuryContext: any[] = [];
+    // ── Próximo partido desde ESPN ────────────────────────────────────────────
+    const nextGameEvent = (scoreboard as any[]).find((ev: any) => {
+      const comps = ev?.competitions?.[0]?.competitors ?? [];
+      return comps.some((t: any) =>
+        t?.team?.abbreviation?.toUpperCase() === String(teamAbbr || "").toUpperCase()
+      );
+    });
+
+    const nextGame = nextGameEvent ? (() => {
+      const comps  = nextGameEvent.competitions[0].competitors as any[];
+      const home   = comps.find((t: any) => t.homeAway === "home");
+      const away   = comps.find((t: any) => t.homeAway === "away");
+      const isHome = home?.team?.abbreviation?.toUpperCase() === String(teamAbbr || "").toUpperCase();
+      const opp    = isHome ? away : home;
+      return {
+        opponent: opp?.team?.abbreviation ?? "???",
+        isHome,
+        date:     nextGameEvent.date ?? "",
+        time:     nextGameEvent.date
+          ? new Date(nextGameEvent.date)
+              .toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Argentina/Buenos_Aires" })
+              .replace(/[\u00A0\u202F]/g, " ")
+          : undefined,
+      };
+    })() : undefined;
+
+    const todayArgDate = new Date().toISOString().slice(0, 10);
+    const activeInjuryContextDate =
+      requestedDate || (nextGame?.date ? String(nextGame.date).slice(0, 10) : todayArgDate);
+
+    const activeInjuryContext = await getPlayerActiveInjuryContext(
+      Number(playerId),
+      activeInjuryContextDate,
+    );
 
     // Último rival como fallback para DvP si no hay próximo partido.
     // No usamos split simple porque puede devolver el propio equipo o quedar viejo.
@@ -298,10 +255,6 @@ export default async function PlayerPage(props: any) {
       { label: "Toques",           value: formatAvgVal(calcAvg("touches")),          trend: calcAvg("touches")         === "S/D" ? undefined : delta("touches"),         trendLabel: "vs L10" },
     ];
 
-    const clientStats = JSON.parse(JSON.stringify(clientPlain(cleanStats))) as any[];
-    const clientStakeOdds = JSON.parse(JSON.stringify(clientPlain(stakeOdds))) as any[];
-    const clientTeammates = JSON.parse(JSON.stringify(clientPlain(teammates))) as any[];
-
     return (
       <main className="min-h-screen bg-[var(--bg)] text-[var(--text)] font-sans pb-20">
         <nav className="border-b border-[var(--border)] bg-[var(--surface)]/95 backdrop-blur-md sticky top-0 z-50 px-6 py-4">
@@ -329,13 +282,11 @@ export default async function PlayerPage(props: any) {
 
           {/* Grid sidebar + gráfico — maneja selectedGame en client */}
           <PlayerPageContent
-            key={`${playerId}-${requestedStat}`}
-            stats={clientStats}
+            stats={cleanStats}
             navStats={NAV_STATS}
             playerName={playerName}
-            initialStat={requestedStat}
-            stakeOdds={clientStakeOdds}
-            teammates={clientTeammates}
+            stakeOdds={stakeOdds}
+            teammates={teammates}
             teamAbbr={teamAbbr ? String(teamAbbr).toUpperCase() : null}
             currentPlayerId={String(playerId)}
             games={teamGames.length > 0 ? teamGames : games}

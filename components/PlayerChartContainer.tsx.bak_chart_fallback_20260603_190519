@@ -979,9 +979,7 @@ export default function PlayerChartContainer({
     [historicalChartStats, lastN],
   );
 
-  // Si el histórico externo tarda/falla, no dejamos el gráfico vacío.
-  // Usamos las stats locales como fallback para evitar "sin datos para graficar".
-  const chartStats = isHistoricalChartMode && historicalChartWindow.length > 0
+  const chartStats = isHistoricalChartMode
     ? historicalChartWindow
     : visibleStats;
   const metricStats = chartStats.length > 0 ? chartStats : visibleStats;

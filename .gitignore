@@ -84,3 +84,8 @@ browser_profile/
 *.bak_*
 *.bak
 *.backup
+
+# local backups
+*.bak_*
+*.bak
+*.backup

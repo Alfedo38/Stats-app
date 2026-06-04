@@ -219,8 +219,6 @@ export async function getPlayerHistoricalExplorer(input: {
 
   const allowedSources = [
     "public.player_page_game_fact_cache",
-    "nba_api_data.v_ludo_player_page_history_unified",
-    "nba_api_data.v_ludo_hist_player_games",
   ];
 
   const nameTokens = normalizeName(playerName).split(" ").filter((t) => t.length >= 2);
@@ -235,20 +233,27 @@ export async function getPlayerHistoricalExplorer(input: {
       FROM ${source}
       WHERE ${whereSql}
       ORDER BY game_date DESC
-      LIMIT 2000
+      LIMIT 500
       `,
       ...params
     );
   }
 
   async function querySource(source: string) {
-    // Prioridad 1: nombre exacto. Esto evita colisiones de IDs entre ESPN/current y NBA API histórico.
+    // Prioridad 1: player_id. Es mucho más rápido y evita ILIKE sobre histórico.
+    if (playerId) {
+      const numericPlayerId = Number(playerId);
+      if (Number.isFinite(numericPlayerId)) {
+        const rows = await runQuery(source, `player_id = $1::bigint`, [numericPlayerId]);
+        if (rows?.length) return { rows, matchMode: "player_id", source };
+      }
+    }
+
+    // Fallback por nombre exacto solo si no hay ID o no devolvió filas.
     if (playerName) {
-      let rows = await runQuery(source, `player_name ILIKE $1`, [playerName]);
+      let rows = await runQuery(source, `lower(player_name) = lower($1)`, [playerName]);
       if (rows?.length) return { rows, matchMode: "name_exact", source };
 
-      // Prioridad 2: nombre aproximado por primer + último token.
-      // Ej: Victor Wembanyama, Nikola Jokic/Jokić, C.J. McCollum.
       if (primaryFirst && primaryLast && primaryFirst !== primaryLast) {
         rows = await runQuery(
           source,
@@ -257,13 +262,6 @@ export async function getPlayerHistoricalExplorer(input: {
         );
         if (rows?.length) return { rows, matchMode: "name_tokens", source };
       }
-    }
-
-    // Fallback final por id solamente si no hay forma de resolver por nombre.
-    // No lo usamos primero porque el mismo número puede apuntar a otro jugador en fuentes distintas.
-    if (playerId && !playerName) {
-      const rows = await runQuery(source, `player_id::text = $1::text`, [playerId]);
-      if (rows?.length) return { rows, matchMode: "player_id", source };
     }
 
     return { rows: [], matchMode: "none", source };
@@ -297,8 +295,8 @@ export async function getPlayerHistoricalExplorer(input: {
         `
         SELECT game_id::text AS game_id, game_date::date AS game_date
         FROM public.ludo_wo_games_modal_cache
-        WHERE player_id::text = $1::text
-          AND absent_teammate ILIKE $2
+        WHERE player_id = $1::bigint
+          AND lower(absent_teammate) = lower($2)
         ORDER BY game_date DESC NULLS LAST
         LIMIT 3000
         `,

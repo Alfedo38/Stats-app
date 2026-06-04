@@ -75,3 +75,7 @@ browser_profile/
 
 # Scripts locales de automatización
 *.sh
+# local backups
+*.bak_*
+*.bak
+*.backup

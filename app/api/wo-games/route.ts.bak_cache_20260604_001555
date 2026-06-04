@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     const rows = await prisma.$queryRawUnsafe<any[]>(
       `
       SELECT *
-      FROM public.ludo_wo_games_modal_cache
+      FROM public.v_ludo_wo_games_modal
       WHERE player_id = $1
         AND absent_teammate ILIKE $2
       ORDER BY game_date DESC NULLS LAST

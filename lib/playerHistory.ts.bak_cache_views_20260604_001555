@@ -296,7 +296,7 @@ export async function getPlayerHistoricalExplorer(input: {
       const woRows = await prisma.$queryRawUnsafe<any[]>(
         `
         SELECT game_id::text AS game_id, game_date::date AS game_date
-        FROM public.ludo_wo_games_modal_cache
+        FROM public.v_ludo_wo_games_modal
         WHERE player_id::text = $1::text
           AND absent_teammate ILIKE $2
         ORDER BY game_date DESC NULLS LAST

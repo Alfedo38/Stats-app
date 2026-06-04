@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
       SELECT column_name
       FROM information_schema.columns
       WHERE table_schema = 'public'
-        AND table_name = 'ludo_wo_games_modal_cache'
+        AND table_name = 'v_ludo_wo_games_modal'
       `
     );
 
@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
         ok: false,
         count: 0,
         rows: [],
-        error: "La vista public.ludo_wo_games_modal_cache necesita player_id y absent_teammate",
+        error: "La vista public.v_ludo_wo_games_modal necesita player_id y absent_teammate",
       });
     }
 
@@ -102,7 +102,7 @@ export async function GET(req: NextRequest) {
       `
       SELECT
         ${selectParts.join(",\n        ")}
-      FROM public.ludo_wo_games_modal_cache
+      FROM public.v_ludo_wo_games_modal
       WHERE player_id::text = $1::text
         AND ($2 = '' OR absent_teammate ILIKE '%' || $2 || '%')
       GROUP BY player_id, absent_teammate

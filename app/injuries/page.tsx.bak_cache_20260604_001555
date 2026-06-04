@@ -238,7 +238,7 @@ async function getGameScopedInjuriesFromDB(baseDate: string) {
             severity DESC NULLS LAST,
             id DESC
         ) AS rn
-      FROM public.nba_injuries_latest_cache
+      FROM public.v_nba_injuries_latest
       WHERE game_date::date BETWEEN ${baseDate}::date AND ${nextDate}::date
         AND UPPER(COALESCE(normalized_status, current_status, '')) NOT LIKE '%AVAILABLE%'
         AND UPPER(COALESCE(normalized_status, current_status, '')) NOT LIKE '%ACTIVE%'
@@ -410,7 +410,7 @@ export default async function InjuriesPage({
               Sin injury report para equipos con partido en esa ventana
             </p>
             <p className="mt-2 max-w-md text-[10px] font-bold uppercase tracking-widest text-[var(--text-soft)]">
-              La página ahora filtra solo lesiones asociadas a partidos de hoy o mañana. Si esperabas datos, revisá game_date en public.nba_injuries_latest_cache.
+              La página ahora filtra solo lesiones asociadas a partidos de hoy o mañana. Si esperabas datos, revisá game_date en public.v_nba_injuries_latest.
             </p>
           </div>
         ) : (

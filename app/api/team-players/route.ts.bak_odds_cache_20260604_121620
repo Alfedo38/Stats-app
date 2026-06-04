@@ -231,7 +231,7 @@ async function loadTeamPlayersFast(teams: string[], stat: string, book: string) 
           player_norm,
           COALESCE(model_line, threshold) AS line,
           scraped_at_utc
-        FROM public.latest_player_prop_odds_cache
+        FROM public.latest_player_prop_odds
         WHERE lower(book) = ${book}
           AND stat_key = ${propType}
           AND player_norm IN (${Prisma.join(normalizedNames)})

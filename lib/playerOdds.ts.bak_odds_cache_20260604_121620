@@ -67,7 +67,7 @@ async function getUniversalOdds(
             partido,
             game_norm,
             scraped_at_utc
-          FROM public.latest_player_prop_odds_cache
+          FROM public.latest_player_prop_odds
           WHERE lower(book) IN (${Prisma.join(books)})
             AND player_norm = ${target}
           ORDER BY stat_key ASC, COALESCE(model_line, threshold) ASC, book ASC, side ASC, scraped_at_utc DESC
@@ -85,7 +85,7 @@ async function getUniversalOdds(
             partido,
             game_norm,
             scraped_at_utc
-          FROM public.latest_player_prop_odds_cache
+          FROM public.latest_player_prop_odds
           WHERE player_norm = ${target}
           ORDER BY stat_key ASC, COALESCE(model_line, threshold) ASC, book ASC, side ASC, scraped_at_utc DESC
         `);

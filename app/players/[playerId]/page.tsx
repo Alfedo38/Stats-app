@@ -255,7 +255,7 @@ export default async function PlayerPage(props: any) {
 
     const [stakeOdds, bioDetails] = await Promise.all([
       soft("stakeOdds", getPlayerOddsMultiBook(playerName), [] as any[], 900),
-      soft("bioDetails", getPlayerBioDetails(playerId, playerName), null as any, 2500),
+      soft("bioDetails", getPlayerBioDetails(playerId, playerName), null as any, 1500),
     ]);
 
     // Sin schedule server-side para no bloquear el HTML inicial.

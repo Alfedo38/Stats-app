@@ -414,6 +414,27 @@ function normalizeGameId(value: any): string | null {
   return String(value);
 }
 
+function normalizeGameIdKey(value: any): string {
+  if (value === null || value === undefined || value === "") return "";
+  const raw = String(value).trim();
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return raw;
+  return digits.replace(/^0+/, "") || "0";
+}
+
+function splitPrefixForScope(scope: SplitScope): "q1" | "h1" | "h2" | null {
+  if (scope === "Q1") return "q1";
+  if (scope === "H1") return "h1";
+  if (scope === "H2_REG") return "h2";
+  return null;
+}
+
+function numberOrZero(value: any): number {
+  if (value === null || value === undefined || value === "") return 0;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
 const SUPPORTING_CORRELATION_METRICS = [
   "minutes",
   "usage_pct",
@@ -560,6 +581,7 @@ export default function PlayerChartContainer({
   const [historicalChartError, setHistoricalChartError] = useState<
     string | null
   >(null);
+  const [periodSplitRows, setPeriodSplitRows] = useState<any[]>([]);
 
   const setChartSide = useCallback((next: ChartSide) => {
     const safe = next === "under" ? "under" : "over";
@@ -786,6 +808,37 @@ export default function PlayerChartContainer({
     activeWoTeammate,
   ]);
 
+  // ── Period splits client fallback ────────────────────────────────────────────
+  // Seguridad extra: aunque el SSR rápido no traiga q1_/h1_/h2_, el cliente lee la cache
+  // de splits y reconstruye el gráfico del periodo sin usar datos de partido completo.
+  useEffect(() => {
+    const numericPlayerId = Number(playerId);
+    if (!Number.isFinite(numericPlayerId)) {
+      setPeriodSplitRows([]);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    fetch(`/api/player-period-splits?playerId=${encodeURIComponent(String(numericPlayerId))}&limit=1500`, {
+      signal: controller.signal,
+      cache: "force-cache",
+    })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json?.ok && Array.isArray(json.rows)) {
+          setPeriodSplitRows(json.rows);
+        } else {
+          setPeriodSplitRows([]);
+        }
+      })
+      .catch((err) => {
+        if (err?.name !== "AbortError") setPeriodSplitRows([]);
+      });
+
+    return () => controller.abort();
+  }, [playerId]);
+
   // ── Stake odds ───────────────────────────────────────────────────────────────
   const selectedStakeOdds = useMemo(
     () => findStakeOddsForStat(stakeOdds, activeStat),
@@ -799,6 +852,7 @@ export default function PlayerChartContainer({
   // ── Raw scoped stats ─────────────────────────────────────────────────────────
   const scopedRawStats = useMemo(() => {
     const rawStats = stats || [];
+
     if (activeScope === "FULL") {
       const fullRows = rawStats.filter(
         (s: any) =>
@@ -806,11 +860,125 @@ export default function PlayerChartContainer({
       );
       return fullRows.length > 0 ? fullRows : rawStats;
     }
+
+    // Caso 1: filas long con split_code Q1/H1/H2_REG.
     const longRows = rawStats.filter(
       (s: any) => normalizeSplitCode(s?.split_code) === activeScope,
     );
-    return longRows.length > 0 ? longRows : rawStats;
-  }, [stats, activeScope]);
+    if (longRows.length > 0) return longRows;
+
+    const prefix = splitPrefixForScope(activeScope);
+    if (!prefix) return [];
+
+    const fields = [
+      "pts", "reb", "ast", "oreb", "dreb",
+      "stl", "blk", "tov", "to", "pf",
+      "fgm", "fga", "fg3m", "fg3a", "ftm", "fta",
+      "pr", "pa", "ra", "pra",
+      "pts_reb", "pts_ast", "reb_ast", "pts_reb_ast",
+      "stl_blk",
+    ];
+
+    const buildWideRows = () => rawStats
+      .map((s: any) => {
+        const out: any = { ...s, split_code: activeScope, period_scope: activeScope };
+        let hasAnySplitValue = false;
+
+        for (const f of fields) {
+          const key = `${prefix}_${f}`;
+          const value = s?.[key];
+          if (value !== null && value !== undefined && value !== "") {
+            out[f] = value;
+            hasAnySplitValue = true;
+          }
+        }
+
+        out["3ptm"] = out.fg3m ?? out["3ptm"] ?? 0;
+        out["3pta"] = out.fg3a ?? out["3pta"] ?? 0;
+        out.to = out.to ?? out.tov ?? 0;
+        out.tov = out.tov ?? out.to ?? 0;
+        out.min = s?.[`${prefix}_min`] ?? s?.[`${prefix}_minutes`] ?? out.min;
+        out.minutes = s?.[`${prefix}_minutes`] ?? s?.[`${prefix}_min`] ?? out.minutes;
+        out.min_clean = s?.[`${prefix}_min`] ?? s?.[`${prefix}_minutes`] ?? out.min_clean;
+
+        out.pr = out.pr ?? ((Number(out.pts) || 0) + (Number(out.reb) || 0));
+        out.pa = out.pa ?? ((Number(out.pts) || 0) + (Number(out.ast) || 0));
+        out.ra = out.ra ?? ((Number(out.reb) || 0) + (Number(out.ast) || 0));
+        out.pra = out.pra ?? ((Number(out.pts) || 0) + (Number(out.reb) || 0) + (Number(out.ast) || 0));
+        out.pts_reb = out.pr;
+        out.pts_ast = out.pa;
+        out.reb_ast = out.ra;
+        out.pts_reb_ast = out.pra;
+        out.stl_blk = (Number(out.stl) || 0) + (Number(out.blk) || 0);
+
+        return hasAnySplitValue ? out : null;
+      })
+      .filter(Boolean);
+
+    const wideRows = buildWideRows();
+    if (wideRows.length > 0) return wideRows;
+
+    // Caso 3: fallback cliente desde /api/player-period-splits.
+    const splitCode = activeScope;
+    const baseByGame = new Map<string, any>();
+    for (const row of rawStats) {
+      const key = normalizeGameIdKey(row?.game_id ?? row?.game_id_nozero ?? row?.game_key);
+      if (key && !baseByGame.has(key)) baseByGame.set(key, row);
+    }
+
+    return periodSplitRows
+      .filter((split: any) => normalizeSplitCode(split?.split_code) === splitCode)
+      .map((split: any) => {
+        const key = normalizeGameIdKey(split?.game_id ?? split?.game_id_nozero ?? split?.game_key);
+        const base = key ? (baseByGame.get(key) || {}) : {};
+        const out: any = {
+          ...base,
+          ...split,
+          split_code: activeScope,
+          period_scope: activeScope,
+          game_id: split?.game_id ?? base?.game_id,
+          game_date: split?.game_date ?? base?.game_date,
+          player_name: split?.player_name ?? base?.player_name,
+          team_abbreviation: split?.team_abbreviation ?? base?.team_abbreviation,
+          opponent: base?.opponent ?? base?.opponent_clean ?? split?.opponent,
+          opponent_clean: base?.opponent_clean ?? base?.opponent ?? split?.opponent_clean,
+          matchup: base?.matchup ?? base?.matchup_clean ?? split?.matchup,
+          matchup_clean: base?.matchup_clean ?? base?.matchup ?? split?.matchup_clean,
+          min: split?.min ?? split?.minutes ?? split?.min_text ?? base?.min,
+          minutes: split?.minutes ?? split?.min ?? split?.min_text ?? base?.minutes,
+          min_clean: split?.min ?? split?.minutes ?? split?.min_text ?? base?.min_clean,
+        };
+
+        out.pts = numberOrZero(split?.pts);
+        out.reb = numberOrZero(split?.reb);
+        out.ast = numberOrZero(split?.ast);
+        out.oreb = numberOrZero(split?.oreb);
+        out.dreb = numberOrZero(split?.dreb);
+        out.stl = numberOrZero(split?.stl);
+        out.blk = numberOrZero(split?.blk);
+        out.tov = numberOrZero(split?.tov ?? split?.to);
+        out.to = out.tov;
+        out.pf = numberOrZero(split?.pf);
+        out.fgm = numberOrZero(split?.fgm);
+        out.fga = numberOrZero(split?.fga);
+        out.fg3m = numberOrZero(split?.fg3m ?? split?.["3ptm"]);
+        out.fg3a = numberOrZero(split?.fg3a ?? split?.["3pta"]);
+        out.ftm = numberOrZero(split?.ftm);
+        out.fta = numberOrZero(split?.fta);
+        out["3ptm"] = out.fg3m;
+        out["3pta"] = out.fg3a;
+        out.pr = numberOrZero(split?.pr ?? out.pts + out.reb);
+        out.pa = numberOrZero(split?.pa ?? out.pts + out.ast);
+        out.ra = numberOrZero(split?.ra ?? out.reb + out.ast);
+        out.pra = numberOrZero(split?.pra ?? out.pts + out.reb + out.ast);
+        out.pts_reb = out.pr;
+        out.pts_ast = out.pa;
+        out.reb_ast = out.ra;
+        out.pts_reb_ast = out.pra;
+        out.stl_blk = numberOrZero(split?.stl_blk ?? out.stl + out.blk);
+        return out;
+      });
+  }, [stats, activeScope, periodSplitRows]);
 
   const uniqueStats = useMemo(() => {
     return Array.from(
@@ -981,7 +1149,12 @@ export default function PlayerChartContainer({
 
   // Si el histórico externo tarda/falla, no dejamos el gráfico vacío.
   // Usamos las stats locales como fallback para evitar "sin datos para graficar".
-  const chartStats = isHistoricalChartMode && historicalChartWindow.length > 0
+  // IMPORTANTE:
+  // /api/player-history devuelve histórico full game.
+  // Para Q1/H1/H2_REG usamos las filas locales con split_code,
+  // si no el gráfico queda mostrando partido completo aunque el botón cambie las filas locales con split_code,
+  // si no el gráfico queda mostrando.
+  const chartStats = isFullScope && isHistoricalChartMode && historicalChartWindow.length > 0
     ? historicalChartWindow
     : visibleStats;
   const metricStats = chartStats.length > 0 ? chartStats : visibleStats;

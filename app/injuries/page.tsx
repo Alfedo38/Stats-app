@@ -93,38 +93,6 @@ const FULL_TEAM_NAME_TO_CODE: Record<string, string> = Object.fromEntries(
   Object.entries(TEAM_NAMES).map(([code, name]) => [name.toUpperCase(), code])
 );
 
-const ESPN_LOGO_CODES: Record<string, string> = {
-  ATL: 'atl',
-  BOS: 'bos',
-  BKN: 'bkn',
-  CHA: 'cha',
-  CHI: 'chi',
-  CLE: 'cle',
-  DAL: 'dal',
-  DEN: 'den',
-  DET: 'det',
-  GSW: 'gs',
-  HOU: 'hou',
-  IND: 'ind',
-  LAC: 'lac',
-  LAL: 'lal',
-  MEM: 'mem',
-  MIA: 'mia',
-  MIL: 'mil',
-  MIN: 'min',
-  NOP: 'no',
-  NYK: 'ny',
-  OKC: 'okc',
-  ORL: 'orl',
-  PHI: 'phi',
-  PHX: 'phx',
-  POR: 'por',
-  SAC: 'sac',
-  SAS: 'sa',
-  TOR: 'tor',
-  UTA: 'utah',
-  WAS: 'wsh',
-};
 
 const STATUS_COLUMNS = [
   { key: 'PROBABLE', label: 'Probable', headerClass: 'text-green-400 bg-green-500/5 border-green-500/20' },
@@ -148,10 +116,7 @@ function getTeamName(team: string | null | undefined): string {
 }
 
 function getTeamLogo(team: string | null | undefined): string {
-  const code = cleanTeamCode(team);
-  const espnCode = ESPN_LOGO_CODES[code];
-  if (!espnCode) return 'https://a.espncdn.com/i/teamlogos/leagues/500/nba.png';
-  return `https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/${espnCode}.png`;
+  return cleanTeamCode(team);
 }
 
 function normalizeStatusForUi(status: string | null, fallback: string | null): string {
@@ -442,7 +407,9 @@ export default async function InjuriesPage({
                       <tr key={team.id} className="group border-b border-[var(--border)] transition-colors hover:bg-[var(--surface-hover)]">
                         <td className="border-r border-[var(--border)] bg-[var(--surface)] p-5 align-top">
                           <div className="flex items-center gap-3">
-                            <img src={team.logo} className="h-8 w-8 object-contain drop-shadow-lg" alt={team.displayName} />
+                            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-emerald-400/25 bg-emerald-400/10 text-[9px] font-black text-emerald-300">
+                              {team.id}
+                            </div>
                             <div className="flex flex-col">
                               <span className="text-xs font-black uppercase tracking-tighter transition-colors group-hover:text-emerald-400">
                                 {team.displayName}

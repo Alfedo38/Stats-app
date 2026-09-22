@@ -58,7 +58,7 @@ async function handleGET(req: Request) {
         team_id:     String(team.id),
         team_abbreviation: String(team.abbreviation || team.shortDisplayName || '').toUpperCase(),
         team_name:   team.displayName,
-        team_logo:   team.logo,
+        team_logo:   String(team.abbreviation || team.shortDisplayName || 'NBA').toUpperCase(),
         player_id:   String(injury.athlete?.id || ''),
         player_name: injury.athlete?.displayName || injury.athlete?.shortName || '',
         status:      injury.status || '',

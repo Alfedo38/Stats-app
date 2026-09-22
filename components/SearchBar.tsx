@@ -1,28 +1,19 @@
 "use client";
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Loader2, X, Users, User, ChevronRight } from 'lucide-react';
+import { Search, Loader2, X, ChevronRight } from 'lucide-react';
 
-// ✅ FIX: Componente separado para manejar el estado de error de imagen
-// Antes, el ícono User/Users siempre se renderizaba debajo de la imagen
-// porque nunca estaba oculto — solo la imagen se ocultaba con display:none
-function ResultAvatar({ src, type }: { src: string; type: 'player' | 'team' }) {
-  const [imgError, setImgError] = useState(false);
+function getInitials(label: string, type: 'player' | 'team') {
+  const parts = String(label || '').trim().split(/\s+/).filter(Boolean);
+  if (type === 'team') return String(parts[0] || 'NBA').slice(0, 3).toUpperCase();
+  if (parts.length <= 1) return String(parts[0] || '?').slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
 
+function ResultAvatar({ label, type }: { label: string; type: 'player' | 'team' }) {
   return (
-    <div className="w-10 h-10 rounded-full bg-[var(--brand-soft)] overflow-hidden shrink-0 border border-[var(--border)] flex items-center justify-center">
-      {!imgError ? (
-        <img
-          src={src}
-          className="w-full h-full object-contain"
-          onError={() => setImgError(true)}
-          alt=""
-        />
-      ) : (
-        type === 'player'
-          ? <User size={16} className="text-[var(--text-soft)]" />
-          : <Users size={16} className="text-[var(--text-soft)]" />
-      )}
+    <div className="w-10 h-10 rounded-full bg-[var(--brand-soft)] shrink-0 border border-[var(--border)] flex items-center justify-center text-[10px] font-black text-[var(--text-soft)]">
+      {getInitials(label, type)}
     </div>
   );
 }
@@ -122,7 +113,7 @@ export default function SearchBar() {
               {/* ✅ FIX: Ahora usa el componente con estado propio — 
                   si la imagen carga bien, no se muestra el ícono.
                   Si la imagen falla, se muestra solo el ícono. */}
-              <ResultAvatar src={item.image} type={item.type} />
+              <ResultAvatar label={item.display_name} type={item.type} />
 
               <div className="flex-1 flex flex-col">
                 <span className="text-[var(--text)] font-black uppercase text-xs group-hover:text-[#10b981] transition-colors">

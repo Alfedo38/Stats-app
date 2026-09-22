@@ -55,7 +55,7 @@ try {
           full_name: player.full_name,
           jersey_number: jerseyNumber(player.jersey_number),
           position: player.position,
-          image_url: `https://cdn.nba.com/headshots/nba/latest/1040x760/${player.player_id}.png`,
+          image_url: null,
         },
         update: {
           api_id: player.player_id,
@@ -65,7 +65,7 @@ try {
           full_name: player.full_name,
           jersey_number: jerseyNumber(player.jersey_number),
           position: player.position,
-          image_url: `https://cdn.nba.com/headshots/nba/latest/1040x760/${player.player_id}.png`,
+          image_url: null,
         },
       });
       synced += 1;

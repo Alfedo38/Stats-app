@@ -99,19 +99,14 @@ function statusLabel(game: DailyGame) {
   return "PROGRAMADO";
 }
 
-function TeamLogo({ abbr, logo }: { abbr: string; logo: string | null }) {
+function TeamLogo({ abbr }: { abbr: string }) {
   const theme = getWNBATeamTheme(abbr);
   return (
     <div
-      className="h-12 w-12 shrink-0 rounded-2xl border flex items-center justify-center overflow-hidden"
+      className="h-12 w-12 shrink-0 rounded-2xl border flex items-center justify-center"
       style={{ borderColor: `${theme.primary}55`, background: theme.soft, boxShadow: `0 0 18px ${theme.glow}` }}
     >
-      {logo ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={logo} alt={abbr} className="h-9 w-9 object-contain" />
-      ) : (
-        <span className="text-xs font-black" style={{ color: theme.primary }}>{abbr}</span>
-      )}
+      <span className="text-xs font-black" style={{ color: theme.primary }}>{abbr}</span>
     </div>
   );
 }
@@ -145,8 +140,8 @@ function GameCard({ game }: { game: DailyGame }) {
       </div>
 
       <div className="space-y-4 relative z-10">
-        <TeamLine abbr={game.away_team_abbr} name={game.away_team_name} logo={game.away_team_logo} score={score(game.away_score)} />
-        <TeamLine abbr={game.home_team_abbr} name={game.home_team_name} logo={game.home_team_logo} score={score(game.home_score)} />
+        <TeamLine abbr={game.away_team_abbr} name={game.away_team_name} score={score(game.away_score)} />
+        <TeamLine abbr={game.home_team_abbr} name={game.home_team_name} score={score(game.home_score)} />
       </div>
 
       {game.status_detail && (
@@ -158,12 +153,12 @@ function GameCard({ game }: { game: DailyGame }) {
   );
 }
 
-function TeamLine({ abbr, name, logo, score }: { abbr: string; name: string; logo: string | null; score: string }) {
+function TeamLine({ abbr, name, score }: { abbr: string; name: string; score: string }) {
   const theme = getWNBATeamTheme(abbr);
   return (
     <div className="flex items-center justify-between gap-4">
       <div className="flex items-center gap-3 min-w-0">
-        <TeamLogo abbr={abbr} logo={logo} />
+        <TeamLogo abbr={abbr} />
         <div className="min-w-0">
           <p className="text-xl font-black uppercase tracking-tight" style={{ color: theme.primary }}>{abbr}</p>
           <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] truncate">{name}</p>

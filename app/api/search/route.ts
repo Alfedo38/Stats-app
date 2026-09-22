@@ -62,7 +62,6 @@ async function handleGET(request: Request) {
           subtitle: rosterPlayer
             ? `${rosterPlayer.team_abbreviation} · NBA Player`
             : 'NBA Player',
-          image: `https://cdn.nba.com/headshots/nba/latest/260x190/${player.id}.png`,
         };
       });
 
@@ -71,7 +70,6 @@ async function handleGET(request: Request) {
       type: 'team',
       display_name: (t.name ?? '').toUpperCase(),
       subtitle: `Team - ${t.abbreviation}`,
-      image: `https://a.espncdn.com/i/teamlogos/nba/500/scoreboard/${(t.abbreviation ?? '').toLowerCase()}.png`
     }));
 
     // Unimos todo, poniendo los equipos primero si la búsqueda es corta

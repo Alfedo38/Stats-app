@@ -345,7 +345,6 @@ export default async function PlayerPage(props: any) {
             teamAbbr={teamAbbr ? String(teamAbbr).toUpperCase() : undefined}
             position={position ?? undefined}
             initials={`${firstName?.charAt(0) ?? ""}${lastName?.charAt(0) ?? ""}`}
-            imageUrl={bioDetails?.imageUrl ?? (player as any)?.image_url ?? `https://cdn.nba.com/headshots/nba/latest/1040x760/${playerId}.png`}
             bio={currentBio}
             kpis={kpis}
             nextGame={nextGame}

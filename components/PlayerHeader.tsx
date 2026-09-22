@@ -24,7 +24,6 @@ export type PlayerBioSummary = {
   age?: number | null;
   country?: string | null;
   school?: string | null;
-  imageUrl?: string | null;
 };
 
 interface PlayerHeaderProps {
@@ -34,7 +33,6 @@ interface PlayerHeaderProps {
   kpis?: PlayerKPI[];
   nextGame?: NextGame;
   initials?: string;
-  imageUrl?: string;
   bio?: PlayerBioSummary | null;
 }
 
@@ -81,7 +79,6 @@ export default function PlayerHeader({
   kpis = [],
   nextGame,
   initials,
-  imageUrl,
   bio,
 }: PlayerHeaderProps) {
   const nameParts = playerName.trim().split(" ");
@@ -124,13 +121,6 @@ export default function PlayerHeader({
               <div className="relative flex h-full w-full items-center justify-center text-3xl font-black italic tracking-tighter" style={{ color: teamColor }}>
                 {avatarInitials}
               </div>
-              {imageUrl && (
-                <img
-                  src={imageUrl}
-                  alt={`${playerName} headshot`}
-                  className="absolute inset-0 h-full w-full object-cover object-top"
-                />
-              )}
               <div className="absolute bottom-1 right-1 rounded-lg bg-black/80 px-2 py-1 text-[10px] font-black" style={{ color: teamColor }}>
                 {finalPosition}
               </div>

@@ -192,11 +192,7 @@ async function queryBioFallback(playerId: string | number | null, playerName: st
       pb.to_year,
       pb.rosterstatus,
       pb.greatest_75_flag,
-      CASE
-        WHEN COALESCE(pb.person_id, bs.player_id) IS NOT NULL
-        THEN 'https://cdn.nba.com/headshots/nba/latest/1040x760/' || COALESCE(pb.person_id, bs.player_id)::text || '.png'
-        ELSE NULL
-      END AS headshot_url
+      NULL::text AS headshot_url
     FROM nba_historical.player_bio pb
     FULL OUTER JOIN nba_historical.player_biostats bs
       ON bs.player_id = pb.person_id

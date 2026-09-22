@@ -1,10 +1,13 @@
+import { requirePageUser } from '@/lib/auth/server';
 import { getTeamPlayers } from '@/lib/api';
 import Link from 'next/link';
 import { ArrowLeft, Users } from 'lucide-react';
+import { CURRENT_ROSTER_SEASON, CURRENT_ROSTER_UPDATED_AT } from '@/lib/currentRosters';
 
 export const dynamic = 'force-dynamic';
 
 export default async function TeamRosterPage(props: any) {
+  await requirePageUser();
   try {
     const params = await Promise.resolve(props.params);
 
@@ -53,8 +56,11 @@ export default async function TeamRosterPage(props: any) {
             </div>
 
             <div className="z-10">
-              <p className="text-[#10b981] font-bold text-[10px] uppercase tracking-[0.3em]">Plantel Analítico</p>
+              <p className="text-[#10b981] font-bold text-[10px] uppercase tracking-[0.3em]">Plantel oficial · {CURRENT_ROSTER_SEASON}</p>
               <h1 className="text-5xl font-black uppercase tracking-tighter">{teamId}</h1>
+              <p className="mt-2 text-[9px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
+                Actualizado {CURRENT_ROSTER_UPDATED_AT.split('-').reverse().join('/')}
+              </p>
             </div>
           </div>
 
@@ -89,6 +95,9 @@ export default async function TeamRosterPage(props: any) {
                           <h3 className="font-black text-[13px] text-[var(--text)] uppercase tracking-tight leading-tight">
                             {nombre}
                           </h3>
+                          <p className="mt-1 text-[9px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
+                            {[player.position, player.jersey_number ? `#${player.jersey_number}` : null].filter(Boolean).join(' · ') || 'Plantel activo'}
+                          </p>
                         </div>
                       </div>
                     </Link>

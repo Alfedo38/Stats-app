@@ -1,0 +1,91 @@
+{
+  "stat": "AST",
+  "target": "ast",
+  "objective": "reg:squarederror",
+  "features": [
+    "min_L5",
+    "min_L10",
+    "min_L20",
+    "passes_made_L5",
+    "passes_made_L10",
+    "passes_made_L20",
+    "potential_ast_L5",
+    "potential_ast_L10",
+    "potential_ast_L20",
+    "ast_L5",
+    "ast_L10",
+    "ast_L20",
+    "ast_season",
+    "touches_L5",
+    "touches_L20",
+    "usage_pct_L5",
+    "ast_pm_L5",
+    "ast_momentum",
+    "q1_ast_L5",
+    "q1_ast_pct_L5",
+    "dvp_ast",
+    "ast_trend_L5_L20",
+    "ast_std_L10",
+    "ast_std_L20",
+    "rest_days",
+    "is_b2b",
+    "is_home",
+    "pos_enc",
+    "has_full_tracking",
+    "has_dvp_rolling"
+  ],
+  "allow_main": true,
+  "model_file": "modelos_ai_v35/ludogallina_asistencias.pkl",
+  "rows": 155071,
+  "players": 1069,
+  "games": 7296,
+  "date_min": "2020-12-25",
+  "date_max": "2026-05-30",
+  "mae_cv": 1.327,
+  "mae_cv_std": 0.0168,
+  "mae_final": 1.3426,
+  "best_iteration": 325,
+  "top_features": "ast_L20=0.503 | ast_L10=0.376 | ast_L5=0.059 | ast_season=0.024 | min_L5=0.007 | rest_days=0.005 | dvp_ast=0.003 | is_home=0.003 | ast_std_L20=0.003 | is_b2b=0.003",
+  "folds": [
+    {
+      "fold": 1,
+      "rows_train": 26991,
+      "rows_val": 26096,
+      "date_val_min": "2021-11-16",
+      "date_val_max": "2022-11-16",
+      "mae": 1.3078
+    },
+    {
+      "fold": 2,
+      "rows_train": 53087,
+      "rows_val": 26154,
+      "date_val_min": "2022-11-17",
+      "date_val_max": "2023-11-25",
+      "mae": 1.3051
+    },
+    {
+      "fold": 3,
+      "rows_train": 79241,
+      "rows_val": 27259,
+      "date_val_min": "2023-11-26",
+      "date_val_max": "2024-11-27",
+      "mae": 1.3409
+    },
+    {
+      "fold": 4,
+      "rows_train": 106500,
+      "rows_val": 26375,
+      "date_val_min": "2024-11-29",
+      "date_val_max": "2025-11-28",
+      "mae": 1.3402
+    },
+    {
+      "fold": 5,
+      "rows_train": 132875,
+      "rows_val": 22196,
+      "date_val_min": "2025-11-29",
+      "date_val_max": "2026-05-30",
+      "mae": 1.3407
+    }
+  ]
+}

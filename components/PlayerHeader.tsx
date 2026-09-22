@@ -1,21 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import { TrendingUp, TrendingDown, Minus, Ruler, Weight, CalendarDays, Globe2, GraduationCap, Shirt } from "lucide-react";
-
-const NBA_TEAM_COLORS: Record<string, string> = {
-  ATL: "#C8102E", BOS: "#007A33", BKN: "#333333", CHA: "#1D1160",
-  CHI: "#CE1141", CLE: "#860038", DAL: "#00538C", DEN: "#0E2240",
-  DET: "#C8102E", GSW: "#1D428A", HOU: "#CE1141", IND: "#002D62",
-  LAC: "#C8102E", LAL: "#552583", MEM: "#5D76A9", MIA: "#98002E",
-  MIL: "#00471B", MIN: "#0C2340", NOP: "#0C2340", NYK: "#006BB6",
-  OKC: "#007AC1", ORL: "#0077C0", PHI: "#006BB6", PHX: "#E56020",
-  POR: "#E03A3E", SAC: "#5A2D81", SAS: "#8A8D8F", TOR: "#CE1141",
-  UTA: "#002B5C", WAS: "#002B5C",
-};
-
-function getTeamColor(abbr?: string): string {
-  if (!abbr) return "#10b981";
-  return NBA_TEAM_COLORS[abbr.toUpperCase()] ?? "#10b981";
-}
+import { getTeamColor } from "@/lib/teamColors";
 
 export type PlayerKPI = {
   label: string;
@@ -96,6 +81,7 @@ export default function PlayerHeader({
   kpis = [],
   nextGame,
   initials,
+  imageUrl,
   bio,
 }: PlayerHeaderProps) {
   const nameParts = playerName.trim().split(" ");
@@ -138,6 +124,13 @@ export default function PlayerHeader({
               <div className="relative flex h-full w-full items-center justify-center text-3xl font-black italic tracking-tighter" style={{ color: teamColor }}>
                 {avatarInitials}
               </div>
+              {imageUrl && (
+                <img
+                  src={imageUrl}
+                  alt={`${playerName} headshot`}
+                  className="absolute inset-0 h-full w-full object-cover object-top"
+                />
+              )}
               <div className="absolute bottom-1 right-1 rounded-lg bg-black/80 px-2 py-1 text-[10px] font-black" style={{ color: teamColor }}>
                 {finalPosition}
               </div>
@@ -196,14 +189,13 @@ export default function PlayerHeader({
           )}
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
+        <div className="mt-5 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
           <BioPill icon={<Shirt size={12} />} label="Equipo" value={teamAbbr} accent={teamColor} />
           <BioPill icon={<Ruler size={12} />} label="Altura" value={bio?.height} accent="#22d3ee" />
           <BioPill icon={<Weight size={12} />} label="Peso" value={bio?.weight} accent="#fb923c" />
           <BioPill icon={<CalendarDays size={12} />} label="Edad" value={bio?.age ? `${bio.age} años` : null} accent="#facc15" />
           <BioPill icon={<Globe2 size={12} />} label="País" value={bio?.country} accent="#a78bfa" />
           <BioPill icon={<GraduationCap size={12} />} label="Origen" value={bio?.school} accent="#10b981" />
-          <BioPill icon={<Shirt size={12} />} label="Dorsal" value={bio?.jerseyNumber ? `#${bio.jerseyNumber}` : null} accent={teamColor} />
         </div>
 
         {kpis.length > 0 && (

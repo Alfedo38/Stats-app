@@ -1,0 +1,51 @@
+{
+  "experiment_name": "ludo_walkforward_v2",
+  "required_mode": "ADAPTIVE",
+  "required_status": "ACTIVE",
+  "start_date": "2026-05-19",
+  "end_date": "2026-06-13",
+  "initial_bankroll": 100000.0,
+  "stake_per_ticket": 1000.0,
+  "min_odds": 1.20,
+  "max_odds": 3.00,
+  "min_probability": 0.52,
+  "min_expected_value": 0.0,
+  "mae_to_sigma": 1.2533141373,
+  "probability_floor": 0.02,
+  "probability_ceiling": 0.98,
+  "correction": {
+    "player_market_window": 5,
+    "market_window": 200,
+    "market_min_history": 10,
+    "shrinkage_games": 2.0,
+    "max_abs_correction_mae": 1.5
+  },
+  "methods": [
+    {"name": "SINGLE_TOP5", "legs": 1, "max_tickets_per_date": 5, "min_probability": 0.55, "min_expected_value": 0.00, "max_same_market": 1},
+    {"name": "X2", "legs": 2, "max_tickets_per_date": 1, "min_probability": 0.58, "min_expected_value": 0.00, "max_same_market": 2},
+    {"name": "X3", "legs": 3, "max_tickets_per_date": 1, "min_probability": 0.60, "min_expected_value": 0.00, "max_same_market": 2},
+    {"name": "X5", "legs": 5, "max_tickets_per_date": 1, "min_probability": 0.62, "min_expected_value": 0.00, "max_same_market": 3}
+  ],
+  "portfolios": [
+    {
+      "name": "CONSERVATIVE",
+      "tickets": [
+        {"ticket_name": "SINGLE", "legs": 1, "count": 3, "min_probability": 0.68, "min_expected_value": 0.02, "max_same_market": 1}
+      ]
+    },
+    {
+      "name": "BALANCED",
+      "tickets": [
+        {"ticket_name": "X2", "legs": 2, "count": 1, "min_probability": 0.64, "min_expected_value": 0.01, "max_same_market": 2},
+        {"ticket_name": "X3", "legs": 3, "count": 1, "min_probability": 0.60, "min_expected_value": 0.00, "max_same_market": 2}
+      ]
+    },
+    {
+      "name": "AGGRESSIVE",
+      "tickets": [
+        {"ticket_name": "X5", "legs": 5, "count": 1, "min_probability": 0.60, "min_expected_value": 0.00, "max_same_market": 3},
+        {"ticket_name": "X3", "legs": 3, "count": 1, "min_probability": 0.58, "min_expected_value": 0.00, "max_same_market": 2}
+      ]
+    }
+  ]
+}

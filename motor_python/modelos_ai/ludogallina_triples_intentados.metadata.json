@@ -1,0 +1,80 @@
+{
+  "stat": "FG3A",
+  "target": "fg3a",
+  "objective": "count:poisson",
+  "features": [
+    "min_L5",
+    "min_L10",
+    "min_L20",
+    "usage_pct_L5",
+    "fg3a_L5",
+    "fg3a_L10",
+    "fg3a_L20",
+    "fg3a_season",
+    "dvp_3pt",
+    "dvp_fg3a",
+    "fg3a_trend_L5_L20",
+    "fg3a_std_L10",
+    "fg3a_std_L20",
+    "rest_days",
+    "is_b2b",
+    "is_home",
+    "pos_enc",
+    "has_full_tracking",
+    "has_dvp_rolling"
+  ],
+  "allow_main": true,
+  "model_file": "modelos_ai_v35/ludogallina_triples_intentados.pkl",
+  "rows": 155071,
+  "players": 1069,
+  "games": 7296,
+  "date_min": "2020-12-25",
+  "date_max": "2026-05-30",
+  "mae_cv": 1.4801,
+  "mae_cv_std": 0.0234,
+  "mae_final": 1.5055,
+  "best_iteration": 647,
+  "top_features": "fg3a_L10=0.644 | fg3a_L20=0.169 | fg3a_L5=0.141 | fg3a_std_L10=0.012 | fg3a_std_L20=0.009 | fg3a_season=0.007 | rest_days=0.004 | min_L5=0.003 | dvp_3pt=0.002 | is_b2b=0.002",
+  "folds": [
+    {
+      "fold": 1,
+      "rows_train": 26991,
+      "rows_val": 26096,
+      "date_val_min": "2021-11-16",
+      "date_val_max": "2022-11-16",
+      "mae": 1.4601
+    },
+    {
+      "fold": 2,
+      "rows_train": 53087,
+      "rows_val": 26154,
+      "date_val_min": "2022-11-17",
+      "date_val_max": "2023-11-25",
+      "mae": 1.4521
+    },
+    {
+      "fold": 3,
+      "rows_train": 79241,
+      "rows_val": 27259,
+      "date_val_min": "2023-11-26",
+      "date_val_max": "2024-11-27",
+      "mae": 1.4733
+    },
+    {
+      "fold": 4,
+      "rows_train": 106500,
+      "rows_val": 26375,
+      "date_val_min": "2024-11-29",
+      "date_val_max": "2025-11-28",
+      "mae": 1.5104
+    },
+    {
+      "fold": 5,
+      "rows_train": 132875,
+      "rows_val": 22196,
+      "date_val_min": "2025-11-29",
+      "date_val_max": "2026-05-30",
+      "mae": 1.5045
+    }
+  ]
+}

@@ -1,0 +1,88 @@
+{
+  "stat": "TOV",
+  "target": "tov",
+  "objective": "count:poisson",
+  "features": [
+    "min_L5",
+    "min_L10",
+    "min_L20",
+    "usage_pct_L5",
+    "usage_pct_L10",
+    "usage_pct_L20",
+    "touches_L5",
+    "touches_L10",
+    "touches_L20",
+    "passes_made_L5",
+    "passes_made_L20",
+    "potential_ast_L5",
+    "ast_L5",
+    "tov_L5",
+    "tov_L10",
+    "tov_L20",
+    "tov_season",
+    "dvp_tov",
+    "tov_trend_L5_L20",
+    "tov_std_L10",
+    "tov_std_L20",
+    "rest_days",
+    "is_b2b",
+    "is_home",
+    "pos_enc",
+    "has_full_tracking",
+    "has_dvp_rolling"
+  ],
+  "allow_main": true,
+  "model_file": "modelos_ai_v35/ludogallina_perdidas.pkl",
+  "rows": 155071,
+  "players": 1069,
+  "games": 7296,
+  "date_min": "2020-12-25",
+  "date_max": "2026-05-30",
+  "mae_cv": 0.8826,
+  "mae_cv_std": 0.0061,
+  "mae_final": 0.8891,
+  "best_iteration": 645,
+  "top_features": "tov_L20=0.628 | tov_L10=0.193 | tov_season=0.066 | min_L5=0.038 | ast_L5=0.029 | tov_L5=0.010 | rest_days=0.008 | min_L10=0.005 | is_b2b=0.005 | tov_std_L20=0.005",
+  "folds": [
+    {
+      "fold": 1,
+      "rows_train": 26991,
+      "rows_val": 26096,
+      "date_val_min": "2021-11-16",
+      "date_val_max": "2022-11-16",
+      "mae": 0.8791
+    },
+    {
+      "fold": 2,
+      "rows_train": 53087,
+      "rows_val": 26154,
+      "date_val_min": "2022-11-17",
+      "date_val_max": "2023-11-25",
+      "mae": 0.8881
+    },
+    {
+      "fold": 3,
+      "rows_train": 79241,
+      "rows_val": 27259,
+      "date_val_min": "2023-11-26",
+      "date_val_max": "2024-11-27",
+      "mae": 0.8732
+    },
+    {
+      "fold": 4,
+      "rows_train": 106500,
+      "rows_val": 26375,
+      "date_val_min": "2024-11-29",
+      "date_val_max": "2025-11-28",
+      "mae": 0.8824
+    },
+    {
+      "fold": 5,
+      "rows_train": 132875,
+      "rows_val": 22196,
+      "date_val_min": "2025-11-29",
+      "date_val_max": "2026-05-30",
+      "mae": 0.89
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "version": "shadow-live-v1",
+  "initial_bankroll": 100000.0,
+  "stake": 1000.0,
+  "active_rules": [
+    "PRA|UNDER",
+    "PF|UNDER",
+    "RA|OVER",
+    "RA|UNDER",
+    "REB|UNDER"
+  ],
+  "odds": {"min": 1.2, "max": 3.0},
+  "selection": {"min_probability": 0.52, "min_ev": 0.0},
+  "challenger": {
+    "enabled": true,
+    "player_market_window": 10,
+    "min_player_market_history": 5,
+    "shrinkage": 8.0,
+    "max_abs_correction_mae": 0.5
+  },
+  "portfolios": [
+    {"name": "CONTROL_SINGLE_TOP5", "legs": 1, "tickets": 5, "min_probability": 0.52, "min_ev": 0.0},
+    {"name": "CONSERVATIVE", "legs": 1, "tickets": 3, "min_probability": 0.68, "min_ev": 0.02},
+    {"name": "BALANCED_X2", "legs": 2, "tickets": 1, "min_probability": 0.64, "min_ev": 0.01},
+    {"name": "BALANCED_X3", "legs": 3, "tickets": 1, "min_probability": 0.60, "min_ev": 0.0},
+    {"name": "EXPERIMENTAL_X3", "legs": 3, "tickets": 1, "min_probability": 0.56, "min_ev": 0.0},
+    {"name": "EXPERIMENTAL_X5", "legs": 5, "tickets": 1, "min_probability": 0.54, "min_ev": 0.0}
+  ],
+  "promotion": {
+    "min_settled_picks": 100,
+    "min_dates": 20,
+    "max_best_day_profit_share": 0.35
+  }
+}

@@ -1,13 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Mantener en true hasta terminar la limpieza TypeScript global del proyecto.
-  // Cuando `npm run build` no muestre errores de tipos, cambiar ambos a false.
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   images: {
     remotePatterns: [
       {
@@ -17,6 +9,10 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: 'a.espncdn.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'cdn.nba.com',
       },
     ],
   },

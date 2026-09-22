@@ -1,3 +1,4 @@
+import { withAuth } from '@/lib/auth/server';
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
@@ -21,7 +22,8 @@ function plain(value: any): any {
 const mem = new Map<string, { ts: number; data: any }>();
 const TTL_MS = 5 * 60 * 1000;
 
-export async function GET(req: NextRequest) {
+export const GET = withAuth(handleGET);
+async function handleGET(req: NextRequest) {
   const url = new URL(req.url);
   const playerId = Number(url.searchParams.get("playerId"));
   const gameDate = url.searchParams.get("gameDate");

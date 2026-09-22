@@ -1154,10 +1154,10 @@ export default function PlayerChartContainer({
   // Para Q1/H1/H2_REG usamos las filas locales con split_code,
   // si no el gráfico queda mostrando partido completo aunque el botón cambie las filas locales con split_code,
   // si no el gráfico queda mostrando.
-  const chartStats = isFullScope && isHistoricalChartMode && historicalChartWindow.length > 0
+  const chartStats: any[] = isFullScope && isHistoricalChartMode && historicalChartWindow.length > 0
     ? historicalChartWindow
     : visibleStats;
-  const metricStats = chartStats.length > 0 ? chartStats : visibleStats;
+  const metricStats: any[] = chartStats.length > 0 ? chartStats : visibleStats;
   const supportingStats = useMemo(
     () => processedStats.slice(0, Math.min(lastN, 30)).reverse(),
     [processedStats, lastN],
@@ -1364,7 +1364,7 @@ export default function PlayerChartContainer({
           </span>
         </div>
 
-        <div className="mt-3 flex items-center gap-2 overflow-x-auto whitespace-nowrap max-w-full pb-2 pr-2 [scrollbar-width:thin] [scrollbar-color:#10b981_#0b1018] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-[var(--bg)] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#10b981]/60 hover:[&::-webkit-scrollbar-thumb]:bg-[#10b981]">
+        <div className="mt-3 flex flex-wrap items-center gap-2 max-w-full">
           {visibleNavStats.map((stat) => {
             const active = activeStat === stat.id;
             return (
@@ -1388,7 +1388,7 @@ export default function PlayerChartContainer({
       {/* CONTROLES */}
       <div className="flex flex-col md:flex-row justify-between items-center bg-[var(--surface)] border border-[#10b981]/20 rounded-2xl p-4 gap-6 shadow-xl shadow-[#10b981]/5">
         <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
-          <div className="flex bg-[var(--surface-soft)] p-1 rounded-xl border border-[var(--border)] overflow-x-auto max-w-full">
+          <div className="flex flex-wrap bg-[var(--surface-soft)] p-1 rounded-xl border border-[var(--border)] max-w-full">
             {SPLIT_SCOPE_OPTIONS.map((scope) => (
               <button
                 key={scope.id}

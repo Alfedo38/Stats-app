@@ -1,10 +1,10 @@
+import { requirePageUser } from '@/lib/auth/server';
 // app/page.tsx — Home Page completa
 import Link from "next/link";
 import { Brain, ChevronRight, Users, TrendingUp, Zap, ShieldCheck } from "lucide-react";
-import { getRedditTrends, getTodayScoreboard, getTopPerformers } from "@/lib/api";
+import { getTodayScoreboard, getTopPerformers } from "@/lib/api";
 import GameCarousel      from "@/components/GameCarousel";
 import TopPerformersGrid from "@/components/TopPerformersGrid";
-import HypeCarousel      from "@/components/HypeCarousel";
 import SearchBar         from "@/components/SearchBar";
 import ThemeToggle       from "@/components/ThemeToggle";
 
@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "MoskProps | Centro de Comando NBA",
-  description: "Análisis avanzado de props NBA: EV+, DvP, hit rates, radar social y matchups del día.",
+  description: "Análisis avanzado de props NBA: EV+, DvP, hit rates y matchups del día.",
 };
 
 // ─── Quick access cards ────────────────────────────────────────────────────────
@@ -55,8 +55,8 @@ const QUICK_LINKS = [
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default async function Home() {
-  const [trends, games, performers] = await Promise.all([
-    getRedditTrends(),
+  await requirePageUser();
+  const [games, performers] = await Promise.all([
     getTodayScoreboard(),
     getTopPerformers(),
   ]);
@@ -96,7 +96,7 @@ export default async function Home() {
             <span className="text-[#10b981]">ganan.</span>
           </h1>
           <p className="text-[var(--text-muted)] text-sm font-medium mt-3 max-w-lg">
-            Análisis avanzado de props NBA con hit rates, DvP, radar social y EV+ para tomar mejores decisiones.
+            Análisis avanzado de props NBA con hit rates, DvP y EV+ para tomar mejores decisiones.
           </p>
         </header>
 
@@ -105,9 +105,6 @@ export default async function Home() {
 
         {/* ── Top performers ────────────────────────────────────────────────── */}
         <TopPerformersGrid performers={performers as any} />
-
-        {/* ── Reddit Hype ─────────────────────────────────────────────────── */}
-        <HypeCarousel trends={trends as any} />
 
         {/* ── Quick access grid ─────────────────────────────────────────────── */}
         <section className="space-y-3">

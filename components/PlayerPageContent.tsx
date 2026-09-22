@@ -140,7 +140,7 @@ export default function PlayerPageContent({
   }, []);
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-[260px_minmax(0,1fr)] gap-4 items-start">
+    <div className="grid grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)] gap-4 items-start">
       <aside className="flex flex-col gap-3 xl:sticky xl:top-4 xl:h-[calc(100vh-2rem)] xl:overflow-hidden min-w-0">
         <TeamMatesPanel
           teamAbbr={teamAbbr}

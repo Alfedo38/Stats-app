@@ -1,0 +1,30 @@
+{
+  "market": "AST",
+  "target": "ast",
+  "objective": "reg:squarederror",
+  "features": [
+    "is_home",
+    "rest_days",
+    "prior_games",
+    "season_prior_games",
+    "ast_l5",
+    "ast_l10",
+    "ast_l20",
+    "ast_std10",
+    "ast_season",
+    "ast_prev_season",
+    "ast_blend",
+    "ast_trend"
+  ],
+  "rows": 122958,
+  "players": 894,
+  "games": 5930,
+  "date_min": "2021-01-01",
+  "date_max": "2025-04-13",
+  "validation_start": "2024-12-08",
+  "validation_end": "2025-04-13",
+  "mae": 1.356516,
+  "rmse": 1.83866,
+  "naive_l10_mae": 1.377654,
+  "train_end": "2025-06-22"
+}

@@ -1,0 +1,26 @@
+{
+  "experiment_name": "adaptive_methodologies_v1",
+  "required_mode": "ADAPTIVE",
+  "required_status": "ACTIVE",
+  "initial_bankroll": 100000.0,
+  "stake_per_ticket": 1000.0,
+  "max_same_player_per_ticket": 1,
+  "rule_reliability": {
+    "PRA|UNDER": 0.8182,
+    "PF|UNDER": 0.7619,
+    "RA|OVER": 0.8182,
+    "RA|UNDER": 0.8571,
+    "REB|UNDER": 0.7260
+  },
+  "methods": [
+    {"name": "SINGLE", "kind": "single", "legs": 1, "game_mode": "ANY", "min_edge_score": 0.8, "min_rule_reliability": 0.72, "max_same_market": 1, "max_same_game": 1},
+    {"name": "X2_EDGE", "kind": "parlay", "legs": 2, "game_mode": "ANY", "min_edge_score": 1.0, "min_rule_reliability": 0.72, "max_same_market": 2, "max_same_game": 2},
+    {"name": "X2_DIVERSE", "kind": "parlay", "legs": 2, "game_mode": "CROSS_GAME", "min_edge_score": 0.9, "min_rule_reliability": 0.72, "max_same_market": 1, "max_same_game": 1},
+    {"name": "X3_CONSERVATIVE", "kind": "parlay", "legs": 3, "game_mode": "ANY", "min_edge_score": 1.1, "min_rule_reliability": 0.72, "max_same_market": 2, "max_same_game": 2},
+    {"name": "X3_SAME_GAME", "kind": "parlay", "legs": 3, "game_mode": "SAME_GAME", "min_edge_score": 1.0, "min_rule_reliability": 0.72, "max_same_market": 2, "max_same_game": 3},
+    {"name": "X3_CROSS_GAME", "kind": "parlay", "legs": 3, "game_mode": "CROSS_GAME", "min_edge_score": 1.0, "min_rule_reliability": 0.72, "max_same_market": 2, "max_same_game": 1},
+    {"name": "X5_TOP", "kind": "parlay", "legs": 5, "game_mode": "ANY", "min_edge_score": 1.0, "min_rule_reliability": 0.72, "max_same_market": 3, "max_same_game": 3},
+    {"name": "X5_SAME_GAME", "kind": "parlay", "legs": 5, "game_mode": "SAME_GAME", "min_edge_score": 0.9, "min_rule_reliability": 0.72, "max_same_market": 3, "max_same_game": 5},
+    {"name": "X5_CROSS_GAME", "kind": "parlay", "legs": 5, "game_mode": "CROSS_GAME", "min_edge_score": 0.9, "min_rule_reliability": 0.72, "max_same_market": 3, "max_same_game": 1}
+  ]
+}

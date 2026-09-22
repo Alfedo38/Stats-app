@@ -1,0 +1,91 @@
+{
+  "stat": "PTS",
+  "target": "pts",
+  "objective": "reg:squarederror",
+  "features": [
+    "min_L5",
+    "min_L10",
+    "min_L20",
+    "usage_pct_L5",
+    "usage_pct_L10",
+    "usage_pct_L20",
+    "fga_L5",
+    "fga_L10",
+    "fga_L20",
+    "pts_L5",
+    "pts_L10",
+    "pts_L20",
+    "pts_season",
+    "touches_L5",
+    "touches_L20",
+    "ppm_L5",
+    "pts_momentum",
+    "q1_pts_L5",
+    "q1_pts_pct_L5",
+    "dvp_pts",
+    "dvp_fga",
+    "pts_trend_L5_L20",
+    "pts_std_L10",
+    "pts_std_L20",
+    "rest_days",
+    "is_b2b",
+    "is_home",
+    "pos_enc",
+    "has_full_tracking",
+    "has_dvp_rolling"
+  ],
+  "allow_main": true,
+  "model_file": "modelos_ai_v35/ludogallina_puntos.pkl",
+  "rows": 155071,
+  "players": 1069,
+  "games": 7296,
+  "date_min": "2020-12-25",
+  "date_max": "2026-05-30",
+  "mae_cv": 4.6027,
+  "mae_cv_std": 0.0249,
+  "mae_final": 4.5566,
+  "best_iteration": 409,
+  "top_features": "pts_L20=0.478 | pts_L10=0.260 | fga_L10=0.078 | fga_L5=0.067 | pts_L5=0.048 | fga_L20=0.017 | pts_season=0.017 | min_L5=0.011 | rest_days=0.005 | is_b2b=0.003",
+  "folds": [
+    {
+      "fold": 1,
+      "rows_train": 26991,
+      "rows_val": 26096,
+      "date_val_min": "2021-11-16",
+      "date_val_max": "2022-11-16",
+      "mae": 4.6344
+    },
+    {
+      "fold": 2,
+      "rows_train": 53087,
+      "rows_val": 26154,
+      "date_val_min": "2022-11-17",
+      "date_val_max": "2023-11-25",
+      "mae": 4.6173
+    },
+    {
+      "fold": 3,
+      "rows_train": 79241,
+      "rows_val": 27259,
+      "date_val_min": "2023-11-26",
+      "date_val_max": "2024-11-27",
+      "mae": 4.579
+    },
+    {
+      "fold": 4,
+      "rows_train": 106500,
+      "rows_val": 26375,
+      "date_val_min": "2024-11-29",
+      "date_val_max": "2025-11-28",
+      "mae": 4.6143
+    },
+    {
+      "fold": 5,
+      "rows_train": 132875,
+      "rows_val": 22196,
+      "date_val_min": "2025-11-29",
+      "date_val_max": "2026-05-30",
+      "mae": 4.5683
+    }
+  ]
+}

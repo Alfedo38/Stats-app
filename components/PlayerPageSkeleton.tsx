@@ -3,16 +3,18 @@
 //
 // Skeleton animado que refleja EXACTAMENTE el layout actual:
 //   PlayerHeader (ancho completo)
-//   SocialRadar (row de pills)
 //   xl: [sidebar 270px] + [columna principal]
 //     Columna principal: StatNav, Controls, Chart, KpiCards,
 //                        PickInsight, SupportingData, GameLog, DvP
 // ─────────────────────────────────────────────────────────────────────────────
 
-function Pulse({ className = "" }: { className?: string }) {
+import type { CSSProperties } from "react";
+
+function Pulse({ className = "", style }: { className?: string; style?: CSSProperties }) {
   return (
     <div
       className={`bg-[var(--surface-soft)] rounded-lg animate-pulse ${className}`}
+      style={style}
       aria-hidden="true"
     />
   );
@@ -58,16 +60,6 @@ function HeaderSkeleton() {
           </div>
         ))}
       </div>
-    </div>
-  );
-}
-
-function SocialRadarSkeleton() {
-  return (
-    <div className="flex gap-2 px-1 flex-wrap">
-      {[80, 64, 72].map((w, i) => (
-        <P key={i} className={`h-6 rounded-full`} style={{ width: w }} />
-      ))}
     </div>
   );
 }
@@ -309,11 +301,8 @@ export default function PlayerPageSkeleton() {
       {/* Header (ancho completo) */}
       <HeaderSkeleton />
 
-      {/* Social radar pills */}
-      <SocialRadarSkeleton />
-
       {/* Grid: sidebar + columna principal */}
-      <div className="grid grid-cols-1 xl:grid-cols-[270px_minmax(0,1fr)] gap-4 items-start">
+      <div className="grid grid-cols-1 xl:grid-cols-[300px_minmax(0,1fr)] gap-4 items-start">
 
         {/* Sidebar — oculto en mobile */}
         <div className="hidden xl:block">

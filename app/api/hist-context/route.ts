@@ -1,9 +1,11 @@
+import { withAuth } from '@/lib/auth/server';
 import { NextResponse } from "next/server";
 import { getHistContextBothSides } from "@/lib/histContext";
 
 const ALLOWED_MARKETS = new Set(["PTS", "REB", "AST", "PRA", "PR", "PA", "RA", "3PT", "3PM"]);
 
-export async function POST(req: Request) {
+export const POST = withAuth(handlePOST);
+async function handlePOST(req: Request) {
   try {
     const body = await req.json();
 

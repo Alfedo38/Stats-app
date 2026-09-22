@@ -8,7 +8,6 @@ import {
   Zap,
   Users,
   Flame,
-  MessageSquare,
   Stethoscope,
   Trophy,
   Menu,
@@ -34,7 +33,6 @@ export default function Sidebar() {
     { name: "Dashboard", path: "/", icon: <Home size={18} /> },
     { name: "Cerebro EV+", path: "/ev-plays", icon: <Zap size={18} /> },
     { name: "Equipos", path: "/teams", icon: <Users size={18} /> },
-    { name: "Radar Social", path: "/reddit-hype", icon: <MessageSquare size={18} /> },
     { name: "Parte Médico", path: "/injuries", icon: <Stethoscope size={18} /> },
     { name: "On Fire", path: "/trending", icon: <Flame size={18} /> },
   ];

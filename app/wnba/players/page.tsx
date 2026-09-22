@@ -1,3 +1,4 @@
+import { requirePageUser } from '@/lib/auth/server';
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import { Search, Users } from "lucide-react";
@@ -49,6 +50,7 @@ function sortColumn(sort: string) {
 }
 
 export default async function WNBAPlayersPage({ searchParams }: { searchParams?: RawSearchParams }) {
+  await requirePageUser();
   const sp = await Promise.resolve(searchParams ?? {});
   const q = getOne(sp.q, "").trim();
   const sort = sortColumn(getOne(sp.sort, "pts"));

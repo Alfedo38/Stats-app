@@ -1,3 +1,4 @@
+import { requirePageUser } from '@/lib/auth/server';
 import WNBAPlayerChartPanel from "@/components/wnba/WNBAPlayerChartPanel";
 import WNBATeamMatesPanel from "@/components/WNBATeamMatesPanel";
 import { getWNBATeamTheme } from "@/components/wnba/wnbaTeamColors";
@@ -195,6 +196,7 @@ export default async function WNBAPlayerPage({
   params: Params;
   searchParams?: SearchParams;
 }) {
+  await requirePageUser();
   try {
     const { playerId } = await params;
     const sp = await Promise.resolve(searchParams ?? {});

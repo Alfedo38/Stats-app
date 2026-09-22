@@ -1,19 +1,24 @@
+import { withAuth } from '@/lib/auth/server';
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_KEY!
-);
+function getSupabase() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_KEY;
+  return url && key ? createClient(url, key) : null;
+}
 
 const STATUS_PRIORITY: Record<string, number> = {
   SETTLED: 3, PARTIAL: 2, PENDING: 1,
 };
 
-export async function GET(request: Request) {
+export const GET = withAuth(handleGET);
+async function handleGET(request: Request) {
   try {
+    const supabase = getSupabase();
+    if (!supabase) return NextResponse.json([], { status: 503 });
     const { searchParams } = new URL(request.url);
     const book  = searchParams.get('book') === 'betano' ? 'betano_picks' : 'ludo_picks';
 

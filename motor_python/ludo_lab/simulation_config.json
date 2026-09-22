@@ -1,0 +1,14 @@
+{
+  "initial_bankroll": 100000.0,
+  "stake_per_ticket": 1000.0,
+  "allow_negative_balance": true,
+  "create_singles": true,
+  "create_game_parlays": true,
+  "game_parlay_min_legs": 5,
+  "game_parlay_max_legs": 8,
+  "create_slate_parlays": true,
+  "slate_parlay_legs": 5,
+  "max_same_player_legs": 1,
+  "max_same_market_per_ticket": 2,
+  "odds_method": "SIMULATED_PRODUCT_ODDS"
+}

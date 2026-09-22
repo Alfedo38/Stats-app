@@ -1,0 +1,26 @@
+{
+  "strategy_name": "adaptive_shadow_v1",
+  "required_mode": "ADAPTIVE",
+  "default_min_edge_score": 0.8,
+  "active_rules": [
+    {"market": "PRA", "side": "UNDER"},
+    {"market": "PF", "side": "UNDER"},
+    {"market": "RA", "side": "OVER"},
+    {"market": "RA", "side": "UNDER"},
+    {"market": "REB", "side": "UNDER"}
+  ],
+  "watchlist_rules": [
+    {"market": "PA", "side": "UNDER"},
+    {"market": "FG3A", "side": "OVER"},
+    {"market": "AST", "side": "UNDER"},
+    {"market": "FGA", "side": "OVER"}
+  ],
+  "blocked_rules": [
+    {"market": "PRA", "side": "OVER"},
+    {"market": "PA", "side": "OVER"},
+    {"market": "AST", "side": "OVER"},
+    {"market": "FGA", "side": "UNDER"},
+    {"market": "BLK", "side": "OVER"},
+    {"market": "BLK", "side": "UNDER"}
+  ]
+}

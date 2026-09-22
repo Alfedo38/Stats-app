@@ -1,3 +1,4 @@
+import { requirePageUser } from '@/lib/auth/server';
 import { getEvPlays, getBetanoPlays } from '@/lib/api';
 import EVDashboard from '@/components/EVDashboard';
 import BookmakerSelector from '@/components/BookmakerSelector';
@@ -13,6 +14,7 @@ export default async function EVPlaysPage({
 }: {
   searchParams: Promise<{ book?: string }>;
 }) {
+  await requirePageUser();
   const params = await searchParams;
   const activeBook = params?.book === 'betano' ? 'betano' : 'stake';
 

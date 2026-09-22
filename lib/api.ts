@@ -1,10 +1,17 @@
 import prisma from './prisma';
 import { Prisma } from '@prisma/client';
 import { createClient } from '@supabase/supabase-js';
+import {
+  CURRENT_ROSTER_UPDATED_AT,
+  getCurrentRosterPlayer,
+  getCurrentRosterPlayers,
+} from './currentRosters';
 
-const supabaseUrl = process.env.SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseKey);
+function getSupabase() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_KEY;
+  return url && key ? createClient(url, key) : null;
+}
 
 // ─── Helpers de fecha ─────────────────────────────────────────────────────────
 
@@ -159,6 +166,8 @@ async function fetchPicksFromTable(
   table: 'ludo_picks' | 'betano_picks',
   dateStr: string
 ): Promise<any[] | null> {
+  const supabase = getSupabase();
+  if (!supabase) return null;
   const { data, error } = await supabase
     .from(table)
     .select('json_data, results_data, status, pick_date')
@@ -285,6 +294,9 @@ export type TeamRosterPlayer = {
   current_line?: number | null;
   current_prop?: string | null;
   hit_rate?: number | null;
+  jersey_number?: string | null;
+  position?: string | null;
+  roster_updated_at?: string | null;
 };
 
 export async function getTeamPlayersForTeams(
@@ -299,15 +311,8 @@ export async function getTeamPlayersForTeams(
     const propType = statToPropType(activeStat);
     const book = String(options.book || 'stake').toLowerCase();
 
-    const candidates = await prisma.player_game_logs.findMany({
-      where: { team_abbreviation: { in: cleanTeams, mode: 'insensitive' } },
-      distinct: ['player_id'],
-      select: { player_id: true },
-    });
-
-    const playerIds = candidates
-      .map((c) => c.player_id)
-      .filter((id): id is number => typeof id === 'number');
+    const currentRoster = getCurrentRosterPlayers(cleanTeams);
+    const playerIds = currentRoster.map((player) => player.player_id);
 
     if (playerIds.length === 0) return [];
 
@@ -323,34 +328,15 @@ export async function getTeamPlayersForTeams(
       if (logsByPlayer[log.player_id].length < 20) logsByPlayer[log.player_id].push(log);
     }
 
-    const rosterBase: Array<{ id: number; full_name: string; team: string; team_abbreviation: string; logs: any[] }> = [];
-
-    for (const [pIdStr, logs] of Object.entries(logsByPlayer)) {
-      const recentFive = logs.slice(0, 5);
-      const teamCounts: Record<string, number> = {};
-      let trueTeam = '';
-      let maxCount = 0;
-
-      for (const log of recentFive) {
-        const t = normalizeTeamAbbr(log.team_abbreviation);
-        if (!t) continue;
-        teamCounts[t] = (teamCounts[t] || 0) + 1;
-        if (teamCounts[t] > maxCount) {
-          maxCount = teamCounts[t];
-          trueTeam = t;
-        }
-      }
-
-      if (!cleanTeams.includes(trueTeam)) continue;
-
-      rosterBase.push({
-        id: parseInt(pIdStr, 10),
-        full_name: logs[0]?.player_name || `Jugador ${pIdStr}`,
-        team: trueTeam,
-        team_abbreviation: trueTeam,
-        logs,
-      });
-    }
+    const rosterBase = currentRoster.map((player) => ({
+      id: player.player_id,
+      full_name: player.full_name,
+      team: player.team_abbreviation,
+      team_abbreviation: player.team_abbreviation,
+      jersey_number: player.jersey_number,
+      position: player.position,
+      logs: logsByPlayer[player.player_id] || [],
+    }));
 
     const normalizedNames = Array.from(
       new Set(rosterBase.map((p) => normalizePlayerName(p.full_name)).filter(Boolean))
@@ -408,6 +394,9 @@ export async function getTeamPlayersForTeams(
         current_line: line,
         current_prop: propType,
         hit_rate: hitRate,
+        jersey_number: p.jersey_number,
+        position: p.position,
+        roster_updated_at: CURRENT_ROSTER_UPDATED_AT,
       };
     });
 
@@ -718,20 +707,7 @@ export async function getBetanoPlays() {
   }
 }
 
-// ─── 7. RADAR SOCIAL ─────────────────────────────────────────────────────────
-
-export async function getRedditTrends() {
-  try {
-    return await prisma.reddit_trends.findMany({
-      orderBy: { hype_score: 'desc' }, take: 12,
-    });
-  } catch (e) {
-    console.error('Error en getRedditTrends:', e);
-    return [];
-  }
-}
-
-// ─── 8. CARTELERA ESPN ───────────────────────────────────────────────────────
+// ─── 7. CARTELERA ESPN ───────────────────────────────────────────────────────
 
 export async function getTodayScoreboard() {
   try {
@@ -775,7 +751,7 @@ export async function getTopPerformers() {
     );
 
     const playersWithLogs = await prisma.players.findMany({
-      include: { player_game_logs: { orderBy: { game_date: 'desc' }, take: 10 } },
+      include: { player_game_logs: { orderBy: { game_date: 'desc' }, take: 5 } },
     });
 
     const processedPlayers = playersWithLogs
@@ -783,13 +759,17 @@ export async function getTopPerformers() {
       .map(p => {
         const logs = p.player_game_logs;
         const count = logs.length || 1;
+        const ptsAvg = logs.reduce((s, l) => s + (l.pts || 0), 0) / count;
+        const rebAvg = logs.reduce((s, l) => s + (l.reb || 0), 0) / count;
+        const astAvg = logs.reduce((s, l) => s + (l.ast || 0), 0) / count;
         return {
           id: p.id,
-          full_name: `${p.first_name} ${p.last_name}`,
-          team_abbr: logs[0]?.team_abbreviation || 'NBA',
-          pts_avg: logs.reduce((s, l) => s + (l.pts || 0), 0) / count,
-          reb_avg: logs.reduce((s, l) => s + (l.reb || 0), 0) / count,
-          ast_avg: logs.reduce((s, l) => s + (l.ast || 0), 0) / count,
+          full_name: p.full_name || `${p.first_name || ''} ${p.last_name || ''}`.trim(),
+          team_abbr: getCurrentRosterPlayer(p.id)?.team_abbreviation || logs[0]?.team_abbreviation || 'NBA',
+          pts_avg: ptsAvg,
+          reb_avg: rebAvg,
+          ast_avg: astAvg,
+          pra_avg: ptsAvg + rebAvg + astAvg,
         };
       });
 
@@ -798,7 +778,7 @@ export async function getTopPerformers() {
       rebotes:     [...processedPlayers].sort((a, b) => b.reb_avg - a.reb_avg).slice(0, 3),
       asistencias: [...processedPlayers].sort((a, b) => b.ast_avg - a.ast_avg).slice(0, 3),
       pra:         [...processedPlayers]
-                     .sort((a, b) => (b.pts_avg + b.reb_avg + b.ast_avg) - (a.pts_avg + a.reb_avg + a.ast_avg))
+                     .sort((a, b) => b.pra_avg - a.pra_avg)
                      .slice(0, 3),
     };
   } catch (e) {

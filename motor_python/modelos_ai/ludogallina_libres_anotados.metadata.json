@@ -1,0 +1,82 @@
+{
+  "stat": "FTM",
+  "target": "ftm",
+  "objective": "reg:squarederror",
+  "features": [
+    "min_L5",
+    "min_L10",
+    "min_L20",
+    "usage_pct_L5",
+    "usage_pct_L20",
+    "fta_L5",
+    "fta_L20",
+    "ftm_L5",
+    "ftm_L10",
+    "ftm_L20",
+    "ftm_season",
+    "dvp_fta",
+    "ftm_trend_L5_L20",
+    "ftm_std_L10",
+    "ftm_std_L20",
+    "rest_days",
+    "is_b2b",
+    "is_home",
+    "pos_enc",
+    "has_full_tracking",
+    "has_dvp_rolling"
+  ],
+  "allow_main": true,
+  "model_file": "modelos_ai_v35/ludogallina_libres_anotados.pkl",
+  "rows": 155071,
+  "players": 1069,
+  "games": 7296,
+  "date_min": "2020-12-25",
+  "date_max": "2026-05-30",
+  "mae_cv": 1.3266,
+  "mae_cv_std": 0.0187,
+  "mae_final": 1.3252,
+  "best_iteration": 361,
+  "top_features": "ftm_L20=0.607 | fta_L20=0.131 | ftm_L10=0.125 | ftm_season=0.056 | fta_L5=0.020 | ftm_L5=0.012 | min_L5=0.011 | min_L10=0.007 | min_L20=0.005 | ftm_std_L20=0.005",
+  "folds": [
+    {
+      "fold": 1,
+      "rows_train": 26991,
+      "rows_val": 26096,
+      "date_val_min": "2021-11-16",
+      "date_val_max": "2022-11-16",
+      "mae": 1.3295
+    },
+    {
+      "fold": 2,
+      "rows_train": 53087,
+      "rows_val": 26154,
+      "date_val_min": "2022-11-17",
+      "date_val_max": "2023-11-25",
+      "mae": 1.3571
+    },
+    {
+      "fold": 3,
+      "rows_train": 79241,
+      "rows_val": 27259,
+      "date_val_min": "2023-11-26",
+      "date_val_max": "2024-11-27",
+      "mae": 1.302
+    },
+    {
+      "fold": 4,
+      "rows_train": 106500,
+      "rows_val": 26375,
+      "date_val_min": "2024-11-29",
+      "date_val_max": "2025-11-28",
+      "mae": 1.3131
+    },
+    {
+      "fold": 5,
+      "rows_train": 132875,
+      "rows_val": 22196,
+      "date_val_min": "2025-11-29",
+      "date_val_max": "2026-05-30",
+      "mae": 1.3311
+    }
+  ]
+}

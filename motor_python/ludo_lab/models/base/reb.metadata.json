@@ -1,0 +1,30 @@
+{
+  "market": "REB",
+  "target": "reb",
+  "objective": "reg:squarederror",
+  "features": [
+    "is_home",
+    "rest_days",
+    "prior_games",
+    "season_prior_games",
+    "reb_l5",
+    "reb_l10",
+    "reb_l20",
+    "reb_std10",
+    "reb_season",
+    "reb_prev_season",
+    "reb_blend",
+    "reb_trend"
+  ],
+  "rows": 122958,
+  "players": 894,
+  "games": 5930,
+  "date_min": "2021-01-01",
+  "date_max": "2025-04-13",
+  "validation_start": "2024-12-08",
+  "validation_end": "2025-04-13",
+  "mae": 1.94806,
+  "rmse": 2.571592,
+  "naive_l10_mae": 1.986936,
+  "train_end": "2025-06-22"
+}

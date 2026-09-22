@@ -1,3 +1,4 @@
+import { requirePageUser } from '@/lib/auth/server';
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import { CalendarDays, ChevronLeft, ChevronRight, Clock, Trophy, Users } from "lucide-react";
@@ -203,6 +204,7 @@ function Metric({ label, value }: { label: string; value: string }) {
 }
 
 export default async function WNBADashboardPage({ searchParams }: { searchParams?: RawSearchParams }) {
+  await requirePageUser();
   const sp = await Promise.resolve(searchParams ?? {});
   const today = argentinaToday();
   const selectedDate = getOne(sp.date, today);

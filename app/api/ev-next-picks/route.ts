@@ -1,3 +1,4 @@
+import { withAuth } from '@/lib/auth/server';
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
@@ -63,7 +64,8 @@ async function findStakePick(preferFuture: boolean) {
   return rows?.[0] ?? null;
 }
 
-export async function GET(req: NextRequest) {
+export const GET = withAuth(handleGET);
+async function handleGET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const book = String(searchParams.get('book') || 'stake').toLowerCase();

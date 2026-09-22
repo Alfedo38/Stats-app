@@ -1,0 +1,42 @@
+{
+  "strategy_name": "adaptive_shadow_v1",
+  "required_mode": "ADAPTIVE",
+  "required_status": "ACTIVE",
+  "stake_per_ticket": 1000.0,
+  "max_same_player_per_ticket": 1,
+  "max_same_market_per_ticket": 2,
+  "max_leg_uses_per_date": 2,
+  "rule_reliability": {
+    "PRA|UNDER": 0.8182,
+    "PF|UNDER": 0.7619,
+    "RA|OVER": 0.8182,
+    "RA|UNDER": 0.8571,
+    "REB|UNDER": 0.7260
+  },
+  "tiers": [
+    {
+      "name": "CONSERVATIVE_X2",
+      "legs": 2,
+      "min_edge_score": 1.0,
+      "min_rule_reliability": 0.72,
+      "max_same_matchup_per_ticket": 1,
+      "max_tickets_per_date": 2
+    },
+    {
+      "name": "SELECTIVE_X3",
+      "legs": 3,
+      "min_edge_score": 1.1,
+      "min_rule_reliability": 0.75,
+      "max_same_matchup_per_ticket": 1,
+      "max_tickets_per_date": 1
+    },
+    {
+      "name": "EXPERIMENTAL_X5",
+      "legs": 5,
+      "min_edge_score": 1.25,
+      "min_rule_reliability": 0.75,
+      "max_same_matchup_per_ticket": 2,
+      "max_tickets_per_date": 1
+    }
+  ]
+}

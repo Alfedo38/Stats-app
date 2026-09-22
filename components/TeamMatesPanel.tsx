@@ -37,6 +37,9 @@ export type TeamMate = {
   hit_rate?:          number | null;
   current_line?:      number | null;
   current_prop?:      string | null;
+  jersey_number?:     string | null;
+  position?:          string | null;
+  roster_updated_at?: string | null;
 };
 
 export type StakeOdd = {
@@ -382,6 +385,12 @@ function PlayerRow({
             <span className="text-[var(--text-muted)]">
               {player.current_line} {player.current_prop}
             </span>
+          ) : player.position || player.jersey_number ? (
+            <span className="text-[var(--text-muted)]">
+              {[player.position, player.jersey_number ? `#${player.jersey_number}` : null]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
           ) : (
             <span className="text-[var(--text-muted)]">Ver análisis</span>
           )}
@@ -660,6 +669,11 @@ export default function TeamMatesPanel({
               <Users size={17} className="text-[#10b981]" />
               {teamAbbr ?? "Roster"}
             </h2>
+            {enriched[0]?.roster_updated_at && (
+              <p className="mt-0.5 text-[8px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                Roster oficial · {enriched[0].roster_updated_at}
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col items-end gap-1.5">

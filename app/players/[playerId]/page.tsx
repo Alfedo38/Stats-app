@@ -1,11 +1,12 @@
+import { requirePageUser } from '@/lib/auth/server';
 // app/players/[playerId]/page.tsx
-import PlayerHeader,      { type PlayerKPI } from "@/components/PlayerHeader";
-import SocialRadar                            from "@/components/SocialRadar";
+import PlayerHeader,      { type NextGame, type PlayerKPI } from "@/components/PlayerHeader";
 import PlayerPageContent                      from "@/components/PlayerPageContent";
 import { getPlayerData } from "@/lib/api";
 import { getPlayerDataFast } from "@/lib/playerDataFast";
 import { getPlayerOddsMultiBook } from "@/lib/playerOdds";
 import { getPlayerBioDetails } from "@/lib/playerBio";
+import { getCurrentRosterPlayer } from "@/lib/currentRosters";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
@@ -196,10 +197,12 @@ async function soft<T>(label: string, promise: Promise<T>, fallback: T, ms = 900
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default async function PlayerPage(props: any) {
+  await requirePageUser();
   try {
     const params       = await Promise.resolve(props.params);
     const searchParams = await Promise.resolve(props.searchParams);
     const playerId     = params?.playerId;
+    const currentRosterPlayer = getCurrentRosterPlayer(playerId);
     const requestedStat = typeof searchParams?.stat === "string" ? searchParams.stat : "pts";
     const requestedDate = typeof searchParams?.date === "string" ? searchParams.date.slice(0, 10) : null;
 
@@ -211,6 +214,20 @@ export default async function PlayerPage(props: any) {
       const playerDataFallbackStart = Date.now();
       data = await getPlayerData(playerId);
       console.log(`[player-page] getPlayerData fallback ${playerId}: ${Date.now() - playerDataFallbackStart}ms`);
+    }
+    if (!data?.player && currentRosterPlayer) {
+      const [firstName, ...lastNameParts] = currentRosterPlayer.full_name.split(' ');
+      data = {
+        player: {
+          id: currentRosterPlayer.player_id,
+          first_name: firstName,
+          last_name: lastNameParts.join(' '),
+          full_name: currentRosterPlayer.full_name,
+          jersey_number: Number(currentRosterPlayer.jersey_number) || null,
+          position: currentRosterPlayer.position,
+        },
+        stats: [],
+      } as any;
     }
     if (!data?.player) return null;
     const { player, stats } = data;
@@ -239,6 +256,7 @@ export default async function PlayerPage(props: any) {
       );
 
     const teamAbbr =
+      currentRosterPlayer?.team_abbreviation ||
       cleanStats.find((s: any) => s?.team_abbreviation)?.team_abbreviation ||
       (player as any)?.team_abbreviation || (player as any)?.team || null;
 
@@ -262,7 +280,7 @@ export default async function PlayerPage(props: any) {
     // Dejamos arrays vacíos para mantener compatibilidad con PlayerPageContent.
     const games: any[] = [];
     const teamGames: any[] = [];
-    const nextGame = undefined;
+    let nextGame: NextGame | undefined;
     const activeInjuryContextDate = requestedDate || undefined;
     const activeInjuryContext: any[] = [];
 
@@ -289,7 +307,16 @@ export default async function PlayerPage(props: any) {
 
     const usageAvg     = calcAvg("usage_pct");
     const usageDisplay = usageAvg === "S/D" ? "S/D" : `${(Number(usageAvg) * 100).toFixed(1)}%`;
-    const position     = bioDetails?.position || (player as any)?.position || null;
+    const position     = currentRosterPlayer?.position || bioDetails?.position || (player as any)?.position || null;
+    const currentBio = {
+      ...bioDetails,
+      position,
+      jerseyNumber: currentRosterPlayer?.jersey_number || bioDetails?.jerseyNumber || null,
+      height: currentRosterPlayer?.height || bioDetails?.height || null,
+      weight: currentRosterPlayer?.weight || bioDetails?.weight || null,
+      age: currentRosterPlayer?.age || bioDetails?.age || null,
+      school: currentRosterPlayer?.school || bioDetails?.school || null,
+    };
 
     const kpis: PlayerKPI[] = [
       { label: "Usage Rate",       value: usageDisplay,                        trend: usageAvg === "S/D" ? 0 : delta("usage_pct", 100), trendLabel: "vs L10" },
@@ -318,14 +345,11 @@ export default async function PlayerPage(props: any) {
             teamAbbr={teamAbbr ? String(teamAbbr).toUpperCase() : undefined}
             position={position ?? undefined}
             initials={`${firstName?.charAt(0) ?? ""}${lastName?.charAt(0) ?? ""}`}
-            imageUrl={bioDetails?.imageUrl ?? (player as any)?.image_url ?? undefined}
-            bio={bioDetails}
+            imageUrl={bioDetails?.imageUrl ?? (player as any)?.image_url ?? `https://cdn.nba.com/headshots/nba/latest/1040x760/${playerId}.png`}
+            bio={currentBio}
             kpis={kpis}
             nextGame={nextGame}
           />
-
-          {/* Social radar — se oculta si no hay datos */}
-          <SocialRadar playerName={playerName} />
 
           {/* Grid sidebar + gráfico — maneja selectedGame en client */}
           <PlayerPageContent

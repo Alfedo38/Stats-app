@@ -1,0 +1,93 @@
+{
+  "stat": "PRA",
+  "target": "pra",
+  "objective": "reg:squarederror",
+  "features": [
+    "min_L5",
+    "min_L10",
+    "min_L20",
+    "usage_pct_L5",
+    "usage_pct_L20",
+    "pts_L5",
+    "reb_L5",
+    "ast_L5",
+    "pts_L20",
+    "reb_L20",
+    "ast_L20",
+    "fga_L5",
+    "touches_L5",
+    "rebound_chances_L5",
+    "potential_ast_L5",
+    "pra_L5",
+    "pra_L10",
+    "pra_L20",
+    "pra_season",
+    "pra_momentum",
+    "dvp_pts",
+    "dvp_reb",
+    "dvp_ast",
+    "pra_trend_L5_L20",
+    "pra_std_L10",
+    "pra_std_L20",
+    "rest_days",
+    "is_b2b",
+    "is_home",
+    "pos_enc",
+    "has_full_tracking",
+    "has_dvp_rolling"
+  ],
+  "allow_main": true,
+  "model_file": "modelos_ai_v35/ludogallina_pra.pkl",
+  "rows": 155071,
+  "players": 1069,
+  "games": 7296,
+  "date_min": "2020-12-25",
+  "date_max": "2026-05-30",
+  "mae_cv": 6.0869,
+  "mae_cv_std": 0.0245,
+  "mae_final": 6.0385,
+  "best_iteration": 520,
+  "top_features": "pra_L10=0.409 | pra_L20=0.376 | pra_L5=0.149 | pra_season=0.017 | min_L5=0.012 | fga_L5=0.008 | rest_days=0.005 | is_b2b=0.003 | reb_L20=0.002 | ast_L5=0.002",
+  "folds": [
+    {
+      "fold": 1,
+      "rows_train": 26991,
+      "rows_val": 26096,
+      "date_val_min": "2021-11-16",
+      "date_val_max": "2022-11-16",
+      "mae": 6.1084
+    },
+    {
+      "fold": 2,
+      "rows_train": 53087,
+      "rows_val": 26154,
+      "date_val_min": "2022-11-17",
+      "date_val_max": "2023-11-25",
+      "mae": 6.094
+    },
+    {
+      "fold": 3,
+      "rows_train": 79241,
+      "rows_val": 27259,
+      "date_val_min": "2023-11-26",
+      "date_val_max": "2024-11-27",
+      "mae": 6.0768
+    },
+    {
+      "fold": 4,
+      "rows_train": 106500,
+      "rows_val": 26375,
+      "date_val_min": "2024-11-29",
+      "date_val_max": "2025-11-28",
+      "mae": 6.1108
+    },
+    {
+      "fold": 5,
+      "rows_train": 132875,
+      "rows_val": 22196,
+      "date_val_min": "2025-11-29",
+      "date_val_max": "2026-05-30",
+      "mae": 6.0443
+    }
+  ]
+}

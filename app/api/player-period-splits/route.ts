@@ -1,3 +1,4 @@
+import { withAuth } from '@/lib/auth/server';
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
@@ -30,7 +31,8 @@ function plain(value: any): any {
   return value;
 }
 
-export async function GET(req: NextRequest) {
+export const GET = withAuth(handleGET);
+async function handleGET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const playerId = Number(searchParams.get("playerId") || searchParams.get("player_id"));

@@ -1,3 +1,4 @@
+import { requirePageUser } from '@/lib/auth/server';
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import { ArrowLeft, Activity, Search, Users } from "lucide-react";
@@ -106,6 +107,7 @@ export default async function WNBATeamPage({
   params: Params;
   searchParams?: RawSearchParams;
 }) {
+  await requirePageUser();
   const { teamId } = await params;
   const sp = await Promise.resolve(searchParams ?? {});
   const season = getOne(sp.season, "2026");

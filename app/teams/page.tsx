@@ -1,7 +1,9 @@
+import { requirePageUser } from '@/lib/auth/server';
 import Link from 'next/link';
 import { Shield, ChevronRight } from 'lucide-react';
 
-export default function TeamsDirectoryPage() {
+export default async function TeamsDirectoryPage() {
+  await requirePageUser();
   const NBA_TEAMS = [
     { id: 'ATL', name: 'Atlanta Hawks', color: 'hover:border-red-500', glow: 'group-hover:text-red-500' },
     { id: 'BOS', name: 'Boston Celtics', color: 'hover:border-green-500', glow: 'group-hover:text-green-500' },

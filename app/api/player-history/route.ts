@@ -1,3 +1,4 @@
+import { withAuth } from '@/lib/auth/server';
 import { NextResponse } from "next/server";
 import { getPlayerHistoricalExplorer } from "@/lib/playerHistory";
 
@@ -14,7 +15,8 @@ function makeJsonSafe(value: any): any {
   return value;
 }
 
-export async function POST(req: Request) {
+export const POST = withAuth(handlePOST);
+async function handlePOST(req: Request) {
   try {
     const body = await req.json();
     const data = await getPlayerHistoricalExplorer({

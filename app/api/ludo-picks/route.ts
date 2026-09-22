@@ -1,12 +1,14 @@
+import { withAuth } from '@/lib/auth/server';
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_KEY!
-);
+function getSupabase() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_KEY;
+  return url && key ? createClient(url, key) : null;
+}
 
 function mergeResultsIntoBlocks(jsonData: any[], resultsData: any): any[] {
   if (!jsonData) return [];
@@ -38,8 +40,11 @@ function mergeResultsIntoBlocks(jsonData: any[], resultsData: any): any[] {
   }));
 }
 
-export async function GET(request: Request) {
+export const GET = withAuth(handleGET);
+async function handleGET(request: Request) {
   try {
+    const supabase = getSupabase();
+    if (!supabase) return NextResponse.json(null, { status: 503 });
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date');
     const book = searchParams.get('book') === 'betano' ? 'betano_picks' : 'ludo_picks';

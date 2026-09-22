@@ -1,0 +1,88 @@
+{
+  "stat": "REB",
+  "target": "reb",
+  "objective": "reg:squarederror",
+  "features": [
+    "min_L5",
+    "min_L10",
+    "min_L20",
+    "rebound_chances_L5",
+    "rebound_chances_L10",
+    "rebound_chances_L20",
+    "rebound_off_L5",
+    "rebound_def_L5",
+    "reb_L5",
+    "reb_L10",
+    "reb_L20",
+    "reb_season",
+    "touches_L5",
+    "reb_pm_L5",
+    "reb_momentum",
+    "q1_reb_L5",
+    "q1_reb_pct_L5",
+    "dvp_reb",
+    "reb_trend_L5_L20",
+    "reb_std_L10",
+    "reb_std_L20",
+    "rest_days",
+    "is_b2b",
+    "is_home",
+    "pos_enc",
+    "has_full_tracking",
+    "has_dvp_rolling"
+  ],
+  "allow_main": true,
+  "model_file": "modelos_ai_v35/ludogallina_rebotes.pkl",
+  "rows": 155071,
+  "players": 1069,
+  "games": 7296,
+  "date_min": "2020-12-25",
+  "date_max": "2026-05-30",
+  "mae_cv": 1.9105,
+  "mae_cv_std": 0.0189,
+  "mae_final": 1.9001,
+  "best_iteration": 384,
+  "top_features": "reb_L20=0.520 | reb_L10=0.296 | reb_L5=0.070 | reb_season=0.054 | rebound_def_L5=0.009 | rest_days=0.008 | min_L5=0.007 | rebound_off_L5=0.005 | dvp_reb=0.004 | is_b2b=0.004",
+  "folds": [
+    {
+      "fold": 1,
+      "rows_train": 26991,
+      "rows_val": 26096,
+      "date_val_min": "2021-11-16",
+      "date_val_max": "2022-11-16",
+      "mae": 1.9341
+    },
+    {
+      "fold": 2,
+      "rows_train": 53087,
+      "rows_val": 26154,
+      "date_val_min": "2022-11-17",
+      "date_val_max": "2023-11-25",
+      "mae": 1.912
+    },
+    {
+      "fold": 3,
+      "rows_train": 79241,
+      "rows_val": 27259,
+      "date_val_min": "2023-11-26",
+      "date_val_max": "2024-11-27",
+      "mae": 1.8842
+    },
+    {
+      "fold": 4,
+      "rows_train": 106500,
+      "rows_val": 26375,
+      "date_val_min": "2024-11-29",
+      "date_val_max": "2025-11-28",
+      "mae": 1.9274
+    },
+    {
+      "fold": 5,
+      "rows_train": 132875,
+      "rows_val": 22196,
+      "date_val_min": "2025-11-29",
+      "date_val_max": "2026-05-30",
+      "mae": 1.8947
+    }
+  ]
+}

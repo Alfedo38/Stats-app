@@ -1,3 +1,4 @@
+import { withAuth } from '@/lib/auth/server';
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
@@ -54,7 +55,8 @@ function parseRef(ref: string): { raw: string; team: string; name: string } | nu
   return { raw: ref, team: cleanTeam, name };
 }
 
-export async function GET(req: Request) {
+export const GET = withAuth(handleGET);
+async function handleGET(req: Request) {
   try {
     const url = new URL(req.url);
     const ids = parseIds(url.searchParams.get("ids"));

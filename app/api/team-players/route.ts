@@ -1,6 +1,8 @@
+import { withAuth } from '@/lib/auth/server';
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { CURRENT_ROSTER_UPDATED_AT, getCurrentRosterPlayers } from "@/lib/currentRosters";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -164,26 +166,13 @@ async function loadTeamPlayersFast(teams: string[], stat: string, book: string) 
 
   const propType = statToPropType(stat);
 
-  const rosterRows = await prisma.$queryRaw<any[]>(Prisma.sql`
-    WITH latest AS (
-      SELECT DISTINCT ON (player_id)
-        player_id::bigint AS player_id,
-        player_name::text AS player_name,
-        UPPER(team_abbreviation::text) AS team_abbreviation,
-        game_date
-      FROM public.player_page_game_fact_cache
-      WHERE player_id IS NOT NULL
-        AND NULLIF(team_abbreviation::text, '') IS NOT NULL
-      ORDER BY player_id, game_date DESC NULLS LAST
-    )
-    SELECT
-      player_id,
-      player_name,
-      team_abbreviation
-    FROM latest
-    WHERE team_abbreviation IN (${Prisma.join(cleanTeams)})
-    ORDER BY team_abbreviation ASC, player_name ASC
-  `);
+  const rosterRows = getCurrentRosterPlayers(cleanTeams).map((player) => ({
+    player_id: player.player_id,
+    player_name: player.full_name,
+    team_abbreviation: player.team_abbreviation,
+    jersey_number: player.jersey_number,
+    position: player.position,
+  }));
 
   const playerIds = Array.from(
     new Set((rosterRows || []).map((r) => Number(r.player_id)).filter(Number.isFinite)),
@@ -291,6 +280,9 @@ async function loadTeamPlayersFast(teams: string[], stat: string, book: string) 
       current_line: line,
       current_prop: propType,
       hit_rate: hitRate,
+      jersey_number: p.jersey_number ?? null,
+      position: p.position ?? null,
+      roster_updated_at: CURRENT_ROSTER_UPDATED_AT,
     };
   });
 
@@ -311,7 +303,8 @@ function cachedResponse(payload: any, cacheState: string) {
   });
 }
 
-export async function GET(req: Request) {
+export const GET = withAuth(handleGET);
+async function handleGET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const team = String(searchParams.get("team") || "").trim().toUpperCase();

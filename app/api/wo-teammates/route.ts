@@ -1,3 +1,4 @@
+import { withAuth } from '@/lib/auth/server';
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
@@ -26,7 +27,8 @@ function avgNum(cols: Set<string>, col: string, alias: string, digits = 1) {
   return has(cols, col) ? `ROUND(AVG(${col})::numeric, ${digits}) AS ${alias}` : `NULL::numeric AS ${alias}`;
 }
 
-export async function GET(req: NextRequest) {
+export const GET = withAuth(handleGET);
+async function handleGET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const playerIdRaw = searchParams.get("playerId") || searchParams.get("player_id");

@@ -1,7 +1,8 @@
+import { requirePageUser } from '@/lib/auth/server';
 // app/trending/page.tsx — VERSIÓN FINAL
 import Link from "next/link";
-import { ArrowLeft, Target, Zap, Trophy, GitMerge, TrendingUp, TrendingDown, Minus, Flame } from "lucide-react";
-import { getTopPerformers, getRedditTrends } from "@/lib/api";
+import { ArrowLeft, Target, Zap, Trophy, GitMerge } from "lucide-react";
+import { getTopPerformers } from "@/lib/api";
 import { getTeamColor } from "@/lib/teamColors";
 
 export const dynamic = "force-dynamic";
@@ -11,23 +12,17 @@ export const metadata = { title: "On Fire | MoskProps" };
 
 interface PlayerStat {
   id: number; full_name: string; team_abbr: string;
-  pts_avg: number; reb_avg: number; ast_avg: number;
+  pts_avg: number; reb_avg: number; ast_avg: number; pra_avg: number;
 }
-
-type Trend = {
-  id: number; player_name: string; team_abbr?: string | null;
-  mentions: number; sentiment?: string | null; hype_score: number; trend?: string | null;
-};
 
 // ─── Player card ──────────────────────────────────────────────────────────────
 
-function PlayerCard({ player, rank, statValue, statLabel, accentColor, trend }: {
+function PlayerCard({ player, rank, statValue, statLabel, accentColor }: {
   player: PlayerStat; rank: number; statValue: number;
-  statLabel: string; accentColor: string; trend?: Trend | null;
+  statLabel: string; accentColor: string;
 }) {
   const teamColor = getTeamColor(player.team_abbr);
   const initials  = player.full_name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
-  const trendDir  = trend?.trend ?? null;
 
   return (
     <Link
@@ -74,34 +69,15 @@ function PlayerCard({ player, rank, statValue, statLabel, accentColor, trend }: 
         <p className="text-[8px] text-[var(--text-muted)] font-black uppercase tracking-widest">{statLabel} avg</p>
       </div>
 
-      {/* Social trend (if any) */}
-      {trend && (
-        <div className="flex flex-col items-center gap-1 shrink-0 pl-2 border-l border-[var(--border)]">
-          {trendDir === "up"   && <TrendingUp   size={13} className="text-[#10b981]" />}
-          {trendDir === "down" && <TrendingDown  size={13} className="text-red-400"   />}
-          {!trendDir            && <Minus         size={13} className="text-[var(--text-muted)]" />}
-          <span className={`text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full border ${
-            trend.sentiment === "OVER"  ? "text-[#10b981] border-[#10b981]/30 bg-[#10b981]/08" :
-            trend.sentiment === "UNDER" ? "text-red-400   border-red-400/30   bg-red-400/08"   :
-            "text-[var(--text-muted)] border-[var(--border)]"
-          }`}>
-            {trend.sentiment ?? "—"}
-          </span>
-          <span className="text-[7px] font-black tabular-nums text-[var(--text-muted)] flex items-center gap-0.5">
-            <Flame size={8} className="text-orange-400" />{trend.hype_score}
-          </span>
-        </div>
-      )}
     </Link>
   );
 }
 
 // ─── Section ──────────────────────────────────────────────────────────────────
 
-function Section({ icon: Icon, title, color, players, statKey, statLabel, trends }: {
+function Section({ icon: Icon, title, color, players, statKey, statLabel }: {
   icon: any; title: string; color: string;
   players: PlayerStat[]; statKey: keyof PlayerStat; statLabel: string;
-  trends: Trend[];
 }) {
   const sorted = [...players].sort((a, b) => Number(b[statKey]) - Number(a[statKey])).slice(0, 5);
 
@@ -118,11 +94,7 @@ function Section({ icon: Icon, title, color, players, statKey, statLabel, trends
         </div>
       </div>
       <div className="space-y-2">
-        {sorted.map((p, i) => {
-          const tr = trends.find(t =>
-            t.player_name.toLowerCase().includes(p.full_name.split(" ").pop()?.toLowerCase() ?? "")
-          );
-          return (
+        {sorted.map((p, i) => (
             <PlayerCard
               key={p.id}
               player={p}
@@ -130,10 +102,8 @@ function Section({ icon: Icon, title, color, players, statKey, statLabel, trends
               statValue={Number(p[statKey])}
               statLabel={statLabel}
               accentColor={color}
-              trend={tr ?? null}
             />
-          );
-        })}
+        ))}
       </div>
     </section>
   );
@@ -142,10 +112,8 @@ function Section({ icon: Icon, title, color, players, statKey, statLabel, trends
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default async function TrendingPage() {
-  const [data, trends] = await Promise.all([
-    getTopPerformers(),
-    getRedditTrends(),
-  ]);
+  await requirePageUser();
+  const data = await getTopPerformers();
 
   const { puntos, rebotes, asistencias, pra } = data as any;
 
@@ -153,7 +121,7 @@ export default async function TrendingPage() {
     { icon: Zap,       title: "Puntos",      color: "#10b981", players: puntos,      statKey: "pts_avg" as const, statLabel: "PTS" },
     { icon: Target,    title: "Rebotes",     color: "#3b82f6", players: rebotes,     statKey: "reb_avg" as const, statLabel: "REB" },
     { icon: GitMerge,  title: "Asistencias", color: "#f59e0b", players: asistencias, statKey: "ast_avg" as const, statLabel: "AST" },
-    { icon: Trophy,    title: "PRA",         color: "#8b5cf6", players: pra,         statKey: "pts_avg" as const, statLabel: "PRA" },
+    { icon: Trophy,    title: "PRA",         color: "#8b5cf6", players: pra,         statKey: "pra_avg" as const, statLabel: "PRA" },
   ];
 
   return (
@@ -174,13 +142,13 @@ export default async function TrendingPage() {
             On <span className="text-[#10b981]">Fire</span>
           </h1>
           <p className="text-[var(--text-muted)] text-sm mt-2">
-            Rankings actualizados + sentimiento social de Reddit para cada jugador.
+            Rendimiento real de los últimos 5 partidos por jugador.
           </p>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
           {sections.map(s => (
-            <Section key={s.title} {...s} trends={trends as Trend[]} />
+            <Section key={s.title} {...s} />
           ))}
         </div>
       </div>

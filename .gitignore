@@ -37,11 +37,10 @@ yarn-error.log*
 Thumbs.db
 
 # =========================================
-# MOTOR DE DATOS PYTHON & SCRAPING (Solo Local)
+# MOTOR DE DATOS PYTHON & SCRAPING
 # =========================================
-# Ignorar todos los scripts y cachés
-*.py
-__pycache__/
+# El código Python sí se versiona. Solo se excluyen cachés y entornos.
+**/__pycache__/
 *.py[cod]
 *$py.class
 *.so
@@ -52,39 +51,27 @@ venv/
 env/
 .env_python/
 
-# Modelos AI y variables guardadas
+# Modelos AI y variables guardadas (artefactos binarios)
 *.pkl
-modelos_ai/
-
-# Carpetas del Motor Quant
-/motor/
-/motor_python/
-/potenciales/
-/nba_data_pipeline/
+*.joblib
 
 # Scraper, Sesiones y Temporales
 /browser_profile/
 browser_profile/
 
 # Outputs y archivos pesados generados
-/outputs/
-/outputs_csv/
-/outputs_json/
-/outputs_tracking/
-*.csv
+**/outputs/
+**/outputs_csv/
+**/outputs_json/
+**/outputs_tracking/
+**/stake_props/raw/
+**/stake_props/procesados/
+**/betano_props/debug/
+**/logs/
+*.tsbuildinfo
 
 # Scripts locales de automatización
 *.sh
-# local backups
-*.bak_*
-*.bak
-*.backup
-
-# local backups
-*.bak_*
-*.bak
-*.backup
-
 # local backups
 *.bak_*
 *.bak

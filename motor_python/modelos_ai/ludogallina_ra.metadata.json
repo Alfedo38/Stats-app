@@ -1,0 +1,86 @@
+{
+  "stat": "RA",
+  "target": "ra",
+  "objective": "reg:squarederror",
+  "features": [
+    "min_L5",
+    "min_L10",
+    "min_L20",
+    "reb_L5",
+    "ast_L5",
+    "reb_L20",
+    "ast_L20",
+    "rebound_chances_L5",
+    "potential_ast_L5",
+    "ra_L5",
+    "ra_L10",
+    "ra_L20",
+    "ra_season",
+    "ra_momentum",
+    "dvp_reb",
+    "dvp_ast",
+    "ra_trend_L5_L20",
+    "ra_std_L10",
+    "ra_std_L20",
+    "rest_days",
+    "is_b2b",
+    "is_home",
+    "pos_enc",
+    "has_full_tracking",
+    "has_dvp_rolling"
+  ],
+  "allow_main": true,
+  "model_file": "modelos_ai_v35/ludogallina_ra.pkl",
+  "rows": 155071,
+  "players": 1069,
+  "games": 7296,
+  "date_min": "2020-12-25",
+  "date_max": "2026-05-30",
+  "mae_cv": 2.6197,
+  "mae_cv_std": 0.0178,
+  "mae_final": 2.6159,
+  "best_iteration": 478,
+  "top_features": "ra_L10=0.518 | ra_L20=0.312 | ra_L5=0.085 | ra_season=0.037 | min_L5=0.009 | rest_days=0.007 | is_b2b=0.003 | ra_std_L20=0.003 | dvp_ast=0.003 | reb_L20=0.002",
+  "folds": [
+    {
+      "fold": 1,
+      "rows_train": 26991,
+      "rows_val": 26096,
+      "date_val_min": "2021-11-16",
+      "date_val_max": "2022-11-16",
+      "mae": 2.621
+    },
+    {
+      "fold": 2,
+      "rows_train": 53087,
+      "rows_val": 26154,
+      "date_val_min": "2022-11-17",
+      "date_val_max": "2023-11-25",
+      "mae": 2.6078
+    },
+    {
+      "fold": 3,
+      "rows_train": 79241,
+      "rows_val": 27259,
+      "date_val_min": "2023-11-26",
+      "date_val_max": "2024-11-27",
+      "mae": 2.6052
+    },
+    {
+      "fold": 4,
+      "rows_train": 106500,
+      "rows_val": 26375,
+      "date_val_min": "2024-11-29",
+      "date_val_max": "2025-11-28",
+      "mae": 2.6537
+    },
+    {
+      "fold": 5,
+      "rows_train": 132875,
+      "rows_val": 22196,
+      "date_val_min": "2025-11-29",
+      "date_val_max": "2026-05-30",
+      "mae": 2.6109
+    }
+  ]
+}

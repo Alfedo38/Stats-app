@@ -1,3 +1,4 @@
+import { withAuth } from '@/lib/auth/server';
 // app/api/injuries/sync/route.ts
 export const dynamic = 'force-dynamic';
 
@@ -19,7 +20,8 @@ function getTodayArg(): string {
   return `${y}-${m}-${d}`;
 }
 
-export async function GET(req: Request) {
+export const POST = withAuth(handleGET, true);
+async function handleGET(req: Request) {
   try {
     const todayStr = getTodayArg();
     const url = new URL(req.url);

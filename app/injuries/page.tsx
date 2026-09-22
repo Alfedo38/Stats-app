@@ -1,3 +1,4 @@
+import { requirePageUser } from '@/lib/auth/server';
 // app/injuries/page.tsx
 import { PrismaClient } from '@prisma/client';
 import { ChevronLeft, RefreshCw, CalendarDays } from 'lucide-react';
@@ -340,6 +341,7 @@ export default async function InjuriesPage({
 }: {
   searchParams?: Promise<{ date?: string }> | { date?: string };
 }) {
+  await requirePageUser();
   const resolvedSearchParams = await searchParams;
   const requestedDate = resolvedSearchParams?.date;
   const baseDate = isYmd(requestedDate) ? requestedDate : ymdFromDate(new Date());

@@ -1,8 +1,10 @@
+import { withAuth } from '@/lib/auth/server';
 // app/api/schedule/route.ts
 import { NextResponse } from "next/server";
 import { getSchedule } from "@/lib/api";
 
-export async function GET() {
+export const GET = withAuth(handleGET);
+async function handleGET() {
   try {
     const games = await getSchedule();
     return NextResponse.json({ games });

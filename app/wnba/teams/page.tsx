@@ -1,3 +1,4 @@
+import { requirePageUser } from '@/lib/auth/server';
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import { Shield, Trophy, Users, TrendingUp } from "lucide-react";
@@ -98,6 +99,7 @@ function StatStrip({ teams, season }: { teams: TeamRow[]; season: string }) {
 }
 
 export default async function WNBATeamsPage({ searchParams }: { searchParams?: RawSearchParams }) {
+  await requirePageUser();
   const sp = await Promise.resolve(searchParams ?? {});
   const season = getOne(sp.season, "2026");
   const seasonType = getOne(sp.season_type, "Regular Season");

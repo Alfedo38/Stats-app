@@ -1,3 +1,4 @@
+import { withAuth } from '@/lib/auth/server';
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
@@ -119,7 +120,8 @@ async function getLeagueAvg(positionGroup: string) {
   };
 }
 
-export async function GET(req: Request) {
+export const GET = withAuth(handleGET);
+async function handleGET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const team = cleanTeam(searchParams.get("team"));

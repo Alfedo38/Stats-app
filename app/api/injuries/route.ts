@@ -1,8 +1,10 @@
+import { withAuth } from '@/lib/auth/server';
 // app/api/injuries/route.ts
 import { NextResponse } from "next/server";
 import { getInjuries } from "@/lib/api";
 
-export async function GET() {
+export const GET = withAuth(handleGET);
+async function handleGET() {
   try {
     const players = await getInjuries();
     return NextResponse.json({

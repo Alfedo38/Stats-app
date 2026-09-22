@@ -1,7 +1,10 @@
+import { withAuth } from '@/lib/auth/server';
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { getAllCurrentRosterPlayers, getCurrentRosterPlayer } from '@/lib/currentRosters';
 
-export async function GET(request: Request) {
+export const GET = withAuth(handleGET);
+async function handleGET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q')?.toLowerCase().trim();
@@ -32,13 +35,36 @@ export async function GET(request: Request) {
     ]);
 
     // 2. Formateamos los resultados para que el componente los entienda
-    const playerResults = players.map(p => ({
-      id: p.id,
-      type: 'player',
-      display_name: p.full_name?.toUpperCase() || `${p.first_name} ${p.last_name}`.toUpperCase(),
-      subtitle: 'NBA Player',
-      image: `https://cdn.nba.com/headshots/nba/latest/260x190/${p.id}.png`
-    }));
+    const playerById = new Map<number, any>();
+    for (const player of players) playerById.set(player.id, player);
+    for (const rosterPlayer of getAllCurrentRosterPlayers()) {
+      if (!rosterPlayer.full_name.toLowerCase().includes(query)) continue;
+      if (!playerById.has(rosterPlayer.player_id)) {
+        playerById.set(rosterPlayer.player_id, {
+          id: rosterPlayer.player_id,
+          full_name: rosterPlayer.full_name,
+          first_name: rosterPlayer.full_name.split(' ')[0],
+          last_name: rosterPlayer.full_name.split(' ').slice(1).join(' '),
+        });
+      }
+    }
+
+    const playerResults = Array.from(playerById.values())
+      .slice(0, 10)
+      .map((player) => {
+        const rosterPlayer = getCurrentRosterPlayer(player.id);
+        return {
+          id: player.id,
+          type: 'player',
+          display_name:
+            player.full_name?.toUpperCase() ||
+            `${player.first_name} ${player.last_name}`.toUpperCase(),
+          subtitle: rosterPlayer
+            ? `${rosterPlayer.team_abbreviation} · NBA Player`
+            : 'NBA Player',
+          image: `https://cdn.nba.com/headshots/nba/latest/260x190/${player.id}.png`,
+        };
+      });
 
     const teamResults = teams.map(t => ({
       id: t.abbreviation,

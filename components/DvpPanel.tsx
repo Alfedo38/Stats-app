@@ -33,7 +33,8 @@ type DvpPanelProps = {
 function fmt(value: unknown, digits = 1) {
   const n = Number(value);
   if (!Number.isFinite(n)) return "—";
-  return n.toFixed(digits).replace(/\.0$/, "");
+  const clean = Math.abs(n) < 0.05 ? 0 : n;
+  return clean.toFixed(digits).replace(/\.0$/, "");
 }
 
 function normalizePositionForLabel(position: string | null | undefined) {

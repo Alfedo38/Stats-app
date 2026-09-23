@@ -1,20 +1,8 @@
 "use client";
 
-import {
-  Activity,
-  Eye,
-  Gauge,
-  GitMerge,
-  MousePointer2,
-  Timer,
-  TrendingDown,
-  TrendingUp,
-  Minus,
-} from "lucide-react";
-import { useEffect, useState } from "react";
+import { Activity, Eye, Gauge, GitMerge, MousePointer2, Timer, TrendingUp } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { formatMinutes, formatNumber } from "@/lib/formatters";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 type SupportingDataGridProps = {
   stats: any[];
@@ -28,486 +16,157 @@ type SupportingDataGridProps = {
 type MetricConfig = {
   id: string;
   label: string;
+  description: string;
   keys: string[];
   kind?: "number" | "percent" | "minutes";
   icon: any;
-  group?: "context" | "role" | "volume" | "opportunity" | "efficiency" | "risk";
+  color: string;
 };
 
-// ─── Metric configs ───────────────────────────────────────────────────────────
-
-const COMMON_METRICS: MetricConfig[] = [
-  { id: "minutes",   label: "Min",    keys: ["min_clean","minutes_clean","min","minutes","mins","minutes_played","mp"], kind: "minutes", icon: Timer, group: "context" },
-  { id: "usage_pct", label: "Usage",  keys: ["usage_pct","usg_pct"], kind: "percent", icon: Gauge, group: "role" },
-  { id: "touches",   label: "Toques", keys: ["touches"], icon: MousePointer2, group: "role" },
-];
-
-const METRICS_BY_STAT: Record<string, MetricConfig[]> = {
-  pts: [
-    ...COMMON_METRICS,
-    { id: "fga",     label: "FGA",  keys: ["fga"],            icon: Activity, group: "volume" },
-    { id: "fgm",     label: "FGM",  keys: ["fgm"],            icon: TrendingUp, group: "volume" },
-    { id: "fg3a",    label: "3PA",  keys: ["fg3a"],           icon: Eye, group: "volume" },
-    { id: "fg3m",    label: "3PTM", keys: ["fg3m"],           icon: TrendingUp, group: "volume" },
-    { id: "ftm",     label: "FTM",  keys: ["ftm"],            icon: Activity, group: "volume" },
-    { id: "fg_pct",  label: "FG%",  keys: ["fg_pct"],         kind: "percent", icon: Gauge, group: "efficiency" },
-  ],
-  ast: [
-    ...COMMON_METRICS,
-    { id: "potential_ast", label: "Pot AST", keys: ["potential_ast","pot_ast"], icon: GitMerge, group: "opportunity" },
-    { id: "passes_made",   label: "Pases",   keys: ["passes_made"],            icon: Activity, group: "role" },
-    { id: "ast",           label: "AST",     keys: ["ast"],                    icon: TrendingUp, group: "opportunity" },
-    { id: "fga",           label: "FGA",     keys: ["fga"],                    icon: Eye, group: "volume" },
-  ],
-  reb: [
-    ...COMMON_METRICS,
-    { id: "rebound_chances", label: "REB CH", keys: ["rebound_chances","reb_chances"], icon: Eye, group: "opportunity" },
-    { id: "reb",             label: "REB",    keys: ["reb"],                           icon: TrendingUp, group: "opportunity" },
-    { id: "oreb",            label: "OREB",   keys: ["oreb"],                          icon: TrendingUp, group: "opportunity" },
-    { id: "dreb",            label: "DREB",   keys: ["dreb"],                          icon: TrendingDown, group: "opportunity" },
-  ],
-  fg3m: [
-    ...COMMON_METRICS,
-    { id: "fg3a",    label: "3PA",  keys: ["fg3a"],    icon: Eye, group: "volume" },
-    { id: "fg3m",    label: "3PTM", keys: ["fg3m"],    icon: TrendingUp, group: "volume" },
-    { id: "fg3_pct", label: "3P%",  keys: ["fg3_pct"], kind: "percent", icon: Gauge, group: "efficiency" },
-    { id: "fga",     label: "FGA",  keys: ["fga"],     icon: Activity, group: "volume" },
-  ],
-  fg3a: [
-    ...COMMON_METRICS,
-    { id: "fg3a", label: "3PA",  keys: ["fg3a"], icon: Eye, group: "volume" },
-    { id: "fg3m", label: "3PTM", keys: ["fg3m"], icon: TrendingUp, group: "volume" },
-    { id: "fga",  label: "FGA",  keys: ["fga"],  icon: Activity, group: "volume" },
-  ],
-  potential_ast: [
-    ...COMMON_METRICS,
-    { id: "potential_ast", label: "Pot AST", keys: ["potential_ast","pot_ast"], icon: GitMerge, group: "opportunity" },
-    { id: "passes_made",   label: "Pases",   keys: ["passes_made"],            icon: Activity, group: "role" },
-    { id: "ast",           label: "AST",     keys: ["ast"],                    icon: TrendingUp, group: "opportunity" },
-  ],
-  rebound_chances: [
-    ...COMMON_METRICS,
-    { id: "rebound_chances", label: "REB CH", keys: ["rebound_chances","reb_chances"], icon: Eye, group: "opportunity" },
-    { id: "reb",             label: "REB",    keys: ["reb"],                           icon: TrendingUp, group: "opportunity" },
-    { id: "oreb",            label: "OREB",   keys: ["oreb"],                          icon: TrendingUp, group: "opportunity" },
-  ],
+const METRICS: Record<string, MetricConfig> = {
+  minutes: { id: "minutes", label: "Minutos", description: "Tiempo en cancha", keys: ["min_clean", "minutes_clean", "min", "minutes", "mins", "minutes_played", "mp"], kind: "minutes", icon: Timer, color: "#22d3ee" },
+  usage_pct: { id: "usage_pct", label: "Uso", description: "Peso ofensivo", keys: ["usage_pct", "usg_pct"], kind: "percent", icon: Gauge, color: "#a855f7" },
+  touches: { id: "touches", label: "Toques", description: "Participación", keys: ["touches"], icon: MousePointer2, color: "#a855f7" },
+  fga: { id: "fga", label: "Intentos de campo", description: "Volumen de tiro", keys: ["fga"], icon: Activity, color: "#f97316" },
+  potential_ast: { id: "potential_ast", label: "Asist. potenciales", description: "Oportunidades creadas", keys: ["potential_ast", "pot_ast"], icon: GitMerge, color: "#14b8a6" },
+  passes_made: { id: "passes_made", label: "Pases", description: "Circulación de balón", keys: ["passes_made"], icon: Activity, color: "#a855f7" },
+  ast: { id: "ast", label: "Asistencias", description: "Producción final", keys: ["ast"], icon: TrendingUp, color: "#10b981" },
+  rebound_chances: { id: "rebound_chances", label: "Chances de rebote", description: "Oportunidades disponibles", keys: ["rebound_chances", "reb_chances"], icon: Eye, color: "#14b8a6" },
+  reb: { id: "reb", label: "Rebotes", description: "Producción final", keys: ["reb"], icon: TrendingUp, color: "#10b981" },
+  oreb: { id: "oreb", label: "Reb. ofensivos", description: "Segundas oportunidades", keys: ["oreb"], icon: TrendingUp, color: "#10b981" },
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+function metricIdsForStat(activeStat: string) {
+  const stat = String(activeStat || "").toLowerCase();
+  if (stat.includes("ast")) return ["minutes", "potential_ast", "passes_made", "ast"];
+  if (stat.includes("reb")) return ["minutes", "rebound_chances", "reb", "oreb"];
+  return ["minutes", "usage_pct", "touches", "fga"];
+}
 
 function parseValue(raw: any, kind?: MetricConfig["kind"]): number | null {
   if (raw === null || raw === undefined || raw === "") return null;
   if (typeof raw === "string" && raw.includes(":")) {
-    const minutes = Number(raw.split(":")[0]);
-    return Number.isNaN(minutes) ? null : minutes;
+    const [minutes, seconds = "0"] = raw.split(":");
+    const value = Number(minutes) + Number(seconds) / 60;
+    return Number.isFinite(value) ? value : null;
   }
-  const n = Number(String(raw).replace("m","").replace("%",""));
-  if (Number.isNaN(n)) return null;
-  if (kind === "percent" && n > 0 && n <= 1) return n * 100;
-  return n;
+  const value = Number(String(raw).replace("m", "").replace("%", ""));
+  if (!Number.isFinite(value)) return null;
+  if (kind === "percent" && value > 0 && value <= 1) return value * 100;
+  return value;
 }
 
-function getMetricValue(row: any, metric: MetricConfig): number | null {
+function metricValue(row: any, metric: MetricConfig): number | null {
   for (const key of metric.keys) {
-    const parsed = parseValue(row?.[key], metric.kind);
-    if (parsed !== null) return parsed;
+    const value = parseValue(row?.[key], metric.kind);
+    if (value !== null) return value;
   }
   return null;
 }
 
-function formatValue(value: number | null, kind?: MetricConfig["kind"]): string {
+function displayValue(value: number | null, kind?: MetricConfig["kind"]) {
   if (value === null) return "S/D";
   if (kind === "minutes") return `${formatMinutes(value)}m`;
-  if (kind === "percent")  return `${value.toFixed(1)}%`;
+  if (kind === "percent") return `${value.toFixed(1)}%`;
   return formatNumber(value, 1);
 }
 
-function formatSliderLabel(value: number, kind?: MetricConfig["kind"]): string {
-  if (kind === "minutes") return `${formatMinutes(value)}m`;
-  if (kind === "percent")  return `${value}%`;
-  return formatNumber(value, 1);
-}
+export default function SupportingDataGrid({ stats, activeStat, activeStatLabel, onFilterChange, correlatedMetric, resetToken = 0 }: SupportingDataGridProps) {
+  const [activeThresholds, setActiveThresholds] = useState<Record<string, number>>({});
 
-function buildMetrics(activeStat: string): MetricConfig[] {
-  if (activeStat.includes("ast")) return METRICS_BY_STAT.ast;
-  if (activeStat.includes("reb")) return METRICS_BY_STAT.reb;
-  if (activeStat === "fg3m" || activeStat === "fg3a") return METRICS_BY_STAT[activeStat];
-  return METRICS_BY_STAT[activeStat] || METRICS_BY_STAT.pts;
-}
+  useEffect(() => setActiveThresholds({}), [resetToken, activeStat]);
 
-// ─── Trend ────────────────────────────────────────────────────────────────────
+  const cards = useMemo(() => metricIdsForStat(activeStat).map((id) => {
+    const metric = METRICS[id];
+    const values = stats.map((row) => metricValue(row, metric)).filter((value): value is number => value !== null);
+    const average = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+    const latest = values.length ? values[values.length - 1] : null;
+    const maximum = values.length ? Math.max(...values) : null;
+    const coverage = stats.length ? Math.round((values.length / stats.length) * 100) : 0;
+    const inconsistentPotential = id === "potential_ast" && stats.some((row) => {
+      const potential = metricValue(row, metric);
+      const assists = metricValue(row, METRICS.ast);
+      return potential !== null && assists !== null && potential < assists;
+    });
+    return { metric, average, latest, maximum, coverage, inconsistentPotential };
+  }), [activeStat, stats]);
 
-type TrendDir = "up" | "down" | "flat";
-
-function getTrend(series: number[]): TrendDir {
-  if (series.length < 4) return "flat";
-  const recent = series.slice(-3);
-  const older  = series.slice(0, Math.ceil(series.length / 2));
-  const avgRecent = recent.reduce((a,b)=>a+b,0)/recent.length;
-  const avgOlder  = older.reduce((a,b)=>a+b,0)/older.length;
-  if (avgOlder === 0) return "flat";
-  const pct = ((avgRecent - avgOlder) / avgOlder) * 100;
-  if (pct >  6) return "up";
-  if (pct < -6) return "down";
-  return "flat";
-}
-
-function TrendIcon({ dir }: { dir: TrendDir }) {
-  if (dir === "up")   return <TrendingUp   size={11} className="text-[#10b981]" />;
-  if (dir === "down") return <TrendingDown  size={11} className="text-red-400" />;
-  return                     <Minus         size={11} className="text-[var(--text-muted)]" />;
-}
-
-
-type MetricTheme = {
-  color: string;
-  soft: string;
-  border: string;
-  label: string;
-};
-
-function getMetricTheme(metric: MetricConfig): MetricTheme {
-  const group = metric.group || "context";
-  if (metric.id === "minutes") return { color: "#22d3ee", soft: "rgba(34,211,238,0.10)", border: "rgba(34,211,238,0.35)", label: "Contexto" };
-  if (metric.id === "usage_pct" || metric.id === "touches" || metric.id === "passes_made") return { color: "#a855f7", soft: "rgba(168,85,247,0.10)", border: "rgba(168,85,247,0.35)", label: "Rol" };
-  if (["fga","fgm","fg3a","fg3m","ftm","fta"].includes(metric.id)) return { color: "#f97316", soft: "rgba(249,115,22,0.10)", border: "rgba(249,115,22,0.35)", label: "Volumen" };
-  if (["fg_pct","fg3_pct"].includes(metric.id)) return { color: "#eab308", soft: "rgba(234,179,8,0.10)", border: "rgba(234,179,8,0.35)", label: "Eficiencia" };
-  if (["potential_ast","rebound_chances"].includes(metric.id)) return { color: "#14b8a6", soft: "rgba(20,184,166,0.12)", border: "rgba(20,184,166,0.40)", label: "Oportunidad" };
-  if (group === "opportunity") return { color: "#10b981", soft: "rgba(16,185,129,0.10)", border: "rgba(16,185,129,0.35)", label: "Oportunidad" };
-  if (group === "risk") return { color: "#ef4444", soft: "rgba(239,68,68,0.10)", border: "rgba(239,68,68,0.35)", label: "Riesgo" };
-  return { color: "#22d3ee", soft: "rgba(34,211,238,0.10)", border: "rgba(34,211,238,0.35)", label: "Contexto" };
-}
-
-// ─── Sparkline SVG ────────────────────────────────────────────────────────────
-
-function Sparkline({
-  series,
-  avg,
-  minFilter,
-  isCorrelated,
-  color,
-  metricId,
-}: {
-  series: { value: number; label: string }[];
-  avg: number | null;
-  minFilter: number;
-  isCorrelated: boolean;
-  color: string;
-  metricId: string;
-}) {
-  if (!series.length) return <div className="h-[58px]" />;
-
-  const W = 200;
-  const H = 54;
-  const pad = 4;
-
-  const vals = series.map((s) => s.value);
-  const minV = Math.min(...vals);
-  const maxV = Math.max(...vals);
-  const range = maxV - minV || 1;
-
-  const toX = (i: number) =>
-    pad + (i / Math.max(series.length - 1, 1)) * (W - pad * 2);
-  const toY = (v: number) =>
-    H - pad - ((v - minV) / range) * (H - pad * 2);
-
-  const points = series.map((s, i) => `${toX(i).toFixed(1)},${toY(s.value).toFixed(1)}`);
-  const pathD  = `M ${points.join(" L ")}`;
-  const areaD  = `M ${toX(0).toFixed(1)},${H} L ${points.join(" L ")} L ${toX(series.length - 1).toFixed(1)},${H} Z`;
-
-  const activeColor = isCorrelated ? "#10b981" : color;
-  const fillId = `spk-${metricId.replace(/[^a-z0-9_-]/gi, "")}-${isCorrelated ? "g" : "n"}`;
-  const lastI  = series.length - 1;
-  const lastFiltered = series[lastI].value < minFilter;
-
-  return (
-    <div className="h-[58px] w-full">
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
-        width="100%"
-        height="100%"
-        preserveAspectRatio="none"
-        aria-hidden="true"
-      >
-        <defs>
-          <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%"   stopColor={activeColor} stopOpacity="0.22" />
-            <stop offset="100%" stopColor={activeColor} stopOpacity="0.02" />
-          </linearGradient>
-        </defs>
-
-        {/* Area bajo la curva */}
-        <path d={areaD} fill={`url(#${fillId})`} />
-
-        {/* Línea */}
-        <path
-          d={pathD}
-          fill="none"
-          stroke={activeColor}
-          strokeWidth="1.5"
-          strokeLinejoin="round"
-          strokeLinecap="round"
-        />
-
-        {/* Dots de valores filtrados */}
-        {series.map((s, i) =>
-          s.value < minFilter ? (
-            <circle key={i} cx={toX(i)} cy={toY(s.value)} r="2" fill="#ef4444" opacity="0.55" />
-          ) : null
-        )}
-
-        {/* Línea de promedio punteada */}
-        {avg !== null && avg > minV && avg < maxV && (
-          <line
-            x1={pad} y1={toY(avg).toFixed(1)}
-            x2={W - pad} y2={toY(avg).toFixed(1)}
-            stroke={activeColor}
-            strokeWidth="0.8"
-            strokeDasharray="3 3"
-            opacity="0.45"
-          />
-        )}
-
-        {/* Último valor — punto destacado */}
-        <circle
-          cx={toX(lastI).toFixed(1)}
-          cy={toY(series[lastI].value).toFixed(1)}
-          r="3.5"
-          fill={lastFiltered ? "#ef4444" : activeColor}
-          stroke="#111"
-          strokeWidth="1.5"
-        />
-      </svg>
-    </div>
-  );
-}
-
-// ─── MetricCard ───────────────────────────────────────────────────────────────
-
-function MetricCard({
-  metric,
-  series,
-  avg,
-  last,
-  trendDir,
-  Icon,
-  hasData,
-  isCorrelated,
-  onFilterChange,
-  resetToken = 0,
-}: {
-  metric: MetricConfig;
-  series: { value: number; label: string }[];
-  avg: number | null;
-  last: number | null;
-  trendDir: TrendDir;
-  Icon: any;
-  hasData: boolean;
-  isCorrelated: boolean;
-  onFilterChange?: (metricId: string, label: string, minValue: number | null) => void;
-  resetToken?: number;
-}) {
-  const maxVal = Math.ceil(Math.max(0, ...series.map((s) => s.value)));
-  const theme = getMetricTheme(metric);
-  const accentColor = isCorrelated ? "#10b981" : theme.color;
-  const [sliderValue, setSliderValue] = useState(0);
-  const sliderPct = maxVal > 0 ? Math.min(100, Math.max(0, (sliderValue / maxVal) * 100)) : 0;
-
-  useEffect(() => {
-    setSliderValue(0);
-  }, [resetToken]);
-
-  const handleSlider = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = Number(e.target.value);
-    setSliderValue(val);
-    if (onFilterChange) {
-      const label = `${metric.label} ≥ ${formatSliderLabel(val, metric.kind)}`;
-      onFilterChange(metric.id, label, val > 0 ? val : null);
-    }
+  const toggleAverageFilter = (metric: MetricConfig, average: number | null, invalid: boolean) => {
+    if (!onFilterChange || average === null || invalid) return;
+    const isActive = activeThresholds[metric.id] !== undefined;
+    const threshold = Number(average.toFixed(metric.kind === "percent" ? 0 : 1));
+    setActiveThresholds((current) => {
+      const next = { ...current };
+      if (isActive) delete next[metric.id];
+      else next[metric.id] = threshold;
+      return next;
+    });
+    onFilterChange(metric.id, `${metric.label} ≥ ${displayValue(threshold, metric.kind)}`, isActive ? null : threshold);
   };
 
-  const resetSlider = () => {
-    setSliderValue(0);
-    onFilterChange?.(metric.id, metric.label, null);
-  };
-
-  const borderStyle = isCorrelated
-    ? "border-[#10b981]/45 bg-[#10b981]/[0.055] shadow-[#10b981]/10"
-    : "border-[var(--border)] bg-[var(--surface)]";
-
   return (
-    <div
-      className={`border rounded-2xl p-4 flex flex-col gap-3 shadow-xl relative overflow-hidden ${borderStyle}`}
-      style={{ boxShadow: `0 16px 40px ${theme.soft}` }}
-    >
-      <div className="absolute inset-x-0 top-0 h-[2px]" style={{ background: `linear-gradient(90deg, transparent, ${accentColor}, transparent)` }} />
-
-      {/* Header */}
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <div
-            className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border"
-            style={{ backgroundColor: theme.soft, borderColor: isCorrelated ? "rgba(16,185,129,0.45)" : theme.border }}
-          >
-            <Icon size={14} style={{ color: accentColor }} />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1">
-              <p className="text-[8px] text-[var(--text-muted)] font-black uppercase tracking-widest truncate">
-                {metric.label}
-              </p>
-              {isCorrelated && (
-                <span
-                  title="Métrica con mayor correlación frente a la prop activa"
-                  className="text-[7px] text-[#10b981] font-black uppercase shrink-0 cursor-help"
-                >
-                  ★
-                </span>
-              )}
-            </div>
-            <p className="text-[7px] font-black uppercase tracking-widest" style={{ color: accentColor }}>
-              {theme.label}
-            </p>
-            <p className="text-base text-[var(--text)] font-black tabular-nums leading-none mt-0.5">
-              {formatValue(avg, metric.kind)}
-              <span className="text-[8px] text-[var(--text-muted)] font-bold ml-1">avg</span>
-            </p>
-          </div>
+    <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 md:p-4">
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <p className="text-[8px] font-black uppercase tracking-[0.22em] text-[#10b981]">Contexto de la apuesta</p>
+          <h3 className="text-sm font-black uppercase text-[var(--text)]">Oportunidad y producción · {activeStatLabel}</h3>
         </div>
-
-        {/* Último + tendencia */}
-        <div className="text-right shrink-0 flex flex-col items-end gap-0.5">
-          <p className="text-[8px] text-[var(--text-muted)] font-black uppercase tracking-widest">último</p>
-          <p className="text-xs font-black tabular-nums" style={{ color: accentColor }}>
-            {formatValue(last, metric.kind)}
-          </p>
-          <TrendIcon dir={trendDir} />
-        </div>
+        <p className="text-[9px] font-bold text-[var(--text-muted)]">Promedio y último partido · {stats.length} juegos</p>
       </div>
 
-      {/* Sparkline */}
-      {hasData ? (
-        <>
-          <Sparkline
-            series={series}
-            avg={avg}
-            minFilter={sliderValue}
-            isCorrelated={isCorrelated}
-            color={theme.color}
-            metricId={metric.id}
-          />
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
+        {cards.map(({ metric, average, latest, maximum, coverage, inconsistentPotential }) => {
+          const Icon = metric.icon;
+          const isCorrelated = metric.id === correlatedMetric;
+          const filterActive = activeThresholds[metric.id] !== undefined;
+          const barWidth = average !== null && maximum !== null && maximum > 0 ? Math.min(100, Math.max(0, (average / maximum) * 100)) : 0;
 
-          {/* Range slider */}
-          {onFilterChange && maxVal > 0 && (
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--bg)]/45 px-2.5 py-2">
-              <div className="mb-1.5 flex items-center justify-between gap-2">
-                <span className="text-[7px] font-black uppercase tracking-widest" style={{ color: accentColor }}>
-                  {theme.label} · Filtro rápido
-                </span>
-                {sliderValue > 0 ? (
-                  <button
-                    type="button"
-                    onClick={resetSlider}
-                    className="text-[8px] text-orange-400 font-black shrink-0 hover:text-orange-300 transition-colors whitespace-nowrap"
-                  >
-                    ≥ {formatSliderLabel(sliderValue, metric.kind)} ✕
-                  </button>
-                ) : (
-                  <span className="text-[8px] text-[var(--text-muted)] font-black shrink-0 tabular-nums">
-                    max {formatSliderLabel(maxVal, metric.kind)}
+          return (
+            <article key={metric.id} className="rounded-xl border border-[var(--border)] bg-[var(--bg)]/65 p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border" style={{ color: metric.color, borderColor: `${metric.color}55`, background: `${metric.color}12` }}>
+                    <Icon size={14} />
                   </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-[9px] font-black uppercase tracking-wider text-[var(--text)]">{metric.label}</p>
+                    <p className="truncate text-[8px] font-bold text-[var(--text-muted)]">{metric.description}</p>
+                  </div>
+                </div>
+                {isCorrelated && <span className="rounded-full bg-[#10b981]/10 px-2 py-1 text-[7px] font-black uppercase text-[#10b981]">Relacionada</span>}
+              </div>
+
+              <div className="mt-3 flex items-end justify-between gap-3">
+                <div>
+                  <p className="text-[7px] font-black uppercase tracking-widest text-[var(--text-muted)]">Promedio</p>
+                  <p className="text-xl font-black tabular-nums text-[var(--text)]">{displayValue(average, metric.kind)}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[7px] font-black uppercase tracking-widest text-[var(--text-muted)]">Último</p>
+                  <p className="text-sm font-black tabular-nums" style={{ color: metric.color }}>{displayValue(latest, metric.kind)}</p>
+                </div>
+              </div>
+
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10" aria-label={`Promedio relativo de ${metric.label}`}>
+                <div className="h-full rounded-full transition-all" style={{ width: `${barWidth}%`, background: metric.color }} />
+              </div>
+
+              <div className="mt-2 flex min-h-6 items-center justify-between gap-2">
+                {inconsistentPotential ? (
+                  <span className="rounded-lg border border-yellow-400/25 bg-yellow-400/10 px-2 py-1 text-[8px] font-black uppercase text-yellow-300">Dato en revisión</span>
+                ) : (
+                  <span className="text-[8px] font-bold text-[var(--text-muted)]">Cobertura {coverage}%</span>
+                )}
+                {onFilterChange && average !== null && !inconsistentPotential && (
+                  <button type="button" onClick={() => toggleAverageFilter(metric, average, inconsistentPotential)} className={`rounded-lg border px-2 py-1 text-[8px] font-black uppercase transition ${filterActive ? "border-orange-400/40 bg-orange-400/10 text-orange-300" : "border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)]"}`}>
+                    {filterActive ? "Quitar filtro" : "Filtrar ≥ prom."}
+                  </button>
                 )}
               </div>
-              <input
-                type="range"
-                min={0}
-                max={maxVal}
-                step={metric.kind === "percent" ? 5 : 1}
-                value={sliderValue}
-                onChange={handleSlider}
-                style={{
-                  background: `linear-gradient(90deg, ${accentColor} 0%, ${accentColor} ${sliderPct}%, rgba(255,255,255,0.12) ${sliderPct}%, rgba(255,255,255,0.12) 100%)`,
-                  accentColor,
-                }}
-                className="mp-range w-full h-2 rounded-full appearance-none cursor-pointer"
-                aria-label={`Filtrar por ${metric.label} mínimo`}
-              />
-            </div>
-          )}
-        </>
-      ) : (
-        <div className="h-[58px] flex items-center justify-center">
-          <span className="text-[9px] text-[var(--text-muted)] font-black uppercase tracking-widest">
-            Sin datos
-          </span>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Main component ────────────────────────────────────────────────────────────
-
-export default function SupportingDataGrid({
-  stats,
-  activeStat,
-  activeStatLabel,
-  onFilterChange,
-  correlatedMetric,
-  resetToken = 0,
-}: SupportingDataGridProps) {
-  const metrics = buildMetrics(activeStat);
-
-  const cards = metrics.map((metric) => {
-    const rawValues = stats
-      .map((row) => getMetricValue(row, metric))
-      .filter((v): v is number => v !== null);
-
-    const avg  = rawValues.length > 0
-      ? rawValues.reduce((a,b) => a + b, 0) / rawValues.length
-      : null;
-
-    const last = rawValues.length > 0 ? rawValues[rawValues.length - 1] : null;
-
-    const seriesValues = stats.map((row) => {
-      const v = getMetricValue(row, metric);
-      return {
-        value: v ?? 0,
-        label: v !== null ? formatValue(v, metric.kind) : "S/D",
-      };
-    });
-
-    const trendDir = getTrend(rawValues);
-    const hasData  = rawValues.some((v) => v > 0);
-
-    return {
-      metric,
-      series:   seriesValues,
-      avg,
-      last,
-      trendDir,
-      hasData,
-      isCorrelated: metric.id === correlatedMetric,
-    };
-  });
-
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
-      {cards.map(({ metric, series, avg, last, trendDir, hasData, isCorrelated }) => (
-        <MetricCard
-          key={metric.id}
-          metric={metric}
-          series={series}
-          avg={avg}
-          last={last}
-          trendDir={trendDir}
-          Icon={metric.icon}
-          hasData={hasData}
-          isCorrelated={isCorrelated}
-          onFilterChange={onFilterChange}
-          resetToken={resetToken}
-        />
-      ))}
-    </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
   );
 }

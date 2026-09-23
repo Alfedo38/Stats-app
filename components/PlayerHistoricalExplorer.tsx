@@ -231,9 +231,6 @@ export default function PlayerHistoricalExplorer({
   const games = data?.games || [];
   const hasSample = Number(summary?.games || 0) > 0;
   const hitRatePct = summary?.hitRatePct;
-  const coverageText = data?.coverage?.from && data?.coverage?.to
-    ? `${data.coverage.from} → ${data.coverage.to}`
-    : "Sin cobertura";
   const selectedSeasons = data?.coverage?.selectedSeasons?.map((s) => formatSeasonLabel(s)).join(" · ") || "S/D";
   const sampleQuality = Number(summary?.games || 0) >= 20 ? "muestra fuerte" : Number(summary?.games || 0) >= 8 ? "muestra media" : "muestra baja";
 
@@ -253,7 +250,7 @@ export default function PlayerHistoricalExplorer({
             </div>
           </div>
           <p className="mt-2 text-[11px] font-bold text-[var(--text-muted)]">
-            Una sola muestra. Los filtros globales de arriba alimentan gráfico, resumen y tabla. USG/TOUCHES aparecen como datos extra cuando existen.
+            Los filtros globales alimentan este resumen y el detalle.
             {woTeammate ? ` Filtro W/O activo: sin ${woTeammate}.` : externalFilterCount > 0 ? " Hay filtros externos activos desde el panel de lesiones." : ""}
           </p>
         </div>
@@ -281,64 +278,62 @@ export default function PlayerHistoricalExplorer({
 
       {hasSample && (
         <>
-          <div className="mt-4 grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-3">
+          <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2">
             <SummaryCard label="Muestra" value={String(summary.games)} sub={`completo · ${sampleQuality}`} tone={summary.games >= 20 ? "green" : summary.games >= 8 ? "yellow" : "red"} />
             <SummaryCard label="Hit rate" value={pct(hitRatePct)} sub={`${summary.hits}/${summary.games}`} tone={hitTone(hitRatePct)} />
             <SummaryCard label="Promedio" value={fmt(summary.avg)} sub={market} />
-            <SummaryCard label="Mediana" value={fmt(summary.median)} sub="valor central" />
             <SummaryCard label="Min prom." value={formatMinutes(summary.avgMinutes)} sub={minMinutes ? `MIN ≥ ${minMinutes}` : "sin filtro"} />
-            <SummaryCard label="Cobertura" value={String(data?.coverage?.games || 0)} sub={coverageText} />
           </div>
 
           {data?.recent && (
-            <div className="mt-4 rounded-2xl border border-cyan-400/20 bg-cyan-400/[0.035] p-4">
-              <div className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-cyan-300">
-                <History size={13} /> L5 / L10 / L20 / L30 sobre la misma muestra filtrada
+            <div className="mt-3 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.025] p-3">
+              <div className="mb-2 flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-cyan-300">
+                <History size={12} /> Rendimiento reciente
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
                 {[
                   ["L5", data.recent.l5],
                   ["L10", data.recent.l10],
                   ["L20", data.recent.l20],
                   ["L30", data.recent.l30],
-                ].map(([label, item]: any) => (
-                  <SummaryCard
-                    key={label}
-                    label={label}
-                    value={item?.games ? pct(item.hitRatePct) : "S/D"}
-                    sub={item?.games ? `${item.hits}/${item.games} · AVG ${fmt(item.avg)}` : "sin muestra"}
-                    tone={hitTone(item?.hitRatePct)}
-                  />
-                ))}
+                ].map(([label, item]: any) => {
+                  const tone = hitTone(item?.hitRatePct);
+                  const color = tone === "green" ? "text-[#10b981]" : tone === "red" ? "text-red-400" : tone === "yellow" ? "text-yellow-300" : "text-[var(--text)]";
+                  return (
+                    <div key={label} className="flex items-center justify-between gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2">
+                      <span className="text-[9px] font-black text-[var(--text-muted)]">{label}</span>
+                      <span className={`text-sm font-black tabular-nums ${color}`}>{item?.games ? pct(item.hitRatePct) : "S/D"}</span>
+                      <span className="text-[8px] font-bold text-[var(--text-muted)]">{item?.games ? `${item.hits}/${item.games}` : "—"}</span>
+                    </div>
+                  );
+                })}
               </div>
-            </div>
-          )}
-
-          {data?.source && (
-            <div className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]">
-              Fuente: {String(data.source).replace("nba_api_data.", "")} · Match: {data.matchMode || "S/D"}
             </div>
           )}
 
           {!!data?.seasonBreakdown?.length && (
-            <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--bg)] p-4">
-              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-3">
-                <Table2 size={13} className="text-[#10b981]" /> Por temporada
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
-                {data.seasonBreakdown.slice(0, 12).map((s) => (
-                  <div key={s.season} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 grid grid-cols-4 items-center gap-2 text-xs">
-                    <span className="font-black text-[var(--text)]">{formatSeasonLabel(s.season)}</span>
+            <details className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--bg)] p-3">
+              <summary className="cursor-pointer text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text)]">
+                Ver desglose por temporada ({data.seasonBreakdown.length})
+              </summary>
+              <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+                {data.seasonBreakdown.slice(0, 12).map((s, index) => {
+                  const seasonType = String(s.season_type || s.seasonType || s.type || "").trim();
+                  const seasonTypeLabel = /play/i.test(seasonType) ? "Playoffs" : /regular/i.test(seasonType) ? "Regular" : seasonType;
+                  return (
+                  <div key={`${s.season}-${seasonType || index}`} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 grid grid-cols-4 items-center gap-2 text-xs">
+                    <span className="font-black text-[var(--text)]">{formatSeasonLabel(s.season)}{seasonTypeLabel ? ` · ${seasonTypeLabel}` : ""}</span>
                     <span className="font-bold text-[var(--text-muted)]">{s.games} j</span>
                     <span className={`font-black tabular-nums ${hitTone(s.hitRatePct) === "green" ? "text-[#10b981]" : hitTone(s.hitRatePct) === "red" ? "text-red-400" : "text-yellow-300"}`}>{pct(s.hitRatePct)}</span>
                     <span className="font-bold text-[var(--text-muted)]">AVG {fmt(s.avg)}</span>
                   </div>
-                ))}
+                  );
+                })}
               </div>
-            </div>
+            </details>
           )}
 
-          <details open className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--bg)] p-4">
+          <details className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--bg)] p-3">
             <summary className="cursor-pointer text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
               Ver tabla completa filtrada ({games.length})
             </summary>

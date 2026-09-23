@@ -1932,12 +1932,12 @@ export default function PlayerChartContainer({
         lastN={metricStats.length}
       />
 
-      {/* SUPPORTING DATA GRID — now with sliders + hide toggle */}
+      {/* CONTEXTO DE OPORTUNIDAD Y PRODUCCIÓN */}
       <div>
         <div className="flex items-center justify-between mb-3 px-1">
           <p className="text-[9px] text-cyan-300 font-black uppercase tracking-widest flex items-center gap-2">
             <LayoutList size={12} className="text-[#10b981]" />
-            Supporting Data · color por tipo
+            Contexto de la apuesta
           </p>
           <button
             type="button"

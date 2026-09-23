@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import { TrendingUp, TrendingDown, Minus, Ruler, Weight, CalendarDays, Globe2, GraduationCap, Shirt } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Ruler, Weight, CalendarDays, Globe2, GraduationCap } from "lucide-react";
 import { getTeamColor } from "@/lib/teamColors";
 
 export type PlayerKPI = {
@@ -62,12 +62,14 @@ function TrendIndicator({ value }: { value: number }) {
 function BioPill({ icon, label, value, accent }: { icon: ReactNode; label: string; value?: any; accent: string }) {
   if (value === null || value === undefined || value === "") return null;
   return (
-    <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg)]/70 px-3 py-2 min-w-0">
-      <div className="flex items-center gap-1.5 text-[8px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">
-        <span style={{ color: accent }}>{icon}</span>
-        {label}
+    <div className="flex min-w-0 items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg)]/65 px-2.5 py-2">
+      <div className="shrink-0" style={{ color: accent }}>{icon}</div>
+      <div className="min-w-0">
+        <div className="text-[7px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">
+          {label}
+        </div>
+        <div className="truncate text-xs font-black uppercase tracking-tight text-[var(--text)]">{value}</div>
       </div>
-      <div className="mt-1 truncate text-sm font-black uppercase tracking-tight text-[var(--text)]">{value}</div>
     </div>
   );
 }
@@ -90,35 +92,28 @@ export default function PlayerHeader({
 
   return (
     <div
-      className="relative overflow-hidden rounded-[2rem] border border-[#10b981]/20 bg-[var(--surface)] shadow-2xl"
+      className="relative overflow-hidden rounded-[1.6rem] border border-[#10b981]/20 bg-[var(--surface)] shadow-2xl"
       style={{ "--team-color": teamColor } as CSSProperties}
     >
       <div className="absolute inset-0 opacity-90" style={{ background: `radial-gradient(circle at 82% 26%, ${teamColor}22, transparent 36%), linear-gradient(135deg, ${teamColor}10, transparent 42%)` }} />
-      <div className="absolute left-0 top-0 bottom-0 w-1.5 rounded-l-[2rem]" style={{ background: `linear-gradient(${teamColor}, #10b981)` }} />
+      <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-[1.6rem]" style={{ background: `linear-gradient(${teamColor}, #10b981)` }} />
 
       {teamAbbr && (
         <span
           className="absolute right-4 top-1/2 -translate-y-1/2 font-black italic uppercase leading-none select-none pointer-events-none"
-          style={{ fontSize: "clamp(90px, 16vw, 180px)", color: teamColor, opacity: 0.08, letterSpacing: "-0.06em" }}
+          style={{ fontSize: "clamp(68px, 10vw, 118px)", color: teamColor, opacity: 0.055, letterSpacing: "-0.06em" }}
           aria-hidden="true"
         >
           {teamAbbr}
         </span>
       )}
 
-      <div
-        className="absolute right-6 top-6 hidden h-24 w-24 items-center justify-center rounded-[1.8rem] border border-white/10 bg-black/20 text-5xl font-black italic uppercase tracking-tighter md:flex"
-        style={{ color: teamColor }}
-      >
-        {finalPosition}
-      </div>
-
-      <div className="relative z-10 p-5 md:p-7">
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
+      <div className="relative z-10 p-4 md:p-5">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-center">
           <div className="min-w-0 flex items-start gap-4">
-            <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-[1.5rem] border border-[#10b981]/25 bg-black/30 shadow-2xl md:h-24 md:w-24">
+            <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-[1.25rem] border border-[#10b981]/25 bg-black/30 shadow-2xl md:h-20 md:w-20">
               <div className="absolute inset-0 opacity-70" style={{ background: `radial-gradient(circle at 50% 20%, ${teamColor}33, transparent 42%), linear-gradient(135deg, ${teamColor}12, transparent 55%)` }} />
-              <div className="relative flex h-full w-full items-center justify-center text-3xl font-black italic tracking-tighter" style={{ color: teamColor }}>
+              <div className="relative flex h-full w-full items-center justify-center text-2xl font-black italic tracking-tighter" style={{ color: teamColor }}>
                 {avatarInitials}
               </div>
               <div className="absolute bottom-1 right-1 rounded-lg bg-black/80 px-2 py-1 text-[10px] font-black" style={{ color: teamColor }}>
@@ -127,14 +122,14 @@ export default function PlayerHeader({
             </div>
 
             <div className="min-w-0 flex-1">
-              <p className="mb-2 flex items-center gap-2 text-[8px] font-black uppercase tracking-[0.35em]" style={{ color: teamColor }}>
+              <p className="mb-1.5 flex items-center gap-2 text-[7px] font-black uppercase tracking-[0.3em]" style={{ color: teamColor }}>
                 <span className="inline-block h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: teamColor }} />
                 MoskProps Player Analytics
               </p>
 
               <h1 className="font-black italic uppercase leading-none tracking-tighter">
-                <span className="block text-4xl text-[var(--text)] md:text-6xl">{firstName}</span>
-                {lastName && <span className="block text-4xl md:text-6xl" style={{ color: teamColor }}>{lastName}</span>}
+                <span className="text-3xl text-[var(--text)] md:text-5xl">{firstName}</span>
+                {lastName && <span className="ml-2 text-3xl md:text-5xl" style={{ color: teamColor }}>{lastName}</span>}
               </h1>
 
               <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -158,11 +153,11 @@ export default function PlayerHeader({
           </div>
 
           {nextGame && (
-            <div className="rounded-2xl border border-[#10b981]/20 bg-black/25 p-4 backdrop-blur-sm">
+            <div className="rounded-2xl border border-[#10b981]/20 bg-black/25 p-3 backdrop-blur-sm">
               <span className="block text-[8px] font-black uppercase tracking-[0.3em] text-[var(--text-muted)]">Próximo partido</span>
               <div className="mt-2 flex items-center justify-between gap-3">
                 <div>
-                  <span className="block text-3xl font-black uppercase tracking-tighter text-[var(--text)]">
+                  <span className="block text-xl font-black uppercase tracking-tighter text-[var(--text)]">
                     {nextGame.isHome ? "VS" : "@"} {nextGame.opponent}
                   </span>
                   {nextGame.time && (
@@ -171,7 +166,7 @@ export default function PlayerHeader({
                     </span>
                   )}
                 </div>
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl border text-sm font-black" style={{ background: `${teamColor}15`, borderColor: `${teamColor}40`, color: teamColor }}>
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl border text-xs font-black" style={{ background: `${teamColor}15`, borderColor: `${teamColor}40`, color: teamColor }}>
                   {nextGame.opponent.slice(0, 3)}
                 </div>
               </div>
@@ -179,8 +174,7 @@ export default function PlayerHeader({
           )}
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
-          <BioPill icon={<Shirt size={12} />} label="Equipo" value={teamAbbr} accent={teamColor} />
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
           <BioPill icon={<Ruler size={12} />} label="Altura" value={bio?.height} accent="#22d3ee" />
           <BioPill icon={<Weight size={12} />} label="Peso" value={bio?.weight} accent="#fb923c" />
           <BioPill icon={<CalendarDays size={12} />} label="Edad" value={bio?.age ? `${bio.age} años` : null} accent="#facc15" />
@@ -189,14 +183,14 @@ export default function PlayerHeader({
         </div>
 
         {kpis.length > 0 && (
-          <div className="mt-5 grid grid-cols-2 gap-3 border-t border-[var(--border)]/40 pt-4 sm:grid-cols-4">
+          <div className="mt-4 grid grid-cols-2 gap-2 border-t border-[var(--border)]/40 pt-3 sm:grid-cols-4">
             {kpis.map((kpi) => (
-              <div key={kpi.label} className="rounded-2xl border border-[var(--border)] bg-[var(--bg)]/65 p-3">
+              <div key={kpi.label} className="rounded-xl border border-[var(--border)] bg-[var(--bg)]/65 px-3 py-2.5">
                 <p className="flex items-center gap-1 text-[8px] font-black uppercase tracking-[0.22em] text-[var(--text-muted)]">
                   {kpi.trend !== undefined && <TrendIndicator value={kpi.trend} />}
                   {kpi.trendLabel ?? kpi.label}
                 </p>
-                <p className="mt-1 text-2xl font-black leading-none tabular-nums text-[var(--text)]">{kpi.value}</p>
+                <p className="mt-1 text-xl font-black leading-none tabular-nums text-[var(--text)]">{kpi.value}</p>
                 <p className="mt-1 text-[8px] font-bold uppercase tracking-widest text-[var(--text-muted)]">{kpi.label}</p>
               </div>
             ))}

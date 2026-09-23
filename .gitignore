@@ -76,3 +76,4 @@ browser_profile/
 *.bak_*
 *.bak
 *.backup
+.visual-backups/

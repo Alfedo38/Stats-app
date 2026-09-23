@@ -96,6 +96,15 @@ function median(values: number[]): number | null {
 
 function getSeasonKey(row: any): string {
   const raw = String(row.season_id ?? row.season ?? "").trim();
+  const nbaSeasonCode = raw.match(/^2(\d{4})$/);
+  if (nbaSeasonCode) {
+    const start = Number(nbaSeasonCode[1]);
+    return `${start}-${String((start + 1) % 100).padStart(2, "0")}`;
+  }
+  if (/^\d{4}$/.test(raw)) {
+    const start = Number(raw);
+    return `${start}-${String((start + 1) % 100).padStart(2, "0")}`;
+  }
   if (raw) return raw;
   const d = normalizeDate(row.game_date);
   if (!d) return "S/D";

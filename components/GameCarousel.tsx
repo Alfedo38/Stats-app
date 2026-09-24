@@ -1,6 +1,7 @@
 // components/GameCarousel.tsx — VERSIÓN FINAL (sin logos ni imágenes)
 "use client";
 import { useRef } from "react";
+import Link from "next/link";
 import { ChevronLeft, ChevronRight, Radio } from "lucide-react";
 import { getTeamColor } from "@/lib/teamColors";
 
@@ -13,7 +14,7 @@ function formatArgTime(dateStr: string): string {
 function TeamBlock({ abbr, score, isLive }: { abbr: string; score?: string; isLive: boolean }) {
   const color = getTeamColor(abbr);
   return (
-    <div className="flex items-center justify-between gap-3 w-full">
+    <Link href={`/teams/${abbr}`} className="flex items-center justify-between gap-3 w-full rounded-xl p-1 -m-1 transition hover:bg-white/[0.04]" title={`Abrir ${abbr}`}>
       <div className="flex items-center gap-2.5 min-w-0">
         {/* Avatar con color del equipo en lugar de logo */}
         <div
@@ -31,7 +32,7 @@ function TeamBlock({ abbr, score, isLive }: { abbr: string; score?: string; isLi
           {score || "-"}
         </span>
       )}
-    </div>
+    </Link>
   );
 }
 
@@ -81,7 +82,7 @@ function GameCard({ game }: { game: any }) {
         }}
       >
         <span className="text-[8px] font-black uppercase tracking-[0.25em] text-[var(--text-muted)]">
-          {game.status?.type?.description ?? "NBA"}
+          {game.status?.type?.description ?? "Partido"}
         </span>
         <div className="flex items-center gap-1.5">
           {isLive && (
@@ -133,7 +134,7 @@ function GameCard({ game }: { game: any }) {
   );
 }
 
-export default function GameCarousel({ games }: { games: any[] }) {
+export default function GameCarousel({ games, updatedAt }: { games: any[]; updatedAt?: string }) {
   const ref = useRef<HTMLDivElement>(null);
 
   const scroll = (dir: "left" | "right") => {
@@ -145,10 +146,13 @@ export default function GameCarousel({ games }: { games: any[] }) {
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between px-1">
-        <h3 className="text-[9px] font-black uppercase tracking-[0.3em] text-[var(--text-muted)] flex items-center gap-2">
-          <Radio size={13} className="text-red-400" />
-          Cartelera del día · Hora ARG
-        </h3>
+        <div>
+          <h3 className="text-[9px] font-black uppercase tracking-[0.3em] text-[var(--text-muted)] flex items-center gap-2">
+            <Radio size={13} className="text-red-400" />
+            Cartelera · Hora ARG
+          </h3>
+          {updatedAt && <p className="mt-1 text-[8px] font-bold text-[var(--text-muted)]">Actualizado {updatedAt}</p>}
+        </div>
         {games.length > 1 && (
           <div className="flex gap-1.5">
             {(["left","right"] as const).map(d => (

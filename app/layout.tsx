@@ -8,9 +8,9 @@ import './auth.css';
 export const metadata: Metadata = {
   title: {
     template: '%s | MoskProps',
-    default: 'MoskProps — Análisis NBA',
+    default: 'MoskProps — Análisis de jugadores',
   },
-  description: 'Proyecciones, estadísticas avanzadas y análisis cuantitativo de la NBA.',
+  description: 'Proyecciones, estadísticas avanzadas y análisis cuantitativo de jugadores.',
 };
 
 const themeInitScript = `

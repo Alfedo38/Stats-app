@@ -30,10 +30,10 @@ const NAV_STATS = [
 export async function generateMetadata() {
   return {
     title: "Jugador | MoskProps",
-    description: "Análisis de props NBA: hit rates, gráfico histórico, matchup DvP y contexto 5 años.",
+    description: "Análisis de props: hit rates, gráfico histórico, matchup DvP y contexto de cinco años.",
     openGraph: {
       title: "Jugador | MoskProps",
-      description: "Stats avanzadas, histórico 5 años y DvP para props NBA.",
+      description: "Estadísticas avanzadas, histórico de cinco años y DvP.",
       type: "website",
     },
   };
@@ -319,10 +319,10 @@ export default async function PlayerPage(props: any) {
     };
 
     const kpis: PlayerKPI[] = [
-      { label: "Usage Rate",       value: usageDisplay,                        trend: usageAvg === "S/D" ? 0 : delta("usage_pct", 100), trendLabel: "vs L10" },
-      { label: "Pot. Asistencias", value: formatAvgVal(calcAvg("potential_ast")),    trend: calcAvg("potential_ast")   === "S/D" ? undefined : delta("potential_ast"),   trendLabel: "vs L10" },
-      { label: "Chances Reb.",     value: formatAvgVal(calcAvg("rebound_chances")),  trend: calcAvg("rebound_chances") === "S/D" ? undefined : delta("rebound_chances"), trendLabel: "vs L10" },
-      { label: "Toques",           value: formatAvgVal(calcAvg("touches")),          trend: calcAvg("touches")         === "S/D" ? undefined : delta("touches"),         trendLabel: "vs L10" },
+      { label: "Usage Rate",       value: usageDisplay, trend: usageAvg === "S/D" ? 0 : delta("usage_pct", 100), trendLabel: "vs L10" },
+      { label: "Pot. Asistencias", value: formatAvgVal(calcAvg("potential_ast")), trend: calcAvg("potential_ast") === "S/D" ? undefined : delta("potential_ast"), trendLabel: "vs L10" },
+      { label: "Chances Reb.",     value: formatAvgVal(calcAvg("rebound_chances")), trend: calcAvg("rebound_chances") === "S/D" ? undefined : delta("rebound_chances"), trendLabel: "vs L10" },
+      { label: "Toques",           value: formatAvgVal(calcAvg("touches")), trend: calcAvg("touches") === "S/D" ? undefined : delta("touches"), trendLabel: "vs L10" },
     ];
 
     const clientStats = JSON.parse(JSON.stringify(clientPlain(cleanStats))) as any[];

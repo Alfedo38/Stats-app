@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Users, X } from "lucide-react";
+import { X } from "lucide-react";
 import DvpPanel from "@/components/DvpPanel";
 import TeamMatesPanel, { type TeamMate } from "@/components/TeamMatesPanel";
 import PlayerChartContainer from "@/components/PlayerChartContainer";
@@ -74,6 +74,24 @@ export default function PlayerPageContent({
     setDvpOpponentFromFilters(null);
     setRosterOpen(false);
   }, [currentPlayerId]);
+
+  useEffect(() => {
+    const openRoster = () => setRosterOpen(true);
+    window.addEventListener("open-player-roster", openRoster);
+    return () => window.removeEventListener("open-player-roster", openRoster);
+  }, []);
+
+  useEffect(() => {
+    if (!teamAbbr) return;
+    window.dispatchEvent(new CustomEvent("team-context-change", { detail: { team: teamAbbr } }));
+    try {
+      const key = "moskprops:recent-players";
+      const parsed = JSON.parse(window.localStorage.getItem(key) || "[]");
+      const current = Array.isArray(parsed) ? parsed : [];
+      const entry = { id: String(currentPlayerId), name: playerName, team: teamAbbr, viewedAt: Date.now() };
+      window.localStorage.setItem(key, JSON.stringify([entry, ...current.filter((item: any) => String(item?.id) !== String(currentPlayerId))].slice(0, 5)));
+    } catch {}
+  }, [teamAbbr, currentPlayerId, playerName]);
 
   useEffect(() => {
     if (!rosterOpen) return;
@@ -157,31 +175,15 @@ export default function PlayerPageContent({
 
   return (
     <div className="relative min-w-0">
-      <div className="fixed bottom-5 left-[68px] z-40 pointer-events-none sm:left-[76px]">
-        <button
-          type="button"
-          onClick={() => setRosterOpen(true)}
-          className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-[#10b981]/40 bg-[#071510]/95 px-3.5 py-3 text-[10px] font-black uppercase tracking-widest text-white shadow-[0_10px_35px_rgba(0,0,0,0.55)] backdrop-blur transition hover:-translate-y-0.5 hover:border-[#10b981]/70 hover:text-[#10b981]"
-          aria-haspopup="dialog"
-          aria-expanded={rosterOpen}
-        >
-          <Users size={14} className="text-[#10b981]" />
-          Jugadores · {teamAbbr || "Equipo"}
-          <span className="rounded-full border border-[var(--border)] px-1.5 py-0.5 text-[9px] text-[var(--text-muted)]">
-            {clientTeammates.length}
-          </span>
-        </button>
-      </div>
-
       {rosterOpen && (
-        <div className="fixed inset-y-0 right-0 left-14 z-[80]" role="dialog" aria-modal="true" aria-label={`Jugadores de ${teamAbbr || "equipo"}`}>
+        <div className="fixed inset-y-0 right-0 left-0 z-[240] md:left-[72px]" role="dialog" aria-modal="true" aria-label={`Jugadores de ${teamAbbr || "equipo"}`}>
           <button
             type="button"
             className="absolute inset-0 bg-black/75 backdrop-blur-sm"
             onClick={() => setRosterOpen(false)}
             aria-label="Cerrar lista de jugadores"
           />
-          <aside className="absolute inset-y-0 left-0 flex w-[min(calc(100vw-56px),370px)] flex-col border-r border-[#10b981]/25 bg-[var(--bg)] p-3 shadow-2xl">
+          <aside className="absolute inset-y-0 left-0 flex w-[min(100vw,370px)] flex-col border-r border-[#10b981]/25 bg-[var(--bg)] p-3 shadow-2xl">
             <div className="mb-2 flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
               <div>
                 <p className="text-[8px] font-black uppercase tracking-[0.22em] text-[#10b981]">Roster y líneas</p>

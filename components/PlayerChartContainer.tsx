@@ -381,22 +381,27 @@ function formatLineValue(value: number, activeStat: string) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
-function getOpportunityOverlayConfig(activeStat: string, scope: SplitScope) {
+function getOpportunityOverlayConfig(
+  activeStat: string,
+  scope: SplitScope,
+): { key: string; label: string; color: string; ratioLabel: string } | null {
   if (scope !== "FULL") return null;
-  if (activeStat === "ast")
+  if (activeStat === "ast") {
     return {
       key: "potential_ast",
       label: "Pot. AST",
       color: "#60a5fa",
       ratioLabel: "Conversión",
     };
-  if (activeStat === "reb")
+  }
+  if (activeStat === "reb") {
     return {
       key: "rebound_chances",
       label: "Chances Reb.",
       color: "#a78bfa",
       ratioLabel: "Captura",
     };
+  }
   return null;
 }
 

@@ -48,7 +48,7 @@ export default function UsersPanel() {
   return <div className="auth-admin-grid">
     <section className="auth-card">
       <h2>Crear una cuenta</h2>
-      <p className="auth-muted">La persona recibirá acceso de lectura a NBA, WNBA y picks.</p>
+      <p className="auth-muted">La persona recibirá acceso a estadísticas y picks.</p>
       <form onSubmit={create} className="auth-form">
         <label htmlFor="new-username">Nombre de usuario</label>
         <input id="new-username" name="username" required minLength={3} maxLength={32}

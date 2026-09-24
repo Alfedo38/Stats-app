@@ -34,6 +34,7 @@ const METRICS: Record<string, MetricConfig> = {
   rebound_chances: { id: "rebound_chances", label: "Chances de rebote", description: "Oportunidades disponibles", keys: ["rebound_chances", "reb_chances"], icon: Eye, color: "#14b8a6" },
   reb: { id: "reb", label: "Rebotes", description: "Producción final", keys: ["reb"], icon: TrendingUp, color: "#10b981" },
   oreb: { id: "oreb", label: "Reb. ofensivos", description: "Segundas oportunidades", keys: ["oreb"], icon: TrendingUp, color: "#10b981" },
+  dreb: { id: "dreb", label: "Reb. defensivos", description: "Cierres defensivos", keys: ["dreb"], icon: TrendingUp, color: "#22d3ee" },
 };
 
 function metricIdsForStat(activeStat: string) {

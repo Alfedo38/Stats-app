@@ -78,17 +78,6 @@ const TABLE_COLUMNS = [
   { key: "reb", label: "REB" },
   { key: "ast", label: "AST" },
   { key: "pra", label: "PRA" },
-  { key: "fgm", label: "FGM" },
-  { key: "fga", label: "FGA" },
-  { key: "fg3m", label: "3PTM" },
-  { key: "fg3a", label: "3PTA" },
-  { key: "blk", label: "BLK" },
-  { key: "stl", label: "STL" },
-  { key: "stl_blk", label: "S+B" },
-  { key: "tov", label: "TO" },
-  { key: "pf", label: "PF" },
-  { key: "usage_pct", label: "USG" },
-  { key: "touches", label: "TCH" },
 ];
 
 function toMarket(stat: string) {
@@ -101,13 +90,6 @@ function pct(value: any) {
 
 function fmt(value: any, digits = 1) {
   return formatNumber(value, digits);
-}
-
-function fmtUsage(value: any) {
-  if (value === null || value === undefined || value === "") return "—";
-  const n = Number(value);
-  if (!Number.isFinite(n) || n <= 0) return "—";
-  return `${(n <= 1 ? n * 100 : n).toFixed(1)}%`;
 }
 
 function dateShort(value: any) {
@@ -165,6 +147,13 @@ export default function PlayerHistoricalExplorer({
   const [data, setData] = useState<HistoryResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tableOpen, setTableOpen] = useState(false);
+  const [tableLimit, setTableLimit] = useState(25);
+
+  useEffect(() => {
+    setTableOpen(false);
+    setTableLimit(25);
+  }, [playerId, activeStat, lineValue, side, minMinutes, opponent, homeAway, woTeammate]);
 
   useEffect(() => {
     if (initialData !== undefined || initialLoading !== undefined) {
@@ -333,12 +322,15 @@ export default function PlayerHistoricalExplorer({
             </details>
           )}
 
-          <details className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--bg)] p-3">
+          <details
+            className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--bg)] p-3"
+            onToggle={(event) => setTableOpen(event.currentTarget.open)}
+          >
             <summary className="cursor-pointer text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
               Ver tabla completa filtrada ({games.length})
             </summary>
-            <div className="mt-3 max-h-[460px] overflow-auto rounded-xl border border-[var(--border)]">
-              <table className="w-full min-w-[1280px] text-xs">
+            {tableOpen && <div className="mt-3 max-h-[460px] overflow-auto rounded-xl border border-[var(--border)]">
+              <table className="w-full min-w-[820px] text-xs">
                 <thead className="sticky top-0 z-10 bg-[var(--bg)] text-[9px] uppercase tracking-widest text-[var(--text-muted)]">
                   <tr className="border-b border-[var(--border)]">
                     <th className="px-3 py-2 text-left">Fecha</th>
@@ -354,7 +346,7 @@ export default function PlayerHistoricalExplorer({
                   </tr>
                 </thead>
                 <tbody>
-                  {games.map((g, i) => (
+                  {games.slice(0, tableLimit).map((g, i) => (
                     <tr key={`${g.game_id || g.game_date}-${i}`} className="border-b border-[var(--border)]/60 hover:bg-[var(--surface)]/70 transition-colors">
                       <td className="px-3 py-2 font-bold text-[var(--text-muted)]">{dateShort(g.game_date)}</td>
                       <td className="px-3 py-2 font-bold text-[var(--text-muted)]">{formatSeasonLabel(g.season_id, g.game_date)}</td>
@@ -364,7 +356,7 @@ export default function PlayerHistoricalExplorer({
                       <td className="px-3 py-2 text-right font-black tabular-nums text-[#10b981]">{fmt(g.value)}</td>
                       {TABLE_COLUMNS.filter((col) => col.label !== market).map((col) => (
                         <td key={col.key} className="px-3 py-2 text-right font-bold tabular-nums">
-                          {col.key === "usage_pct" ? fmtUsage(g[col.key]) : col.key === "touches" ? fmt(g[col.key], 0) : fmt(g[col.key], 0)}
+                          {fmt(g[col.key], 0)}
                         </td>
                       ))}
                       <td className={`px-3 py-2 text-right font-black ${g.hit ? "text-[#10b981]" : "text-red-400"}`}>{g.hit ? "✓" : "×"}</td>
@@ -372,7 +364,14 @@ export default function PlayerHistoricalExplorer({
                   ))}
                 </tbody>
               </table>
-            </div>
+              {tableLimit < games.length && (
+                <div className="sticky bottom-0 flex justify-center border-t border-[var(--border)] bg-[var(--bg)]/95 p-2 backdrop-blur">
+                  <button type="button" onClick={() => setTableLimit((value) => Math.min(value + 25, games.length))} className="rounded-lg border border-[#10b981]/30 bg-[#10b981]/10 px-4 py-2 text-[9px] font-black uppercase tracking-widest text-[#10b981] hover:bg-[#10b981]/15">
+                    Mostrar 25 más · {Math.min(tableLimit, games.length)}/{games.length}
+                  </button>
+                </div>
+              )}
+            </div>}
           </details>
         </>
       )}

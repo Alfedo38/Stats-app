@@ -1,18 +1,19 @@
 import { requirePageUser } from '@/lib/auth/server';
 // app/page.tsx — Home Page completa
 import Link from "next/link";
-import { Brain, ChevronRight, Users, TrendingUp, Zap, ShieldCheck } from "lucide-react";
+import { Brain, CalendarDays, ChevronLeft, ChevronRight, Users, TrendingUp, Zap, ShieldCheck } from "lucide-react";
 import { getTodayScoreboard, getTopPerformers } from "@/lib/api";
 import GameCarousel      from "@/components/GameCarousel";
 import TopPerformersGrid from "@/components/TopPerformersGrid";
 import SearchBar         from "@/components/SearchBar";
 import ThemeToggle       from "@/components/ThemeToggle";
+import RecentPlayers      from "@/components/RecentPlayers";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "MoskProps | Centro de Comando NBA",
-  description: "Análisis avanzado de props NBA: EV+, DvP, hit rates y matchups del día.",
+  title: "MoskProps | Centro de análisis",
+  description: "Props, tendencias, hit rates y enfrentamientos del día.",
 };
 
 // ─── Quick access cards ────────────────────────────────────────────────────────
@@ -39,8 +40,8 @@ const QUICK_LINKS = [
     icon:    Users,
     color:   "#8b5cf6",
     title:   "Equipos",
-    desc:    "Rosters, estadísticas y métricas de las 30 franquicias NBA.",
-    cta:     "Explorar NBA",
+    desc:    "Planteles, estadísticas y métricas de las 30 franquicias.",
+    cta:     "Explorar equipos",
   },
   {
     href:    "/wnba",
@@ -54,10 +55,36 @@ const QUICK_LINKS = [
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
-export default async function Home() {
+function argentinaToday() {
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "America/Argentina/Buenos_Aires",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+function shiftDate(date: string, days: number) {
+  const value = new Date(`${date}T12:00:00Z`);
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
+}
+
+function shortDate(date: string) {
+  return new Intl.DateTimeFormat("es-AR", { weekday: "short", day: "2-digit", month: "short", timeZone: "UTC" })
+    .format(new Date(`${date}T12:00:00Z`));
+}
+
+export default async function Home(props: { searchParams?: Promise<{ date?: string }> | { date?: string } }) {
   await requirePageUser();
+  const searchParams = await Promise.resolve(props.searchParams || {});
+  const today = argentinaToday();
+  const requestedDate = /^\d{4}-\d{2}-\d{2}$/.test(String(searchParams?.date || "")) ? String(searchParams?.date) : today;
+  const previousDate = shiftDate(requestedDate, -1);
+  const nextDate = shiftDate(requestedDate, 1);
+  const updatedAt = new Intl.DateTimeFormat("es-AR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Argentina/Buenos_Aires" }).format(new Date());
   const [games, performers] = await Promise.all([
-    getTodayScoreboard(),
+    getTodayScoreboard(requestedDate),
     getTopPerformers(),
   ]);
 
@@ -72,7 +99,7 @@ export default async function Home() {
           </div>
           <span className="text-sm font-black uppercase tracking-widest text-[var(--text)]">MoskProps</span>
           <span className="hidden sm:block text-[8px] font-black uppercase tracking-[0.25em] text-[var(--text-muted)] border border-[var(--border)] px-2 py-0.5 rounded-full">
-            NBA Analytics
+            Player analytics
           </span>
         </div>
         <div className="flex items-center gap-3">
@@ -83,25 +110,43 @@ export default async function Home() {
         </div>
       </nav>
 
-      <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-10">
+      <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-7">
 
         {/* ── Hero header ─────────────────────────────────────────────────── */}
-        <header className="pt-4">
+        <header className="pt-2">
           <p className="text-[9px] font-black uppercase tracking-[0.35em] text-[#10b981] flex items-center gap-2 mb-3">
             <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse inline-block" />
             Centro de Comando
           </p>
-          <h1 className="text-5xl md:text-7xl font-black italic uppercase tracking-tighter leading-none">
-            Datos que<br />
-            <span className="text-[#10b981]">ganan.</span>
+          <h1 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter leading-none">
+            Decidir con <span className="text-[#10b981]">datos.</span>
           </h1>
-          <p className="text-[var(--text-muted)] text-sm font-medium mt-3 max-w-lg">
-            Análisis avanzado de props NBA con hit rates, DvP y EV+ para tomar mejores decisiones.
+          <p className="text-[var(--text-muted)] text-sm font-medium mt-2 max-w-lg">
+            Partidos, tendencias y herramientas en un solo lugar.
           </p>
         </header>
 
         {/* ── Cartelera del día ────────────────────────────────────────────── */}
-        <GameCarousel games={games} />
+        <section className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2">
+            <Link href={`/?date=${previousDate}`} className="inline-flex h-9 items-center gap-1 rounded-xl px-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] hover:bg-[var(--surface-soft)] hover:text-[var(--text)]">
+              <ChevronLeft size={14} /> Anterior
+            </Link>
+            <div className="flex items-center gap-2 text-center">
+              <CalendarDays size={15} className="text-[#10b981]" />
+              <div>
+                <p className="text-[8px] font-black uppercase tracking-widest text-[#10b981]">{requestedDate === today ? "Hoy" : "Fecha elegida"}</p>
+                <p className="text-xs font-black uppercase text-[var(--text)]">{shortDate(requestedDate)}</p>
+              </div>
+            </div>
+            <Link href={`/?date=${nextDate}`} className="inline-flex h-9 items-center gap-1 rounded-xl px-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] hover:bg-[var(--surface-soft)] hover:text-[var(--text)]">
+              Siguiente <ChevronRight size={14} />
+            </Link>
+          </div>
+          <GameCarousel games={games} updatedAt={updatedAt} />
+        </section>
+
+        <RecentPlayers />
 
         {/* ── Top performers ────────────────────────────────────────────────── */}
         <TopPerformersGrid performers={performers as any} />

@@ -60,8 +60,8 @@ async function handleGET(request: Request) {
             player.full_name?.toUpperCase() ||
             `${player.first_name} ${player.last_name}`.toUpperCase(),
           subtitle: rosterPlayer
-            ? `${rosterPlayer.team_abbreviation} · NBA Player`
-            : 'NBA Player',
+            ? `${rosterPlayer.team_abbreviation} · Jugador`
+            : 'Jugador',
         };
       });
 

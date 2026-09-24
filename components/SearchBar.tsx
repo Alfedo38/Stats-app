@@ -5,7 +5,7 @@ import { Search, Loader2, X, ChevronRight } from 'lucide-react';
 
 function getInitials(label: string, type: 'player' | 'team') {
   const parts = String(label || '').trim().split(/\s+/).filter(Boolean);
-  if (type === 'team') return String(parts[0] || 'NBA').slice(0, 3).toUpperCase();
+  if (type === 'team') return String(parts[0] || 'EQ').slice(0, 3).toUpperCase();
   if (parts.length <= 1) return String(parts[0] || '?').slice(0, 2).toUpperCase();
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }

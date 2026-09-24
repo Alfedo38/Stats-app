@@ -17,15 +17,7 @@ export default function Footer() {
           </p>
         </div>
 
-        {/* CENTRO: Disclaimer de TheSportsDB (Atribución Legal) */}
-        <div className="text-center max-w-sm">
-          <p className="text-[var(--text-muted)] text-[9px] uppercase tracking-wider leading-relaxed">
-            Datos de planteles y recursos gráficos provistos por la comunidad de{' '}
-            
-          </p>
-        </div>
-
-        {/* DERECHA: Disclaimer de Apuestas (Tu Escudo) */}
+        {/* Disclaimer de uso responsable */}
         <div className="text-center md:text-right max-w-sm">
           <p className="text-[var(--text-muted)] text-[9px] uppercase tracking-wider leading-relaxed">
             <span className="text-red-500 font-bold">⚠️ Atención:</span> MoskProps es una herramienta de análisis estadístico. No somos una casa de apuestas ni ofrecemos asesoramiento financiero. Jugá con responsabilidad. +18.

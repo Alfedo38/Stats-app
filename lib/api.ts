@@ -657,7 +657,17 @@ export async function getPlayerData(playerId: string) {
 export async function getTrendingPlayers() {
   try {
     const playersWithLogs = await prisma.players.findMany({
-      include: { player_game_logs: { orderBy: { game_date: 'desc' }, take: 5 } },
+      select: {
+        id: true,
+        full_name: true,
+        first_name: true,
+        last_name: true,
+        player_game_logs: {
+          select: { pts: true, reb: true, ast: true, team_abbreviation: true },
+          orderBy: { game_date: 'desc' },
+          take: 5,
+        },
+      },
     });
 
     return playersWithLogs
@@ -709,10 +719,12 @@ export async function getBetanoPlays() {
 
 // ─── 7. CARTELERA ESPN ───────────────────────────────────────────────────────
 
-export async function getTodayScoreboard() {
+export async function getTodayScoreboard(date?: string | null) {
   try {
+    const compactDate = String(date || "").replace(/\D/g, "").slice(0, 8);
+    const suffix = compactDate.length === 8 ? `?dates=${compactDate}` : "";
     const res = await fetch(
-      'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard',
+      `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard${suffix}`,
       { next: { revalidate: 60 } }
     );
     const data = await res.json();
@@ -765,7 +777,7 @@ export async function getTopPerformers() {
         return {
           id: p.id,
           full_name: p.full_name || `${p.first_name || ''} ${p.last_name || ''}`.trim(),
-          team_abbr: getCurrentRosterPlayer(p.id)?.team_abbreviation || logs[0]?.team_abbreviation || 'NBA',
+          team_abbr: getCurrentRosterPlayer(p.id)?.team_abbreviation || logs[0]?.team_abbreviation || '—',
           pts_avg: ptsAvg,
           reb_avg: rebAvg,
           ast_avg: astAvg,

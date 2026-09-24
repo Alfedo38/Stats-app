@@ -11,7 +11,7 @@ type RawSearchParams =
   | Promise<Record<string, string | string[] | undefined>>;
 
 type DailyGame = {
-  id: number;
+  id: number | string;
   game_date: string;
   scheduled_at: string | null;
   status_state: string | null;
@@ -25,6 +25,15 @@ type DailyGame = {
   home_team_name: string;
   home_team_logo: string | null;
   home_score: number | null;
+};
+
+type HistoricalGame = {
+  game_id: string;
+  game_date: string;
+  away_team_abbr: string;
+  away_pts: number | null;
+  home_team_abbr: string;
+  home_pts: number | null;
 };
 
 type PlayerLeader = {
@@ -97,6 +106,25 @@ function statusLabel(game: DailyGame) {
   if (state === "post" || name.includes("final")) return "FINAL";
   if (state === "in" || name.includes("progress")) return "EN VIVO";
   return "PROGRAMADO";
+}
+
+function historicalToDaily(game: HistoricalGame): DailyGame {
+  return {
+    id: game.game_id,
+    game_date: game.game_date,
+    scheduled_at: null,
+    status_state: "post",
+    status_name: "final",
+    status_detail: "Resultado final",
+    away_team_abbr: game.away_team_abbr,
+    away_team_name: game.away_team_abbr,
+    away_team_logo: null,
+    away_score: game.away_pts,
+    home_team_abbr: game.home_team_abbr,
+    home_team_name: game.home_team_abbr,
+    home_team_logo: null,
+    home_score: game.home_pts,
+  };
 }
 
 function TeamLogo({ abbr }: { abbr: string }) {
@@ -174,13 +202,13 @@ function PlayerRow({ player, rank }: { player: PlayerLeader; rank: number }) {
   return (
     <Link
       href={`/wnba/players/${player.player_id}`}
-      className="grid grid-cols-[34px_minmax(0,1fr)_72px_72px_72px] items-center gap-3 rounded-2xl border px-4 py-3 transition-colors"
+      className="grid grid-cols-[34px_minmax(0,1fr)_54px_54px_54px] items-center gap-2 rounded-2xl border px-3 py-3 transition-colors"
       style={{ borderColor: `${theme.primary}25`, background: `linear-gradient(90deg, ${theme.soft}, rgba(5,9,15,.88))` }}
     >
       <span className="h-8 w-8 rounded-xl border flex items-center justify-center text-xs font-black" style={{ background: theme.soft, borderColor: `${theme.primary}55`, color: theme.primary }}>{rank}</span>
       <div className="min-w-0">
-        <p className="truncate text-sm font-black uppercase tracking-tight">{player.player_name || "Jugadora"}</p>
-        <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">{player.team_abbr || "WNBA"} · {fmt(player.min)} MIN</p>
+        <p className="text-sm font-black uppercase tracking-tight leading-tight">{player.player_name || "Jugadora"}</p>
+        <p className="mt-1 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]">{player.team_abbr || "—"} · {fmt(player.min)} MIN</p>
       </div>
       <Metric label="PTS" value={fmt(player.pts)} />
       <Metric label="REB" value={fmt(player.reb)} />
@@ -218,12 +246,22 @@ export default async function WNBADashboardPage({ searchParams }: { searchParams
 
   const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
 
-  const [gamesRes, leadersRes] = await Promise.all([
+  const [gamesRes, completedRes, recentRes, leadersRes] = await Promise.all([
     supabase
       .from("v_wnba_daily_games")
       .select("*")
       .eq("game_date", selectedDate)
       .order("scheduled_at", { ascending: true }),
+    supabase
+      .from("v_wnba_games")
+      .select("game_id, game_date, away_team_abbr, away_pts, home_team_abbr, home_pts")
+      .eq("game_date", selectedDate),
+    supabase
+      .from("v_wnba_games")
+      .select("game_id, game_date, away_team_abbr, away_pts, home_team_abbr, home_pts")
+      .lte("game_date", selectedDate)
+      .order("game_date", { ascending: false })
+      .limit(6),
     supabase
       .from("v_wnba_team_roster")
       .select("player_id, player_name, team_abbr, gp, min, pts, reb, ast, season, season_type")
@@ -233,18 +271,23 @@ export default async function WNBADashboardPage({ searchParams }: { searchParams
       .limit(12),
   ]);
 
-  const games = (gamesRes.data ?? []) as DailyGame[];
+  const scheduledGames = (gamesRes.data ?? []) as DailyGame[];
+  const completedGames = ((completedRes.data ?? []) as HistoricalGame[]).map(historicalToDaily);
+  const recentGames = ((recentRes.data ?? []) as HistoricalGame[]).map(historicalToDaily);
+  const exactGames = scheduledGames.length ? scheduledGames : completedGames;
+  const games = exactGames.length ? exactGames : recentGames;
+  const showingRecent = exactGames.length === 0 && recentGames.length > 0;
   const leaders = (leadersRes.data ?? []) as PlayerLeader[];
 
   return (
     <main className="min-h-screen p-4 pt-20 md:p-8 md:pt-8 text-[var(--text)]" style={{ background: "radial-gradient(circle at 8% 0%, rgba(16,185,129,.16), transparent 28%), radial-gradient(circle at 100% 18%, rgba(124,58,237,.13), transparent 22%), var(--bg)" }}>
-      <section className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <section className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.32em] text-[#10b981]">WNBA</p>
-          <h1 className="mt-1 text-4xl md:text-6xl font-black italic uppercase tracking-tighter leading-none">Partidos y jugadoras</h1>
+          <h1 className="mt-1 text-4xl md:text-5xl font-black italic uppercase tracking-tighter leading-none">Partidos y jugadoras</h1>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2">
           <Link href={qs({ date: prevDate })} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-xs font-black uppercase tracking-widest hover:border-[#10b981]/45 flex items-center gap-2">
             <ChevronLeft size={14} /> Ayer
           </Link>
@@ -264,8 +307,8 @@ export default async function WNBADashboardPage({ searchParams }: { searchParams
         <div className="rounded-[1.65rem] border border-[var(--border)] bg-[rgba(5,9,15,.84)] p-4 md:p-5">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#10b981] flex items-center gap-2"><Trophy size={13} /> Partidos del día</p>
-              <h2 className="mt-1 text-2xl font-black italic uppercase tracking-tighter">{selectedDate}</h2>
+              <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#10b981] flex items-center gap-2"><Trophy size={13} /> {showingRecent ? "Últimos resultados" : "Partidos del día"}</p>
+              <h2 className="mt-1 text-2xl font-black italic uppercase tracking-tighter">{showingRecent ? `Hasta ${selectedDate}` : selectedDate}</h2>
             </div>
             <p className="rounded-full border border-[var(--border)] px-3 py-1 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">{games.length} juegos</p>
           </div>

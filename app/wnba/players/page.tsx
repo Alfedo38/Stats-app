@@ -56,6 +56,7 @@ export default async function WNBAPlayersPage({ searchParams }: { searchParams?:
   const sort = sortColumn(getOne(sp.sort, "pts"));
   const season = getOne(sp.season, "2026");
   const seasonType = getOne(sp.season_type, "Regular Season");
+  const teamFilter = getOne(sp.team, "ALL").toUpperCase();
 
   const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey =
@@ -68,7 +69,7 @@ export default async function WNBAPlayersPage({ searchParams }: { searchParams?:
   }
 
   const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
-  let query = supabase
+  let playersQuery = supabase
     .from("v_wnba_team_roster")
     .select("player_id, player_name, team_abbr, position, gp, min, pts, reb, ast, stl, blk, season, season_type")
     .eq("season", season)
@@ -76,24 +77,44 @@ export default async function WNBAPlayersPage({ searchParams }: { searchParams?:
     .order(sort, { ascending: false })
     .limit(120);
 
-  if (q) query = query.ilike("player_name", `%${q}%`);
+  if (q) playersQuery = playersQuery.ilike("player_name", `%${q}%`);
+  if (teamFilter !== "ALL") playersQuery = playersQuery.eq("team_abbr", teamFilter);
 
-  const { data, error } = await query;
-  const players = (data ?? []) as PlayerRow[];
+  const [playersRes, teamsRes] = await Promise.all([
+    playersQuery,
+    supabase
+      .from("v_wnba_teams")
+      .select("team_abbr, team_name")
+      .eq("season", season)
+      .eq("season_type", seasonType)
+      .order("team_name", { ascending: true }),
+  ]);
+  const players = (playersRes.data ?? []) as PlayerRow[];
+  const teams = (teamsRes.data ?? []) as Array<{ team_abbr: string | null; team_name: string | null }>;
 
   return (
     <main className="min-h-screen p-4 pt-20 md:p-8 md:pt-8 text-[var(--text)]" style={{ background: "radial-gradient(circle at 8% 0%, rgba(16,185,129,.16), transparent 28%), radial-gradient(circle at 100% 18%, rgba(124,58,237,.13), transparent 22%), var(--bg)" }}>
-      <section className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <section className="mx-auto mb-5 flex max-w-[1500px] flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.32em] text-[#10b981] flex items-center gap-2"><Users size={13} /> WNBA</p>
-          <h1 className="mt-1 text-4xl md:text-6xl font-black italic uppercase tracking-tighter leading-none">Jugadoras</h1>
+          <h1 className="mt-1 text-4xl md:text-5xl font-black italic uppercase tracking-tighter leading-none">Jugadoras</h1>
         </div>
 
-        <form className="flex flex-col sm:flex-row gap-2">
+        <form className="grid w-full grid-cols-2 gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2 lg:w-auto lg:grid-cols-[220px_repeat(4,auto)_auto]">
           <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#07131a] px-3 py-2">
             <Search size={15} className="text-[var(--text-muted)]" />
             <input name="q" defaultValue={q} placeholder="Buscar jugadora..." className="bg-transparent outline-none text-sm font-black" />
           </div>
+          <select name="season" defaultValue={season} className="rounded-xl border border-white/10 bg-[#07131a] px-3 py-2 text-xs font-black text-white outline-none">
+            <option value="2026">2026</option><option value="2025">2025</option><option value="2024">2024</option>
+          </select>
+          <select name="season_type" defaultValue={seasonType} className="rounded-xl border border-white/10 bg-[#07131a] px-3 py-2 text-xs font-black text-white outline-none">
+            <option value="Regular Season">Temporada regular</option><option value="Playoffs">Playoffs</option>
+          </select>
+          <select name="team" defaultValue={teamFilter} className="rounded-xl border border-white/10 bg-[#07131a] px-3 py-2 text-xs font-black uppercase text-white outline-none">
+            <option value="ALL">Todos los equipos</option>
+            {teams.map((team) => <option key={team.team_abbr || team.team_name} value={team.team_abbr || ""}>{team.team_abbr} · {team.team_name}</option>)}
+          </select>
           <select name="sort" defaultValue={sort} className="rounded-xl border border-white/10 bg-[#07131a] px-3 py-2 text-xs font-black uppercase text-white outline-none">
             <option value="pts">PTS</option>
             <option value="reb">REB</option>
@@ -106,13 +127,13 @@ export default async function WNBAPlayersPage({ searchParams }: { searchParams?:
         </form>
       </section>
 
-      {error && (
+      {(playersRes.error || teamsRes.error) && (
         <div className="mb-4 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm font-bold text-red-300">
-          {error.message}
+          {playersRes.error?.message || teamsRes.error?.message}
         </div>
       )}
 
-      <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+      <section className="mx-auto grid max-w-[1500px] grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
         {players.map((p) => {
           const theme = getWNBATeamTheme(p.team_abbr);
           return (

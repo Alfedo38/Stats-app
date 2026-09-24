@@ -1,6 +1,6 @@
 import { requirePageUser } from '@/lib/auth/server';
 import WNBAPlayerChartPanel from "@/components/wnba/WNBAPlayerChartPanel";
-import WNBATeamMatesPanel from "@/components/WNBATeamMatesPanel";
+import WNBAQuickSwitcher, { type WNBASwitchTeam } from "@/components/wnba/WNBAQuickSwitcher";
 import { getWNBATeamTheme } from "@/components/wnba/wnbaTeamColors";
 import { createClient } from "@supabase/supabase-js";
 import { ArrowLeft } from "lucide-react";
@@ -186,6 +186,7 @@ function prepareStats(logs: Log[]) {
         ts_pct: toNumber(row.ts_pct),
       };
     })
+    .filter((row) => row.min > 0)
     .sort((a, b) => new Date(b.game_date || 0).getTime() - new Date(a.game_date || 0).getTime());
 }
 
@@ -215,7 +216,7 @@ export default async function WNBAPlayerPage({
 
     const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
 
-    const [profileRes, logsRes] = await Promise.all([
+    const [profileRes, logsRes, teamsRes] = await Promise.all([
       supabase
         .from("v_wnba_team_roster")
         .select("*")
@@ -228,12 +229,21 @@ export default async function WNBAPlayerPage({
         .from("v_wnba_player_game_logs")
         .select("*")
         .eq("player_id", Number(playerId))
+        .eq("season", season)
+        .eq("season_type", seasonType)
         .order("game_date", { ascending: false })
         .limit(80),
+      supabase
+        .from("v_wnba_teams")
+        .select("team_id, team_abbr, team_name")
+        .eq("season", season)
+        .eq("season_type", seasonType)
+        .order("team_name", { ascending: true }),
     ]);
 
     if (profileRes.error) throw profileRes.error;
     if (logsRes.error) throw logsRes.error;
+    if (teamsRes.error) throw teamsRes.error;
 
     const profile = profileRes.data as Profile | null;
     const rawLogs = (logsRes.data ?? []) as Log[];
@@ -269,6 +279,7 @@ export default async function WNBAPlayerPage({
 
     const pra = Number(profile?.pts || 0) + Number(profile?.reb || 0) + Number(profile?.ast || 0);
     const teamTheme = getWNBATeamTheme(teamAbbr);
+    const switchTeams = (teamsRes.data ?? []) as WNBASwitchTeam[];
 
     return (
       <main className="min-h-screen text-[var(--text)] pb-20" style={{ background: `radial-gradient(circle at 8% 0%, ${teamTheme.glow}, transparent 28%), radial-gradient(circle at 100% 14%, ${teamTheme.soft}, transparent 22%), var(--bg)` }}>
@@ -284,7 +295,7 @@ export default async function WNBAPlayerPage({
 
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5">
               <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-[0.28em] mb-2" style={{ color: teamTheme.primary }}>WNBA Player</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.28em] mb-2" style={{ color: teamTheme.primary }}>Análisis de jugadora</p>
                 <h1 className="text-[clamp(2.5rem,6vw,5.6rem)] font-black italic tracking-tighter leading-[0.9] uppercase break-words">
                   {firstName} <span style={{ color: teamTheme.primary }}>{lastName}</span>
                 </h1>
@@ -314,18 +325,17 @@ export default async function WNBAPlayerPage({
             <Metric label="BLK" value={fmt(profile?.blk)} />
           </section>
 
-          <div className="grid grid-cols-1 xl:grid-cols-[320px_minmax(0,1fr)] gap-5 items-start">
-            <WNBATeamMatesPanel
-              teamAbbr={teamAbbr ? String(teamAbbr).toUpperCase() : null}
-              players={teammates}
-              currentPlayerId={playerId}
-              season={season}
-              seasonType={seasonType}
-            />
-
-            <WNBAPlayerChartPanel stats={cleanStats} teamAbbr={teamAbbr ? String(teamAbbr).toUpperCase() : null} />
-          </div>
+          <WNBAPlayerChartPanel stats={cleanStats} teamAbbr={teamAbbr ? String(teamAbbr).toUpperCase() : null} />
         </div>
+        <WNBAQuickSwitcher
+          teams={switchTeams}
+          players={teammates}
+          currentTeamId={teamId}
+          currentPlayerId={playerId}
+          teamAbbr={teamAbbr}
+          season={season}
+          seasonType={seasonType}
+        />
       </main>
     );
   } catch (error: any) {

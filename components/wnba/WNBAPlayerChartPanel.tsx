@@ -21,6 +21,11 @@ const STAT_OPTIONS: StatOption[] = [
   { id: "pr", label: "PR", accent: "#60a5fa", getValue: (r) => num(r.pts) + num(r.reb) },
   { id: "ra", label: "RA", accent: "#f59e0b", getValue: (r) => num(r.reb) + num(r.ast) },
   { id: "fg3m", label: "3PM", accent: "#fb7185", getValue: (r) => num(r.fg3m) },
+  { id: "fgm", label: "FGM", accent: "#2dd4bf", getValue: (r) => num(r.fgm) },
+  { id: "fga", label: "FGA", accent: "#f97316", getValue: (r) => num(r.fga) },
+  { id: "stl", label: "STL", accent: "#4ade80", getValue: (r) => num(r.stl) },
+  { id: "blk", label: "BLK", accent: "#818cf8", getValue: (r) => num(r.blk) },
+  { id: "tov", label: "TOV", accent: "#f87171", getValue: (r) => num(r.tov ?? r.turnovers) },
   { id: "min", label: "MIN", accent: "#cbd5e1", getValue: (r) => minutesNum(r.min ?? r.minutes) },
 ];
 
@@ -126,6 +131,7 @@ export default function WNBAPlayerChartPanel({ stats, teamAbbr }: { stats: any[]
           game_date: row.game_date,
         };
       })
+      .filter((row) => row.min > 0)
       .sort((a, b) => new Date(b.game_date || 0).getTime() - new Date(a.game_date || 0).getTime());
   }, [stats, stat]);
 
@@ -191,7 +197,7 @@ export default function WNBAPlayerChartPanel({ stats, teamAbbr }: { stats: any[]
       <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between mb-5">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.28em] flex items-center gap-2" style={{ color: theme.primary }}>
-            <BarChart3 size={14} /> Player chart
+            <BarChart3 size={14} /> Rendimiento
           </p>
           <h2 className="mt-1 text-2xl md:text-3xl font-black italic uppercase tracking-tighter">
             Rendimiento por partido
@@ -341,7 +347,7 @@ export default function WNBAPlayerChartPanel({ stats, teamAbbr }: { stats: any[]
       <div className="mt-5 rounded-[1.35rem] border border-white/10 bg-[#03070c] overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
           <p className="text-[10px] font-black uppercase tracking-[0.25em] flex items-center gap-2" style={{ color: theme.primary }}>
-            <ListFilter size={13} /> Game log filtrado
+            <ListFilter size={13} /> Partidos filtrados
           </p>
           <p className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]">{summary.games} filas</p>
         </div>
@@ -423,7 +429,7 @@ function WNBAColorBars({ rows, statLabel, lineValue, side }: { rows: any[]; stat
               />
               <div className="absolute bottom-[-2rem] w-full text-center">
                 <p className="text-[9px] font-black uppercase text-[var(--text-muted)]">{getOpponent(row)}</p>
-                <p className="mt-0.5 text-[8px] font-black uppercase text-white/40">{String(row.wl || "").slice(0, 1)}</p>
+                <p className="mt-0.5 text-[8px] font-black uppercase text-white/40">{dateOnly(row.game_date).slice(5)} · {String(row.wl || "").slice(0, 1)}</p>
               </div>
             </div>
           );

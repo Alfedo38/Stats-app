@@ -2,6 +2,8 @@ import { requirePageUser } from '@/lib/auth/server';
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import { ArrowLeft, Activity, Search, Users } from "lucide-react";
+import WNBAQuickSwitcher, { type WNBASwitchTeam } from "@/components/wnba/WNBAQuickSwitcher";
+import { getWNBATeamTheme } from "@/components/wnba/wnbaTeamColors";
 
 export const dynamic = "force-dynamic";
 
@@ -140,11 +142,7 @@ export default async function WNBATeamPage({
     .eq("season_type", seasonType)
     .order("pts", { ascending: false });
 
-  if (q.trim()) {
-    rosterQuery = rosterQuery.ilike("player_name", `%${q.trim()}%`);
-  }
-
-  const [teamRes, rosterRes] = await Promise.all([
+  const [teamRes, rosterRes, teamsRes] = await Promise.all([
     supabase
       .from("v_wnba_teams")
       .select("*")
@@ -153,14 +151,32 @@ export default async function WNBATeamPage({
       .eq("season_type", seasonType)
       .maybeSingle(),
     rosterQuery,
+    supabase
+      .from("v_wnba_teams")
+      .select("team_id, team_abbr, team_name")
+      .eq("season", season)
+      .eq("season_type", seasonType)
+      .order("team_name", { ascending: true }),
   ]);
 
   const team = teamRes.data as TeamRow | null;
-  const roster = (rosterRes.data ?? []) as PlayerRow[];
-  const abbr = team?.team_abbr ?? roster[0]?.team_abbr ?? "WNBA";
+  const fullRoster = (rosterRes.data ?? []) as PlayerRow[];
+  const roster = q.trim()
+    ? fullRoster.filter((player) => String(player.player_name || "").toLowerCase().includes(q.trim().toLowerCase()))
+    : fullRoster;
+  const abbr = team?.team_abbr ?? fullRoster[0]?.team_abbr ?? "WNBA";
+  const theme = getWNBATeamTheme(abbr);
+  const switchPlayers = fullRoster.map((player) => ({
+    id: player.player_id,
+    player_name: player.player_name,
+    pts: player.pts,
+    reb: player.reb,
+    ast: player.ast,
+  }));
 
   return (
-    <main className="min-h-screen p-4 pt-20 md:pt-8 md:p-8 text-[var(--text)]">
+    <main className="min-h-screen p-4 pt-20 md:pt-8 md:p-8 text-[var(--text)]" style={{ background: `radial-gradient(circle at 8% 0%, ${theme.glow}, transparent 26%), var(--bg)` }}>
+      <div className="mx-auto max-w-[1500px]">
       <section className="mb-6">
         <Link
           href={`/wnba/teams${qs({ season, season_type: seasonType })}`}
@@ -171,22 +187,22 @@ export default async function WNBATeamPage({
         </Link>
       </section>
 
-      <section className="max-w-6xl">
-        <div className="rounded-[1.6rem] border border-[var(--border)] bg-[var(--surface)] px-5 py-5 md:px-7 md:py-6 mb-6">
+      <section>
+        <div className="rounded-[1.6rem] border px-5 py-5 md:px-7 md:py-6 mb-6" style={{ borderColor: `${theme.primary}44`, background: `linear-gradient(135deg, ${theme.soft}, var(--surface) 48%)` }}>
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
             <div className="flex items-center gap-5">
-              <div className="w-20 h-20 rounded-full bg-[var(--surface-soft)] border border-[var(--border)] flex items-center justify-center text-3xl font-black text-[#10b981]">
+              <div className="w-16 h-16 rounded-2xl border flex items-center justify-center text-2xl font-black" style={{ borderColor: `${theme.primary}55`, background: theme.soft, color: theme.primary }}>
                 {abbr}
               </div>
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.34em] text-[#10b981]">
+                <p className="text-[10px] font-black uppercase tracking-[0.34em]" style={{ color: theme.primary }}>
                   Plantel analítico
                 </p>
-                <h1 className="mt-1 text-4xl md:text-6xl font-black italic uppercase tracking-tighter leading-none">
+                <h1 className="mt-1 text-4xl md:text-5xl font-black italic uppercase tracking-tighter leading-none">
                   {abbr}
                 </h1>
                 <p className="mt-2 text-[11px] md:text-xs font-black uppercase tracking-[0.24em] text-[var(--text-muted)]">
-                  {team?.team_name ?? "Equipo WNBA"} · {season} · {seasonType}
+                  {team?.team_name ?? "Equipo"} · {season} · {seasonType === "Regular Season" ? "Temporada regular" : seasonType}
                 </p>
               </div>
             </div>
@@ -220,9 +236,9 @@ export default async function WNBATeamPage({
 
         <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <MiniMetric label="Récord" value={`${team?.w ?? "—"}-${team?.l ?? "—"}`} />
-          <MiniMetric label="Win rate" value={pct(team?.w_pct)} />
+          <MiniMetric label="Efectividad" value={pct(team?.w_pct)} />
           <MiniMetric label="PTS" value={fmt(team?.pts)} />
-          <MiniMetric label="Plus/minus" value={signed(team?.plus_minus)} />
+          <MiniMetric label="Diferencial" value={signed(team?.plus_minus)} />
         </section>
 
         <section className="mb-5 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -253,7 +269,7 @@ export default async function WNBATeamPage({
         )}
 
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {roster.map((player, index) => (
+          {roster.map((player) => (
             <Link
               key={`${player.player_id}-${season}-${seasonType}`}
               href={`/wnba/players/${player.player_id}${qs({ season, season_type: seasonType })}`}
@@ -271,9 +287,11 @@ export default async function WNBATeamPage({
                         {player.player_name ?? "Jugadora"}
                       </h2>
 
-                      <p className="mt-1 text-[9px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">
-                        {player.position ?? "POS —"} · {player.country ?? "WNBA"} · Rank #{index + 1}
-                      </p>
+                      {(player.position || player.country) && (
+                        <p className="mt-1 text-[9px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                          {[player.position, player.country].filter(Boolean).join(" · ")}
+                        </p>
+                      )}
                     </div>
 
                     <span className="shrink-0 text-[9px] font-black uppercase tracking-widest text-[#10b981]">
@@ -319,6 +337,15 @@ export default async function WNBATeamPage({
           )}
         </section>
       </section>
+      </div>
+      <WNBAQuickSwitcher
+        teams={(teamsRes.data ?? []) as WNBASwitchTeam[]}
+        players={switchPlayers}
+        currentTeamId={teamId}
+        teamAbbr={abbr}
+        season={season}
+        seasonType={seasonType}
+      />
     </main>
   );
 }

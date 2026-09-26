@@ -100,6 +100,14 @@ function timeAR(iso: string | null) {
   }
 }
 
+function shortDate(value: string) {
+  try {
+    return new Intl.DateTimeFormat("es-AR", { day: "2-digit", month: "2-digit" }).format(new Date(`${value.slice(0, 10)}T12:00:00Z`));
+  } catch {
+    return value.slice(0, 10);
+  }
+}
+
 function statusLabel(game: DailyGame) {
   const state = String(game.status_state ?? "").toLowerCase();
   const name = String(game.status_name ?? "").toLowerCase();
@@ -163,7 +171,7 @@ function GameCard({ game }: { game: DailyGame }) {
           {label}
         </span>
         <span className="text-xs font-black text-[var(--text-muted)] flex items-center gap-2">
-          <Clock size={13} /> {timeAR(game.scheduled_at)}
+          <Clock size={13} /> {shortDate(game.game_date)} · {final ? "Final" : timeAR(game.scheduled_at)}
         </span>
       </div>
 
@@ -246,7 +254,7 @@ export default async function WNBADashboardPage({ searchParams }: { searchParams
 
   const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
 
-  const [gamesRes, completedRes, recentRes, leadersRes] = await Promise.all([
+  const [gamesRes, completedRes, upcomingRes, leadersRes] = await Promise.all([
     supabase
       .from("v_wnba_daily_games")
       .select("*")
@@ -257,10 +265,11 @@ export default async function WNBADashboardPage({ searchParams }: { searchParams
       .select("game_id, game_date, away_team_abbr, away_pts, home_team_abbr, home_pts")
       .eq("game_date", selectedDate),
     supabase
-      .from("v_wnba_games")
-      .select("game_id, game_date, away_team_abbr, away_pts, home_team_abbr, home_pts")
-      .lte("game_date", selectedDate)
-      .order("game_date", { ascending: false })
+      .from("v_wnba_daily_games")
+      .select("*")
+      .gt("game_date", selectedDate)
+      .order("game_date", { ascending: true })
+      .order("scheduled_at", { ascending: true })
       .limit(6),
     supabase
       .from("v_wnba_team_roster")
@@ -273,10 +282,10 @@ export default async function WNBADashboardPage({ searchParams }: { searchParams
 
   const scheduledGames = (gamesRes.data ?? []) as DailyGame[];
   const completedGames = ((completedRes.data ?? []) as HistoricalGame[]).map(historicalToDaily);
-  const recentGames = ((recentRes.data ?? []) as HistoricalGame[]).map(historicalToDaily);
+  const upcomingGames = (upcomingRes.data ?? []) as DailyGame[];
   const exactGames = scheduledGames.length ? scheduledGames : completedGames;
-  const games = exactGames.length ? exactGames : recentGames;
-  const showingRecent = exactGames.length === 0 && recentGames.length > 0;
+  const games = exactGames.length ? exactGames : upcomingGames;
+  const showingUpcoming = exactGames.length === 0 && upcomingGames.length > 0;
   const leaders = (leadersRes.data ?? []) as PlayerLeader[];
 
   return (
@@ -307,8 +316,8 @@ export default async function WNBADashboardPage({ searchParams }: { searchParams
         <div className="rounded-[1.65rem] border border-[var(--border)] bg-[rgba(5,9,15,.84)] p-4 md:p-5">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#10b981] flex items-center gap-2"><Trophy size={13} /> {showingRecent ? "Últimos resultados" : "Partidos del día"}</p>
-              <h2 className="mt-1 text-2xl font-black italic uppercase tracking-tighter">{showingRecent ? `Hasta ${selectedDate}` : selectedDate}</h2>
+              <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#10b981] flex items-center gap-2"><Trophy size={13} /> {showingUpcoming ? "Próximos partidos" : "Partidos del día"}</p>
+              <h2 className="mt-1 text-2xl font-black italic uppercase tracking-tighter">{showingUpcoming ? "Calendario confirmado" : selectedDate}</h2>
             </div>
             <p className="rounded-full border border-[var(--border)] px-3 py-1 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">{games.length} juegos</p>
           </div>

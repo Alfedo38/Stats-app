@@ -18,7 +18,9 @@ export const WNBA_TEAM_COLORS: Record<string, WNBATeamTheme> = {
   MIN: { primary: "#00a9e0", secondary: "#78be20", soft: "rgba(0,169,224,.13)", glow: "rgba(0,169,224,.34)", text: "#ffffff" },
   NYL: { primary: "#86cebc", secondary: "#ff671f", soft: "rgba(134,206,188,.14)", glow: "rgba(134,206,188,.35)", text: "#05120e" },
   PHX: { primary: "#e56020", secondary: "#3c1053", soft: "rgba(229,96,32,.14)", glow: "rgba(229,96,32,.35)", text: "#ffffff" },
+  PDX: { primary: "#ef4444", secondary: "#f8fafc", soft: "rgba(239,68,68,.13)", glow: "rgba(239,68,68,.34)", text: "#ffffff" },
   SEA: { primary: "#2c5234", secondary: "#fee11a", soft: "rgba(44,82,52,.20)", glow: "rgba(254,225,26,.28)", text: "#ffffff" },
+  TOR: { primary: "#22d3ee", secondary: "#ef4444", soft: "rgba(34,211,238,.13)", glow: "rgba(34,211,238,.34)", text: "#041014" },
   WAS: { primary: "#e03a3e", secondary: "#002b5c", soft: "rgba(224,58,62,.13)", glow: "rgba(224,58,62,.34)", text: "#ffffff" },
 };
 

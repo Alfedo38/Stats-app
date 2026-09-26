@@ -84,6 +84,16 @@ type RosterRow = {
   ast: number | null;
 };
 
+type TeammateGameRow = {
+  game_id: string;
+  player_id: number;
+  player_name: string;
+  team_id?: number | null;
+  team_abbreviation?: string | null;
+  minutes?: string | number | null;
+  comment?: string | null;
+};
+
 function getOne(value: string | string[] | undefined, fallback: string) {
   if (Array.isArray(value)) return value[0] ?? fallback;
   return value ?? fallback;
@@ -254,6 +264,25 @@ export default async function WNBAPlayerPage({
     const teamAbbr = profile?.team_abbr || cleanStats.find((s: any) => s?.team_abbreviation)?.team_abbreviation || null;
     const teamId = profile?.team_id || cleanStats.find((s: any) => s?.team_id)?.team_id || null;
 
+    const playerGameIds = Array.from(new Set(cleanStats.map((row) => String(row.game_id)).filter(Boolean)));
+    const playerTeamIds = Array.from(new Set(rawLogs.map((row) => Number(row.team_id)).filter((id) => Number.isFinite(id) && id > 0)));
+
+    const teammateGamesRes = playerGameIds.length && playerTeamIds.length
+      ? await supabase
+          .from("v_wnba_player_game_logs")
+          .select("*")
+          .in("game_id", playerGameIds)
+          .in("team_id", playerTeamIds)
+          .eq("season", season)
+          .eq("season_type", seasonType)
+          .limit(2000)
+      : { data: [], error: null };
+
+    if (teammateGamesRes.error) throw teammateGamesRes.error;
+
+    const teammateGames = ((teammateGamesRes.data ?? []) as TeammateGameRow[])
+      .filter((row) => Number(row.player_id) !== Number(playerId));
+
     const rosterRes = teamId
       ? await supabase
           .from("v_wnba_team_roster")
@@ -325,7 +354,11 @@ export default async function WNBAPlayerPage({
             <Metric label="BLK" value={fmt(profile?.blk)} />
           </section>
 
-          <WNBAPlayerChartPanel stats={cleanStats} teamAbbr={teamAbbr ? String(teamAbbr).toUpperCase() : null} />
+          <WNBAPlayerChartPanel
+            stats={cleanStats}
+            teamAbbr={teamAbbr ? String(teamAbbr).toUpperCase() : null}
+            teammateGames={teammateGames}
+          />
         </div>
         <WNBAQuickSwitcher
           teams={switchTeams}

@@ -54,7 +54,27 @@ mostró antes del error:
 El modo de recuperación abre una conexión nueva, vuelve a leer únicamente los CSV
 de esa corrida y conserva la carga completa dentro de una transacción.
 
-## 4. Automatización diaria
+## 4. Calendario del inicio
+
+El calendario usa `ScheduleLeagueV2` (liga 10), por lo que ya no depende del
+scoreboard de ESPN. Primero se puede revisar sin escribir:
+
+```bash
+../.venv/bin/python sync_wnba_schedule_official.py \
+  --season 2026 \
+  --date 2026-09-26 \
+  --days-back 3 \
+  --days-forward 45 \
+  --schema wnba_api_data \
+  --dry-run
+```
+
+Si la lista de partidos es correcta, repetir el comando sin `--dry-run`. Solo se
+insertan o actualizan las filas de esa ventana en `daily_games`. Los cruces de
+playoffs que todavía no tengan equipos confirmados se ignoran hasta la próxima
+ejecución.
+
+## 5. Automatización diaria
 
 ```bash
 chmod +x run_daily_wnba_incremental.sh
@@ -75,5 +95,6 @@ depende del CSV mixto de temporada y vuelve a recorrer datos históricos.
 - Actualiza partidos terminados, box scores tradicionales y avanzados.
 - Refresca planteles y snapshots acumulados de la temporada actual.
 - Reintenta automáticamente cualquier partido cuyo box score haya fallado.
-- No obtiene partidos futuros. El calendario del inicio se resolverá con una fuente
-  separada para que una caída del calendario no bloquee las estadísticas.
+- Actualiza una ventana pequeña de calendario, estados y resultados para el inicio.
+- Si falla el calendario, el proceso se detiene y deja el error en
+  `logs/daily_wnba_incremental.log`; no reescribe los CSV históricos.

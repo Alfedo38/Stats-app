@@ -296,6 +296,49 @@ def concat_frames(parts: dict[str, list[pd.DataFrame]]) -> dict[str, pd.DataFram
     }
 
 
+SNAPSHOT_KEYS = {
+    "player_season_stats_base": ["player_id", "team_id", "season", "season_type"],
+    "player_season_stats_advanced": ["player_id", "team_id", "season", "season_type"],
+    "team_season_stats": ["team_id", "season", "season_type"],
+}
+
+
+def dedupe_snapshot_frame(table: str, frame: pd.DataFrame) -> pd.DataFrame:
+    """Conserva el acumulado más completo cuando el proveedor repite una clave.
+
+    LeagueDash puede devolver simultáneamente un snapshot parcial y el acumulado
+    completo para una misma jugadora. Priorizamos mayor GP y, ante empate, la
+    fila más reciente. Se aplica al descargar y nuevamente antes de subir para
+    que también proteja corridas guardadas en incremental_runs.
+    """
+    keys = SNAPSHOT_KEYS.get(table)
+    if frame.empty or not keys or any(key not in frame.columns for key in keys):
+        return frame
+
+    work = frame.copy()
+    work["__gp_sort"] = (
+        pd.to_numeric(work["gp"], errors="coerce").fillna(-1)
+        if "gp" in work.columns
+        else -1
+    )
+    if "updated_at" in work.columns:
+        work["__updated_sort"] = pd.to_datetime(work["updated_at"], errors="coerce")
+    else:
+        work["__updated_sort"] = pd.NaT
+
+    before = len(work)
+    work = (
+        work.sort_values(["__gp_sort", "__updated_sort"], na_position="first")
+        .drop_duplicates(subset=keys, keep="last")
+        .drop(columns=["__gp_sort", "__updated_sort"])
+        .reset_index(drop=True)
+    )
+    removed = before - len(work)
+    if removed:
+        print(f"🧹 {table}: {removed} snapshots parciales/duplicados omitidos")
+    return work
+
+
 def fetch_players(season: str, retries: int, pause: float) -> pd.DataFrame:
     try:
         result = request(
@@ -364,7 +407,11 @@ def season_snapshots(season: str, season_types: Iterable[str], retries: int, pau
             frame = frame.rename(columns={"tov": "turnovers"})
             frame["season"], frame["season_type"], frame["updated_at"] = season, season_type, datetime.utcnow()
             parts["team_season_stats"].append(frame)
-    return concat_frames(parts)
+    frames = concat_frames(parts)
+    return {
+        table: dedupe_snapshot_frame(table, frame)
+        for table, frame in frames.items()
+    }
 
 
 def existing_ids(conn, schema: str, table: str) -> set[str]:
@@ -441,6 +488,7 @@ def merge_frame(conn, schema: str, table: str, frame: pd.DataFrame, keys: list[s
 
 
 def replace_snapshot(conn, schema: str, table: str, frame: pd.DataFrame) -> int:
+    frame = dedupe_snapshot_frame(table, frame)
     if frame.empty:
         print(f"⚠️ {table}: snapshot vacío; se conserva lo existente")
         return 0

@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 type Params = Promise<{ teamId: string }>;
 type TeamRow = { team_id: number; team_abbr: string | null; team_name: string | null; w: number | null; l: number | null; w_pct: number | null; plus_minus: number | null };
-type PlayerRow = WNBATeamRosterRow & { team_id: number; team_abbr: string | null; pts: number | null; reb: number | null; ast: number | null };
+type PlayerRow = WNBATeamRosterRow & { team_id: number; team_abbr: string | null };
 
 function pct(value: number | null | undefined) {
   const parsed = Number(value);
@@ -35,7 +35,7 @@ export default async function WNBATeamPage({ params }: { params: Params }) {
   const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
   const [teamRes, rosterRes, teamsRes] = await Promise.all([
     supabase.from("v_wnba_teams").select("*").eq("team_id", Number(teamId)).eq("season", season).eq("season_type", seasonType).maybeSingle(),
-    supabase.from("v_wnba_team_roster").select("*").eq("team_id", Number(teamId)).eq("season", season).eq("season_type", seasonType).order("player_name", { ascending: true }),
+    supabase.from("v_wnba_current_roster").select("player_id, player_name, team_id, team_abbr, jersey, position, country").eq("team_id", Number(teamId)).order("player_name", { ascending: true }),
     supabase.from("v_wnba_teams").select("team_id, team_abbr, team_name").eq("season", season).eq("season_type", seasonType).order("team_name", { ascending: true }),
   ]);
 
@@ -43,7 +43,7 @@ export default async function WNBATeamPage({ params }: { params: Params }) {
   const roster = (rosterRes.data ?? []) as PlayerRow[];
   const abbr = String(team?.team_abbr || roster[0]?.team_abbr || "WNBA").toUpperCase();
   const theme = getWNBATeamTheme(abbr);
-  const switchPlayers = roster.map((player) => ({ id: player.player_id, player_name: player.player_name, pts: player.pts, reb: player.reb, ast: player.ast }));
+  const switchPlayers = roster.map((player) => ({ id: player.player_id, player_name: player.player_name }));
 
   return (
     <main className="min-h-screen p-4 pb-24 pt-20 text-[var(--text)] md:p-8 md:pb-24 md:pt-8" style={{ background: `radial-gradient(circle at 8% 0%, ${theme.primary}12, transparent 27%), var(--bg)` }}>

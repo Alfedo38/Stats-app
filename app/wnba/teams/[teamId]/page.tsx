@@ -1,351 +1,75 @@
 import { requirePageUser } from '@/lib/auth/server';
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
-import { ArrowLeft, Activity, Search, Users } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import WNBAQuickSwitcher, { type WNBASwitchTeam } from "@/components/wnba/WNBAQuickSwitcher";
+import WNBATeamRoster, { type WNBATeamRosterRow } from "@/components/wnba/WNBATeamRoster";
 import { getWNBATeamTheme } from "@/components/wnba/wnbaTeamColors";
 
 export const dynamic = "force-dynamic";
 
 type Params = Promise<{ teamId: string }>;
-
-type RawSearchParams =
-  | Record<string, string | string[] | undefined>
-  | Promise<Record<string, string | string[] | undefined>>;
-
-type TeamRow = {
-  team_id: number;
-  team_abbr: string | null;
-  team_name: string | null;
-  season: string | null;
-  season_type: string | null;
-  gp: number | null;
-  w: number | null;
-  l: number | null;
-  w_pct: number | null;
-  pts: number | null;
-  reb: number | null;
-  ast: number | null;
-  plus_minus: number | null;
-};
-
-type PlayerRow = {
-  player_id: number;
-  player_name: string | null;
-  team_id: number;
-  team_abbr: string | null;
-  jersey: string | null;
-  position: string | null;
-  height: string | null;
-  experience: number | null;
-  school: string | null;
-  country: string | null;
-  is_active?: number | boolean | null;
-  season: string | null;
-  season_type: string | null;
-  gp: number | null;
-  min: number | null;
-  pts: number | null;
-  reb: number | null;
-  ast: number | null;
-  stl: number | null;
-  blk: number | null;
-  turnovers?: number | null;
-  ts_pct: number | null;
-  usg_pct: number | null;
-  pie: number | null;
-};
-
-function getOne(value: string | string[] | undefined, fallback: string) {
-  if (Array.isArray(value)) return value[0] ?? fallback;
-  return value ?? fallback;
-}
-
-function fmt(value: number | null | undefined, digits = 1) {
-  if (value === null || value === undefined) return "—";
-  const n = Number(value);
-  if (!Number.isFinite(n)) return "—";
-  return n.toFixed(digits);
-}
+type TeamRow = { team_id: number; team_abbr: string | null; team_name: string | null; w: number | null; l: number | null; w_pct: number | null; plus_minus: number | null };
+type PlayerRow = WNBATeamRosterRow & { team_id: number; team_abbr: string | null; pts: number | null; reb: number | null; ast: number | null };
 
 function pct(value: number | null | undefined) {
-  if (value === null || value === undefined) return "—";
-  const n = Number(value);
-  if (!Number.isFinite(n)) return "—";
-  return `${(n * 100).toFixed(1)}%`;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? `${(parsed * 100).toFixed(1)}%` : "—";
 }
 
 function signed(value: number | null | undefined) {
-  if (value === null || value === undefined) return "—";
-  const n = Number(value);
-  if (!Number.isFinite(n)) return "—";
-  return n > 0 ? `+${n.toFixed(1)}` : n.toFixed(1);
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return "—";
+  return `${parsed > 0 ? "+" : ""}${parsed.toFixed(1)}`;
 }
 
-function initials(name: string | null | undefined) {
-  if (!name) return "WN";
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0] ?? ""}${parts[parts.length - 1][0] ?? ""}`.toUpperCase();
-}
-
-function qs(params: Record<string, string>) {
-  return `?${new URLSearchParams(params).toString()}`;
-}
-
-function MiniMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-[var(--border)] bg-black/10 px-3 py-2">
-      <p className="text-[8px] font-black uppercase tracking-widest text-[var(--text-muted)]">{label}</p>
-      <p className="text-sm font-black tracking-tight text-[var(--text)]">{value}</p>
-    </div>
-  );
-}
-
-export default async function WNBATeamPage({
-  params,
-  searchParams,
-}: {
-  params: Params;
-  searchParams?: RawSearchParams;
-}) {
+export default async function WNBATeamPage({ params }: { params: Params }) {
   await requirePageUser();
   const { teamId } = await params;
-  const sp = await Promise.resolve(searchParams ?? {});
-  const season = getOne(sp.season, "2026");
-  const seasonType = getOne(sp.season_type, "Regular Season");
-  const q = getOne(sp.q, "");
-
+  const season = "2026";
+  const seasonType = "Regular Season";
   const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey =
-    process.env.SUPABASE_SERVICE_KEY ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseKey) {
-    return (
-      <main className="min-h-screen p-6 text-[var(--text)]">
-        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-6 font-bold">
-          Faltan variables de Supabase.
-        </div>
-      </main>
-    );
-  }
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseKey) return <main className="min-h-screen p-6 text-[var(--text)]">Faltan variables de Supabase.</main>;
 
   const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
-
-  let rosterQuery = supabase
-    .from("v_wnba_team_roster")
-    .select("*")
-    .eq("team_id", Number(teamId))
-    .eq("season", season)
-    .eq("season_type", seasonType)
-    .order("pts", { ascending: false });
-
   const [teamRes, rosterRes, teamsRes] = await Promise.all([
-    supabase
-      .from("v_wnba_teams")
-      .select("*")
-      .eq("team_id", Number(teamId))
-      .eq("season", season)
-      .eq("season_type", seasonType)
-      .maybeSingle(),
-    rosterQuery,
-    supabase
-      .from("v_wnba_teams")
-      .select("team_id, team_abbr, team_name")
-      .eq("season", season)
-      .eq("season_type", seasonType)
-      .order("team_name", { ascending: true }),
+    supabase.from("v_wnba_teams").select("*").eq("team_id", Number(teamId)).eq("season", season).eq("season_type", seasonType).maybeSingle(),
+    supabase.from("v_wnba_team_roster").select("*").eq("team_id", Number(teamId)).eq("season", season).eq("season_type", seasonType).order("player_name", { ascending: true }),
+    supabase.from("v_wnba_teams").select("team_id, team_abbr, team_name").eq("season", season).eq("season_type", seasonType).order("team_name", { ascending: true }),
   ]);
 
   const team = teamRes.data as TeamRow | null;
-  const fullRoster = (rosterRes.data ?? []) as PlayerRow[];
-  const roster = q.trim()
-    ? fullRoster.filter((player) => String(player.player_name || "").toLowerCase().includes(q.trim().toLowerCase()))
-    : fullRoster;
-  const abbr = team?.team_abbr ?? fullRoster[0]?.team_abbr ?? "WNBA";
+  const roster = (rosterRes.data ?? []) as PlayerRow[];
+  const abbr = String(team?.team_abbr || roster[0]?.team_abbr || "WNBA").toUpperCase();
   const theme = getWNBATeamTheme(abbr);
-  const switchPlayers = fullRoster.map((player) => ({
-    id: player.player_id,
-    player_name: player.player_name,
-    pts: player.pts,
-    reb: player.reb,
-    ast: player.ast,
-  }));
+  const switchPlayers = roster.map((player) => ({ id: player.player_id, player_name: player.player_name, pts: player.pts, reb: player.reb, ast: player.ast }));
 
   return (
-    <main className="min-h-screen p-4 pt-20 md:pt-8 md:p-8 text-[var(--text)]" style={{ background: `radial-gradient(circle at 8% 0%, ${theme.glow}, transparent 26%), var(--bg)` }}>
+    <main className="min-h-screen p-4 pb-24 pt-20 text-[var(--text)] md:p-8 md:pb-24 md:pt-8" style={{ background: `radial-gradient(circle at 8% 0%, ${theme.primary}12, transparent 27%), var(--bg)` }}>
       <div className="mx-auto max-w-[1500px]">
-      <section className="mb-6">
-        <Link
-          href={`/wnba/teams${qs({ season, season_type: seasonType })}`}
-          className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.24em] text-[var(--text-muted)] hover:text-[#10b981] transition-colors"
-        >
-          <ArrowLeft size={14} />
-          Volver a equipos
-        </Link>
-      </section>
+        <Link href="/wnba/teams" className="mb-6 inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.24em] text-[var(--text-muted)] transition hover:text-white"><ArrowLeft size={13} /> Volver a equipos</Link>
 
-      <section>
-        <div className="rounded-[1.6rem] border px-5 py-5 md:px-7 md:py-6 mb-6" style={{ borderColor: `${theme.primary}44`, background: `linear-gradient(135deg, ${theme.soft}, var(--surface) 48%)` }}>
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+        <section className="relative mb-6 overflow-hidden rounded-[1.65rem] border px-6 py-6 md:px-8" style={{ borderColor: `${theme.primary}35`, background: `linear-gradient(135deg, ${theme.primary}0e, rgba(4,8,14,.98) 52%)` }}>
+          <div className="pointer-events-none absolute -right-6 -top-12 text-[9rem] font-black italic leading-none opacity-[0.035]" style={{ color: theme.primary }}>{abbr}</div>
+          <div className="relative z-10 flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
             <div className="flex items-center gap-5">
-              <div className="w-16 h-16 rounded-2xl border flex items-center justify-center text-2xl font-black" style={{ borderColor: `${theme.primary}55`, background: theme.soft, color: theme.primary }}>
-                {abbr}
-              </div>
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.34em]" style={{ color: theme.primary }}>
-                  Plantel analítico
-                </p>
-                <h1 className="mt-1 text-4xl md:text-5xl font-black italic uppercase tracking-tighter leading-none">
-                  {abbr}
-                </h1>
-                <p className="mt-2 text-[11px] md:text-xs font-black uppercase tracking-[0.24em] text-[var(--text-muted)]">
-                  {team?.team_name ?? "Equipo"} · {season} · {seasonType === "Regular Season" ? "Temporada regular" : seasonType}
-                </p>
-              </div>
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl border text-xl font-black" style={{ borderColor: `${theme.primary}45`, background: `${theme.primary}0d`, color: theme.primary }}>{abbr}</div>
+              <div><p className="text-[9px] font-black uppercase tracking-[0.3em]" style={{ color: theme.primary }}>Plantel actual</p><h1 className="mt-1 text-4xl font-black italic uppercase leading-none tracking-tighter md:text-5xl">{team?.team_name || abbr}</h1><p className="mt-2 text-[9px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">Temporada 2026 · {roster.length} jugadoras</p></div>
             </div>
-
-            <form className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full lg:w-auto lg:min-w-[420px]">
-              <select
-                name="season"
-                defaultValue={season}
-                className="bg-[var(--surface-soft)] border border-[var(--border)] rounded-xl px-4 py-3 text-xs font-black outline-none"
-              >
-                <option value="2026">2026</option>
-                <option value="2025">2025</option>
-                <option value="2024">2024</option>
-              </select>
-
-              <select
-                name="season_type"
-                defaultValue={seasonType}
-                className="bg-[var(--surface-soft)] border border-[var(--border)] rounded-xl px-4 py-3 text-xs font-black outline-none"
-              >
-                <option value="Regular Season">Regular Season</option>
-                <option value="Playoffs">Playoffs</option>
-              </select>
-
-              <button className="rounded-xl bg-[#10b981] text-black px-4 py-3 text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition">
-                Filtrar
-              </button>
-            </form>
-          </div>
-        </div>
-
-        <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <MiniMetric label="Récord" value={`${team?.w ?? "—"}-${team?.l ?? "—"}`} />
-          <MiniMetric label="Efectividad" value={pct(team?.w_pct)} />
-          <MiniMetric label="PTS" value={fmt(team?.pts)} />
-          <MiniMetric label="Diferencial" value={signed(team?.plus_minus)} />
-        </section>
-
-        <section className="mb-5 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.24em] text-[var(--text-muted)]">
-              <Users size={13} />
-              Jugadoras activas ({roster.length})
+            <div className="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-widest">
+              <span className="rounded-xl border border-white/10 bg-black/20 px-3 py-2"><b className="text-white">{team?.w ?? "—"}–{team?.l ?? "—"}</b> récord</span>
+              <span className="rounded-xl border border-white/10 bg-black/20 px-3 py-2"><b style={{ color: theme.primary }}>{pct(team?.w_pct)}</b> efectividad</span>
+              <span className="rounded-xl border border-white/10 bg-black/20 px-3 py-2"><b className="text-white">{signed(team?.plus_minus)}</b> diferencial</span>
             </div>
           </div>
-
-          <form className="relative w-full md:w-[320px]">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-            <input type="hidden" name="season" value={season} />
-            <input type="hidden" name="season_type" value={seasonType} />
-            <input
-              name="q"
-              defaultValue={q}
-              placeholder="Buscar jugadora..."
-              className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-xl pl-10 pr-4 py-3 text-xs font-black outline-none placeholder:text-[var(--text-muted)]"
-            />
-          </form>
         </section>
 
-        {(teamRes.error || rosterRes.error) && (
-          <div className="mb-5 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm font-bold">
-            {teamRes.error?.message || rosterRes.error?.message}
-          </div>
-        )}
-
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {roster.map((player) => (
-            <Link
-              key={`${player.player_id}-${season}-${seasonType}`}
-              href={`/wnba/players/${player.player_id}${qs({ season, season_type: seasonType })}`}
-              className="group rounded-2xl bg-[var(--surface)] border border-[var(--border)] px-4 py-4 hover:bg-[var(--surface-soft)] hover:border-[#10b981]/45 transition-all"
-            >
-              <div className="flex items-start gap-4">
-                <div className="w-13 h-13 min-w-13 rounded-2xl bg-[var(--surface-soft)] border border-[var(--border)] flex items-center justify-center text-base font-black text-[var(--text-muted)] group-hover:text-black group-hover:bg-[#10b981] group-hover:border-[#10b981] transition-all">
-                  {initials(player.player_name)}
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h2 className="text-sm font-black uppercase tracking-tight leading-tight text-[var(--text)] group-hover:text-[#10b981] transition-colors truncate">
-                        {player.player_name ?? "Jugadora"}
-                      </h2>
-
-                      {(player.position || player.country) && (
-                        <p className="mt-1 text-[9px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">
-                          {[player.position, player.country].filter(Boolean).join(" · ")}
-                        </p>
-                      )}
-                    </div>
-
-                    <span className="shrink-0 text-[9px] font-black uppercase tracking-widest text-[#10b981]">
-                      Ver análisis →
-                    </span>
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-3 gap-2">
-                    <div className="rounded-xl border border-[var(--border)] bg-black/10 px-3 py-2">
-                      <p className="text-[8px] font-black uppercase tracking-widest text-[var(--text-muted)]">PTS</p>
-                      <p className="text-sm font-black tabular-nums">{fmt(player.pts)}</p>
-                    </div>
-
-                    <div className="rounded-xl border border-[var(--border)] bg-black/10 px-3 py-2">
-                      <p className="text-[8px] font-black uppercase tracking-widest text-[var(--text-muted)]">REB</p>
-                      <p className="text-sm font-black tabular-nums">{fmt(player.reb)}</p>
-                    </div>
-
-                    <div className="rounded-xl border border-[var(--border)] bg-black/10 px-3 py-2">
-                      <p className="text-[8px] font-black uppercase tracking-widest text-[var(--text-muted)]">AST</p>
-                      <p className="text-sm font-black tabular-nums">{fmt(player.ast)}</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]">
-                    <span>GP {player.gp ?? "—"}</span>
-                    <span>MIN {fmt(player.min)}</span>
-                    <span>TS {pct(player.ts_pct)}</span>
-                    <span>USG {pct(player.usg_pct)}</span>
-                  </div>
-                </div>
-              </div>
-            </Link>
-          ))}
-
-          {roster.length === 0 && (
-            <div className="col-span-full rounded-2xl bg-[var(--surface)] border border-[var(--border)] p-10 text-center">
-              <Activity size={22} className="mx-auto mb-3 text-[var(--text-muted)]" />
-              <p className="text-sm font-black uppercase tracking-widest text-[var(--text-muted)]">
-                Sin jugadoras para este filtro
-              </p>
-            </div>
-          )}
-        </section>
-      </section>
+        {(teamRes.error || rosterRes.error) && <div className="mb-5 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm font-bold">{teamRes.error?.message || rosterRes.error?.message}</div>}
+        <WNBATeamRoster players={roster} accent={theme.primary} />
       </div>
-      <WNBAQuickSwitcher
-        teams={(teamsRes.data ?? []) as WNBASwitchTeam[]}
-        players={switchPlayers}
-        currentTeamId={teamId}
-        teamAbbr={abbr}
-        season={season}
-        seasonType={seasonType}
-      />
+
+      <WNBAQuickSwitcher teams={(teamsRes.data ?? []) as WNBASwitchTeam[]} players={switchPlayers} currentTeamId={teamId} teamAbbr={abbr} season={season} seasonType={seasonType} />
     </main>
   );
 }

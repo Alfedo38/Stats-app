@@ -47,6 +47,11 @@ type PlayerLeader = {
   ast: number | null;
 };
 
+type TeamDirectoryRow = {
+  team_id: number;
+  team_abbr: string | null;
+};
+
 function getOne(value: string | string[] | undefined, fallback: string) {
   if (Array.isArray(value)) return value[0] ?? fallback;
   return value ?? fallback;
@@ -147,7 +152,7 @@ function TeamLogo({ abbr }: { abbr: string }) {
   );
 }
 
-function GameCard({ game }: { game: DailyGame }) {
+function GameCard({ game, teamIds }: { game: DailyGame; teamIds: Map<string, number> }) {
   const label = statusLabel(game);
   const final = label === "FINAL";
   const live = label === "EN VIVO";
@@ -176,8 +181,8 @@ function GameCard({ game }: { game: DailyGame }) {
       </div>
 
       <div className="space-y-4 relative z-10">
-        <TeamLine abbr={game.away_team_abbr} name={game.away_team_name} score={score(game.away_score)} />
-        <TeamLine abbr={game.home_team_abbr} name={game.home_team_name} score={score(game.home_score)} />
+        <TeamLine abbr={game.away_team_abbr} name={game.away_team_name} score={score(game.away_score)} teamId={teamIds.get(game.away_team_abbr)} />
+        <TeamLine abbr={game.home_team_abbr} name={game.home_team_name} score={score(game.home_score)} teamId={teamIds.get(game.home_team_abbr)} />
       </div>
 
       {game.status_detail && (
@@ -189,10 +194,10 @@ function GameCard({ game }: { game: DailyGame }) {
   );
 }
 
-function TeamLine({ abbr, name, score }: { abbr: string; name: string; score: string }) {
+function TeamLine({ abbr, name, score, teamId }: { abbr: string; name: string; score: string; teamId?: number }) {
   const theme = getWNBATeamTheme(abbr);
-  return (
-    <div className="flex items-center justify-between gap-4">
+  const row = (
+    <div className="group/team flex items-center justify-between gap-4 rounded-2xl border border-transparent p-1.5 transition-all hover:border-white/10 hover:bg-white/[0.035]">
       <div className="flex items-center gap-3 min-w-0">
         <TeamLogo abbr={abbr} />
         <div className="min-w-0">
@@ -200,9 +205,13 @@ function TeamLine({ abbr, name, score }: { abbr: string; name: string; score: st
           <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] truncate">{name}</p>
         </div>
       </div>
-      <p className="text-4xl font-black tracking-tighter">{score}</p>
+      <div className="flex items-center gap-3">
+        {teamId && <span className="translate-x-1 text-sm font-black opacity-0 transition-all group-hover/team:translate-x-0 group-hover/team:opacity-100" style={{ color: theme.primary }}>→</span>}
+        <p className="text-4xl font-black tracking-tighter">{score}</p>
+      </div>
     </div>
   );
+  return teamId ? <Link href={`/wnba/teams/${teamId}`} aria-label={`Ver estadísticas de ${name}`}>{row}</Link> : row;
 }
 
 function PlayerRow({ player, rank }: { player: PlayerLeader; rank: number }) {
@@ -254,7 +263,7 @@ export default async function WNBADashboardPage({ searchParams }: { searchParams
 
   const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
 
-  const [gamesRes, completedRes, upcomingRes, leadersRes] = await Promise.all([
+  const [gamesRes, completedRes, upcomingRes, leadersRes, teamsRes] = await Promise.all([
     supabase
       .from("v_wnba_daily_games")
       .select("*")
@@ -278,6 +287,11 @@ export default async function WNBADashboardPage({ searchParams }: { searchParams
       .eq("season_type", "Regular Season")
       .order("pts", { ascending: false })
       .limit(12),
+    supabase
+      .from("v_wnba_teams")
+      .select("team_id, team_abbr")
+      .eq("season", "2026")
+      .eq("season_type", "Regular Season"),
   ]);
 
   const scheduledGames = (gamesRes.data ?? []) as DailyGame[];
@@ -287,6 +301,11 @@ export default async function WNBADashboardPage({ searchParams }: { searchParams
   const games = exactGames.length ? exactGames : upcomingGames;
   const showingUpcoming = exactGames.length === 0 && upcomingGames.length > 0;
   const leaders = (leadersRes.data ?? []) as PlayerLeader[];
+  const teamIds = new Map(
+    ((teamsRes.data ?? []) as TeamDirectoryRow[])
+      .filter((team) => team.team_abbr)
+      .map((team) => [String(team.team_abbr).toUpperCase(), Number(team.team_id)]),
+  );
 
   return (
     <main className="min-h-screen p-4 pt-20 md:p-8 md:pt-8 text-[var(--text)]" style={{ background: "radial-gradient(circle at 8% 0%, rgba(16,185,129,.16), transparent 28%), radial-gradient(circle at 100% 18%, rgba(124,58,237,.13), transparent 22%), var(--bg)" }}>
@@ -324,7 +343,7 @@ export default async function WNBADashboardPage({ searchParams }: { searchParams
 
           {games.length ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {games.map((game) => <GameCard key={game.id} game={game} />)}
+              {games.map((game) => <GameCard key={game.id} game={game} teamIds={teamIds} />)}
             </div>
           ) : (
             <div className="rounded-[1.5rem] border border-dashed border-[var(--border)] bg-[var(--surface)] p-10 text-center">

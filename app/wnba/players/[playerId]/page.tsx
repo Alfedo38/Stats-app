@@ -329,7 +329,7 @@ export default async function WNBAPlayerPage({
                   {firstName} <span style={{ color: teamTheme.primary }}>{lastName}</span>
                 </h1>
                 <p className="mt-3 text-[10px] md:text-xs text-[var(--text-muted)] font-black uppercase tracking-[0.18em]">
-                  {[teamAbbr || "WNBA", profile?.jersey ? `#${profile.jersey}` : null, profile?.position || null, season, seasonType].filter(Boolean).join(" · ")}
+                  {[teamAbbr || "WNBA", profile?.jersey ? `#${profile.jersey}` : null, profile?.position || null, profile?.gp ? `${profile.gp} PJ` : null, season].filter(Boolean).join(" · ")}
                 </p>
               </div>
 
@@ -339,20 +339,25 @@ export default async function WNBAPlayerPage({
             </div>
           </section>
 
-          <section className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-            <Metric label="GP" value={fmt(profile?.gp, 0)} />
+          <section className="grid grid-cols-2 gap-3 md:grid-cols-5">
             <Metric label="MIN" value={fmt(profile?.min)} />
             <Metric label="PTS" value={fmt(profile?.pts)} />
             <Metric label="REB" value={fmt(profile?.reb)} />
             <Metric label="AST" value={fmt(profile?.ast)} />
             <Metric label="PRA" value={fmt(pra)} strong color={teamTheme.primary} />
-            <Metric label="USG%" value={pct(profile?.usg_pct)} />
-            <Metric label="TS%" value={pct(profile?.ts_pct)} />
-            <Metric label="FG%" value={pct(profile?.fg_pct)} />
-            <Metric label="3P%" value={pct(profile?.fg3_pct)} />
-            <Metric label="STL" value={fmt(profile?.stl)} />
-            <Metric label="BLK" value={fmt(profile?.blk)} />
           </section>
+
+          <details className="group rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
+            <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-[9px] font-black uppercase tracking-[0.22em] text-[var(--text-muted)]"><span>Datos avanzados</span><span className="transition-transform group-open:rotate-45">＋</span></summary>
+            <div className="grid grid-cols-3 gap-3 border-t border-[var(--border)] p-3 md:grid-cols-6">
+              <Metric label="USG%" value={pct(profile?.usg_pct)} />
+              <Metric label="TS%" value={pct(profile?.ts_pct)} />
+              <Metric label="FG%" value={pct(profile?.fg_pct)} />
+              <Metric label="3P%" value={pct(profile?.fg3_pct)} />
+              <Metric label="STL" value={fmt(profile?.stl)} />
+              <Metric label="BLK" value={fmt(profile?.blk)} />
+            </div>
+          </details>
 
           <WNBAPlayerChartPanel
             stats={cleanStats}

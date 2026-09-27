@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { BarChart3, Filter, ListFilter, RotateCcw } from "lucide-react";
+import { BarChart3, ChevronDown, Filter, ListFilter, RotateCcw, X } from "lucide-react";
 import { getWNBATeamTheme } from "./wnbaTeamColors";
 
 type StatOption = {
@@ -33,10 +33,11 @@ const STAT_OPTIONS: StatOption[] = [
   { id: "stl", label: "STL", accent: "#4ade80", getValue: (r) => num(r.stl) },
   { id: "blk", label: "BLK", accent: "#818cf8", getValue: (r) => num(r.blk) },
   { id: "tov", label: "TOV", accent: "#f87171", getValue: (r) => num(r.tov ?? r.turnovers) },
-  { id: "min", label: "MIN", accent: "#cbd5e1", getValue: (r) => minutesNum(r.min ?? r.minutes) },
 ];
 
-const LAST_N = [30, 20, 10, 5, 0];
+const MAIN_STAT_IDS = new Set(["pts", "reb", "ast", "pra", "pa", "pr", "ra", "fg3m", "fgm", "fga"]);
+const MORE_STAT_IDS = new Set(["stl", "blk", "tov"]);
+const LAST_N = [30, 20, 10, 5];
 
 function num(value: any) {
   const n = Number(value);
@@ -97,6 +98,7 @@ export default function WNBAPlayerChartPanel({ stats, teamAbbr, teammateGames = 
   const [teammateStatus, setTeammateStatus] = useState<"ALL" | "PLAYED" | "OUT" | "INJURY" | "COACH">("ALL");
   const [side, setSide] = useState<"over" | "under">("over");
   const [lineValue, setLineValue] = useState(0.5);
+  const [showMore, setShowMore] = useState(false);
 
   const stat = STAT_OPTIONS.find((s) => s.id === activeStat) || STAT_OPTIONS[0];
   const inferredTeam = teamAbbr || stats?.find((s) => s?.team_abbreviation || s?.team_abbr)?.team_abbreviation || stats?.find((s) => s?.team_abbr)?.team_abbr || null;
@@ -184,7 +186,7 @@ export default function WNBAPlayerChartPanel({ stats, teamAbbr, teammateGames = 
       return true;
     });
 
-    return lastN > 0 ? base.slice(0, lastN) : base;
+    return base.slice(0, lastN);
   }, [normalized, opponent, homeAway, minuteLine, minuteOperator, teammateId, teammateStatus, teammateByGame, lastN]);
 
   const chartRows = useMemo(() => [...filtered].reverse(), [filtered]);
@@ -212,20 +214,6 @@ export default function WNBAPlayerChartPanel({ stats, teamAbbr, teammateGames = 
     const trend = recentAvg - previousAvg;
     return { games, avg, median, hits, hitRate: games ? (hits / games) * 100 : 0, high, low, streak, trend, recentAvg };
   }, [filtered, lineValue, side]);
-
-  const lineOptions = useMemo(() => {
-    const values = normalized.map((r) => num(r.value));
-    const max = Math.max(lineValue, ...values, 1);
-    const min = Math.min(lineValue, ...values, 0);
-    const start = Math.max(0, Math.floor(min) - 5) + 0.5;
-    const end = Math.ceil(max) + 8 + 0.5;
-    const options: number[] = [];
-    for (let value = start; value <= end + 0.001; value += 1) {
-      options.push(Number(value.toFixed(1)));
-    }
-    if (!options.includes(lineValue)) options.push(lineValue);
-    return options.sort((a, b) => a - b);
-  }, [normalized, lineValue]);
 
   const moveLine = (delta: number) => {
     setLineValue((prev) => Math.max(0.5, Number((toBetLine(prev) + delta).toFixed(1))));
@@ -266,8 +254,8 @@ export default function WNBAPlayerChartPanel({ stats, teamAbbr, teammateGames = 
           </h2>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          {STAT_OPTIONS.map((s) => {
+        <div className="flex max-w-[760px] flex-wrap justify-start gap-2 xl:justify-end">
+          {STAT_OPTIONS.filter((item) => MAIN_STAT_IDS.has(item.id)).map((s) => {
             const active = activeStat === s.id;
             return (
               <button
@@ -277,14 +265,21 @@ export default function WNBAPlayerChartPanel({ stats, teamAbbr, teammateGames = 
                 className="rounded-xl border px-3 py-2 text-[10px] font-black uppercase tracking-widest transition-all"
                 style={{
                   borderColor: active ? s.accent : "rgba(148,163,184,.22)",
-                  background: active ? s.accent : "rgba(2,6,12,.72)",
-                  color: active ? "#050505" : "rgb(148 163 184)",
-                  boxShadow: active ? `0 0 24px ${s.accent}33` : "none",
+                  background: active ? `${s.accent}18` : "rgba(2,6,12,.72)",
+                  color: active ? s.accent : "rgb(148 163 184)",
+                  boxShadow: active ? `inset 0 0 0 1px ${s.accent}24, 0 0 18px ${s.accent}14` : "none",
                 }}
               >
                 {s.label}
               </button>
             );
+          })}
+          <button type="button" onClick={() => setShowMore((value) => !value)} className="inline-flex items-center gap-1 rounded-xl border border-white/15 bg-[#02060c] px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-300 transition hover:border-white/30 hover:text-white">
+            Más <ChevronDown size={12} className={`transition-transform ${showMore ? "rotate-180" : ""}`} />
+          </button>
+          {showMore && STAT_OPTIONS.filter((item) => MORE_STAT_IDS.has(item.id)).map((s) => {
+            const active = activeStat === s.id;
+            return <button key={s.id} type="button" onClick={() => setActiveStat(s.id)} className="rounded-xl border px-3 py-2 text-[10px] font-black uppercase tracking-widest transition-all" style={{ borderColor: active ? s.accent : "rgba(148,163,184,.22)", background: active ? `${s.accent}18` : "rgba(2,6,12,.72)", color: active ? s.accent : "rgb(148 163 184)" }}>{s.label}</button>;
           })}
         </div>
       </div>
@@ -302,9 +297,9 @@ export default function WNBAPlayerChartPanel({ stats, teamAbbr, teammateGames = 
                 type="button"
                 onClick={() => setLastN(n)}
                 className="min-w-14 rounded-xl border px-3 py-2 text-[10px] font-black uppercase tracking-widest"
-                style={{ borderColor: active ? theme.primary : "rgba(148,163,184,.22)", background: active ? theme.primary : "rgba(2,6,12,.72)", color: active ? theme.text : "rgb(148 163 184)" }}
+                style={{ borderColor: active ? theme.primary : "rgba(148,163,184,.22)", background: active ? `${theme.primary}16` : "rgba(2,6,12,.72)", color: active ? theme.primary : "rgb(148 163 184)" }}
               >
-                {n === 0 ? "Todos" : `L${n}`}
+                L{n}
               </button>
             );
           })}
@@ -312,12 +307,10 @@ export default function WNBAPlayerChartPanel({ stats, teamAbbr, teammateGames = 
 
         <div className="grid grid-cols-[38px_1fr_38px_76px] gap-2">
           <button type="button" onClick={() => moveLine(-1)} className="rounded-xl border border-white/10 bg-[#07131a] text-xl font-black" aria-label="Bajar línea">−</button>
-          <label className="relative">
-            <span className="pointer-events-none absolute left-3 top-1.5 text-[7px] font-black uppercase tracking-widest text-[var(--text-muted)]">Línea</span>
-            <select value={lineValue.toFixed(1)} onChange={(e) => setLineValue(toBetLine(Number(e.target.value)))} className="h-full w-full rounded-xl border border-white/10 bg-[#07131a] px-3 pb-1 pt-3 text-center text-lg font-black text-white outline-none">
-              {lineOptions.map((line) => <option key={line.toFixed(1)} value={line.toFixed(1)}>{line.toFixed(1)}</option>)}
-            </select>
-          </label>
+          <div className="flex flex-col items-center justify-center rounded-xl border border-white/10 bg-[#07131a]">
+            <span className="text-[7px] font-black uppercase tracking-widest text-[var(--text-muted)]">Línea</span>
+            <strong className="text-lg font-black tabular-nums text-white">{lineValue.toFixed(1)}</strong>
+          </div>
           <button type="button" onClick={() => moveLine(1)} className="rounded-xl border border-white/10 bg-[#07131a] text-xl font-black" aria-label="Subir línea">+</button>
           <div className="flex flex-col items-center justify-center rounded-xl border border-white/10 bg-[#07131a]">
             <span className="text-[7px] font-black uppercase tracking-widest text-[var(--text-muted)]">HR</span>
@@ -326,8 +319,8 @@ export default function WNBAPlayerChartPanel({ stats, teamAbbr, teammateGames = 
         </div>
       </div>
 
-      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_270px]">
-        <div className="min-w-0 overflow-hidden rounded-[1.35rem] border border-white/10 bg-[#03070c] p-3 md:p-4">
+      <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_270px]">
+        <div className="min-w-0 self-start overflow-hidden rounded-[1.35rem] border border-white/10 bg-[#03070c] p-3 md:p-4">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1">
             <p className="text-[9px] font-black uppercase tracking-[0.22em]" style={{ color: activeColor }}>{stat.label} por partido</p>
             <p className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]">{summary.hits}/{summary.games} hits · promedio {fmt(summary.avg)} · mediana {fmt(summary.median)}</p>
@@ -337,16 +330,10 @@ export default function WNBAPlayerChartPanel({ stats, teamAbbr, teammateGames = 
           </div>
         </div>
 
-        <aside className="rounded-[1.35rem] border p-3" style={{ borderColor: `${theme.primary}38`, background: `linear-gradient(180deg, ${theme.soft}, rgba(3,7,12,.98) 35%)` }}>
+        <aside className="self-start rounded-[1.35rem] border p-3" style={{ borderColor: `${theme.primary}28`, background: `linear-gradient(180deg, ${theme.primary}08, rgba(3,7,12,.98) 28%)` }}>
           <div className="mb-3 flex items-center justify-between">
             <p className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: theme.primary }}><Filter size={12} /> Filtros</p>
             <button type="button" onClick={resetFilters} className="flex items-center gap-1 rounded-lg border border-white/10 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-[var(--text-muted)] hover:text-white"><RotateCcw size={10} /> Reset</button>
-          </div>
-
-          <div className="mb-3 grid grid-cols-3 gap-2">
-            <MiniMetric label="Muestra" value={lastN === 0 ? "Todos" : `L${lastN}`} color={theme.primary} />
-            <MiniMetric label="Partidos" value={String(summary.games)} color={theme.secondary} />
-            <MiniMetric label="HR" value={`${fmt(summary.hitRate, 0)}%`} color={summary.hitRate >= 50 ? "#22c55e" : "#ef4444"} />
           </div>
 
           <FilterBlock label="Lado">
@@ -359,27 +346,28 @@ export default function WNBAPlayerChartPanel({ stats, teamAbbr, teammateGames = 
 
           <FilterBlock label="Cancha">
             <div className="grid grid-cols-3 gap-1 rounded-xl border border-white/10 bg-[#07131a] p-1">
-              {[["ALL", "Todos"], ["HOME", "Local"], ["AWAY", "Visit."]].map(([value, label]) => (
-                <button key={value} type="button" onClick={() => setHomeAway(value)} className="rounded-lg px-1 py-2 text-[8px] font-black uppercase" style={{ background: homeAway === value ? theme.secondary : "transparent", color: homeAway === value ? "#050505" : "rgb(148 163 184)" }}>{label}</button>
+              {[["ALL", "Cualquiera"], ["HOME", "Local"], ["AWAY", "Visit."]].map(([value, label]) => (
+                <button key={value} type="button" onClick={() => setHomeAway(value)} className="rounded-lg border px-1 py-2 text-[8px] font-black uppercase" style={{ borderColor: homeAway === value ? theme.primary : "transparent", background: homeAway === value ? `${theme.primary}16` : "transparent", color: homeAway === value ? theme.primary : "rgb(148 163 184)" }}>{label}</button>
               ))}
             </div>
           </FilterBlock>
 
           <FilterBlock label="Minutos">
-            <div className="mb-2 grid grid-cols-[76px_1fr] gap-2">
+            <div className="mb-2 grid grid-cols-[76px_1fr_36px] gap-2">
               <div className="grid grid-cols-2 gap-1 rounded-xl border border-white/10 bg-[#07131a] p-1">
                 {(["gte", "lte"] as const).map((operator) => (
-                  <button key={operator} type="button" onClick={() => setMinuteOperator(operator)} className="rounded-lg py-2 text-xs font-black" style={{ background: minuteOperator === operator ? theme.secondary : "transparent", color: minuteOperator === operator ? "#050505" : "rgb(148 163 184)" }}>{operator === "gte" ? "≥" : "≤"}</button>
+                  <button key={operator} type="button" onClick={() => setMinuteOperator(operator)} className="rounded-lg border py-2 text-xs font-black" style={{ borderColor: minuteOperator === operator ? theme.primary : "transparent", background: minuteOperator === operator ? `${theme.primary}16` : "transparent", color: minuteOperator === operator ? theme.primary : "rgb(148 163 184)" }}>{operator === "gte" ? "≥" : "≤"}</button>
                 ))}
               </div>
               <label className="relative">
                 <span className="pointer-events-none absolute left-3 top-1 text-[7px] font-black uppercase tracking-widest text-[var(--text-muted)]">Línea MIN</span>
-                <input type="number" min={0} max={60} step={1} value={minuteLine || ""} placeholder="Todos" onChange={(event) => setMinuteLine(Math.max(0, Number(event.target.value) || 0))} className="h-full w-full rounded-xl border border-white/10 bg-[#07131a] px-3 pb-1 pt-3 text-sm font-black text-white outline-none" />
+                <input type="number" min={0} max={60} step={1} value={minuteLine || ""} placeholder="—" onChange={(event) => setMinuteLine(Math.max(0, Number(event.target.value) || 0))} className="h-full w-full rounded-xl border border-white/10 bg-[#07131a] px-3 pb-1 pt-3 text-sm font-black text-white outline-none" />
               </label>
+              <button type="button" onClick={() => setMinuteLine(0)} aria-label="Quitar filtro de minutos" className="flex items-center justify-center rounded-xl border border-white/10 bg-[#07131a] text-white/45 transition hover:text-white"><X size={13} /></button>
             </div>
-            <div className="grid grid-cols-6 gap-1">
-              {[0, 20, 25, 30, 35, 40].map((value) => (
-                <button key={value} type="button" onClick={() => setMinuteLine(value)} className="rounded-lg border px-1 py-2 text-[8px] font-black" style={{ borderColor: minuteLine === value ? theme.primary : "rgba(148,163,184,.18)", background: minuteLine === value ? theme.primary : "#07131a", color: minuteLine === value ? theme.text : "rgb(148 163 184)" }}>{value || "Todo"}</button>
+            <div className="grid grid-cols-5 gap-1">
+              {[20, 25, 30, 35, 40].map((value) => (
+                <button key={value} type="button" onClick={() => setMinuteLine(value)} className="rounded-lg border px-1 py-2 text-[8px] font-black" style={{ borderColor: minuteLine === value ? theme.primary : "rgba(148,163,184,.18)", background: minuteLine === value ? `${theme.primary}16` : "#07131a", color: minuteLine === value ? theme.primary : "rgb(148 163 184)" }}>{value}</button>
               ))}
             </div>
             <p className="mt-2 text-[8px] font-black uppercase tracking-widest text-white/40">{minuteLine ? `Partidos con MIN ${minuteOperator === "gte" ? "≥" : "≤"} ${minuteLine}` : "Sin filtro de minutos"}</p>
@@ -387,7 +375,7 @@ export default function WNBAPlayerChartPanel({ stats, teamAbbr, teammateGames = 
 
           <FilterBlock label="Rival">
             <select value={opponent} onChange={(e) => setOpponent(e.target.value)} className="w-full rounded-xl border border-white/10 bg-[#07131a] px-3 py-3 text-xs font-black uppercase text-white outline-none">
-              <option value="ALL">Todos</option>
+              <option value="ALL">Cualquier rival</option>
               {opponents.map((opp) => <option key={opp} value={opp}>{opp}</option>)}
             </select>
           </FilterBlock>
@@ -402,7 +390,7 @@ export default function WNBAPlayerChartPanel({ stats, teamAbbr, teammateGames = 
               }}
               className="w-full rounded-xl border border-white/10 bg-[#07131a] px-3 py-3 text-xs font-black uppercase text-white outline-none"
             >
-              <option value="ALL">Sin filtro</option>
+              <option value="ALL">Cualquier compañera</option>
               {teammateOptions.map((player) => <option key={player.id} value={String(player.id)}>{player.name}</option>)}
             </select>
             {teammateId !== "ALL" && (
@@ -413,7 +401,7 @@ export default function WNBAPlayerChartPanel({ stats, teamAbbr, teammateGames = 
                   ...(teammateReasonOptions.injury ? [["INJURY", "Lesión"]] : []),
                   ...(teammateReasonOptions.coach ? [["COACH", "Técnica"]] : []),
                 ] as Array<["PLAYED" | "OUT" | "INJURY" | "COACH", string]>).map(([value, label]) => (
-                  <button key={value} type="button" onClick={() => setTeammateStatus(value)} className="rounded-lg border px-2 py-2 text-[8px] font-black uppercase" style={{ borderColor: teammateStatus === value ? theme.primary : "rgba(148,163,184,.18)", background: teammateStatus === value ? theme.primary : "#07131a", color: teammateStatus === value ? theme.text : "rgb(148 163 184)" }}>{label}</button>
+                  <button key={value} type="button" onClick={() => setTeammateStatus(value)} className="rounded-lg border px-2 py-2 text-[8px] font-black uppercase" style={{ borderColor: teammateStatus === value ? theme.primary : "rgba(148,163,184,.18)", background: teammateStatus === value ? `${theme.primary}16` : "#07131a", color: teammateStatus === value ? theme.primary : "rgb(148 163 184)" }}>{label}</button>
                 ))}
               </div>
             )}
@@ -424,7 +412,7 @@ export default function WNBAPlayerChartPanel({ stats, teamAbbr, teammateGames = 
 
       <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Metric label={`AVG ${stat.label}`} value={fmt(summary.avg)} color={activeColor} />
-        <Metric label="Mediana" value={fmt(summary.median)} color={theme.secondary} />
+        <Metric label="Mediana" value={fmt(summary.median)} color={theme.primary} />
         <Metric label="Hit rate" value={`${summary.hits}/${summary.games} · ${fmt(summary.hitRate, 0)}%`} color={summary.hitRate >= 50 ? "#22c55e" : "#ef4444"} />
         <Metric label="Racha actual" value={summary.streak ? `${summary.streak} HIT${summary.streak === 1 ? "" : "S"}` : "Sin racha"} color={summary.streak ? "#22c55e" : "#94a3b8"} />
         <Metric label="Tendencia L5" value={`${summary.trend >= 0 ? "+" : ""}${fmt(summary.trend)}`} color={summary.trend >= 0 ? "#22c55e" : "#ef4444"} />
@@ -576,15 +564,6 @@ function FilterBlock({ label, children }: { label: string; children: React.React
     <div className="mt-3 rounded-2xl border border-white/10 bg-black/20 p-3">
       <p className="mb-2 text-[8px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">{label}</p>
       {children}
-    </div>
-  );
-}
-
-function MiniMetric({ label, value, color }: { label: string; value: string; color: string }) {
-  return (
-    <div className="rounded-xl border border-white/10 bg-[#07131a] px-2 py-2 text-center">
-      <p className="text-[7px] font-black uppercase tracking-widest text-[var(--text-muted)]">{label}</p>
-      <p className="mt-1 text-sm font-black" style={{ color }}>{value}</p>
     </div>
   );
 }

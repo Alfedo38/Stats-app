@@ -136,7 +136,9 @@ export default function WNBAPlayerChartPanel({ stats, teamAbbr, teammateGames = 
   }, [stats, stat]);
 
   const opponents = useMemo(() => {
-    return Array.from(new Set(normalized.map((r) => getOpponent(r)).filter(Boolean))).sort();
+    // normalized ya está ordenado del partido más reciente al más antiguo.
+    // Set conserva la primera aparición, por lo que el último rival queda primero.
+    return Array.from(new Set(normalized.map((r) => getOpponent(r)).filter(Boolean)));
   }, [normalized]);
 
   const teammateOptions = useMemo(() => {

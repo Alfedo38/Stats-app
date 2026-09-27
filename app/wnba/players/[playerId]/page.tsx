@@ -1,6 +1,9 @@
 import { requirePageUser } from '@/lib/auth/server';
 import WNBAPlayerChartPanel from "@/components/wnba/WNBAPlayerChartPanel";
+import WNBAAbsenceImpact, { type WNBATeammateGame } from "@/components/wnba/WNBAAbsenceImpact";
+import WNBAPlayerMatchups, { type WNBAMatchup } from "@/components/wnba/WNBAPlayerMatchups";
 import WNBAQuickSwitcher, { type WNBASwitchTeam } from "@/components/wnba/WNBAQuickSwitcher";
+import WNBAShotChart, { type WNBAShot } from "@/components/wnba/WNBAShotChart";
 import { getWNBATeamTheme } from "@/components/wnba/wnbaTeamColors";
 import { createClient } from "@supabase/supabase-js";
 import { ArrowLeft } from "lucide-react";
@@ -72,6 +75,8 @@ type Log = {
   ts_pct: number | null;
   usg_pct: number | null;
   pie?: number | null;
+  start_position?: string | null;
+  comment?: string | null;
 };
 
 type RosterRow = {
@@ -92,6 +97,10 @@ type TeammateGameRow = {
   team_abbreviation?: string | null;
   minutes?: string | number | null;
   comment?: string | null;
+  start_position?: string | null;
+  pts?: number | null;
+  reb?: number | null;
+  ast?: number | null;
 };
 
 function getOne(value: string | string[] | undefined, fallback: string) {
@@ -264,23 +273,23 @@ export default async function WNBAPlayerPage({
     const teamAbbr = profile?.team_abbr || cleanStats.find((s: any) => s?.team_abbreviation)?.team_abbreviation || null;
     const teamId = profile?.team_id || cleanStats.find((s: any) => s?.team_id)?.team_id || null;
 
-    const playerGameIds = Array.from(new Set(cleanStats.map((row) => String(row.game_id)).filter(Boolean)));
-    const playerTeamIds = Array.from(new Set(rawLogs.map((row) => Number(row.team_id)).filter((id) => Number.isFinite(id) && id > 0)));
-
-    const teammateGamesRes = playerGameIds.length && playerTeamIds.length
+    // Para analizar una ausencia necesitamos también los partidos donde la
+    // jugadora del perfil no disputó minutos. Por eso se consulta toda la
+    // temporada de su equipo, no solamente sus propios game_id.
+    const teamSeasonGamesRes = teamId
       ? await supabase
           .from("v_wnba_player_game_logs")
           .select("*")
-          .in("game_id", playerGameIds)
-          .in("team_id", playerTeamIds)
+          .eq("team_id", Number(teamId))
           .eq("season", season)
           .eq("season_type", seasonType)
-          .limit(2000)
+          .limit(3000)
       : { data: [], error: null };
 
-    if (teammateGamesRes.error) throw teammateGamesRes.error;
+    if (teamSeasonGamesRes.error) throw teamSeasonGamesRes.error;
 
-    const teammateGames = ((teammateGamesRes.data ?? []) as TeammateGameRow[])
+    const teamSeasonGames = (teamSeasonGamesRes.data ?? []) as TeammateGameRow[];
+    const teammateGames = teamSeasonGames
       .filter((row) => Number(row.player_id) !== Number(playerId));
 
     const rosterRes = teamId
@@ -294,6 +303,32 @@ export default async function WNBAPlayerPage({
       : { data: [], error: null };
 
     if (rosterRes.error) throw rosterRes.error;
+
+    // Estas dos vistas se agregan con los paquetes de contexto. Si todavía no se
+    // ejecutó el SQL, el resto del perfil debe continuar funcionando.
+    const [shotsRes, matchupsRes] = await Promise.all([
+      supabase
+        .from("v_wnba_player_shots")
+        .select("*")
+        .eq("player_id", Number(playerId))
+        .eq("season", season)
+        .eq("season_type", seasonType)
+        .order("game_date", { ascending: false })
+        .limit(3000),
+      supabase
+        .from("v_wnba_player_season_matchups")
+        .select("*")
+        .eq("offensive_player_id", Number(playerId))
+        .eq("season", season)
+        .eq("season_type", seasonType)
+        .order("partial_possessions", { ascending: false })
+        .limit(1000),
+    ]);
+
+    if (shotsRes.error) console.warn("WNBA_SHOTS_OPTIONAL:", shotsRes.error.message);
+    if (matchupsRes.error) console.warn("WNBA_MATCHUPS_OPTIONAL:", matchupsRes.error.message);
+    const shots = (shotsRes.error ? [] : shotsRes.data ?? []) as WNBAShot[];
+    const matchups = (matchupsRes.error ? [] : matchupsRes.data ?? []) as WNBAMatchup[];
 
     const teammates = ((rosterRes.data ?? []) as RosterRow[]).map((p) => ({
       id: p.player_id,
@@ -359,11 +394,30 @@ export default async function WNBAPlayerPage({
             </div>
           </details>
 
-          <WNBAPlayerChartPanel
-            stats={cleanStats}
-            teamAbbr={teamAbbr ? String(teamAbbr).toUpperCase() : null}
-            teammateGames={teammateGames}
-          />
+          <nav className="sticky top-2 z-20 flex gap-2 overflow-x-auto rounded-2xl border border-white/10 bg-[#05090f]/90 p-2 shadow-xl shadow-black/20 backdrop-blur" aria-label="Secciones del análisis">
+            {[["#rendimiento", "Rendimiento"], ["#tiros", "Tiros por partido"], ["#defensa", "Quién la defendió"], ["#ausencias", "Reemplazantes"]].map(([href, label], index) => <a key={href} href={href} className="whitespace-nowrap rounded-xl border border-white/10 bg-black/25 px-3 py-2 text-[8px] font-black uppercase tracking-widest text-slate-300 transition hover:border-white/25 hover:text-white"><span className="mr-1.5 text-[var(--text-muted)]">0{index + 1}</span>{label}</a>)}
+          </nav>
+
+          <div id="rendimiento" className="scroll-mt-20"><WNBAPlayerChartPanel
+              stats={cleanStats}
+              teamAbbr={teamAbbr ? String(teamAbbr).toUpperCase() : null}
+              teammateGames={teammateGames}
+            /></div>
+          <div id="tiros" className="scroll-mt-20"><WNBAShotChart
+              shots={shots}
+              teamAbbr={teamAbbr ? String(teamAbbr).toUpperCase() : null}
+            /></div>
+          <div id="defensa" className="scroll-mt-20"><WNBAPlayerMatchups
+              rows={matchups}
+              teamAbbr={teamAbbr ? String(teamAbbr).toUpperCase() : null}
+            /></div>
+          <div id="ausencias" className="scroll-mt-20"><WNBAAbsenceImpact
+              playerId={Number(playerId)}
+              playerName={playerName}
+              teamGames={teamSeasonGames as WNBATeammateGame[]}
+              playerPosition={profile?.position}
+              teamAbbr={teamAbbr ? String(teamAbbr).toUpperCase() : null}
+            /></div>
         </div>
         <WNBAQuickSwitcher
           teams={switchTeams}

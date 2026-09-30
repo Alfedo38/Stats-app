@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import DvpPanel from "@/components/DvpPanel";
 import TeamMatesPanel, { type TeamMate } from "@/components/TeamMatesPanel";
 import PlayerChartContainer from "@/components/PlayerChartContainer";
+import NBAContextExplorer from "@/components/NBAContextExplorer";
 import type { ActiveFilter } from "@/components/StatFilters";
 import type { GameSlot } from "@/lib/api";
 
@@ -227,6 +228,11 @@ export default function PlayerPageContent({
           externalFilters={externalFilters}
           onRemoveExternalFilter={removeExternalFilter}
           activeInjuryContext={activeInjuryContext}
+        />
+
+        <NBAContextExplorer
+          playerId={currentPlayerId}
+          playerName={playerName}
         />
 
         {dvpOpponent && position && (

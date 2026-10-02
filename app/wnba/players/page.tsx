@@ -1,3 +1,4 @@
+import { normalizeSeasonType, seasonTypes, uniqueRows, combineSeasonRows } from "@/lib/wnba/seasonScope";
 import { requirePageUser } from '@/lib/auth/server';
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
@@ -55,7 +56,7 @@ export default async function WNBAPlayersPage({ searchParams }: { searchParams?:
   const q = getOne(sp.q, "").trim();
   const sort = sortColumn(getOne(sp.sort, "pts"));
   const season = getOne(sp.season, "2026");
-  const seasonType = getOne(sp.season_type, "Regular Season");
+  const seasonType = normalizeSeasonType(getOne(sp.season_type, "ALL"));
   const teamFilter = getOne(sp.team, "ALL").toUpperCase();
 
   const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -73,9 +74,9 @@ export default async function WNBAPlayersPage({ searchParams }: { searchParams?:
     .from("v_wnba_team_roster")
     .select("player_id, player_name, team_abbr, position, gp, min, pts, reb, ast, stl, blk, season, season_type")
     .eq("season", season)
-    .eq("season_type", seasonType)
+    .in("season_type", seasonTypes(seasonType))
     .order(sort, { ascending: false })
-    .limit(120);
+    .limit(1000);
 
   if (q) playersQuery = playersQuery.ilike("player_name", `%${q}%`);
   if (teamFilter !== "ALL") playersQuery = playersQuery.eq("team_abbr", teamFilter);
@@ -86,11 +87,12 @@ export default async function WNBAPlayersPage({ searchParams }: { searchParams?:
       .from("v_wnba_teams")
       .select("team_abbr, team_name")
       .eq("season", season)
-      .eq("season_type", seasonType)
+      .in("season_type", seasonTypes(seasonType))
       .order("team_name", { ascending: true }),
   ]);
-  const players = (playersRes.data ?? []) as PlayerRow[];
-  const teams = (teamsRes.data ?? []) as Array<{ team_abbr: string | null; team_name: string | null }>;
+  const players = combineSeasonRows((playersRes.data ?? []) as PlayerRow[], ["min", "pts", "reb", "ast", "stl", "blk"])
+    .sort((a, b) => Number((b as Record<string, unknown>)[sort] ?? 0) - Number((a as Record<string, unknown>)[sort] ?? 0));
+  const teams = uniqueRows((teamsRes.data ?? []) as Array<{ team_abbr: string | null; team_name: string | null }>, (team) => String(team.team_abbr));
 
   return (
     <main className="min-h-screen p-4 pt-20 md:p-8 md:pt-8 text-[var(--text)]" style={{ background: "radial-gradient(circle at 8% 0%, rgba(16,185,129,.16), transparent 28%), radial-gradient(circle at 100% 18%, rgba(124,58,237,.13), transparent 22%), var(--bg)" }}>
@@ -100,7 +102,7 @@ export default async function WNBAPlayersPage({ searchParams }: { searchParams?:
           <h1 className="mt-1 text-4xl md:text-5xl font-black italic uppercase tracking-tighter leading-none">Jugadoras</h1>
         </div>
 
-        <form className="grid w-full grid-cols-2 gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2 lg:w-auto lg:grid-cols-[220px_repeat(4,auto)_auto]">
+        <form key={`${season}:${seasonType}:${teamFilter}:${sort}:${q}`} className="grid w-full grid-cols-2 gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2 lg:w-auto lg:grid-cols-[220px_repeat(4,auto)_auto]">
           <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#07131a] px-3 py-2">
             <Search size={15} className="text-[var(--text-muted)]" />
             <input name="q" defaultValue={q} placeholder="Buscar jugadora..." className="bg-transparent outline-none text-sm font-black" />
@@ -109,7 +111,7 @@ export default async function WNBAPlayersPage({ searchParams }: { searchParams?:
             <option value="2026">2026</option><option value="2025">2025</option><option value="2024">2024</option>
           </select>
           <select name="season_type" defaultValue={seasonType} className="rounded-xl border border-white/10 bg-[#07131a] px-3 py-2 text-xs font-black text-white outline-none">
-            <option value="Regular Season">Temporada regular</option><option value="Playoffs">Playoffs</option>
+            <option value="ALL">Todos · Regular + Playoffs</option><option value="Regular Season">Temporada regular</option><option value="Playoffs">Playoffs</option>
           </select>
           <select name="team" defaultValue={teamFilter} className="rounded-xl border border-white/10 bg-[#07131a] px-3 py-2 text-xs font-black uppercase text-white outline-none">
             <option value="ALL">Todos los equipos</option>
@@ -123,7 +125,7 @@ export default async function WNBAPlayersPage({ searchParams }: { searchParams?:
             <option value="stl">STL</option>
             <option value="blk">BLK</option>
           </select>
-          <button className="rounded-xl bg-[#10b981] px-4 py-2 text-xs font-black uppercase tracking-widest text-black">Aplicar</button>
+          <button className="rounded-xl bg-[#10b981] px-4 py-2 text-xs font-black uppercase tracking-widest text-black">Buscar</button>
         </form>
       </section>
 

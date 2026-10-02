@@ -1,3 +1,4 @@
+import { normalizeSeasonType, seasonTypes, uniqueRows, combineSeasonRows, readAllRows } from "@/lib/wnba/seasonScope";
 import { requirePageUser } from '@/lib/auth/server';
 import WNBAPlayerChartPanel from "@/components/wnba/WNBAPlayerChartPanel";
 import WNBAAbsenceImpact, { type WNBATeammateGame } from "@/components/wnba/WNBAAbsenceImpact";
@@ -84,6 +85,8 @@ type RosterRow = {
   player_name: string;
   team_id: number;
   team_abbr: string;
+  gp: number | null;
+  season_type: string;
   pts: number | null;
   reb: number | null;
   ast: number | null;
@@ -221,7 +224,7 @@ export default async function WNBAPlayerPage({
     const { playerId } = await params;
     const sp = await Promise.resolve(searchParams ?? {});
     const season = getOne(sp.season, "2026");
-    const seasonType = getOne(sp.season_type, "Regular Season");
+    const seasonType = normalizeSeasonType(getOne(sp.season_type, "ALL"));
 
     const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey =
@@ -241,7 +244,8 @@ export default async function WNBAPlayerPage({
         .select("*")
         .eq("player_id", Number(playerId))
         .eq("season", season)
-        .eq("season_type", seasonType)
+        .in("season_type", seasonTypes(seasonType))
+        .order("season_type", { ascending: true })
         .limit(1)
         .maybeSingle(),
       supabase
@@ -249,14 +253,15 @@ export default async function WNBAPlayerPage({
         .select("*")
         .eq("player_id", Number(playerId))
         .eq("season", season)
-        .eq("season_type", seasonType)
+        .in("season_type", seasonTypes(seasonType))
         .order("game_date", { ascending: false })
-        .limit(80),
+        .order("game_id", { ascending: false })
+        .limit(1000),
       supabase
         .from("v_wnba_teams")
         .select("team_id, team_abbr, team_name")
         .eq("season", season)
-        .eq("season_type", seasonType)
+        .in("season_type", seasonTypes(seasonType))
         .order("team_name", { ascending: true }),
     ]);
 
@@ -264,9 +269,35 @@ export default async function WNBAPlayerPage({
     if (logsRes.error) throw logsRes.error;
     if (teamsRes.error) throw teamsRes.error;
 
-    const profile = profileRes.data as Profile | null;
-    const rawLogs = (logsRes.data ?? []) as Log[];
+    let profile = profileRes.data as Profile | null;
+    const rawLogs = uniqueRows((logsRes.data ?? []) as Log[], (row) => String(row.game_id));
     const cleanStats = prepareStats(rawLogs);
+    if (seasonType === "ALL" && profile) {
+      const average = (key: string) => {
+        const values = cleanStats.map((row) => (row as Record<string, unknown>)[key])
+          .filter((value) => value != null && Number.isFinite(Number(value)));
+        return values.length ? values.reduce<number>((sum, value) => sum + Number(value), 0) / values.length : null;
+      };
+      const shootingPct = (made: "fgm" | "fg3m" | "ftm", attempted: "fga" | "fg3a" | "fta") => {
+        const attempts = cleanStats.reduce((sum, row) => sum + toNumber(row[attempted]), 0);
+        return attempts ? cleanStats.reduce((sum, row) => sum + toNumber(row[made]), 0) / attempts : null;
+      };
+      const attempts = cleanStats.reduce((sum, row) => sum + toNumber(row.fga) + 0.44 * toNumber(row.fta), 0);
+      profile = { ...profile, gp: cleanStats.length, min: average("min"),
+        pts: average("pts"), reb: average("reb"), ast: average("ast"),
+        stl: average("stl"), blk: average("blk"), turnovers: average("turnovers"),
+        fg_pct: shootingPct("fgm", "fga"), fg3_pct: shootingPct("fg3m", "fg3a"),
+        ft_pct: shootingPct("ftm", "fta"),
+        ts_pct: attempts ? cleanStats.reduce((sum, row) => sum + row.pts, 0) / (2 * attempts) : null,
+        // Approximate season usage using playing-time weights. Shooting
+        // percentages above come from totals, rather than averaged percentages.
+        usg_pct: (() => {
+          const games = cleanStats.filter((row) => row.usg_pct != null);
+          const minutes = games.reduce((sum, row) => sum + row.min, 0);
+          return minutes ? games.reduce((sum, row) => sum + toNumber(row.usg_pct) * row.min, 0) / minutes : null;
+        })(), pie: null,
+      };
+    }
 
     const playerName = profile?.player_name || rawLogs?.[0]?.player_name || "Jugadora WNBA";
     const { firstName, lastName } = splitName(playerName);
@@ -277,28 +308,29 @@ export default async function WNBAPlayerPage({
     // jugadora del perfil no disputó minutos. Por eso se consulta toda la
     // temporada de su equipo, no solamente sus propios game_id.
     const teamSeasonGamesRes = teamId
-      ? await supabase
+      ? await readAllRows<TeammateGameRow>(() => supabase
           .from("v_wnba_player_game_logs")
           .select("*")
           .eq("team_id", Number(teamId))
           .eq("season", season)
-          .eq("season_type", seasonType)
-          .limit(3000)
+          .in("season_type", seasonTypes(seasonType))
+          .order("game_id", { ascending: true })
+          .order("player_id", { ascending: true }))
       : { data: [], error: null };
 
     if (teamSeasonGamesRes.error) throw teamSeasonGamesRes.error;
 
-    const teamSeasonGames = (teamSeasonGamesRes.data ?? []) as TeammateGameRow[];
+    const teamSeasonGames = uniqueRows((teamSeasonGamesRes.data ?? []) as TeammateGameRow[], (row) => `${row.game_id}:${row.player_id}`);
     const teammateGames = teamSeasonGames
       .filter((row) => Number(row.player_id) !== Number(playerId));
 
     const rosterRes = teamId
       ? await supabase
           .from("v_wnba_team_roster")
-          .select("player_id, player_name, team_id, team_abbr, pts, reb, ast")
+          .select("player_id, player_name, team_id, team_abbr, gp, season_type, pts, reb, ast")
           .eq("team_id", Number(teamId))
           .eq("season", season)
-          .eq("season_type", seasonType)
+          .in("season_type", seasonTypes(seasonType))
           .order("pts", { ascending: false })
       : { data: [], error: null };
 
@@ -307,30 +339,31 @@ export default async function WNBAPlayerPage({
     // Estas dos vistas se agregan con los paquetes de contexto. Si todavía no se
     // ejecutó el SQL, el resto del perfil debe continuar funcionando.
     const [shotsRes, matchupsRes] = await Promise.all([
-      supabase
+      readAllRows<WNBAShot>(() => supabase
         .from("v_wnba_player_shots")
         .select("*")
         .eq("player_id", Number(playerId))
         .eq("season", season)
-        .eq("season_type", seasonType)
+        .in("season_type", seasonTypes(seasonType))
         .order("game_date", { ascending: false })
-        .limit(3000),
+        .order("game_id", { ascending: false })
+        .order("game_event_id", { ascending: true })),
       supabase
         .from("v_wnba_player_season_matchups")
         .select("*")
         .eq("offensive_player_id", Number(playerId))
         .eq("season", season)
-        .eq("season_type", seasonType)
+        .in("season_type", seasonTypes(seasonType))
         .order("partial_possessions", { ascending: false })
         .limit(1000),
     ]);
 
     if (shotsRes.error) console.warn("WNBA_SHOTS_OPTIONAL:", shotsRes.error.message);
     if (matchupsRes.error) console.warn("WNBA_MATCHUPS_OPTIONAL:", matchupsRes.error.message);
-    const shots = (shotsRes.error ? [] : shotsRes.data ?? []) as WNBAShot[];
+    const shots = uniqueRows((shotsRes.error ? [] : shotsRes.data ?? []) as WNBAShot[], (row) => `${row.game_id}:${row.game_event_id}`);
     const matchups = (matchupsRes.error ? [] : matchupsRes.data ?? []) as WNBAMatchup[];
 
-    const teammates = ((rosterRes.data ?? []) as RosterRow[]).map((p) => ({
+    const teammates = combineSeasonRows((rosterRes.data ?? []) as RosterRow[], ["pts", "reb", "ast"]).map((p) => ({
       id: p.player_id,
       full_name: p.player_name,
       player_name: p.player_name,
@@ -343,7 +376,7 @@ export default async function WNBAPlayerPage({
 
     const pra = Number(profile?.pts || 0) + Number(profile?.reb || 0) + Number(profile?.ast || 0);
     const teamTheme = getWNBATeamTheme(teamAbbr);
-    const switchTeams = (teamsRes.data ?? []) as WNBASwitchTeam[];
+    const switchTeams = uniqueRows((teamsRes.data ?? []) as WNBASwitchTeam[], (team) => String(team.team_id));
 
     return (
       <main className="min-h-screen text-[var(--text)] pb-20" style={{ background: `radial-gradient(circle at 8% 0%, ${teamTheme.glow}, transparent 28%), radial-gradient(circle at 100% 14%, ${teamTheme.soft}, transparent 22%), var(--bg)` }}>
@@ -364,7 +397,7 @@ export default async function WNBAPlayerPage({
                   {firstName} <span style={{ color: teamTheme.primary }}>{lastName}</span>
                 </h1>
                 <p className="mt-3 text-[10px] md:text-xs text-[var(--text-muted)] font-black uppercase tracking-[0.18em]">
-                  {[teamAbbr || "WNBA", profile?.jersey ? `#${profile.jersey}` : null, profile?.position || null, profile?.gp ? `${profile.gp} PJ` : null, season].filter(Boolean).join(" · ")}
+                  {[teamAbbr || "WNBA", profile?.jersey ? `#${profile.jersey}` : null, profile?.position || null, `${cleanStats.length} PJ`, season, seasonType === "ALL" ? "Regular + Playoffs" : seasonType === "Playoffs" ? "Playoffs" : "Temporada regular"].filter(Boolean).join(" · ")}
                 </p>
               </div>
 
@@ -373,6 +406,20 @@ export default async function WNBAPlayerPage({
               </div>
             </div>
           </section>
+
+          <form key={`${season}:${seasonType}`} className="flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3">
+            <label className="text-xs font-bold" htmlFor="wnba-season">Temporada</label>
+            <select id="wnba-season" name="season" defaultValue={season} className="rounded-xl border border-white/10 bg-[#07131a] px-3 py-2 text-xs font-bold">
+              {["2026", "2025", "2024"].map((year) => <option key={year} value={year}>{year}</option>)}
+            </select>
+            <label className="text-xs font-bold" htmlFor="wnba-phase">Fase</label>
+            <select id="wnba-phase" name="season_type" defaultValue={seasonType} className="rounded-xl border border-white/10 bg-[#07131a] px-3 py-2 text-xs font-bold">
+              <option value="ALL">Todos · Regular + Playoffs</option>
+              <option value="Regular Season">Temporada regular</option>
+              <option value="Playoffs">Playoffs</option>
+            </select>
+            <button className="rounded-xl px-4 py-2 text-xs font-black text-black" style={{ background: teamTheme.primary }}>Ver partidos</button>
+          </form>
 
           <section className="grid grid-cols-2 gap-3 md:grid-cols-5">
             <Metric label="MIN" value={fmt(profile?.min)} />
@@ -385,7 +432,7 @@ export default async function WNBAPlayerPage({
           <details className="group rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
             <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-[9px] font-black uppercase tracking-[0.22em] text-[var(--text-muted)]"><span>Datos avanzados</span><span className="transition-transform group-open:rotate-45">＋</span></summary>
             <div className="grid grid-cols-3 gap-3 border-t border-[var(--border)] p-3 md:grid-cols-6">
-              <Metric label="USG%" value={pct(profile?.usg_pct)} />
+              <Metric label={seasonType === "ALL" ? "USG% aprox." : "USG%"} value={pct(profile?.usg_pct)} />
               <Metric label="TS%" value={pct(profile?.ts_pct)} />
               <Metric label="FG%" value={pct(profile?.fg_pct)} />
               <Metric label="3P%" value={pct(profile?.fg3_pct)} />

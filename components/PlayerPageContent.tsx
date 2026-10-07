@@ -1,8 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { X } from "lucide-react";
-import DvpPanel from "@/components/DvpPanel";
+import { BarChart3, BrainCircuit, X } from "lucide-react";
 import TeamMatesPanel, { type TeamMate } from "@/components/TeamMatesPanel";
 import PlayerChartContainer from "@/components/PlayerChartContainer";
 import NBAContextExplorer from "@/components/NBAContextExplorer";
@@ -70,6 +69,17 @@ export default function PlayerPageContent({
   const [dvpOpponentFromFilters, setDvpOpponentFromFilters] = useState<string | null>(null);
   const [clientTeammates, setClientTeammates] = useState<TeamMate[]>(teammates || []);
   const [rosterOpen, setRosterOpen] = useState(false);
+  const [analysisMode, setAnalysisMode] = useState<"simple" | "pro">("simple");
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem("moskprops:nba-analysis-mode");
+    if (saved === "pro" || saved === "simple") setAnalysisMode(saved);
+  }, []);
+
+  const changeAnalysisMode = useCallback((mode: "simple" | "pro") => {
+    setAnalysisMode(mode);
+    window.localStorage.setItem("moskprops:nba-analysis-mode", mode);
+  }, []);
 
   useEffect(() => {
     setDvpOpponentFromFilters(null);
@@ -215,6 +225,32 @@ export default function PlayerPageContent({
       )}
 
       <main className="flex flex-col gap-4 min-w-0 overflow-hidden">
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2 shadow-xl">
+          <div className="grid grid-cols-2 gap-2" role="group" aria-label="Modo de análisis">
+            <button
+              type="button"
+              onClick={() => changeAnalysisMode("simple")}
+              aria-pressed={analysisMode === "simple"}
+              className={`flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-[10px] font-black uppercase tracking-widest transition-all ${analysisMode === "simple" ? "bg-[#10b981] text-black shadow-[0_0_18px_rgba(16,185,129,0.22)]" : "text-[var(--text-muted)] hover:bg-white/[0.035] hover:text-[var(--text)]"}`}
+            >
+              <BarChart3 size={15} /> Vista rápida
+            </button>
+            <button
+              type="button"
+              onClick={() => changeAnalysisMode("pro")}
+              aria-pressed={analysisMode === "pro"}
+              className={`flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-[10px] font-black uppercase tracking-widest transition-all ${analysisMode === "pro" ? "bg-cyan-300 text-slate-950 shadow-[0_0_18px_rgba(34,211,238,0.18)]" : "text-[var(--text-muted)] hover:bg-white/[0.035] hover:text-[var(--text)]"}`}
+            >
+              <BrainCircuit size={15} /> Análisis Pro
+            </button>
+          </div>
+          <p className="px-2 pb-1 pt-2 text-center text-[9px] font-bold text-[var(--text-muted)]">
+            {analysisMode === "simple"
+              ? "Línea, filtros y tendencia sin distracciones."
+              : "Contexto completo: producción, marca, tiros, compañeros y rival."}
+          </p>
+        </section>
+
         <PlayerChartContainer
           stats={stats}
           navStats={navStats}
@@ -228,15 +264,17 @@ export default function PlayerPageContent({
           externalFilters={externalFilters}
           onRemoveExternalFilter={removeExternalFilter}
           activeInjuryContext={activeInjuryContext}
+          analysisMode={analysisMode}
         />
 
-        <NBAContextExplorer
-          playerId={currentPlayerId}
-          playerName={playerName}
-        />
-
-        {dvpOpponent && position && (
-          <DvpPanel key={dvpKey} opponentAbbr={dvpOpponent} position={position} />
+        {analysisMode === "pro" && (
+          <NBAContextExplorer
+            playerId={currentPlayerId}
+            playerName={playerName}
+            opponentAbbr={dvpOpponent}
+            playerPosition={position}
+            dvpKey={dvpKey}
+          />
         )}
       </main>
     </div>

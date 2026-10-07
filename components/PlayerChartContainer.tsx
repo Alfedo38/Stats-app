@@ -59,6 +59,7 @@ interface PlayerChartContainerProps {
   /** Called when external filters should be removed (e.g. user clicks X on a W/O chip) */
   onRemoveExternalFilter?: (id: string) => void;
   activeInjuryContext?: any[];
+  analysisMode?: "simple" | "pro";
 }
 
 type SplitScope = "FULL" | "Q1" | "H1" | "H2_REG";
@@ -129,8 +130,6 @@ const SPLIT_SCOPE_BY_ID = SPLIT_SCOPE_OPTIONS.reduce<
 const HIDDEN_MAIN_STATS = new Set([
   "potential_ast",
   "rebound_chances",
-  "usage_pct",
-  "touches",
   "passes_made",
 ]);
 
@@ -506,6 +505,7 @@ export default function PlayerChartContainer({
   externalFilters = [],
   onRemoveExternalFilter,
   activeInjuryContext = [],
+  analysisMode = "pro",
 }: PlayerChartContainerProps) {
   const searchParams = useSearchParams();
 
@@ -1176,6 +1176,14 @@ export default function PlayerChartContainer({
           metricStats.length
         ).toFixed(1)
       : "0.0";
+
+  const seasonAvgValue =
+    processedStats.length > 0
+      ? processedStats.reduce((sum, game) => sum + (Number(game.value) || 0), 0) /
+        processedStats.length
+      : 0;
+  const filteredAvgValue = Number(avgValue) || 0;
+  const lineDifference = filteredAvgValue - Number(lineValue || 0);
 
   const hits = metricStats.filter((s) =>
     chartSide === "under"
@@ -1854,6 +1862,23 @@ export default function PlayerChartContainer({
       </div>
 
       {/* CONTEXTO RÁPIDO */}
+      {analysisMode === "simple" ? (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+          {[
+            { label: "Prom. temporada", value: seasonAvgValue.toFixed(1), tone: "text-cyan-300", border: "border-cyan-400/25" },
+            { label: "Prom. filtrado", value: filteredAvgValue.toFixed(1), tone: "text-[#10b981]", border: "border-[#10b981]/25" },
+            { label: "Hit rate", value: `${hitRate}%`, tone: hitRateNumber >= 50 ? "text-[#10b981]" : "text-red-400", border: hitRateNumber >= 50 ? "border-[#10b981]/25" : "border-red-400/25" },
+            { label: "Línea", value: formatLineValue(lineValue, activeStat), tone: "text-orange-300", border: "border-orange-400/25" },
+            { label: "Diferencia", value: `${lineDifference >= 0 ? "+" : ""}${lineDifference.toFixed(1)}`, tone: lineDifference >= 0 ? "text-[#10b981]" : "text-red-400", border: lineDifference >= 0 ? "border-[#10b981]/25" : "border-red-400/25" },
+          ].map((item) => (
+            <div key={item.label} className={`rounded-2xl border bg-[var(--surface)] p-4 ${item.border}`}>
+              <p className="text-[8px] font-black uppercase tracking-widest text-[var(--text-muted)]">{item.label}</p>
+              <p className={`mt-1 text-2xl font-black tabular-nums ${item.tone}`}>{item.value}</p>
+              <p className="mt-1 text-[9px] font-bold uppercase tracking-widest text-[var(--text-muted)]">{activeStatLabel}</p>
+            </div>
+          ))}
+        </div>
+      ) : (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="bg-[var(--surface)] border border-[#10b981]/25 rounded-2xl p-4 shadow-xl shadow-[#10b981]/5 relative overflow-hidden">
           <div className="absolute inset-x-0 top-0 h-[2px] bg-[#10b981]" />
@@ -1924,7 +1949,9 @@ export default function PlayerChartContainer({
           </p>
         </div>
       </div>
+      )}
 
+      {analysisMode === "pro" && <>
       {/* PICK INSIGHT PANEL */}
       <PickInsightPanel
         stats={visibleStats}
@@ -1992,6 +2019,7 @@ export default function PlayerChartContainer({
         activeStat={activeStat}
         formatLine={(v) => formatLineValue(v, activeStat)}
       />
+      </>}
     </div>
   );
 }

@@ -73,7 +73,8 @@ async function handleGET(req: NextRequest) {
         `
           select lpad(game_id::text, 10, '0') as game_id, game_date,
                  season_type, team_abbreviation, opponent_abbr, matchup,
-                 home_away, wl, min, pts, fgm, fga, fg3m, fg3a
+                 home_away, wl, min, pts, reb, ast, tov, fgm, fga, fg3m, fg3a,
+                 usage_pct, touches, rebound_chances, potential_ast, passes_made
           from public.player_game_logs
           where player_id = $1::int and season_year = $2::text and game_id is not null
           order by game_date desc

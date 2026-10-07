@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Calculator, ChevronDown, ChevronLeft, ChevronRight, Crosshair, Shield, Target } from "lucide-react";
+import DvpPanel from "@/components/DvpPanel";
 
 type Shot = {
   game_id: string; game_event_id: number; game_date: string; season_type: string;
@@ -29,7 +30,10 @@ type GameLog = {
   team_abbreviation?: string | null; opponent_abbr?: string | null;
   matchup?: string | null; home_away?: string | null; wl?: string | null;
   pts?: number | null; fgm?: number | null; fga?: number | null;
+  reb?: number | null; ast?: number | null; tov?: number | null;
   fg3m?: number | null; fg3a?: number | null; min?: number | null;
+  usage_pct?: number | null; touches?: number | null; rebound_chances?: number | null;
+  potential_ast?: number | null; passes_made?: number | null;
 };
 
 type DefenderFoul = {
@@ -44,10 +48,45 @@ type DefenderTotal = {
 
 const RANGE_OPTIONS = [5, 10, 20, 0] as const;
 const POSITION_OPTIONS = ["ALL", "G", "F", "C"] as const;
+const NBA_TEAM_OPTIONS = [
+  "ATL", "BOS", "BKN", "CHA", "CHI", "CLE", "DAL", "DEN", "DET", "GSW",
+  "HOU", "IND", "LAC", "LAL", "MEM", "MIA", "MIL", "MIN", "NOP", "NYK",
+  "OKC", "ORL", "PHI", "PHX", "POR", "SAC", "SAS", "TOR", "UTA", "WAS",
+] as const;
+
+type MarketKey = "pts" | "reb" | "ast" | "pra" | "pr" | "pa" | "ra" | "fga" | "fgm" | "fg3m";
+
+const MARKET_OPTIONS: { id: MarketKey; label: string; detail: string }[] = [
+  { id: "pts", label: "PTS", detail: "Puntos" },
+  { id: "reb", label: "REB", detail: "Rebotes" },
+  { id: "ast", label: "AST", detail: "Asistencias" },
+  { id: "pra", label: "PRA", detail: "Puntos + rebotes + asistencias" },
+  { id: "pr", label: "RP", detail: "Rebotes + puntos" },
+  { id: "pa", label: "AP", detail: "Asistencias + puntos" },
+  { id: "ra", label: "RA", detail: "Rebotes + asistencias" },
+  { id: "fga", label: "FGA", detail: "Tiros intentados" },
+  { id: "fgm", label: "FGM", detail: "Tiros convertidos" },
+  { id: "fg3m", label: "3PM", detail: "Triples convertidos" },
+];
 
 function n(value: unknown): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function marketValue(game: GameLog, market: MarketKey): number {
+  const pts = n(game.pts);
+  const reb = n(game.reb);
+  const ast = n(game.ast);
+  if (market === "pra") return pts + reb + ast;
+  if (market === "pr") return pts + reb;
+  if (market === "pa") return pts + ast;
+  if (market === "ra") return reb + ast;
+  return n(game[market]);
+}
+
+function mean(values: number[]): number {
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
 }
 
 function dateOnly(value: string | null | undefined): string {
@@ -140,19 +179,22 @@ function CollapsibleSection({ title, meta, icon, defaultOpen = true, children }:
   );
 }
 
-function DefenderTable({ rows }: { rows: Matchup[] }) {
+function DefenderTable({ rows, compact = false }: { rows: Matchup[]; compact?: boolean }) {
   const defenders = useMemo(() => buildDefenderTotals(rows), [rows]);
+  const [showAll, setShowAll] = useState(false);
   if (!defenders.length) return <p className="px-4 py-5 text-xs text-[var(--text-muted)]">Sin emparejamientos para este filtro.</p>;
+  const visibleDefenders = compact && !showAll ? defenders.slice(0, 3) : defenders;
   return (
+    <div>
     <div className="overflow-x-auto">
       <table className="w-full min-w-[720px] text-left text-xs">
         <thead className="border-b border-[var(--border)] text-[9px] uppercase tracking-widest text-[var(--text-muted)]">
           <tr><th className="px-4 py-3">Defensor</th><th>Pos.</th><th>Partidos</th><th>Tiempo</th><th>Poses.</th><th>PTS</th><th>TC</th><th>3PT</th><th>AST</th><th>TO</th></tr>
         </thead>
         <tbody className="divide-y divide-[var(--border)]">
-          {defenders.map((item) => (
+          {visibleDefenders.map((item, index) => (
             <tr key={item.id} className="hover:bg-white/[0.025]">
-              <td className="px-4 py-3 font-bold text-[var(--text)]">{item.name}</td>
+              <td className="px-4 py-3 font-bold text-[var(--text)]">{item.name}{index === 0 && <span className="ml-2 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-2 py-0.5 text-[8px] font-black uppercase text-emerald-300">Principal</span>}</td>
               <td><span className="rounded-md bg-white/5 px-2 py-1 font-black text-emerald-300">{item.position}</span></td>
               <td>{item.games.size}</td><td>{mmss(item.seconds)}</td><td>{item.possessions.toFixed(1)}</td><td>{item.points.toFixed(0)}</td>
               <td>{item.fgm.toFixed(0)}/{item.fga.toFixed(0)} <span className="text-[var(--text-muted)]">({pct(item.fgm, item.fga)})</span></td>
@@ -162,17 +204,38 @@ function DefenderTable({ rows }: { rows: Matchup[] }) {
         </tbody>
       </table>
     </div>
+    {compact && defenders.length > 3 && <button type="button" onClick={() => setShowAll((value) => !value)} className="m-3 rounded-lg border border-[var(--border)] px-3 py-2 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text)]">{showAll ? "Ver principales" : `Ver todos (${defenders.length})`}</button>}
+    </div>
   );
 }
 
 function ShotCourt({ shots }: { shots: Shot[] }) {
   const [selected, setSelected] = useState<Shot | null>(null);
+  const [courtView, setCourtView] = useState<"shots" | "zones">("shots");
   const made = shots.filter((shot) => n(shot.shot_made_flag) === 1).length;
   const plotted = shots.filter((shot) => Number.isFinite(Number(shot.loc_x)) && Number.isFinite(Number(shot.loc_y)));
+  const zones = useMemo(() => {
+    const grouped = new Map<string, { made: number; attempts: number; x: number; y: number }>();
+    for (const shot of shots) {
+      const zone = String(shot.shot_zone_basic || "Sin zona");
+      const current = grouped.get(zone) || { made: 0, attempts: 0, x: 0, y: 0 };
+      current.attempts += 1;
+      current.made += n(shot.shot_made_flag) === 1 ? 1 : 0;
+      current.x += n(shot.loc_x);
+      current.y += n(shot.loc_y);
+      grouped.set(zone, current);
+    }
+    return [...grouped.entries()].sort((a, b) => b[1].attempts - a[1].attempts).slice(0, 4);
+  }, [shots]);
 
   return (
     <div className="grid gap-3 lg:grid-cols-[minmax(280px,480px)_minmax(180px,1fr)]">
-      <div className="mx-auto w-full max-w-[480px] overflow-hidden rounded-2xl border border-[var(--border)] bg-[#081613] p-2">
+      <div className="mx-auto w-full max-w-[480px]">
+        <div className="mb-2 grid grid-cols-2 gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1">
+          <button type="button" onClick={() => setCourtView("shots")} className={`rounded-lg px-3 py-2 text-[9px] font-black uppercase tracking-widest ${courtView === "shots" ? "bg-emerald-400 text-black" : "text-[var(--text-muted)]"}`}>Ubicación</button>
+          <button type="button" onClick={() => setCourtView("zones")} className={`rounded-lg px-3 py-2 text-[9px] font-black uppercase tracking-widest ${courtView === "zones" ? "bg-cyan-300 text-slate-950" : "text-[var(--text-muted)]"}`}>Porcentaje</button>
+        </div>
+        <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[#081613] p-2">
         <svg viewBox="0 0 500 470" className="block h-auto w-full" aria-label="Mapa de tiros con el aro en la parte superior">
           <rect x="1" y="1" width="498" height="468" fill="#0a1c18" stroke="#36534b" strokeWidth="2" />
           <path d="M30 0 V140 M470 0 V140 M30 140 A237.5 237.5 0 0 0 470 140" fill="none" stroke="#55766d" strokeWidth="2" />
@@ -182,7 +245,7 @@ function ShotCourt({ shots }: { shots: Shot[] }) {
           <line x1="220" y1="40" x2="280" y2="40" stroke="#d7e4df" strokeWidth="4" />
           <circle cx="250" cy="52.5" r="8" fill="none" stroke="#f97316" strokeWidth="4" />
           <line x1="1" y1="469" x2="499" y2="469" stroke="#55766d" strokeWidth="2" />
-          {plotted.map((shot) => {
+          {courtView === "shots" && plotted.map((shot) => {
             const x = Math.min(495, Math.max(5, 250 + n(shot.loc_x)));
             const y = Math.min(465, Math.max(5, 52.5 + n(shot.loc_y)));
             const success = n(shot.shot_made_flag) === 1;
@@ -194,14 +257,24 @@ function ShotCourt({ shots }: { shots: Shot[] }) {
               </circle>
             );
           })}
+          {courtView === "zones" && zones.map(([zone, total]) => {
+            const x = Math.min(445, Math.max(55, 250 + total.x / Math.max(total.attempts, 1)));
+            const y = Math.min(420, Math.max(85, 52.5 + total.y / Math.max(total.attempts, 1)));
+            const percentage = total.attempts > 0 ? total.made / total.attempts : 0;
+            const color = percentage >= 0.55 ? "#34d399" : percentage >= 0.4 ? "#22d3ee" : "#fb7185";
+            const radius = Math.min(42, 21 + total.attempts * 1.2);
+            return <g key={zone}><circle cx={x} cy={y} r={radius} fill={color} fillOpacity="0.22" stroke={color} strokeWidth="2" /><text x={x} y={y - 3} textAnchor="middle" fill="white" fontSize="13" fontWeight="900">{pct(total.made, total.attempts)}</text><text x={x} y={y + 14} textAnchor="middle" fill={color} fontSize="10" fontWeight="800">{total.made}/{total.attempts}</text></g>;
+          })}
         </svg>
+        </div>
       </div>
       <div className="space-y-3">
         <div className="grid grid-cols-2 gap-2">
           <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3"><div className="text-[9px] font-black uppercase text-[var(--text-muted)]">Tiros</div><div className="mt-1 text-xl font-black">{shots.length}</div></div>
           <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3"><div className="text-[9px] font-black uppercase text-[var(--text-muted)]">TC</div><div className="mt-1 text-xl font-black">{made}/{shots.length} <span className="text-xs text-emerald-300">{pct(made, shots.length)}</span></div></div>
         </div>
-        <div className="flex flex-wrap gap-3 text-[10px] font-bold uppercase text-[var(--text-muted)]"><span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-emerald-400" />Convertido</span><span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-rose-400" />Fallado</span></div>
+        <div className="flex flex-wrap gap-3 text-[10px] font-bold uppercase text-[var(--text-muted)]">{courtView === "shots" ? <><span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-emerald-400" />Convertido</span><span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-rose-400" />Fallado</span></> : <><span className="text-emerald-300">≥55% fuerte</span><span className="text-cyan-300">40–54%</span><span className="text-rose-300">&lt;40%</span></>}</div>
+        {!!zones.length && <div className="space-y-1.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3"><div className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]">Eficiencia por zona</div>{zones.map(([zone, total]) => <div key={zone} className="flex items-center justify-between gap-3 text-[10px]"><span className="truncate text-[var(--text-muted)]">{zone}</span><span className="shrink-0 font-black text-[var(--text)]">{total.made}/{total.attempts} · {pct(total.made, total.attempts)}</span></div>)}</div>}
         <div className="min-h-32 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
           {selected ? <>
             <div className={`text-xs font-black uppercase ${n(selected.shot_made_flag) === 1 ? "text-emerald-300" : "text-rose-300"}`}>{n(selected.shot_made_flag) === 1 ? "Convertido" : "Fallado"}</div>
@@ -214,7 +287,21 @@ function ShotCourt({ shots }: { shots: Shot[] }) {
   );
 }
 
-export default function NBAContextExplorer({ playerId, playerName }: { playerId: string; playerName: string }) {
+type NBAContextExplorerProps = {
+  playerId: string;
+  playerName: string;
+  opponentAbbr?: string | null;
+  playerPosition?: string | null;
+  dvpKey?: string;
+};
+
+export default function NBAContextExplorer({
+  playerId,
+  playerName,
+  opponentAbbr,
+  playerPosition,
+  dvpKey,
+}: NBAContextExplorerProps) {
   const [shots, setShots] = useState<Shot[]>([]);
   const [matchups, setMatchups] = useState<Matchup[]>([]);
   const [gameLogs, setGameLogs] = useState<GameLog[]>([]);
@@ -224,13 +311,16 @@ export default function NBAContextExplorer({ playerId, playerName }: { playerId:
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [seasonType, setSeasonType] = useState("ALL");
-  const [opponent, setOpponent] = useState("ALL");
+  const [opponent, setOpponent] = useState(() => String(opponentAbbr || "ALL").trim().toUpperCase() || "ALL");
   const [position, setPosition] = useState("ALL");
   const [range, setRange] = useState<number>(5);
   const [selectedGameId, setSelectedGameId] = useState("");
+  const [selectedMarket, setSelectedMarket] = useState<MarketKey>("pts");
+  const [marketLine, setMarketLine] = useState(0);
 
   useEffect(() => {
-    setExpanded(window.localStorage.getItem("nba-context-expanded") === "1");
+    const saved = window.localStorage.getItem("nba-context-expanded");
+    setExpanded(saved === null ? true : saved === "1");
   }, []);
 
   useEffect(() => {
@@ -274,7 +364,6 @@ export default function NBAContextExplorer({ playerId, playerName }: { playerId:
     return map;
   }, [gameLogs, matchups, shots]);
 
-  const opponents = useMemo(() => [...new Set([...gameMeta.values()].map((game) => game.opponent).filter(Boolean))].sort(), [gameMeta]);
   const filteredGames = useMemo(() => {
     const list = [...gameMeta.values()].filter((game) => (seasonType === "ALL" || game.seasonType === seasonType) && (opponent === "ALL" || game.opponent === opponent)).sort((a, b) => b.date.localeCompare(a.date));
     return range > 0 ? list.slice(0, range) : list;
@@ -386,67 +475,151 @@ export default function NBAContextExplorer({ playerId, playerName }: { playerId:
     };
   }, [defenderFouls, filteredGames, opponent, rangeMatchups, shots]);
 
+  const marketProjection = useMemo(() => {
+    const scoped = gameLogs
+      .filter((game) => seasonType === "ALL" || game.season_type === seasonType)
+      .sort((a, b) => dateOnly(b.game_date).localeCompare(dateOnly(a.game_date)));
+    const recent = range > 0 ? scoped.slice(0, range) : scoped;
+    const rivalGames = opponent === "ALL"
+      ? []
+      : scoped.filter((game) => String(game.opponent_abbr || parseOpponent(game.matchup, game.team_abbreviation)).toUpperCase() === opponent).slice(0, range > 0 ? range : undefined);
+    const seasonValues = scoped.map((game) => marketValue(game, selectedMarket));
+    const recentValues = recent.map((game) => marketValue(game, selectedMarket));
+    const rivalValues = rivalGames.map((game) => marketValue(game, selectedMarket));
+    if (!seasonValues.length || !recentValues.length) return null;
+
+    const seasonMean = mean(seasonValues);
+    const recentMean = mean(recentValues);
+    const rivalMean = mean(rivalValues);
+    const rivalWeight = rivalValues.length ? Math.min(0.25, rivalValues.length * 0.05) : 0;
+    const recentWeight = range === 0 ? 0.5 : 0.6;
+    const seasonWeight = 1 - recentWeight - rivalWeight;
+    const expected = recentMean * recentWeight + seasonMean * seasonWeight + rivalMean * rivalWeight;
+    const variance = mean(recentValues.map((value) => (value - recentMean) ** 2));
+    const deviation = Math.sqrt(variance);
+    const margin = Math.max(1, deviation * 0.85, Math.sqrt(Math.max(expected, 1)) * 0.45);
+    const stability = expected > 0 ? deviation / expected : 1;
+    const confidence = recentValues.length >= 10 && stability <= 0.35 && (opponent === "ALL" || rivalValues.length >= 3)
+      ? "Alta"
+      : recentValues.length >= 5 && stability <= 0.65 ? "Media" : "Baja";
+
+    const contextGames = recent;
+    const contextAverage = (key: keyof GameLog) => {
+      const values = contextGames.map((game) => n(game[key])).filter((value) => value > 0);
+      return values.length ? mean(values) : null;
+    };
+
+    return {
+      expected,
+      low: Math.max(0, expected - margin),
+      high: expected + margin,
+      confidence,
+      sample: recentValues.length,
+      seasonMean,
+      recentMean,
+      rivalMean: rivalValues.length ? rivalMean : null,
+      rivalSample: rivalValues.length,
+      values: recentValues,
+      minutes: contextAverage("min"),
+      usage: contextAverage("usage_pct"),
+      touches: contextAverage("touches"),
+      potentialAst: contextAverage("potential_ast"),
+      reboundChances: contextAverage("rebound_chances"),
+    };
+  }, [gameLogs, opponent, range, seasonType, selectedMarket]);
+
+  useEffect(() => {
+    if (!marketProjection) return;
+    setMarketLine(Math.floor(marketProjection.expected) + 0.5);
+  }, [marketProjection?.expected, selectedMarket]);
+
+  const marketHits = marketProjection
+    ? marketProjection.values.filter((value) => value > marketLine).length
+    : 0;
+  const marketHitRate = marketProjection?.values.length
+    ? Math.round((marketHits / marketProjection.values.length) * 100)
+    : 0;
+  const selectedMarketLabel = MARKET_OPTIONS.find((market) => market.id === selectedMarket)?.label || selectedMarket.toUpperCase();
+
   return (
-    <section className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
-      <button type="button" onClick={toggleExpanded} aria-expanded={expanded}
-        className="flex w-full items-center justify-between gap-4 p-4 text-left hover:bg-white/[0.025] md:p-5">
+    <section className="overflow-hidden rounded-2xl border border-cyan-400/20 bg-[var(--surface)] shadow-[0_0_32px_rgba(34,211,238,0.04)]">
+      <button type="button" onClick={toggleExpanded} aria-expanded={expanded} className="flex w-full items-center justify-between gap-4 p-4 text-left hover:bg-white/[0.025] md:p-5">
         <span className="min-w-0">
-          <span className="flex items-center gap-2 text-emerald-300"><Crosshair size={17} /><span className="text-[10px] font-black uppercase tracking-[0.2em]">Contexto 2025-26</span></span>
-          <span className="mt-1 block text-xl font-black tracking-tight text-[var(--text)]">Tiros, defensores y proyección</span>
-          <span className="mt-1 block text-xs text-[var(--text-muted)]">{expanded ? "Podés cerrar cada bloque por separado." : "Abrir solamente cuando quieras usar este análisis."}</span>
+          <span className="flex items-center gap-2 text-cyan-300"><Crosshair size={17} /><span className="text-[10px] font-black uppercase tracking-[0.2em]">Análisis Pro · 2025-26</span></span>
+          <span className="mt-1 block text-xl font-black tracking-tight text-[var(--text)]">Marca, cancha y proyección</span>
+          <span className="mt-1 block text-xs text-[var(--text-muted)]">{expanded ? "Compará proyección, marca, tiros y rival en una sola lectura." : "El análisis queda cerrado y no ocupa espacio."}</span>
         </span>
-        <span className="flex shrink-0 items-center gap-2"><span className="hidden rounded-full border border-[var(--border)] px-3 py-1.5 text-[9px] font-black uppercase text-[var(--text-muted)] sm:inline">Última temporada</span><ChevronDown size={20} className={`text-emerald-300 transition-transform ${expanded ? "rotate-180" : ""}`} /></span>
+        <span className="flex shrink-0 items-center gap-2"><span className="hidden rounded-full border border-cyan-400/20 bg-cyan-400/5 px-3 py-1.5 text-[9px] font-black uppercase text-cyan-200 sm:inline">Sólo carga en Pro</span><ChevronDown size={20} className={`text-cyan-300 transition-transform ${expanded ? "rotate-180" : ""}`} /></span>
       </button>
 
       {expanded && <div className="border-t border-[var(--border)]">
         {loading && <div className="p-5"><div className="h-5 w-56 animate-pulse rounded bg-white/10" /><div className="mt-4 h-40 animate-pulse rounded-xl bg-white/[0.04]" /></div>}
         {error && <div className="m-4 rounded-xl border border-amber-500/30 bg-amber-500/5 p-5 text-sm text-amber-200">{error}</div>}
-        {loaded && !shots.length && !matchups.length && <div className="p-6 text-sm text-[var(--text-muted)]">No hay datos de contexto para este jugador.</div>}
+        {loaded && !shots.length && !matchups.length && !gameLogs.length && <div className="p-6 text-sm text-[var(--text-muted)]">No hay datos de contexto para este jugador.</div>}
 
-        {loaded && (shots.length > 0 || matchups.length > 0) && <>
+        {loaded && (shots.length > 0 || matchups.length > 0 || gameLogs.length > 0) && <>
           <div className="border-b border-[var(--border)] p-4 md:p-5">
             <div className="grid gap-3 xl:grid-cols-[auto_auto_minmax(150px,1fr)_auto]">
               <div className="flex flex-wrap gap-1.5"><FilterButton active={seasonType === "ALL"} onClick={() => setSeasonType("ALL")}>Todos</FilterButton><FilterButton active={seasonType === "Regular Season"} onClick={() => setSeasonType("Regular Season")}>Regular</FilterButton><FilterButton active={seasonType === "Playoffs"} onClick={() => setSeasonType("Playoffs")}>Playoffs</FilterButton></div>
               <div className="flex flex-wrap gap-1.5">{RANGE_OPTIONS.map((item) => <FilterButton key={item} active={range === item} onClick={() => setRange(item)}>{item ? `L${item}` : "Temporada"}</FilterButton>)}</div>
-              <select value={opponent} onChange={(event) => setOpponent(event.target.value)} className="min-h-10 rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 text-xs font-bold text-[var(--text)]"><option value="ALL">Todos los equipos rivales</option>{opponents.map((item) => <option key={item} value={item}>{item}</option>)}</select>
+              <select value={opponent} onChange={(event) => setOpponent(event.target.value)} aria-label="Equipo rival" className="min-h-10 rounded-lg border border-cyan-400/30 bg-[var(--bg)] px-3 text-xs font-black text-[var(--text)]"><option value="ALL">Elegir equipo rival</option>{NBA_TEAM_OPTIONS.map((item) => <option key={item} value={item}>vs {item}</option>)}</select>
               <div className="flex gap-1.5">{POSITION_OPTIONS.map((item) => <FilterButton key={item} active={position === item} onClick={() => setPosition(item)}>{item === "ALL" ? "Todas pos." : item}</FilterButton>)}</div>
             </div>
           </div>
 
           <div className="space-y-3 p-4 md:p-5">
-            <CollapsibleSection title="Proyección de tiros vs rival" meta={opponent === "ALL" ? "Elegí un equipo" : `vs ${opponent}`} icon={<Calculator size={16} />}>
-              {opponent === "ALL" ? <div className="rounded-xl border border-dashed border-[var(--border)] p-6 text-center text-xs text-[var(--text-muted)]">Seleccioná un equipo rival para calcular FGA, FGM y el escenario de faltas.</div> : projection ? <div className="space-y-4">
-                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-                  <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3"><div className="text-[9px] font-black uppercase text-[var(--text-muted)]">FGA esperados</div><div className="mt-1 text-2xl font-black">{projection.fga.toFixed(1)}</div></div>
-                  <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3"><div className="text-[9px] font-black uppercase text-[var(--text-muted)]">FGM esperados</div><div className="mt-1 text-2xl font-black">{projection.fgm.toFixed(1)}</div></div>
-                  <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3"><div className="text-[9px] font-black uppercase text-[var(--text-muted)]">TC proyectado</div><div className="mt-1 text-2xl font-black">{(projection.fgPct * 100).toFixed(1)}%</div></div>
-                  <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3"><div className="text-[9px] font-black uppercase text-[var(--text-muted)]">Rango FGA</div><div className="mt-1 text-2xl font-black">{projection.low}–{projection.high}</div></div>
-                  <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3"><div className="text-[9px] font-black uppercase text-[var(--text-muted)]">Confianza</div><div className={`mt-1 text-2xl font-black ${projection.confidence === "Alta" ? "text-emerald-300" : projection.confidence === "Media" ? "text-amber-300" : "text-rose-300"}`}>{projection.confidence}</div></div>
+            <CollapsibleSection title="Proyección de mercado" meta={opponent === "ALL" ? `${range ? `L${range}` : "Temporada"}` : `vs ${opponent} · ${range ? `L${range}` : "Temporada"}`} icon={<Calculator size={16} />}>
+              <div className="space-y-4">
+                <div className="flex gap-1 overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1">
+                  {MARKET_OPTIONS.map((market) => <button key={market.id} type="button" title={market.detail} onClick={() => setSelectedMarket(market.id)} className={`min-w-[58px] flex-1 rounded-lg px-3 py-2.5 text-[9px] font-black uppercase tracking-widest transition ${selectedMarket === market.id ? "bg-emerald-400 text-black" : "text-[var(--text-muted)] hover:text-[var(--text)]"}`}>{market.label}</button>)}
                 </div>
-                <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
-                  <table className="w-full min-w-[620px] text-left text-xs"><thead className="border-b border-[var(--border)] text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]"><tr><th className="px-4 py-3">Escenario</th><th>FGA</th><th>FGM</th><th>TC%</th><th>Lectura</th></tr></thead><tbody className="divide-y divide-[var(--border)]"><tr><td className="px-4 py-3 font-bold">Rotación normal</td><td>{projection.fga.toFixed(1)}</td><td>{projection.fgm.toFixed(1)}</td><td>{(projection.fgPct * 100).toFixed(1)}%</td><td className="text-[var(--text-muted)]">Reparto histórico de la marca</td></tr><tr><td className="px-4 py-3 font-bold">Defensor principal con faltas</td><td>{projection.foulFga.toFixed(1)}</td><td>{projection.foulFgm.toFixed(1)}</td><td>{(projection.foulPct * 100).toFixed(1)}%</td><td className="text-[var(--text-muted)]">Más tiempo frente a la segunda rotación</td></tr></tbody></table>
-                </div>
-                <div className="grid gap-2 md:grid-cols-3"><div className="rounded-lg bg-white/[0.035] p-3 text-xs"><span className="block text-[9px] font-black uppercase text-[var(--text-muted)]">Defensor principal</span><span className="mt-1 block font-bold">{projection.primary?.name || "Sin identificar"}</span></div><div className="rounded-lg bg-white/[0.035] p-3 text-xs"><span className="block text-[9px] font-black uppercase text-[var(--text-muted)]">Asignación estimada</span><span className="mt-1 block font-bold">{(projection.primaryShare * 100).toFixed(0)}%</span></div><div className="rounded-lg bg-white/[0.035] p-3 text-xs"><span className="block text-[9px] font-black uppercase text-[var(--text-muted)]">Faltas promedio</span><span className="mt-1 block font-bold">{projection.pfAverage === null ? "S/D" : projection.pfAverage.toFixed(1)} PF{projection.minutes === null ? "" : ` · ${projection.minutes.toFixed(1)} MIN jugador`}</span></div></div>
-                <p className="text-[10px] leading-5 text-[var(--text-muted)]">Modelo basado en {projection.games} partidos y {projection.possessions.toFixed(1)} posesiones de matchup. Suaviza muestras pequeñas y simula una reducción de la asignación principal por faltas; no detecta faltas en vivo.</p>
-              </div> : <div className="rounded-xl border border-dashed border-[var(--border)] p-6 text-center text-xs text-[var(--text-muted)]">No hay muestra suficiente para proyectar este rival.</div>}
-            </CollapsibleSection>
-
-            <CollapsibleSection title="Por equipo y posición" meta={`${filteredGames.length} partidos`} icon={<Shield size={16} />} defaultOpen={false}>
-              <div className="space-y-2">
-                {teamGroups.map(([team, rows]) => {
-                  const positions = ["G", "F", "C", "S/D"].map((group) => [group, rows.filter((row) => positionGroup(row.defensive_position) === group)] as const).filter(([, items]) => items.length);
-                  return <details key={team} open={opponent !== "ALL" || teamGroups.length === 1} className="group rounded-xl border border-[var(--border)] bg-[var(--surface)]"><summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3"><span className="font-black">vs {team}</span><span className="text-[10px] font-bold uppercase text-[var(--text-muted)]">{new Set(rows.map((row) => row.game_id)).size} partidos · {buildDefenderTotals(rows).length} defensores</span></summary><div className="border-t border-[var(--border)] p-2">{positions.map(([group, items]) => <div key={group} className="mb-2 overflow-hidden rounded-lg border border-[var(--border)] last:mb-0"><div className="bg-white/[0.035] px-4 py-2 text-[10px] font-black uppercase tracking-widest text-emerald-300">Posición {group}</div><DefenderTable rows={items} /></div>)}</div></details>;
-                })}
-                {!teamGroups.length && <div className="rounded-xl border border-dashed border-[var(--border)] p-6 text-center text-xs text-[var(--text-muted)]">No hay matchups para esta combinación.</div>}
+                {marketProjection ? <>
+                  <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+                    <div className="rounded-xl border border-emerald-400/25 bg-emerald-400/5 p-4"><div className="text-[9px] font-black uppercase text-emerald-300">Proyección {selectedMarketLabel}</div><div className="mt-1 text-3xl font-black">{marketProjection.expected.toFixed(1)}</div></div>
+                    <div className="rounded-xl border border-[var(--border)] bg-[var(--bg)] p-4"><div className="text-[9px] font-black uppercase text-[var(--text-muted)]">Rango estimado</div><div className="mt-1 text-2xl font-black">{marketProjection.low.toFixed(1)}–{marketProjection.high.toFixed(1)}</div></div>
+                    <div className="rounded-xl border border-orange-400/25 bg-orange-400/5 p-4"><div className="text-[9px] font-black uppercase text-orange-300">Línea de análisis</div><div className="mt-1 flex items-center gap-2"><button type="button" onClick={() => setMarketLine((value) => Math.max(0.5, value - 1))} className="h-8 w-8 rounded-lg border border-[var(--border)] text-lg font-black">−</button><span className="min-w-12 text-center text-2xl font-black">{marketLine.toFixed(1)}</span><button type="button" onClick={() => setMarketLine((value) => value + 1)} className="h-8 w-8 rounded-lg border border-[var(--border)] text-lg font-black">+</button></div></div>
+                    <div className="rounded-xl border border-cyan-400/25 bg-cyan-400/5 p-4"><div className="text-[9px] font-black uppercase text-cyan-300">Over en la muestra</div><div className="mt-1 text-2xl font-black">{marketHits}/{marketProjection.values.length}</div><div className="mt-1 text-[10px] font-bold text-[var(--text-muted)]">{marketHitRate}% sobre {marketLine.toFixed(1)}</div></div>
+                    <div className="rounded-xl border border-[var(--border)] bg-[var(--bg)] p-4"><div className="text-[9px] font-black uppercase text-[var(--text-muted)]">Confianza</div><div className={`mt-1 text-2xl font-black ${marketProjection.confidence === "Alta" ? "text-emerald-300" : marketProjection.confidence === "Media" ? "text-amber-300" : "text-rose-300"}`}>{marketProjection.confidence}</div><div className="mt-1 text-[9px] text-[var(--text-muted)]">{marketProjection.sample} partidos</div></div>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
+                    <div className="rounded-lg bg-white/[0.035] p-3 text-xs"><span className="block text-[9px] font-black uppercase text-[var(--text-muted)]">Promedio reciente</span><strong className="mt-1 block">{marketProjection.recentMean.toFixed(1)}</strong></div>
+                    <div className="rounded-lg bg-white/[0.035] p-3 text-xs"><span className="block text-[9px] font-black uppercase text-[var(--text-muted)]">Promedio temporada</span><strong className="mt-1 block">{marketProjection.seasonMean.toFixed(1)}</strong></div>
+                    <div className="rounded-lg bg-white/[0.035] p-3 text-xs"><span className="block text-[9px] font-black uppercase text-[var(--text-muted)]">Contra {opponent === "ALL" ? "rival" : opponent}</span><strong className="mt-1 block">{marketProjection.rivalMean === null ? "Sin muestra" : `${marketProjection.rivalMean.toFixed(1)} · ${marketProjection.rivalSample} PJ`}</strong></div>
+                    <div className="rounded-lg bg-white/[0.035] p-3 text-xs"><span className="block text-[9px] font-black uppercase text-[var(--text-muted)]">Minutos</span><strong className="mt-1 block">{marketProjection.minutes === null ? "S/D" : marketProjection.minutes.toFixed(1)}</strong></div>
+                    <div className="rounded-lg bg-white/[0.035] p-3 text-xs"><span className="block text-[9px] font-black uppercase text-[var(--text-muted)]">USG% · Toques</span><strong className="mt-1 block">{marketProjection.usage === null ? "S/D" : `${(marketProjection.usage <= 1 ? marketProjection.usage * 100 : marketProjection.usage).toFixed(1)}%`} · {marketProjection.touches === null ? "S/D" : marketProjection.touches.toFixed(1)}</strong></div>
+                    <div className="rounded-lg bg-white/[0.035] p-3 text-xs"><span className="block text-[9px] font-black uppercase text-[var(--text-muted)]">Pot. AST · Oport. REB</span><strong className="mt-1 block">{marketProjection.potentialAst === null ? "S/D" : marketProjection.potentialAst.toFixed(1)} · {marketProjection.reboundChances === null ? "S/D" : marketProjection.reboundChances.toFixed(1)}</strong></div>
+                  </div>
+                  <p className="rounded-lg border border-sky-400/15 bg-sky-400/5 px-3 py-2 text-[10px] leading-5 text-[var(--text-muted)]">Combina promedio reciente, temporada y enfrentamientos directos sin tratar PTS, REB y AST como variables independientes. El rango refleja la variación real de la muestra; no es una garantía.</p>
+                </> : <div className="rounded-xl border border-dashed border-[var(--border)] p-6 text-center text-xs text-[var(--text-muted)]">No hay partidos suficientes para esta proyección.</div>}
               </div>
             </CollapsibleSection>
 
-            <CollapsibleSection title="Partido por partido" meta={selectedGame ? `vs ${selectedGame.opponent} · ${dateLabel(selectedGame.date)}` : undefined} icon={<Target size={16} />}>
-              {selectedGame && <div className="mb-3 flex items-center justify-center gap-2"><button type="button" disabled={selectedIndex >= filteredGames.length - 1} onClick={() => setSelectedGameId(filteredGames[selectedIndex + 1]?.id || selectedGameId)} className="rounded-lg border border-[var(--border)] p-2 disabled:opacity-30" aria-label="Partido anterior"><ChevronLeft size={16} /></button><div className="min-w-48 text-center"><div className="text-xs font-black">vs {selectedGame.opponent} · {dateLabel(selectedGame.date)}</div><div className="mt-0.5 text-[9px] font-bold uppercase text-[var(--text-muted)]">{selectedGame.seasonType}{selectedGame.log?.wl ? ` · ${selectedGame.log.wl}` : ""}</div></div><button type="button" disabled={selectedIndex <= 0} onClick={() => setSelectedGameId(filteredGames[selectedIndex - 1]?.id || selectedGameId)} className="rounded-lg border border-[var(--border)] p-2 disabled:opacity-30" aria-label="Partido siguiente"><ChevronRight size={16} /></button></div>}
-              {selectedGame ? <div className="space-y-4"><div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 md:p-4"><ShotCourt shots={selectedShots} /></div><div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]"><div className="border-b border-[var(--border)] px-4 py-3"><h4 className="text-xs font-black uppercase">Quién defendió a {playerName}</h4><p className="mt-1 text-[10px] text-[var(--text-muted)]">Ordenado dentro del partido por tiempo de asignación.</p></div><DefenderTable rows={selectedMatchups} /></div></div> : <div className="rounded-xl border border-dashed border-[var(--border)] p-8 text-center text-xs text-[var(--text-muted)]">No hay partidos para este filtro.</div>}
+            <CollapsibleSection title="FGA, FGM y escenario de faltas" meta={opponent === "ALL" ? "Elegí un equipo" : `vs ${opponent}`} icon={<Calculator size={16} />} defaultOpen={false}>
+              {opponent === "ALL" ? <div className="rounded-xl border border-dashed border-[var(--border)] p-6 text-center text-xs text-[var(--text-muted)]">Seleccioná un equipo rival para calcular FGA, FGM y el escenario de faltas.</div> : projection ? <div className="space-y-4">
+                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+                  {[{ label: "FGA esperados", value: projection.fga.toFixed(1) }, { label: "FGM esperados", value: projection.fgm.toFixed(1) }, { label: "TC proyectado", value: `${(projection.fgPct * 100).toFixed(1)}%` }, { label: "Rango FGA", value: `${projection.low}–${projection.high}` }].map((item) => <div key={item.label} className="rounded-xl border border-[var(--border)] bg-[var(--bg)] p-3"><div className="text-[9px] font-black uppercase text-[var(--text-muted)]">{item.label}</div><div className="mt-1 text-2xl font-black">{item.value}</div></div>)}
+                  <div className="rounded-xl border border-[var(--border)] bg-[var(--bg)] p-3"><div className="text-[9px] font-black uppercase text-[var(--text-muted)]">Confianza</div><div className={`mt-1 text-2xl font-black ${projection.confidence === "Alta" ? "text-emerald-300" : projection.confidence === "Media" ? "text-amber-300" : "text-rose-300"}`}>{projection.confidence}</div><div className="mt-1 text-[9px] text-[var(--text-muted)]">{projection.games} PJ · {projection.possessions.toFixed(0)} poses.</div></div>
+                </div>
+                <div className="grid gap-2 md:grid-cols-2"><div className="rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-4"><div className="text-[9px] font-black uppercase text-emerald-300">Rotación normal</div><div className="mt-2 text-xl font-black">{projection.fga.toFixed(1)} FGA · {projection.fgm.toFixed(1)} FGM</div><div className="mt-1 text-xs text-[var(--text-muted)]">{(projection.fgPct * 100).toFixed(1)}% de campo estimado</div></div><div className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-4"><div className="text-[9px] font-black uppercase text-amber-300">Principal con faltas</div><div className="mt-2 text-xl font-black">{projection.foulFga.toFixed(1)} FGA · {projection.foulFgm.toFixed(1)} FGM</div><div className="mt-1 text-xs text-[var(--text-muted)]">Δ {(projection.foulFga - projection.fga >= 0 ? "+" : "")}{(projection.foulFga - projection.fga).toFixed(1)} FGA · más segunda rotación</div></div></div>
+                <div className="grid gap-2 md:grid-cols-3"><div className="rounded-lg bg-white/[0.035] p-3 text-xs"><span className="block text-[9px] font-black uppercase text-[var(--text-muted)]">Defensor principal</span><span className="mt-1 block font-bold">{projection.primary?.name || "Sin identificar"}</span></div><div className="rounded-lg bg-white/[0.035] p-3 text-xs"><span className="block text-[9px] font-black uppercase text-[var(--text-muted)]">Asignación estimada</span><span className="mt-1 block font-bold">{(projection.primaryShare * 100).toFixed(0)}%</span></div><div className="rounded-lg bg-white/[0.035] p-3 text-xs"><span className="block text-[9px] font-black uppercase text-[var(--text-muted)]">Faltas promedio</span><span className="mt-1 block font-bold">{projection.pfAverage === null ? "S/D" : projection.pfAverage.toFixed(1)} PF{projection.minutes === null ? "" : ` · ${projection.minutes.toFixed(1)} MIN`}</span></div></div>
+                <p className="text-[10px] leading-5 text-[var(--text-muted)]">Estimación basada en la muestra elegida y posesiones de matchup, suavizada para no sobrerreaccionar a pocos partidos. El escenario de faltas no es una predicción en vivo.</p>
+              </div> : <div className="rounded-xl border border-dashed border-[var(--border)] p-6 text-center text-xs text-[var(--text-muted)]">No hay muestra suficiente para proyectar este rival.</div>}
             </CollapsibleSection>
 
-            <p className="rounded-xl border border-sky-400/20 bg-sky-400/5 px-4 py-3 text-[10px] leading-5 text-sky-100/70">Los puntos muestran tiros reales del partido. Las asignaciones defensivas son totales agregados del mismo partido; la fuente no identifica con certeza al defensor de cada tiro individual.</p>
+            <CollapsibleSection title="Marca por equipo y posición" meta={`${filteredGames.length} partidos`} icon={<Shield size={16} />} defaultOpen={false}>
+              <div className="space-y-2">{teamGroups.map(([team, rows]) => { const positions = ["G", "F", "C", "S/D"].map((group) => [group, rows.filter((row) => positionGroup(row.defensive_position) === group)] as const).filter(([, items]) => items.length); return <details key={team} open={opponent !== "ALL" || teamGroups.length === 1} className="group rounded-xl border border-[var(--border)] bg-[var(--bg)]"><summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3"><span className="font-black">vs {team}</span><span className="text-right text-[10px] font-bold uppercase text-[var(--text-muted)]">{new Set(rows.map((row) => row.game_id)).size} PJ · {buildDefenderTotals(rows).length} defensores</span></summary><div className="border-t border-[var(--border)] p-2">{positions.map(([group, items]) => <div key={group} className="mb-2 overflow-hidden rounded-lg border border-[var(--border)] last:mb-0"><div className="bg-white/[0.035] px-4 py-2 text-[10px] font-black uppercase tracking-widest text-emerald-300">Posición {group}</div><DefenderTable rows={items} compact /></div>)}</div></details>; })}{!teamGroups.length && <div className="rounded-xl border border-dashed border-[var(--border)] p-6 text-center text-xs text-[var(--text-muted)]">No hay matchups para esta combinación.</div>}</div>
+            </CollapsibleSection>
+
+            <CollapsibleSection title="Dos canchas · partido por partido" meta={selectedGame ? `vs ${selectedGame.opponent} · ${dateLabel(selectedGame.date)}` : undefined} icon={<Target size={16} />} defaultOpen={false}>
+              {selectedGame && <div className="mb-3 flex items-center justify-center gap-2"><button type="button" disabled={selectedIndex >= filteredGames.length - 1} onClick={() => setSelectedGameId(filteredGames[selectedIndex + 1]?.id || selectedGameId)} className="rounded-lg border border-[var(--border)] p-2 disabled:opacity-30" aria-label="Partido anterior"><ChevronLeft size={16} /></button><div className="min-w-48 text-center"><div className="text-xs font-black">vs {selectedGame.opponent} · {dateLabel(selectedGame.date)}</div><div className="mt-0.5 text-[9px] font-bold uppercase text-[var(--text-muted)]">{selectedGame.seasonType}{selectedGame.log?.wl ? ` · ${selectedGame.log.wl}` : ""}</div></div><button type="button" disabled={selectedIndex <= 0} onClick={() => setSelectedGameId(filteredGames[selectedIndex - 1]?.id || selectedGameId)} className="rounded-lg border border-[var(--border)] p-2 disabled:opacity-30" aria-label="Partido siguiente"><ChevronRight size={16} /></button></div>}
+              {selectedGame ? <div className="space-y-4"><div className="rounded-2xl border border-[var(--border)] bg-[var(--bg)] p-3 md:p-4"><ShotCourt shots={selectedShots} /></div><div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg)]"><div className="border-b border-[var(--border)] px-4 py-3"><h4 className="text-xs font-black uppercase">Quién defendió a {playerName}</h4><p className="mt-1 text-[10px] text-[var(--text-muted)]">Ordenado por tiempo de asignación en ese partido.</p></div><DefenderTable rows={selectedMatchups} compact /></div></div> : <div className="rounded-xl border border-dashed border-[var(--border)] p-8 text-center text-xs text-[var(--text-muted)]">No hay partidos para este filtro.</div>}
+            </CollapsibleSection>
+
+            <CollapsibleSection title="Rival y defensa por posición" meta={opponent === "ALL" ? "Elegí rival arriba" : `${opponent} · ${playerPosition || "posición"}`} icon={<Shield size={16} />} defaultOpen={false}>
+              {opponent !== "ALL" && playerPosition ? <DvpPanel key={`${dvpKey || playerId}:${opponent}:${playerPosition}`} opponentAbbr={opponent} position={playerPosition} /> : <div className="rounded-xl border border-dashed border-[var(--border)] p-6 text-center text-xs text-[var(--text-muted)]">Elegí uno de los 30 equipos en el selector superior para ver su DVP contra la posición de {playerName}.</div>}
+            </CollapsibleSection>
+
+            <p className="rounded-xl border border-sky-400/20 bg-sky-400/5 px-4 py-3 text-[10px] leading-5 text-sky-100/70">Los puntos muestran tiros reales. Las asignaciones son totales del partido: la fuente no identifica con certeza al defensor de cada tiro individual.</p>
           </div>
         </>}
       </div>}

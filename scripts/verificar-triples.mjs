@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import {pathToFileURL} from 'node:url';import ts from 'typescript';
+const temp=fs.mkdtempSync(path.join(os.tmpdir(),'triples-periodos-'));process.on('exit',()=>fs.rmSync(temp,{recursive:true,force:true}));
+const source=fs.readFileSync(new URL('../lib/nbaPeriodStats.ts',import.meta.url),'utf8');
+fs.writeFileSync(path.join(temp,'helper.mjs'),ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText);
+const {buildPeriodRows,periodMetricValue}=await import(pathToFileURL(path.join(temp,'helper.mjs')));
+const full={game_id:'0022500001',game_date:'2025-10-21',fg3m:5,fg3a:12,pts:25,min:36,pr:32,h1_fg3m:2,h1_fg3a:5,h1_pts:10,h1_min:16,h2_fg3m:3,h2_fg3a:7,h2_pts:15,h2_min:20};
+assert.equal(periodMetricValue(full,'fg3m','FULL'),5);
+assert.equal(periodMetricValue(full,'fg3m','H1'),2);
+assert.equal(periodMetricValue(full,'fg3a','H1'),5);
+for(const stat of ['fg3m','3ptm','3pt','3pm','three_pm']){
+ const h1=buildPeriodRows([full],[],'H1',stat);assert.equal(h1.length,1);assert.equal(periodMetricValue(h1[0],stat,'H1'),2);assert.equal(h1[0].min,16);
+ const h2=buildPeriodRows([full],[],'H2_REG',stat);assert.equal(periodMetricValue(h2[0],stat,'H2_REG'),3);
+}
+const missing={game_id:'2',game_date:'2025-11-01',fg3m:6,fg3a:15,pts:35,pr:40,h1_pts:15,h1_min:18};
+assert.equal(buildPeriodRows([missing],[],'H1','fg3m').length,0);
+assert.equal(periodMetricValue(missing,'fg3m','H1'),null);
+const zero={...missing,h1_fg3m:0};assert.equal(buildPeriodRows([zero],[],'H1','fg3m')[0].fg3m,0);
+const alias={...missing,h1_3ptm:1,h1_3pta:4};assert.equal(buildPeriodRows([alias],[],'H1','fg3m')[0].fg3m,1);
+const partial={game_id:'0000000002',split_code:'H1',fg3m:2,fg3a:6,min_text:'18:00'};
+assert.equal(buildPeriodRows([missing],[partial],'H1','fg3m')[0].fg3m,2);
+assert.equal(buildPeriodRows([missing],[partial],'H1','fg3m')[0].fg3a,6);
+assert.equal(buildPeriodRows([full],[],'Q1','fg3m').length,0);
+const long={...partial,split_code:'H2_REG',fg3m:1};assert.equal(buildPeriodRows([missing,long],[],'H2_REG','fg3m')[0].fg3m,1);
+assert.equal(buildPeriodRows([missing],[],'H1','pts+reb').length,0);
+assert.equal(buildPeriodRows([{...missing,h1_reb:3}],[],'H1','pts+reb')[0].pr,18);
+assert.equal(buildPeriodRows([full],[],'FULL','fg3m')[0].fg3m,5);
+const staleMinutes={game_id:'4',game_date:'2025-12-01',fg3m:4,min:36,min_clean:36,minutes_clean:36,min_decimal:36,mp:36,mins:36};
+const own=buildPeriodRows([staleMinutes],[{game_id:'4',split_code:'H1',fg3m:1}],'H1','fg3m')[0];
+for(const key of ['min','min_clean','minutes_clean','min_decimal','mp','mins'])assert.equal(own[key],null);
+const timed=buildPeriodRows([staleMinutes],[{game_id:'4',split_code:'H1',fg3m:1,min_text:'12:30'}],'H1','fg3m')[0];
+assert.equal(timed.minutes_clean,'12:30');
+console.log('Triples por período: Q1/H1/H2, alias, cero real, faltantes, fallback por partido y combinaciones OK.');

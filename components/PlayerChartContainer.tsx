@@ -8,6 +8,8 @@ import {
   getGameLocation,
   formatDateShort,
 } from "@/lib/playerUtils";
+import { buildPeriodRows, periodMetricValue } from "@/lib/nbaPeriodStats";
+import { sampleCoverage, type AnalysisSample } from "@/lib/nbaAnalysis";
 import PlayerChart from "@/components/PlayerChart";
 import SupportingDataGrid from "@/components/SupportingDataGrid";
 import PickInsightPanel from "@/components/PickInsightPanel";
@@ -15,6 +17,7 @@ import PlayerHistoricalExplorer from "@/components/PlayerHistoricalExplorer";
 import ActiveInjuryContextCard from "@/components/ActiveInjuryContextCard";
 import StatFilters, { type ActiveFilter } from "@/components/StatFilters";
 import GameLogTable from "@/components/GameLogTable";
+import FloatingPlayerIdentity, {ChartIdentity} from "@/components/PlayerIdentity";
 import ShareButton from "@/components/ShareButton";
 import { usePlayerUrlState } from "@/hooks/usePlayerUrlState";
 import {
@@ -60,6 +63,7 @@ interface PlayerChartContainerProps {
   onRemoveExternalFilter?: (id: string) => void;
   activeInjuryContext?: any[];
   analysisMode?: "simple" | "pro";
+  onAnalysisSampleChange?: (sample: AnalysisSample) => void;
 }
 
 type SplitScope = "FULL" | "Q1" | "H1" | "H2_REG";
@@ -210,35 +214,8 @@ function getScopedKey(statId: string, scope: SplitScope) {
 }
 
 function getRawStatValue(s: any, statId: string, scope: SplitScope): number {
-  const isPeriodRow = isPeriodRowForScope(s, scope);
-  const aliases: Record<string, string[]> = {
-    "pts+ast": ["pa", "pts_ast"],
-    "pts+reb": ["pr", "pts_reb"],
-    "reb+ast": ["ra", "reb_ast"],
-    "pts+reb+ast": ["pra", "pts_reb_ast"],
-    "3pt": ["fg3m", "3pm", "three_pm"],
-    "3ptm": ["fg3m", "3pm", "three_pm"],
-    "3pta": ["fg3a", "three_pa"],
-    "stl+blk": ["stl_blk", "stocks"],
-    to: ["tov", "turnovers"],
-    tov: ["to", "turnovers"],
-  };
-  const directCandidates = [statId, ...(aliases[statId] || [])];
-  const scopedCandidates = directCandidates.flatMap((key) => [
-    getScopedKey(key, scope),
-    key,
-  ]);
-  const candidates = isPeriodRow ? directCandidates : scopedCandidates;
-  for (const key of candidates) {
-    if (s?.[key] !== null && s?.[key] !== undefined && s?.[key] !== "") {
-      const parsed = Number(s[key]);
-      if (Number.isFinite(parsed)) {
-        if (statId === "usage_pct") return parsed <= 1 ? parsed * 100 : parsed;
-        return parsed;
-      }
-    }
-  }
-  return 0;
+  const value = periodMetricValue(s, statId, scope);
+  return value === null ? (scope === "FULL" ? 0 : Number.NaN) : value;
 }
 
 function getStatValue(s: any, statId: string, scope: SplitScope): number {
@@ -252,6 +229,7 @@ function getStatValue(s: any, statId: string, scope: SplitScope): number {
 
 function getScopedMinutesRaw(raw: any, scope: SplitScope) {
   if (scope === "FULL") return null;
+  if (isPeriodRowForScope(raw, scope)) return raw?.min_clean ?? raw?.minutes_clean ?? raw?.min ?? raw?.minutes ?? raw?.min_text ?? null;
   const prefix = SPLIT_SCOPE_BY_ID[scope]?.prefix;
   if (!prefix) return null;
   return (
@@ -506,6 +484,7 @@ export default function PlayerChartContainer({
   onRemoveExternalFilter,
   activeInjuryContext = [],
   analysisMode = "pro",
+  onAnalysisSampleChange,
 }: PlayerChartContainerProps) {
   const searchParams = useSearchParams();
 
@@ -587,6 +566,8 @@ export default function PlayerChartContainer({
     string | null
   >(null);
   const [periodSplitRows, setPeriodSplitRows] = useState<any[]>([]);
+  const [periodLoading, setPeriodLoading] = useState(false);
+  const [periodError, setPeriodError] = useState<string | null>(null);
 
   const setChartSide = useCallback((next: ChartSide) => {
     const safe = next === "under" ? "under" : "over";
@@ -788,16 +769,17 @@ export default function PlayerChartContainer({
     })
       .then((r) => r.json().then((json) => ({ ok: r.ok, json })))
       .then(({ ok, json }) => {
+        if (controller.signal.aborted) return;
         if (!ok || json?.ok === false)
           throw new Error(json?.error || "Error consultando histórico");
         setHistoricalChartData(json);
       })
       .catch((err) => {
-        if (err?.name === "AbortError") return;
+        if (controller.signal.aborted || err?.name === "AbortError") return;
         setHistoricalChartError(err?.message || "Error consultando histórico");
         setHistoricalChartData(null);
       })
-      .finally(() => setHistoricalChartLoading(false));
+      .finally(() => { if (!controller.signal.aborted) setHistoricalChartLoading(false); });
 
     return () => controller.abort();
   }, [
@@ -814,33 +796,29 @@ export default function PlayerChartContainer({
   ]);
 
   // ── Period splits client fallback ────────────────────────────────────────────
-  // Seguridad extra: aunque el SSR rápido no traiga q1_/h1_/h2_, el cliente lee la cache
-  // de splits y reconstruye el gráfico del periodo sin usar datos de partido completo.
+  // Los períodos usan registros propios, sin copiar el partido completo.
   useEffect(() => {
     const numericPlayerId = Number(playerId);
-    if (!Number.isFinite(numericPlayerId)) {
-      setPeriodSplitRows([]);
+    setPeriodSplitRows([]); setPeriodError(null);
+    if (!Number.isSafeInteger(numericPlayerId) || numericPlayerId <= 0) {
+      setPeriodLoading(false);
       return;
     }
-
     const controller = new AbortController();
-
-    fetch(`/api/player-period-splits?playerId=${encodeURIComponent(String(numericPlayerId))}&limit=1500`, {
-      signal: controller.signal,
-      cache: "force-cache",
+    setPeriodLoading(true);
+    fetch(`/api/player-period-splits?playerId=${encodeURIComponent(String(numericPlayerId))}&limit=3000`, {
+      signal: controller.signal, cache: "no-store",
     })
-      .then((r) => r.json())
-      .then((json) => {
-        if (json?.ok && Array.isArray(json.rows)) {
-          setPeriodSplitRows(json.rows);
-        } else {
-          setPeriodSplitRows([]);
-        }
+      .then(async (r) => {
+        const json = await r.json();
+        if (controller.signal.aborted) return;
+        if (!r.ok || !json?.ok || !Array.isArray(json.rows)) throw new Error(json?.error || "No se pudieron cargar los períodos");
+        setPeriodSplitRows(json.rows);
       })
       .catch((err) => {
-        if (err?.name !== "AbortError") setPeriodSplitRows([]);
-      });
-
+        if (!controller.signal.aborted) { setPeriodSplitRows([]); setPeriodError(err?.message || "No se pudieron cargar los períodos"); }
+      })
+      .finally(() => { if (!controller.signal.aborted) setPeriodLoading(false); });
     return () => controller.abort();
   }, [playerId]);
 
@@ -855,135 +833,10 @@ export default function PlayerChartContainer({
   );
 
   // ── Raw scoped stats ─────────────────────────────────────────────────────────
-  const scopedRawStats = useMemo(() => {
-    const rawStats = stats || [];
-
-    if (activeScope === "FULL") {
-      const fullRows = rawStats.filter(
-        (s: any) =>
-          !s?.split_code || normalizeSplitCode(s.split_code) === "FULL",
-      );
-      return fullRows.length > 0 ? fullRows : rawStats;
-    }
-
-    // Caso 1: filas long con split_code Q1/H1/H2_REG.
-    const longRows = rawStats.filter(
-      (s: any) => normalizeSplitCode(s?.split_code) === activeScope,
-    );
-    if (longRows.length > 0) return longRows;
-
-    const prefix = splitPrefixForScope(activeScope);
-    if (!prefix) return [];
-
-    const fields = [
-      "pts", "reb", "ast", "oreb", "dreb",
-      "stl", "blk", "tov", "to", "pf",
-      "fgm", "fga", "fg3m", "fg3a", "ftm", "fta",
-      "pr", "pa", "ra", "pra",
-      "pts_reb", "pts_ast", "reb_ast", "pts_reb_ast",
-      "stl_blk",
-    ];
-
-    const buildWideRows = () => rawStats
-      .map((s: any) => {
-        const out: any = { ...s, split_code: activeScope, period_scope: activeScope };
-        let hasAnySplitValue = false;
-
-        for (const f of fields) {
-          const key = `${prefix}_${f}`;
-          const value = s?.[key];
-          if (value !== null && value !== undefined && value !== "") {
-            out[f] = value;
-            hasAnySplitValue = true;
-          }
-        }
-
-        out["3ptm"] = out.fg3m ?? out["3ptm"] ?? 0;
-        out["3pta"] = out.fg3a ?? out["3pta"] ?? 0;
-        out.to = out.to ?? out.tov ?? 0;
-        out.tov = out.tov ?? out.to ?? 0;
-        out.min = s?.[`${prefix}_min`] ?? s?.[`${prefix}_minutes`] ?? out.min;
-        out.minutes = s?.[`${prefix}_minutes`] ?? s?.[`${prefix}_min`] ?? out.minutes;
-        out.min_clean = s?.[`${prefix}_min`] ?? s?.[`${prefix}_minutes`] ?? out.min_clean;
-
-        out.pr = out.pr ?? ((Number(out.pts) || 0) + (Number(out.reb) || 0));
-        out.pa = out.pa ?? ((Number(out.pts) || 0) + (Number(out.ast) || 0));
-        out.ra = out.ra ?? ((Number(out.reb) || 0) + (Number(out.ast) || 0));
-        out.pra = out.pra ?? ((Number(out.pts) || 0) + (Number(out.reb) || 0) + (Number(out.ast) || 0));
-        out.pts_reb = out.pr;
-        out.pts_ast = out.pa;
-        out.reb_ast = out.ra;
-        out.pts_reb_ast = out.pra;
-        out.stl_blk = (Number(out.stl) || 0) + (Number(out.blk) || 0);
-
-        return hasAnySplitValue ? out : null;
-      })
-      .filter(Boolean);
-
-    const wideRows = buildWideRows();
-    if (wideRows.length > 0) return wideRows;
-
-    // Caso 3: fallback cliente desde /api/player-period-splits.
-    const splitCode = activeScope;
-    const baseByGame = new Map<string, any>();
-    for (const row of rawStats) {
-      const key = normalizeGameIdKey(row?.game_id ?? row?.game_id_nozero ?? row?.game_key);
-      if (key && !baseByGame.has(key)) baseByGame.set(key, row);
-    }
-
-    return periodSplitRows
-      .filter((split: any) => normalizeSplitCode(split?.split_code) === splitCode)
-      .map((split: any) => {
-        const key = normalizeGameIdKey(split?.game_id ?? split?.game_id_nozero ?? split?.game_key);
-        const base = key ? (baseByGame.get(key) || {}) : {};
-        const out: any = {
-          ...base,
-          ...split,
-          split_code: activeScope,
-          period_scope: activeScope,
-          game_id: split?.game_id ?? base?.game_id,
-          game_date: split?.game_date ?? base?.game_date,
-          player_name: split?.player_name ?? base?.player_name,
-          team_abbreviation: split?.team_abbreviation ?? base?.team_abbreviation,
-          opponent: base?.opponent ?? base?.opponent_clean ?? split?.opponent,
-          opponent_clean: base?.opponent_clean ?? base?.opponent ?? split?.opponent_clean,
-          matchup: base?.matchup ?? base?.matchup_clean ?? split?.matchup,
-          matchup_clean: base?.matchup_clean ?? base?.matchup ?? split?.matchup_clean,
-          min: split?.min ?? split?.minutes ?? split?.min_text ?? base?.min,
-          minutes: split?.minutes ?? split?.min ?? split?.min_text ?? base?.minutes,
-          min_clean: split?.min ?? split?.minutes ?? split?.min_text ?? base?.min_clean,
-        };
-
-        out.pts = numberOrZero(split?.pts);
-        out.reb = numberOrZero(split?.reb);
-        out.ast = numberOrZero(split?.ast);
-        out.oreb = numberOrZero(split?.oreb);
-        out.dreb = numberOrZero(split?.dreb);
-        out.stl = numberOrZero(split?.stl);
-        out.blk = numberOrZero(split?.blk);
-        out.tov = numberOrZero(split?.tov ?? split?.to);
-        out.to = out.tov;
-        out.pf = numberOrZero(split?.pf);
-        out.fgm = numberOrZero(split?.fgm);
-        out.fga = numberOrZero(split?.fga);
-        out.fg3m = numberOrZero(split?.fg3m ?? split?.["3ptm"]);
-        out.fg3a = numberOrZero(split?.fg3a ?? split?.["3pta"]);
-        out.ftm = numberOrZero(split?.ftm);
-        out.fta = numberOrZero(split?.fta);
-        out["3ptm"] = out.fg3m;
-        out["3pta"] = out.fg3a;
-        out.pr = numberOrZero(split?.pr ?? out.pts + out.reb);
-        out.pa = numberOrZero(split?.pa ?? out.pts + out.ast);
-        out.ra = numberOrZero(split?.ra ?? out.reb + out.ast);
-        out.pra = numberOrZero(split?.pra ?? out.pts + out.reb + out.ast);
-        out.pts_reb = out.pr;
-        out.pts_ast = out.pa;
-        out.reb_ast = out.ra;
-        out.pts_reb_ast = out.pra;
-        out.stl_blk = numberOrZero(split?.stl_blk ?? out.stl + out.blk);
-        return out;
-      });
-  }, [stats, activeScope, periodSplitRows]);
+  const scopedRawStats = useMemo(
+    () => buildPeriodRows(stats || [], periodSplitRows, activeScope, activeStat),
+    [stats, periodSplitRows, activeScope, activeStat],
+  );
 
   const uniqueStats = useMemo(() => {
     return Array.from(
@@ -1054,7 +907,13 @@ export default function PlayerChartContainer({
   const filteredStats = useMemo(() => {
     const windowed =
       lastN >= 999 ? processedStats : processedStats.slice(0, lastN);
-    let result = windowed.reverse();
+    let result = windowed.slice().reverse();
+    if (!isFullScope) {
+      if (activeWoTeammate) return [];
+      if (chartOpponent) result = result.filter(row => getOpponent(row) === chartOpponent);
+      if (chartHomeAway) result = result.filter(row => getGameLocation(row) === (chartHomeAway === "HOME" ? "vs" : "@"));
+      if (chartHistMinMinutes !== null) result = result.filter(row => { const minutes = getMinutesValue(row); return minutes !== null && minutes >= chartHistMinMinutes; });
+    }
 
     const allFilters = [...activeFilters, ...externalFilters];
 
@@ -1065,14 +924,14 @@ export default function PlayerChartContainer({
         if (metricId === "minutes") {
           result = result.filter((s) => {
             const m = getMinutesValue(s);
-            return m === null || m >= filter.value!;
+            return m !== null && m >= filter.value!;
           });
         } else {
           result = result.filter((s) => {
             const raw = s?.[metricId];
-            if (raw === null || raw === undefined) return true;
+            if (raw === null || raw === undefined) return false;
             const n = Number(raw);
-            return Number.isNaN(n) || n >= filter.value!;
+            return Number.isFinite(n) && n >= filter.value!;
           });
         }
       }
@@ -1082,7 +941,7 @@ export default function PlayerChartContainer({
         if (!parsed) continue;
 
         const teammateGameIds = new Set(externalGameIds[parsed.playerId] || []);
-        if (teammateGameIds.size === 0) continue;
+        if (!Object.prototype.hasOwnProperty.call(externalGameIds, parsed.playerId)) { result = []; continue; }
 
         result = result.filter((s) => {
           const gameId = normalizeGameId(s.game_id);
@@ -1094,7 +953,7 @@ export default function PlayerChartContainer({
     }
 
     return result;
-  }, [processedStats, lastN, activeFilters, externalFilters, externalGameIds]);
+  }, [processedStats, lastN, activeFilters, externalFilters, externalGameIds, isFullScope, chartOpponent, chartHomeAway, chartHistMinMinutes, activeWoTeammate]);
 
   const visibleStats = filteredStats;
 
@@ -1109,6 +968,9 @@ export default function PlayerChartContainer({
         ...g,
         id: g.game_id || `${g.game_date || "hist"}-${index}`,
         game_date: g.game_date,
+        season_id: g.season_id,
+        team_abbreviation: g.team_abbreviation,
+        fta: g.fta,
         value: Number(g.value) || 0,
         lineValue,
         opponent_clean: g.opponent_clean ?? g.opponent,
@@ -1152,21 +1014,51 @@ export default function PlayerChartContainer({
     [historicalChartStats, lastN],
   );
 
-  // Si el histórico externo tarda/falla, no dejamos el gráfico vacío.
-  // Usamos las stats locales como fallback para evitar "sin datos para graficar".
-  // IMPORTANTE:
-  // /api/player-history devuelve histórico full game.
-  // Para Q1/H1/H2_REG usamos las filas locales con split_code,
-  // si no el gráfico queda mostrando partido completo aunque el botón cambie las filas locales con split_code,
-  // si no el gráfico queda mostrando.
-  const chartStats: any[] = isFullScope && isHistoricalChartMode && historicalChartWindow.length > 0
-    ? historicalChartWindow
+  // Aplicar los mismos filtros locales al histórico y a la muestra Pro.
+  const sharedHistoricalWindow = useMemo(() => {
+    let result = historicalChartWindow;
+    for (const filter of [...activeFilters, ...externalFilters]) {
+      if (filter.type === 'threshold' && filter.value !== undefined) {
+        const key = filter.id.replace('threshold:', '');
+        result = result.filter((row: any) => {
+          const value = key === 'minutes' ? getMinutesValue(row) : row[key] == null ? null : Number(row[key]);
+          return value !== null && Number.isFinite(value) && value >= filter.value!;
+        });
+      }
+      if (filter.type === 'wo') {
+        const parsed = parseExternalPlayerFilterId(filter.id); if (!parsed) continue;
+        if (!Object.prototype.hasOwnProperty.call(externalGameIds, parsed.playerId)) { result = []; continue; }
+        const played = new Set((externalGameIds[parsed.playerId] || []).map(normalizeGameId));
+        result = result.filter((row: any) => parsed.mode === 'with' ? played.has(normalizeGameId(row.game_id)) : !played.has(normalizeGameId(row.game_id)));
+      }
+    }
+    return result;
+  }, [historicalChartWindow, activeFilters, externalFilters, externalGameIds]);
+  const chartStats: any[] = isFullScope && isHistoricalChartMode && historicalChartData?.ok
+    ? sharedHistoricalWindow
     : visibleStats;
-  const metricStats: any[] = chartStats.length > 0 ? chartStats : visibleStats;
+  const metricStats: any[] = chartStats;
   const supportingStats = useMemo(
     () => processedStats.slice(0, Math.min(lastN, 30)).reverse(),
     [processedStats, lastN],
   );
+
+  useEffect(() => {
+    if (!onAnalysisSampleChange) return;
+    const labels = [chartOpponent ? `vs ${chartOpponent}` : '', chartHomeAway || '', chartHistMinMinutes !== null ? `MIN ≥ ${chartHistMinMinutes}` : '', activeWoTeammate ? `Ausencia: ${activeWoTeammate}` : '', ...activeFilters.map(f => f.label), ...externalFilters.map(f => f.label)].filter(Boolean);
+    const hasThreshold = [...activeFilters, ...externalFilters].some(f => f.type === 'threshold' && f.id !== 'threshold:minutes');
+    const hasLocalFilters = activeFilters.length > 0 || externalFilters.length > 0;
+    onAnalysisSampleChange({
+      playerId: String(playerId || ''), rows: metricStats,
+      trainingRows: isFullScope && isHistoricalChartMode && !hasLocalFilters ? historicalChartStats : metricStats,
+      scope: activeScope, market: activeStat, line: Number(lineValue), opponent: chartOpponent || null,
+      homeAway: chartHomeAway, minMinutes: chartHistMinMinutes, labels,
+      outcomeFiltered: hasThreshold || (!isFullScope && Boolean(activeWoTeammate)) || (isFullScope && hasLocalFilters && isHistoricalChartMode),
+      coverage: sampleCoverage(stats || [], scopedRawStats),
+      loading: isFullScope ? Boolean(historicalChartLoading && isHistoricalChartMode) : periodLoading,
+      error: isFullScope && isHistoricalChartMode ? historicalChartError : !isFullScope ? periodError : null,
+    });
+  }, [onAnalysisSampleChange, playerId, metricStats, activeScope, activeStat, lineValue, chartOpponent, chartHomeAway, chartHistMinMinutes, activeWoTeammate, activeFilters, externalFilters, isFullScope, isHistoricalChartMode, historicalChartStats, stats, scopedRawStats, historicalChartLoading, historicalChartError, periodLoading, periodError]);
 
   // ── Derived metrics ───────────────────────────────────────────────────────────
   const avgValue =
@@ -1361,6 +1253,7 @@ export default function PlayerChartContainer({
 
   return (
     <div className="space-y-5">
+      <FloatingPlayerIdentity playerName={playerName || "Jugador"} statLabel={activeStatLabel} scope={activeScope} />
       {/* MENÚ DE ESTADÍSTICAS */}
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-3 shadow-xl">
         <div className="flex items-center justify-between gap-3 px-1">
@@ -1819,6 +1712,8 @@ export default function PlayerChartContainer({
           <div className="bg-[var(--surface)] p-4 md:p-5 rounded-[2rem] border border-[#10b981]/25 shadow-2xl shadow-[#10b981]/5 relative min-w-0 overflow-hidden">
             <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#10b981] to-transparent" />
 
+            <ChartIdentity playerName={playerName || "Jugador"} statLabel={activeStatLabel} scope={activeScope} count={chartStats.length} line={Number(lineValue)} />
+
             <div className="mb-3 flex flex-wrap items-center gap-2">
               {!isFullScope && (
                 <span className="rounded-xl border border-[#10b981]/30 bg-[#10b981]/10 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-[#10b981]">
@@ -1837,6 +1732,9 @@ export default function PlayerChartContainer({
               )}
             </div>
 
+            {!isFullScope && activeWoTeammate && <p className="mb-3 text-xs text-amber-300">El filtro de ausencia seleccionado no tiene cobertura por período. Quitalo para consultar cuartos o mitades.</p>}
+            {!isFullScope && periodLoading && <p className="mb-3 text-xs text-cyan-300">Cargando datos de períodos…</p>}
+            {!isFullScope && periodError && <p className="mb-3 text-xs text-amber-300">{periodError}</p>}
             <div className="min-h-[470px] w-full relative">
               {isHistoricalChartMode && historicalChartLoading && (
                 <div className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-black/45 backdrop-blur-sm">

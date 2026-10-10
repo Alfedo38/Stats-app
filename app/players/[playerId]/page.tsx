@@ -41,6 +41,12 @@ export async function generateMetadata() {
 
 // ─── Normalization helpers ────────────────────────────────────────────────────
 
+function nullableStat(v: any): number | null {
+  if (v === null || v === undefined || String(v).trim() === "") return null;
+  const value = Number(v);
+  return Number.isFinite(value) && value >= 0 ? value : null;
+}
+
 function normalizeDate(v: any) {
   let d = v ? String(v) : null;
   if (d?.includes("T")) d = d.split("T")[0] + "T12:00:00";
@@ -61,18 +67,19 @@ function toNum(v: any, fb = 0) { const n = Number(v); return Number.isFinite(n) 
 function normPeriod(s: any) {
   const r = { ...s };
   for (const px of PX) {
-    r[`${px}_min`]     = first(r[`${px}_min`],     r[`${px}_min_text`]);
+    r[`${px}_min`] = first(r[`${px}_min`], r[`${px}_min_text`]);
     r[`${px}_minutes`] = first(r[`${px}_minutes`], r[`${px}_min`]);
-    r[`${px}_pr`]      = toNum(first(r[`${px}_pr`],  r[`${px}_pts_reb`]), 0);
-    r[`${px}_pa`]      = toNum(first(r[`${px}_pa`],  r[`${px}_pts_ast`]), 0);
-    r[`${px}_ra`]      = toNum(first(r[`${px}_ra`],  r[`${px}_reb_ast`]), 0);
-    r[`${px}_pra`]     = toNum(first(r[`${px}_pra`], r[`${px}_pts_reb_ast`]), 0);
-    r[`${px}_to`]      = toNum(first(r[`${px}_to`],  r[`${px}_tov`]), 0);
-    r[`${px}_3ptm`]    = toNum(first(r[`${px}_3ptm`],r[`${px}_fg3m`]), 0);
-    r[`${px}_3pta`]    = toNum(first(r[`${px}_3pta`],r[`${px}_fg3a`]), 0);
-    const stl = toNum(r[`${px}_stl`], 0), blk = toNum(r[`${px}_blk`], 0);
-    r[`${px}_stl_blk`] = toNum(first(r[`${px}_stl_blk`], stl + blk), 0);
-    for (const f of PF) { const k = `${px}_${f}`; if (r[k] !== undefined) r[k] = toNum(r[k], 0); }
+    for (const [alias, canonical] of [["3ptm", "fg3m"], ["3pta", "fg3a"], ["to", "tov"], ["pr", "pts_reb"], ["pa", "pts_ast"], ["ra", "reb_ast"], ["pra", "pts_reb_ast"]]) {
+      const value = first(r[`${px}_${alias}`], r[`${px}_${canonical}`]);
+      if (value !== undefined) { r[`${px}_${alias}`] = value; r[`${px}_${canonical}`] = value; }
+    }
+    for (const field of PF) {
+      const key = `${px}_${field}`, value = r[key];
+      if (value !== null && value !== undefined && value !== "") {
+        const parsed = Number(value);
+        r[key] = Number.isFinite(parsed) ? parsed : null;
+      }
+    }
   }
   return r;
 }
@@ -245,10 +252,10 @@ export default async function PlayerPage(props: any) {
           game_date:       normalizeDate(row.game_date),
           min, minutes:    min,
           // usage_pct: normalizar a decimal (0-1). Si viene como porcentaje (>1) dividir por 100.
-          usage_pct:       (() => { const r = Number(row.usage_pct) || 0; return r > 1 ? r / 100 : r; })(),
-          potential_ast:   Number(row.potential_ast || row.pot_ast)  || 0,
-          rebound_chances: Number(row.rebound_chances)               || 0,
-          touches:         Number(row.touches)                       || 0,
+          usage_pct:       (() => { const r = nullableStat(row.usage_pct); return r === null ? null : r > 1 ? r / 100 : r; })(),
+          potential_ast:   nullableStat(first(row.potential_ast, row.pot_ast)),
+          rebound_chances: nullableStat(row.rebound_chances),
+          touches:         nullableStat(row.touches),
         };
       })
       .sort((a: any, b: any) =>
@@ -292,14 +299,13 @@ export default async function PlayerPage(props: any) {
     const last5  = cleanStats.slice(0, 5);
     const last10 = cleanStats.slice(0, 10);
 
-    const avgRange = (key: string, r: any[]) =>
-      r.length ? r.reduce((a: number, c: any) => a + (Number(c[key]) || 0), 0) / r.length : 0;
-
+    const avgRange = (key: string, rows: any[]) => {
+      const values = rows.map(row => nullableStat(row[key])).filter((value): value is number => value !== null);
+      return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+    };
     const calcAvg = (key: string): number | "S/D" => {
-      if (!last5.length) return 0;
-      const sum = last5.reduce((a: number, c: any) => a + (Number(c[key]) || 0), 0);
-      if (sum === 0 && ["potential_ast","rebound_chances","touches"].includes(key)) return "S/D";
-      return sum / last5.length;
+      const values = last5.map(row => nullableStat(row[key])).filter((value): value is number => value !== null);
+      return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : "S/D";
     };
 
     const delta = (key: string, mul = 1) =>
@@ -331,7 +337,7 @@ export default async function PlayerPage(props: any) {
 
     return (
       <main className="min-h-screen bg-[var(--bg)] text-[var(--text)] font-sans pb-20">
-        <nav className="border-b border-[var(--border)] bg-[var(--surface)]/95 backdrop-blur-md sticky top-0 z-50 px-6 py-4">
+        <nav data-player-nav className="border-b border-[var(--border)] bg-[var(--surface)]/95 backdrop-blur-md sticky top-0 z-50 px-6 py-4">
           <Link href="/" className="text-[var(--text-muted)] hover:text-[#10b981] transition-colors flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
             <ArrowLeft size={14} /> Volver al Inicio
           </Link>
@@ -340,6 +346,7 @@ export default async function PlayerPage(props: any) {
         <div className="p-4 md:p-6 2xl:p-8 max-w-[1700px] mx-auto space-y-4">
 
           {/* Header del jugador */}
+          <div data-player-header>
           <PlayerHeader
             playerName={playerName}
             teamAbbr={teamAbbr ? String(teamAbbr).toUpperCase() : undefined}
@@ -349,6 +356,8 @@ export default async function PlayerPage(props: any) {
             kpis={kpis}
             nextGame={nextGame}
           />
+
+          </div>
 
           {/* Grid sidebar + gráfico — maneja selectedGame en client */}
           <PlayerPageContent

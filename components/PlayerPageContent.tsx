@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { BarChart3, BrainCircuit, X } from "lucide-react";
 import TeamMatesPanel, { type TeamMate } from "@/components/TeamMatesPanel";
 import PlayerChartContainer from "@/components/PlayerChartContainer";
+import NBAProReview from "@/components/NBAProReview";
+import type { AnalysisSample } from "@/lib/nbaAnalysis";
 import NBAContextExplorer from "@/components/NBAContextExplorer";
 import type { ActiveFilter } from "@/components/StatFilters";
 import type { GameSlot } from "@/lib/api";
@@ -64,6 +66,8 @@ export default function PlayerPageContent({
   nextGameDate,
   activeInjuryContext,
 }: PlayerPageContentProps) {
+  const [analysisSample, setAnalysisSample] = useState<AnalysisSample | null>(null);
+  const handleAnalysisSample = useCallback((sample: AnalysisSample) => setAnalysisSample(sample), []);
   const [selectedGame, setSelectedGame] = useState<GameSlot | null>(null);
   const [externalFilters, setExternalFilters] = useState<ActiveFilter[]>([]);
   const [dvpOpponentFromFilters, setDvpOpponentFromFilters] = useState<string | null>(null);
@@ -241,13 +245,13 @@ export default function PlayerPageContent({
               aria-pressed={analysisMode === "pro"}
               className={`flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-[10px] font-black uppercase tracking-widest transition-all ${analysisMode === "pro" ? "bg-cyan-300 text-slate-950 shadow-[0_0_18px_rgba(34,211,238,0.18)]" : "text-[var(--text-muted)] hover:bg-white/[0.035] hover:text-[var(--text)]"}`}
             >
-              <BrainCircuit size={15} /> Análisis Pro
+              <BrainCircuit size={15} /> Análisis detallado
             </button>
           </div>
           <p className="px-2 pb-1 pt-2 text-center text-[9px] font-bold text-[var(--text-muted)]">
             {analysisMode === "simple"
               ? "Línea, filtros y tendencia sin distracciones."
-              : "Contexto completo: producción, marca, tiros, compañeros y rival."}
+              : "Rol del jugador, estimación, zonas de tiro y defensa del rival."}
           </p>
         </section>
 
@@ -265,16 +269,23 @@ export default function PlayerPageContent({
           onRemoveExternalFilter={removeExternalFilter}
           activeInjuryContext={activeInjuryContext}
           analysisMode={analysisMode}
+          onAnalysisSampleChange={handleAnalysisSample}
         />
 
         {analysisMode === "pro" && (
+          <>
+          <NBAProReview sample={analysisSample?.playerId === String(currentPlayerId) ? analysisSample : null} />
           <NBAContextExplorer
+            key={currentPlayerId}
             playerId={currentPlayerId}
             playerName={playerName}
             opponentAbbr={dvpOpponent}
             playerPosition={position}
             dvpKey={dvpKey}
+            nextGameDate={nextGameDate}
+            sharedSample={analysisSample?.playerId === String(currentPlayerId) ? analysisSample : null}
           />
+          </>
         )}
       </main>
     </div>

@@ -1,5 +1,6 @@
 import { withAuth } from "@/lib/auth/server";
 import prisma from "@/lib/prisma";
+import { loadContextGames } from "@/lib/nbaContextGames";
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -31,7 +32,7 @@ async function handleGET(req: NextRequest) {
   }
 
   try {
-    const [shots, matchups, games, defenderFouls] = await Promise.all([
+    const [shotsResult, matchupsResult, gamesResult, foulsResult] = await Promise.allSettled([
       prisma.$queryRawUnsafe<any[]>(
         `
           select game_id, game_event_id, game_date, season, season_type,
@@ -69,19 +70,7 @@ async function handleGET(req: NextRequest) {
         playerId,
         season,
       ),
-      prisma.$queryRawUnsafe<any[]>(
-        `
-          select lpad(game_id::text, 10, '0') as game_id, game_date,
-                 season_type, team_abbreviation, opponent_abbr, matchup,
-                 home_away, wl, min, pts, reb, ast, tov, fgm, fga, fg3m, fg3a,
-                 usage_pct, touches, rebound_chances, potential_ast, passes_made
-          from public.player_game_logs
-          where player_id = $1::int and season_year = $2::text and game_id is not null
-          order by game_date desc
-        `,
-        playerId,
-        season,
-      ),
+      loadContextGames(playerId, season),
       prisma.$queryRawUnsafe<any[]>(
         `
           select l.player_id, count(*)::int as games, avg(coalesce(l.pf, 0))::real as pf_avg
@@ -99,8 +88,22 @@ async function handleGET(req: NextRequest) {
       ),
     ]);
 
+    const shots = shotsResult.status === "fulfilled" ? shotsResult.value : [];
+    const matchups = matchupsResult.status === "fulfilled" ? matchupsResult.value : [];
+    const defenderFouls = foulsResult.status === "fulfilled" ? foulsResult.value : [];
+    const history = gamesResult.status === "fulfilled" ? gamesResult.value : null;
+    const games = history?.games ?? [];
+    const warnings = [
+      ...(shotsResult.status === "rejected" ? ["No se pudieron consultar los tiros."] : []),
+      ...(matchupsResult.status === "rejected" ? ["No se pudieron consultar los defensores."] : []),
+      ...(foulsResult.status === "rejected" ? ["No se pudieron consultar las faltas de los defensores."] : []),
+      ...(!history || history.failures.length === 2 ? ["No se pudo consultar el historial de partidos."] : []),
+    ];
+    if (!games.length && !shots.length && !matchups.length && warnings.length) {
+      return NextResponse.json({ ok: false, error: warnings.join(" "), shots: [], matchups: [], games: [], defenderFouls: [] }, { status: 503 });
+    }
     return NextResponse.json(
-      { ok: true, season, shots: plain(shots), matchups: plain(matchups), games: plain(games), defenderFouls: plain(defenderFouls) },
+      { ok: true, season, shots: plain(shots), matchups: plain(matchups), games: plain(games), defenderFouls: plain(defenderFouls), availableSeasons: history?.seasons ?? [], warnings },
       { headers: { "Cache-Control": "private, max-age=60, stale-while-revalidate=300" } },
     );
   } catch (error: any) {

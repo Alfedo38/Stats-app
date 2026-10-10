@@ -39,7 +39,7 @@ async function handleGET(req: NextRequest) {
     const limitRaw = Number(searchParams.get("limit") || 1500);
     const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(Math.floor(limitRaw), 1), 3000) : 1500;
 
-    if (!Number.isFinite(playerId)) {
+    if (!Number.isSafeInteger(playerId) || playerId <= 0) {
       return NextResponse.json(
         { ok: false, rows: [], count: 0, error: "playerId inválido" },
         { status: 400 }
@@ -75,7 +75,7 @@ async function handleGET(req: NextRequest) {
         pa,
         ra,
         pra,
-        (COALESCE(stl, 0) + COALESCE(blk, 0)) AS stl_blk
+        case when stl is not null and blk is not null then stl + blk else null end AS stl_blk
       FROM public.player_period_splits_front_v2_cache
       WHERE player_id = $1::bigint
       ORDER BY game_date DESC, split_code ASC
@@ -91,7 +91,7 @@ async function handleGET(req: NextRequest) {
       { ok: true, count: safeRows.length, rows: safeRows },
       {
         headers: {
-          "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+          "Cache-Control": "private, no-store",
           "X-Player-Period-Splits": "cache",
         },
       }
@@ -99,8 +99,8 @@ async function handleGET(req: NextRequest) {
   } catch (error: any) {
     console.error("GET /api/player-period-splits error:", error);
     return NextResponse.json(
-      { ok: false, count: 0, rows: [], error: error?.message || "Error leyendo period splits" },
-      { status: 200 }
+      { ok: false, count: 0, rows: [], error: "No se pudieron leer los datos de períodos." },
+      { status: 503 }
     );
   }
 }

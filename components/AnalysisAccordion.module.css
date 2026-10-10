@@ -1,0 +1,29 @@
+.box {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--bg);
+}
+.trigger {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  cursor: pointer;
+  list-style: none;
+}
+.trigger::-webkit-details-marker { display: none; }
+.trigger::marker { content: ''; }
+.trigger:hover { background: rgb(255 255 255 / 0.025); }
+.trigger:focus-visible { outline: 2px solid #67e8f9; outline-offset: -3px; }
+.heading { display: flex; min-width: 0; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.icon { display: inline-flex; flex-shrink: 0; color: #67e8f9; }
+.title { font-size: 0.75rem; font-weight: 900; line-height: 1.5; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text, #fff); }
+.chevron { flex-shrink: 0; color: var(--text-muted, #94a3b8); transition: transform 150ms; }
+.box[open] > .trigger > .chevron { transform: rotate(180deg); }
+.body { padding: 0.75rem 1rem; border-top: 1px solid var(--border); }
+@media (prefers-reduced-motion: reduce) { .chevron { transition: none; } }

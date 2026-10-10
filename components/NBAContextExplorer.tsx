@@ -1,7 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, useRef, type ReactNode } from "react";
 import { Calculator, ChevronDown, ChevronLeft, ChevronRight, Crosshair, Shield, Target } from "lucide-react";
+import type { AnalysisSample } from "@/lib/nbaAnalysis";
+import { keyGame } from "@/lib/nbaAnalysis";
+import {analysisStyles} from "@/components/AnalysisAccordion";
+import NBAProInsights from "@/components/NBAProInsights";
 import DvpPanel from "@/components/DvpPanel";
 
 type Shot = {
@@ -32,6 +36,7 @@ type GameLog = {
   pts?: number | null; fgm?: number | null; fga?: number | null;
   reb?: number | null; ast?: number | null; tov?: number | null;
   fg3m?: number | null; fg3a?: number | null; min?: number | null;
+  fta?: number | null; season?: string;
   usage_pct?: number | null; touches?: number | null; rebound_chances?: number | null;
   potential_ast?: number | null; passes_made?: number | null;
 };
@@ -153,7 +158,7 @@ function buildDefenderTotals(rows: Matchup[]): DefenderTotal[] {
 
 function FilterButton({ active, children, onClick }: { active: boolean; children: ReactNode; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className={`rounded-lg border px-3 py-2 text-[10px] font-black uppercase tracking-wider transition ${active ? "border-emerald-400 bg-emerald-400/15 text-emerald-300" : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)] hover:text-[var(--text)]"}`}>
+    <button type="button" onClick={onClick} className={`rounded-lg border px-3 py-2 text-[10px] font-black uppercase tracking-wider transition ${active ? "border-cyan-400 bg-cyan-400/15 text-cyan-300" : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)] hover:text-[var(--text)]"}`}>
       {children}
     </button>
   );
@@ -164,17 +169,17 @@ function CollapsibleSection({ title, meta, icon, defaultOpen = true, children }:
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <section className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg)]">
+    <section className={analysisStyles.box}>
       <button type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open}
-        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-white/[0.025]">
-        <span className="flex min-w-0 items-center gap-2">
-          <span className="text-emerald-300">{icon}</span>
-          <span className="text-xs font-black uppercase tracking-wider text-[var(--text)]">{title}</span>
+        className={analysisStyles.trigger}>
+        <span className={analysisStyles.heading}>
+          <span className={analysisStyles.icon}>{icon}</span>
+          <span className={analysisStyles.title}>{title}</span>
           {meta && <span className="truncate text-[10px] text-[var(--text-muted)]">{meta}</span>}
         </span>
-        <ChevronDown size={16} className={`shrink-0 text-[var(--text-muted)] transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown size={16} className={analysisStyles.chevron} style={{transform:open?"rotate(180deg)":undefined}} />
       </button>
-      {open && <div className="border-t border-[var(--border)] p-3 md:p-4">{children}</div>}
+      {open && <div className={analysisStyles.body}>{children}</div>}
     </section>
   );
 }
@@ -293,6 +298,8 @@ type NBAContextExplorerProps = {
   opponentAbbr?: string | null;
   playerPosition?: string | null;
   dvpKey?: string;
+  nextGameDate?: string | null;
+  sharedSample?: AnalysisSample | null;
 };
 
 export default function NBAContextExplorer({
@@ -301,6 +308,8 @@ export default function NBAContextExplorer({
   opponentAbbr,
   playerPosition,
   dvpKey,
+  nextGameDate,
+  sharedSample,
 }: NBAContextExplorerProps) {
   const [shots, setShots] = useState<Shot[]>([]);
   const [matchups, setMatchups] = useState<Matchup[]>([]);
@@ -310,6 +319,9 @@ export default function NBAContextExplorer({
   const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const autoSeason = useRef(true);
+  const [availableSeasons, setAvailableSeasons] = useState<string[]>([]);
+  const [selectedSeason, setSelectedSeason] = useState("2025-26");
   const [seasonType, setSeasonType] = useState("ALL");
   const [opponent, setOpponent] = useState(() => String(opponentAbbr || "ALL").trim().toUpperCase() || "ALL");
   const [position, setPosition] = useState("ALL");
@@ -324,23 +336,32 @@ export default function NBAContextExplorer({
   }, []);
 
   useEffect(() => {
-    if (!expanded || loaded || loading) return;
+    if (!expanded) return;
     const controller = new AbortController();
-    setLoading(true); setError("");
-    fetch(`/api/nba-context?playerId=${encodeURIComponent(playerId)}&season=2025-26`, { signal: controller.signal })
-      .then((response) => response.json())
-      .then((data) => {
-        if (!data?.ok) throw new Error(data?.error || "No se pudo cargar el contexto NBA");
+    setLoading(true); setLoaded(false); setError("");
+    setShots([]); setMatchups([]); setGameLogs([]); setDefenderFouls([]);
+    setSelectedGameId("");
+    fetch(`/api/nba-context?playerId=${encodeURIComponent(playerId)}&season=${encodeURIComponent(selectedSeason)}`, { signal: controller.signal })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok || !data?.ok) throw new Error(data?.error || "No se pudo cargar el contexto NBA");
+        if (controller.signal.aborted) return;
+        const seasons: string[] = Array.isArray(data.availableSeasons) ? data.availableSeasons.filter((value: string) => /^\d{4}-\d{2}$/.test(value)) : [];
+        setAvailableSeasons(seasons);
+        if (autoSeason.current) {
+          autoSeason.current = false;
+          if (!data.games?.length && seasons.length && !seasons.includes(selectedSeason)) { setSelectedSeason(seasons[0]); return; }
+        }
         setShots(Array.isArray(data.shots) ? data.shots : []);
         setMatchups(Array.isArray(data.matchups) ? data.matchups : []);
         setGameLogs(Array.isArray(data.games) ? data.games : []);
         setDefenderFouls(Array.isArray(data.defenderFouls) ? data.defenderFouls : []);
         setLoaded(true);
       })
-      .catch((reason) => { if (reason?.name !== "AbortError") setError(reason?.message || "No se pudo cargar el contexto NBA"); })
-      .finally(() => setLoading(false));
+      .catch((reason) => { if (!controller.signal.aborted) setError(reason?.message || "No se pudo cargar el contexto NBA"); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [expanded, loaded, playerId]);
+  }, [expanded, playerId, selectedSeason]);
 
   function toggleExpanded() {
     setExpanded((current) => {
@@ -365,9 +386,10 @@ export default function NBAContextExplorer({
   }, [gameLogs, matchups, shots]);
 
   const filteredGames = useMemo(() => {
-    const list = [...gameMeta.values()].filter((game) => (seasonType === "ALL" || game.seasonType === seasonType) && (opponent === "ALL" || game.opponent === opponent)).sort((a, b) => b.date.localeCompare(a.date));
+    const sharedIds = sharedSample ? new Set(sharedSample.rows.map(keyGame)) : null;
+    const list = [...gameMeta.values()].filter(game => !sharedIds || sharedIds.has(String(game.id).replace(/^0+/, ""))).filter((game) => (seasonType === "ALL" || game.seasonType === seasonType) && (opponent === "ALL" || game.opponent === opponent)).sort((a, b) => b.date.localeCompare(a.date));
     return range > 0 ? list.slice(0, range) : list;
-  }, [gameMeta, opponent, range, seasonType]);
+  }, [gameMeta, opponent, range, seasonType, sharedSample]);
 
   useEffect(() => {
     if (!filteredGames.some((game) => game.id === selectedGameId)) setSelectedGameId(filteredGames[0]?.id || "");
@@ -505,7 +527,7 @@ export default function NBAContextExplorer({
 
     const contextGames = recent;
     const contextAverage = (key: keyof GameLog) => {
-      const values = contextGames.map((game) => n(game[key])).filter((value) => value > 0);
+      const values = contextGames.map((game) => game[key]).filter((value) => value != null && String(value).trim() !== "").map(Number).filter((value) => Number.isFinite(value) && value >= 0);
       return values.length ? mean(values) : null;
     };
 
@@ -545,17 +567,24 @@ export default function NBAContextExplorer({
     <section className="overflow-hidden rounded-2xl border border-cyan-400/20 bg-[var(--surface)] shadow-[0_0_32px_rgba(34,211,238,0.04)]">
       <button type="button" onClick={toggleExpanded} aria-expanded={expanded} className="flex w-full items-center justify-between gap-4 p-4 text-left hover:bg-white/[0.025] md:p-5">
         <span className="min-w-0">
-          <span className="flex items-center gap-2 text-cyan-300"><Crosshair size={17} /><span className="text-[10px] font-black uppercase tracking-[0.2em]">Análisis Pro · 2025-26</span></span>
-          <span className="mt-1 block text-xl font-black tracking-tight text-[var(--text)]">Marca, cancha y proyección</span>
-          <span className="mt-1 block text-xs text-[var(--text-muted)]">{expanded ? "Compará proyección, marca, tiros y rival en una sola lectura." : "El análisis queda cerrado y no ocupa espacio."}</span>
+          <span className="flex items-center gap-2 text-cyan-300"><Crosshair size={17} /><span className="text-[10px] font-black uppercase tracking-[0.2em]">Contexto · {selectedSeason}</span></span>
+          <span className="mt-1 block text-lg font-black tracking-tight text-[var(--text)]">Tiros y defensa del rival</span>
+          <span className="mt-1 block text-xs text-[var(--text-muted)]">{expanded ? "Revisá zonas de tiro, defensores y rendimiento frente al rival." : "El análisis queda cerrado y no ocupa espacio."}</span>
         </span>
-        <span className="flex shrink-0 items-center gap-2"><span className="hidden rounded-full border border-cyan-400/20 bg-cyan-400/5 px-3 py-1.5 text-[9px] font-black uppercase text-cyan-200 sm:inline">Sólo carga en Pro</span><ChevronDown size={20} className={`text-cyan-300 transition-transform ${expanded ? "rotate-180" : ""}`} /></span>
+        <span className="flex shrink-0 items-center gap-2"><span className="hidden rounded-full border border-cyan-400/20 bg-cyan-400/5 px-3 py-1.5 text-[9px] font-black uppercase text-cyan-200 sm:inline">Abrir contexto</span><ChevronDown size={20} className={`text-cyan-300 transition-transform ${expanded ? "rotate-180" : ""}`} /></span>
       </button>
 
       {expanded && <div className="border-t border-[var(--border)]">
+        <div className="flex flex-wrap items-center gap-3 border-b border-[var(--border)] p-4">
+          <label htmlFor={`pro-season-${playerId}`} className="text-xs font-bold text-[var(--text-muted)]">Temporada del análisis</label>
+          <select id={`pro-season-${playerId}`} value={selectedSeason} onChange={event => { autoSeason.current = false; setSelectedSeason(event.target.value); }} className="rounded-lg border border-cyan-400/30 bg-[var(--bg)] px-3 py-2 text-xs font-bold text-[var(--text)]">
+            {Array.from(new Set([selectedSeason, ...availableSeasons])).sort().reverse().map(season => <option key={season} value={season}>{season}</option>)}
+          </select>
+          <span className="text-xs text-[var(--text-muted)]">Elegí una temporada con partidos cargados en la base.</span>
+        </div>
         {loading && <div className="p-5"><div className="h-5 w-56 animate-pulse rounded bg-white/10" /><div className="mt-4 h-40 animate-pulse rounded-xl bg-white/[0.04]" /></div>}
         {error && <div className="m-4 rounded-xl border border-amber-500/30 bg-amber-500/5 p-5 text-sm text-amber-200">{error}</div>}
-        {loaded && !shots.length && !matchups.length && !gameLogs.length && <div className="p-6 text-sm text-[var(--text-muted)]">No hay datos de contexto para este jugador.</div>}
+        {loaded && !shots.length && !matchups.length && !gameLogs.length && <div className="p-6 text-sm text-[var(--text-muted)]">No se encontraron partidos, tiros ni defensores de {playerName} en {selectedSeason}. Probá otra temporada; si también queda vacía, hay que revisar la carga de datos y el ID del jugador.</div>}
 
         {loaded && (shots.length > 0 || matchups.length > 0 || gameLogs.length > 0) && <>
           <div className="border-b border-[var(--border)] p-4 md:p-5">
@@ -568,37 +597,14 @@ export default function NBAContextExplorer({
           </div>
 
           <div className="space-y-3 p-4 md:p-5">
-            <CollapsibleSection title="Proyección de mercado" meta={opponent === "ALL" ? `${range ? `L${range}` : "Temporada"}` : `vs ${opponent} · ${range ? `L${range}` : "Temporada"}`} icon={<Calculator size={16} />}>
-              <div className="space-y-4">
-                <div className="flex gap-1 overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1">
-                  {MARKET_OPTIONS.map((market) => <button key={market.id} type="button" title={market.detail} onClick={() => setSelectedMarket(market.id)} className={`min-w-[58px] flex-1 rounded-lg px-3 py-2.5 text-[9px] font-black uppercase tracking-widest transition ${selectedMarket === market.id ? "bg-emerald-400 text-black" : "text-[var(--text-muted)] hover:text-[var(--text)]"}`}>{market.label}</button>)}
-                </div>
-                {marketProjection ? <>
-                  <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-                    <div className="rounded-xl border border-emerald-400/25 bg-emerald-400/5 p-4"><div className="text-[9px] font-black uppercase text-emerald-300">Proyección {selectedMarketLabel}</div><div className="mt-1 text-3xl font-black">{marketProjection.expected.toFixed(1)}</div></div>
-                    <div className="rounded-xl border border-[var(--border)] bg-[var(--bg)] p-4"><div className="text-[9px] font-black uppercase text-[var(--text-muted)]">Rango estimado</div><div className="mt-1 text-2xl font-black">{marketProjection.low.toFixed(1)}–{marketProjection.high.toFixed(1)}</div></div>
-                    <div className="rounded-xl border border-orange-400/25 bg-orange-400/5 p-4"><div className="text-[9px] font-black uppercase text-orange-300">Línea de análisis</div><div className="mt-1 flex items-center gap-2"><button type="button" onClick={() => setMarketLine((value) => Math.max(0.5, value - 1))} className="h-8 w-8 rounded-lg border border-[var(--border)] text-lg font-black">−</button><span className="min-w-12 text-center text-2xl font-black">{marketLine.toFixed(1)}</span><button type="button" onClick={() => setMarketLine((value) => value + 1)} className="h-8 w-8 rounded-lg border border-[var(--border)] text-lg font-black">+</button></div></div>
-                    <div className="rounded-xl border border-cyan-400/25 bg-cyan-400/5 p-4"><div className="text-[9px] font-black uppercase text-cyan-300">Over en la muestra</div><div className="mt-1 text-2xl font-black">{marketHits}/{marketProjection.values.length}</div><div className="mt-1 text-[10px] font-bold text-[var(--text-muted)]">{marketHitRate}% sobre {marketLine.toFixed(1)}</div></div>
-                    <div className="rounded-xl border border-[var(--border)] bg-[var(--bg)] p-4"><div className="text-[9px] font-black uppercase text-[var(--text-muted)]">Confianza</div><div className={`mt-1 text-2xl font-black ${marketProjection.confidence === "Alta" ? "text-emerald-300" : marketProjection.confidence === "Media" ? "text-amber-300" : "text-rose-300"}`}>{marketProjection.confidence}</div><div className="mt-1 text-[9px] text-[var(--text-muted)]">{marketProjection.sample} partidos</div></div>
-                  </div>
-                  <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
-                    <div className="rounded-lg bg-white/[0.035] p-3 text-xs"><span className="block text-[9px] font-black uppercase text-[var(--text-muted)]">Promedio reciente</span><strong className="mt-1 block">{marketProjection.recentMean.toFixed(1)}</strong></div>
-                    <div className="rounded-lg bg-white/[0.035] p-3 text-xs"><span className="block text-[9px] font-black uppercase text-[var(--text-muted)]">Promedio temporada</span><strong className="mt-1 block">{marketProjection.seasonMean.toFixed(1)}</strong></div>
-                    <div className="rounded-lg bg-white/[0.035] p-3 text-xs"><span className="block text-[9px] font-black uppercase text-[var(--text-muted)]">Contra {opponent === "ALL" ? "rival" : opponent}</span><strong className="mt-1 block">{marketProjection.rivalMean === null ? "Sin muestra" : `${marketProjection.rivalMean.toFixed(1)} · ${marketProjection.rivalSample} PJ`}</strong></div>
-                    <div className="rounded-lg bg-white/[0.035] p-3 text-xs"><span className="block text-[9px] font-black uppercase text-[var(--text-muted)]">Minutos</span><strong className="mt-1 block">{marketProjection.minutes === null ? "S/D" : marketProjection.minutes.toFixed(1)}</strong></div>
-                    <div className="rounded-lg bg-white/[0.035] p-3 text-xs"><span className="block text-[9px] font-black uppercase text-[var(--text-muted)]">USG% · Toques</span><strong className="mt-1 block">{marketProjection.usage === null ? "S/D" : `${(marketProjection.usage <= 1 ? marketProjection.usage * 100 : marketProjection.usage).toFixed(1)}%`} · {marketProjection.touches === null ? "S/D" : marketProjection.touches.toFixed(1)}</strong></div>
-                    <div className="rounded-lg bg-white/[0.035] p-3 text-xs"><span className="block text-[9px] font-black uppercase text-[var(--text-muted)]">Pot. AST · Oport. REB</span><strong className="mt-1 block">{marketProjection.potentialAst === null ? "S/D" : marketProjection.potentialAst.toFixed(1)} · {marketProjection.reboundChances === null ? "S/D" : marketProjection.reboundChances.toFixed(1)}</strong></div>
-                  </div>
-                  <p className="rounded-lg border border-sky-400/15 bg-sky-400/5 px-3 py-2 text-[10px] leading-5 text-[var(--text-muted)]">Combina promedio reciente, temporada y enfrentamientos directos sin tratar PTS, REB y AST como variables independientes. El rango refleja la variación real de la muestra; no es una garantía.</p>
-                </> : <div className="rounded-xl border border-dashed border-[var(--border)] p-6 text-center text-xs text-[var(--text-muted)]">No hay partidos suficientes para esta proyección.</div>}
-              </div>
-            </CollapsibleSection>
-
+            <p className="text-xs text-[var(--text-muted)]">Este bloque usa partidos de la muestra del gráfico que tengan contexto en {selectedSeason}. Los controles siguientes refinan esa intersección. Las asignaciones de defensores son de partido completo.</p>
+            {sharedSample && sharedSample.scope !== "FULL" ? <p className="text-xs text-amber-300">El gráfico está en un período parcial. Los defensores y el calendario de este bloque se ocultan para evitar mezclar totales; el resumen de rol superior usa el período elegido.</p> : <>
+            <NBAProInsights key={playerId} rows={gameLogs.filter(row => !sharedSample || sharedSample.rows.some(sample => keyGame(sample) === keyGame(row)))} shots={shots} playerId={playerId} opponent={opponent} seasonType={seasonType} range={range} nextGameDate={nextGameDate} />
             <CollapsibleSection title="FGA, FGM y escenario de faltas" meta={opponent === "ALL" ? "Elegí un equipo" : `vs ${opponent}`} icon={<Calculator size={16} />} defaultOpen={false}>
               {opponent === "ALL" ? <div className="rounded-xl border border-dashed border-[var(--border)] p-6 text-center text-xs text-[var(--text-muted)]">Seleccioná un equipo rival para calcular FGA, FGM y el escenario de faltas.</div> : projection ? <div className="space-y-4">
                 <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
                   {[{ label: "FGA esperados", value: projection.fga.toFixed(1) }, { label: "FGM esperados", value: projection.fgm.toFixed(1) }, { label: "TC proyectado", value: `${(projection.fgPct * 100).toFixed(1)}%` }, { label: "Rango FGA", value: `${projection.low}–${projection.high}` }].map((item) => <div key={item.label} className="rounded-xl border border-[var(--border)] bg-[var(--bg)] p-3"><div className="text-[9px] font-black uppercase text-[var(--text-muted)]">{item.label}</div><div className="mt-1 text-2xl font-black">{item.value}</div></div>)}
-                  <div className="rounded-xl border border-[var(--border)] bg-[var(--bg)] p-3"><div className="text-[9px] font-black uppercase text-[var(--text-muted)]">Confianza</div><div className={`mt-1 text-2xl font-black ${projection.confidence === "Alta" ? "text-emerald-300" : projection.confidence === "Media" ? "text-amber-300" : "text-rose-300"}`}>{projection.confidence}</div><div className="mt-1 text-[9px] text-[var(--text-muted)]">{projection.games} PJ · {projection.possessions.toFixed(0)} poses.</div></div>
+                  <div className="rounded-xl border border-[var(--border)] bg-[var(--bg)] p-3"><div className="text-[9px] font-black uppercase text-[var(--text-muted)]">Tamaño de muestra</div><div className={`mt-1 text-2xl font-black ${projection.confidence === "Alta" ? "text-emerald-300" : projection.confidence === "Media" ? "text-amber-300" : "text-rose-300"}`}>{projection.games} PJ</div><div className="mt-1 text-[9px] text-[var(--text-muted)]">{projection.games} PJ · {projection.possessions.toFixed(0)} poses.</div></div>
                 </div>
                 <div className="grid gap-2 md:grid-cols-2"><div className="rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-4"><div className="text-[9px] font-black uppercase text-emerald-300">Rotación normal</div><div className="mt-2 text-xl font-black">{projection.fga.toFixed(1)} FGA · {projection.fgm.toFixed(1)} FGM</div><div className="mt-1 text-xs text-[var(--text-muted)]">{(projection.fgPct * 100).toFixed(1)}% de campo estimado</div></div><div className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-4"><div className="text-[9px] font-black uppercase text-amber-300">Principal con faltas</div><div className="mt-2 text-xl font-black">{projection.foulFga.toFixed(1)} FGA · {projection.foulFgm.toFixed(1)} FGM</div><div className="mt-1 text-xs text-[var(--text-muted)]">Δ {(projection.foulFga - projection.fga >= 0 ? "+" : "")}{(projection.foulFga - projection.fga).toFixed(1)} FGA · más segunda rotación</div></div></div>
                 <div className="grid gap-2 md:grid-cols-3"><div className="rounded-lg bg-white/[0.035] p-3 text-xs"><span className="block text-[9px] font-black uppercase text-[var(--text-muted)]">Defensor principal</span><span className="mt-1 block font-bold">{projection.primary?.name || "Sin identificar"}</span></div><div className="rounded-lg bg-white/[0.035] p-3 text-xs"><span className="block text-[9px] font-black uppercase text-[var(--text-muted)]">Asignación estimada</span><span className="mt-1 block font-bold">{(projection.primaryShare * 100).toFixed(0)}%</span></div><div className="rounded-lg bg-white/[0.035] p-3 text-xs"><span className="block text-[9px] font-black uppercase text-[var(--text-muted)]">Faltas promedio</span><span className="mt-1 block font-bold">{projection.pfAverage === null ? "S/D" : projection.pfAverage.toFixed(1)} PF{projection.minutes === null ? "" : ` · ${projection.minutes.toFixed(1)} MIN`}</span></div></div>
@@ -619,6 +625,7 @@ export default function NBAContextExplorer({
               {opponent !== "ALL" && playerPosition ? <DvpPanel key={`${dvpKey || playerId}:${opponent}:${playerPosition}`} opponentAbbr={opponent} position={playerPosition} /> : <div className="rounded-xl border border-dashed border-[var(--border)] p-6 text-center text-xs text-[var(--text-muted)]">Elegí uno de los 30 equipos en el selector superior para ver su DVP contra la posición de {playerName}.</div>}
             </CollapsibleSection>
 
+            </>}
             <p className="rounded-xl border border-sky-400/20 bg-sky-400/5 px-4 py-3 text-[10px] leading-5 text-sky-100/70">Los puntos muestran tiros reales. Las asignaciones son totales del partido: la fuente no identifica con certeza al defensor de cada tiro individual.</p>
           </div>
         </>}

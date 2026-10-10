@@ -1,3 +1,4 @@
+import { periodMetricValue } from "@/lib/nbaPeriodStats";
 import prisma from "@/lib/prisma";
 
 function plainValue(value: any): any {
@@ -88,45 +89,20 @@ function first(...values: any[]) {
 function addSplitToAccumulator(acc: any, split: any, prefix: "q1" | "h1" | "h2") {
   acc[`${prefix}_min`] = first(split.min, split.minutes, split.min_text);
   acc[`${prefix}_minutes`] = acc[`${prefix}_min`];
-
-  const fields = [
-    "pts",
-    "reb",
-    "ast",
-    "oreb",
-    "dreb",
-    "stl",
-    "blk",
-    "tov",
-    "pf",
-    "fgm",
-    "fga",
-    "fg3m",
-    "fg3a",
-    "ftm",
-    "fta",
-  ];
-
-  for (const f of fields) {
-    acc[`${prefix}_${f}`] = num(split?.[f]);
-  }
-
+  const fields = ["pts", "reb", "ast", "oreb", "dreb", "stl", "blk", "tov", "pf", "fgm", "fga", "fg3m", "fg3a", "ftm", "fta"];
+  for (const field of fields) acc[`${prefix}_${field}`] = periodMetricValue(split, field, "FULL");
   acc[`${prefix}_to`] = acc[`${prefix}_tov`];
   acc[`${prefix}_3ptm`] = acc[`${prefix}_fg3m`];
   acc[`${prefix}_3pta`] = acc[`${prefix}_fg3a`];
-
-  acc[`${prefix}_pr`] = num(split.pr ?? acc[`${prefix}_pts`] + acc[`${prefix}_reb`]);
-  acc[`${prefix}_pa`] = num(split.pa ?? acc[`${prefix}_pts`] + acc[`${prefix}_ast`]);
-  acc[`${prefix}_ra`] = num(split.ra ?? acc[`${prefix}_reb`] + acc[`${prefix}_ast`]);
-  acc[`${prefix}_pra`] = num(
-    split.pra ?? acc[`${prefix}_pts`] + acc[`${prefix}_reb`] + acc[`${prefix}_ast`]
-  );
-
+  const sum = (names: string[]) => names.every(name => acc[`${prefix}_${name}`] !== null)
+    ? names.reduce((total, name) => total + acc[`${prefix}_${name}`], 0) : null;
+  for (const [key, parts] of [["pr", ["pts", "reb"]], ["pa", ["pts", "ast"]], ["ra", ["reb", "ast"]], ["pra", ["pts", "reb", "ast"]], ["stl_blk", ["stl", "blk"]]] as [string, string[]][]) {
+    acc[`${prefix}_${key}`] = periodMetricValue(split, key, "FULL") ?? sum(parts);
+  }
   acc[`${prefix}_pts_reb`] = acc[`${prefix}_pr`];
   acc[`${prefix}_pts_ast`] = acc[`${prefix}_pa`];
   acc[`${prefix}_reb_ast`] = acc[`${prefix}_ra`];
   acc[`${prefix}_pts_reb_ast`] = acc[`${prefix}_pra`];
-  acc[`${prefix}_stl_blk`] = num(split.stl_blk ?? acc[`${prefix}_stl`] + acc[`${prefix}_blk`]);
 }
 
 export async function getPlayerDataFast(playerId: string | number) {

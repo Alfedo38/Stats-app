@@ -29,8 +29,8 @@ export default async function WNBATeamPage({ params }: { params: Params }) {
   const season = "2026";
   const seasonType = "Regular Season";
   const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!supabaseUrl || !supabaseKey) return <main className="min-h-screen p-6 text-[var(--text)]">Faltan variables de Supabase.</main>;
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !supabaseKey) return <main className="min-h-screen p-6 text-[var(--text)]">Falta configurar la conexión de servidor de Supabase.</main>;
 
   const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
   const [teamRes, rosterRes, teamsRes] = await Promise.all([

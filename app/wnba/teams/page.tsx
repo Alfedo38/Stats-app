@@ -26,8 +26,8 @@ function StatStrip({ teams }: { teams: TeamRow[] }) {
 export default async function WNBATeamsPage() {
   await requirePageUser();
   const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!supabaseUrl || !supabaseKey) return <main className="min-h-screen p-6 text-[var(--text)]">Faltan variables de Supabase.</main>;
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !supabaseKey) return <main className="min-h-screen p-6 text-[var(--text)]">Falta configurar la conexión de servidor de Supabase.</main>;
 
   const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
   const { data, error } = await supabase.from("v_wnba_teams").select("*").eq("season", "2026").eq("season_type", "Regular Season").order("w_pct", { ascending: false });

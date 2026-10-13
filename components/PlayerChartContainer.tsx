@@ -18,6 +18,8 @@ import ActiveInjuryContextCard from "@/components/ActiveInjuryContextCard";
 import StatFilters, { type ActiveFilter } from "@/components/StatFilters";
 import GameLogTable from "@/components/GameLogTable";
 import FloatingPlayerIdentity, {ChartIdentity} from "@/components/PlayerIdentity";
+import PlayerAbsenceFilter from "@/components/PlayerAbsenceFilter";
+import {parsePhase,phaseRows,absenceRows,cleanAbsences,PHASE_OPTIONS,type NBASeasonPhase} from "@/lib/nbaGameFilters";
 import ShareButton from "@/components/ShareButton";
 import { usePlayerUrlState } from "@/hooks/usePlayerUrlState";
 import {
@@ -555,6 +557,24 @@ export default function PlayerChartContainer({
   const [activeWoTeammate, setActiveWoTeammateState] = useState<string | null>(
     () => cleanWoParam(searchParams.get("wo")),
   );
+  const [seasonPhase, setSeasonPhase] = useState<NBASeasonPhase>(()=>parsePhase(searchParams.get("phase")));
+  const [absentNames, setAbsentNames] = useState<string[]>(()=>cleanAbsences(searchParams.getAll("absent")));
+  const effectiveAbsences = useMemo(()=>cleanAbsences([...absentNames,...(activeWoTeammate?[activeWoTeammate]:[])]),[absentNames,activeWoTeammate]);
+  const absenceKey = JSON.stringify(effectiveAbsences);
+  const absenceContextKey = `${playerId}:${absenceKey}`;
+  const [absenceState, setAbsenceState] = useState<{key:string;matches:Record<string,string[]>|null;loading:boolean;error:string|null}>({key:'',matches:null,loading:false,error:null});
+  const [absenceRetry,setAbsenceRetry] = useState(0);
+  const currentAbsence = absenceState.key === absenceContextKey ? absenceState : {matches:null,loading:effectiveAbsences.length>0,error:null};
+  const changeAbsences = useCallback((names:string[])=>{setAbsentNames(cleanAbsences(names));setActiveWoTeammateState(null);},[]);
+  useEffect(()=>{
+    if(!effectiveAbsences.length){setAbsenceState({key:absenceContextKey,matches:{},loading:false,error:null});return;}
+    const controller=new AbortController();
+    setAbsenceState({key:absenceContextKey,matches:null,loading:true,error:null});
+    fetch('/api/player-absence',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({playerId,names:effectiveAbsences}),signal:controller.signal,cache:'no-store'})
+      .then(async response=>{const data=await response.json();if(!response.ok||!data.ok)throw new Error(data.error||'No se pudieron consultar las ausencias.');if(!controller.signal.aborted)setAbsenceState({key:absenceContextKey,matches:data.matches??{},loading:false,error:null});})
+      .catch(error=>{if(!controller.signal.aborted)setAbsenceState({key:absenceContextKey,matches:null,loading:false,error:error.message});});
+    return()=>controller.abort();
+  },[playerId,absenceContextKey,absenceRetry]);
   const [clientActiveInjuryContext, setClientActiveInjuryContext] = useState<
     any[]
   >([]);
@@ -621,6 +641,8 @@ export default function PlayerChartContainer({
     setChartOpponentInput("");
     setChartHomeAwayState(null);
     setActiveWoTeammateState(null);
+    setAbsentNames([]);
+    setSeasonPhase("ALL");
   }, []);
 
   // ── Filter handlers ─────────────────────────────────────────────────────────
@@ -762,7 +784,8 @@ export default function PlayerChartContainer({
         opponent: chartOpponent || null,
         homeAway: chartHomeAway,
         minMinutes: chartHistMinMinutes,
-        woTeammate: activeWoTeammate,
+        woTeammate: null,
+        phase: seasonPhase,
         limit: 1000,
       }),
       signal: controller.signal,
@@ -793,6 +816,7 @@ export default function PlayerChartContainer({
     chartHomeAway,
     chartHistMinMinutes,
     activeWoTeammate,
+    seasonPhase,
   ]);
 
   // ── Period splits client fallback ────────────────────────────────────────────
@@ -905,11 +929,8 @@ export default function PlayerChartContainer({
 
   // ── Apply filters (internal threshold + external W/O) ────────────────────────
   const filteredStats = useMemo(() => {
-    const windowed =
-      lastN >= 999 ? processedStats : processedStats.slice(0, lastN);
-    let result = windowed.slice().reverse();
+    let result = absenceRows(phaseRows(processedStats,seasonPhase),effectiveAbsences,currentAbsence.matches).slice().reverse();
     if (!isFullScope) {
-      if (activeWoTeammate) return [];
       if (chartOpponent) result = result.filter(row => getOpponent(row) === chartOpponent);
       if (chartHomeAway) result = result.filter(row => getGameLocation(row) === (chartHomeAway === "HOME" ? "vs" : "@"));
       if (chartHistMinMinutes !== null) result = result.filter(row => { const minutes = getMinutesValue(row); return minutes !== null && minutes >= chartHistMinMinutes; });
@@ -940,20 +961,20 @@ export default function PlayerChartContainer({
         const parsed = parseExternalPlayerFilterId(filter.id);
         if (!parsed) continue;
 
-        const teammateGameIds = new Set(externalGameIds[parsed.playerId] || []);
+        const teammateGameIds = new Set((externalGameIds[parsed.playerId] || []).map(normalizeGameId));
         if (!Object.prototype.hasOwnProperty.call(externalGameIds, parsed.playerId)) { result = []; continue; }
 
         result = result.filter((s) => {
           const gameId = normalizeGameId(s.game_id);
-          if (!gameId) return true;
+          if (!gameId) return false;
           const teammatePlayed = teammateGameIds.has(gameId);
           return parsed.mode === "with" ? teammatePlayed : !teammatePlayed;
         });
       }
     }
 
-    return result;
-  }, [processedStats, lastN, activeFilters, externalFilters, externalGameIds, isFullScope, chartOpponent, chartHomeAway, chartHistMinMinutes, activeWoTeammate]);
+    return lastN >= 999 ? result : result.slice(-lastN);
+  }, [seasonPhase,absenceKey,currentAbsence.matches,processedStats, lastN, activeFilters, externalFilters, externalGameIds, isFullScope, chartOpponent, chartHomeAway, chartHistMinMinutes, activeWoTeammate]);
 
   const visibleStats = filteredStats;
 
@@ -1009,10 +1030,8 @@ export default function PlayerChartContainer({
       }));
   }, [historicalChartData, lineValue]);
 
-  const historicalChartWindow = useMemo(
-    () => lastN >= 999 ? historicalChartStats : historicalChartStats.slice(-lastN),
-    [historicalChartStats, lastN],
-  );
+  const historicalSampleRows = useMemo(()=>absenceRows(phaseRows(historicalChartStats,seasonPhase),effectiveAbsences,currentAbsence.matches),[historicalChartStats,seasonPhase,absenceKey,currentAbsence.matches]);
+  const historicalChartWindow = historicalSampleRows;
 
   // Aplicar los mismos filtros locales al histórico y a la muestra Pro.
   const sharedHistoricalWindow = useMemo(() => {
@@ -1032,33 +1051,33 @@ export default function PlayerChartContainer({
         result = result.filter((row: any) => parsed.mode === 'with' ? played.has(normalizeGameId(row.game_id)) : !played.has(normalizeGameId(row.game_id)));
       }
     }
-    return result;
-  }, [historicalChartWindow, activeFilters, externalFilters, externalGameIds]);
+    return lastN >= 999 ? result : result.slice(-lastN);
+  }, [historicalChartWindow, lastN, activeFilters, externalFilters, externalGameIds]);
   const chartStats: any[] = isFullScope && isHistoricalChartMode && historicalChartData?.ok
     ? sharedHistoricalWindow
     : visibleStats;
   const metricStats: any[] = chartStats;
   const supportingStats = useMemo(
-    () => processedStats.slice(0, Math.min(lastN, 30)).reverse(),
-    [processedStats, lastN],
+    () => metricStats.slice(-30),
+    [metricStats],
   );
 
   useEffect(() => {
     if (!onAnalysisSampleChange) return;
-    const labels = [chartOpponent ? `vs ${chartOpponent}` : '', chartHomeAway || '', chartHistMinMinutes !== null ? `MIN ≥ ${chartHistMinMinutes}` : '', activeWoTeammate ? `Ausencia: ${activeWoTeammate}` : '', ...activeFilters.map(f => f.label), ...externalFilters.map(f => f.label)].filter(Boolean);
+    const labels = [PHASE_OPTIONS.find(option=>option.value===seasonPhase)?.label || '', effectiveAbsences.length?`Ausentes: ${effectiveAbsences.join(', ')}`:'', chartOpponent ? `vs ${chartOpponent}` : '', chartHomeAway || '', chartHistMinMinutes !== null ? `MIN ≥ ${chartHistMinMinutes}` : '', activeWoTeammate ? `Ausencia: ${activeWoTeammate}` : '', ...activeFilters.map(f => f.label), ...externalFilters.map(f => f.label)].filter(Boolean);
     const hasThreshold = [...activeFilters, ...externalFilters].some(f => f.type === 'threshold' && f.id !== 'threshold:minutes');
     const hasLocalFilters = activeFilters.length > 0 || externalFilters.length > 0;
     onAnalysisSampleChange({
       playerId: String(playerId || ''), rows: metricStats,
-      trainingRows: isFullScope && isHistoricalChartMode && !hasLocalFilters ? historicalChartStats : metricStats,
-      scope: activeScope, market: activeStat, line: Number(lineValue), opponent: chartOpponent || null,
+      trainingRows: isFullScope && isHistoricalChartMode && !hasLocalFilters ? historicalSampleRows : metricStats,
+      scope: activeScope, phase: seasonPhase, market: activeStat, line: Number(lineValue), opponent: chartOpponent || null,
       homeAway: chartHomeAway, minMinutes: chartHistMinMinutes, labels,
-      outcomeFiltered: hasThreshold || (!isFullScope && Boolean(activeWoTeammate)) || (isFullScope && hasLocalFilters && isHistoricalChartMode),
-      coverage: sampleCoverage(stats || [], scopedRawStats),
-      loading: isFullScope ? Boolean(historicalChartLoading && isHistoricalChartMode) : periodLoading,
-      error: isFullScope && isHistoricalChartMode ? historicalChartError : !isFullScope ? periodError : null,
+      outcomeFiltered: hasThreshold || (isFullScope && hasLocalFilters && isHistoricalChartMode),
+      coverage: sampleCoverage(phaseRows(stats || [],seasonPhase),phaseRows(scopedRawStats,seasonPhase)),
+      loading: currentAbsence.loading || (isFullScope ? Boolean(historicalChartLoading && isHistoricalChartMode) : periodLoading),
+      error: currentAbsence.error || (isFullScope && isHistoricalChartMode ? historicalChartError : !isFullScope ? periodError : null),
     });
-  }, [onAnalysisSampleChange, playerId, metricStats, activeScope, activeStat, lineValue, chartOpponent, chartHomeAway, chartHistMinMinutes, activeWoTeammate, activeFilters, externalFilters, isFullScope, isHistoricalChartMode, historicalChartStats, stats, scopedRawStats, historicalChartLoading, historicalChartError, periodLoading, periodError]);
+  }, [onAnalysisSampleChange, playerId, metricStats, activeScope, activeStat, lineValue, chartOpponent, chartHomeAway, chartHistMinMinutes, activeWoTeammate, activeFilters, externalFilters, isFullScope, isHistoricalChartMode, historicalChartStats, stats, scopedRawStats, historicalChartLoading, historicalChartError, periodLoading, periodError, seasonPhase, absenceKey, currentAbsence.loading, currentAbsence.error, historicalSampleRows]);
 
   // ── Derived metrics ───────────────────────────────────────────────────────────
   const avgValue =
@@ -1069,11 +1088,8 @@ export default function PlayerChartContainer({
         ).toFixed(1)
       : "0.0";
 
-  const seasonAvgValue =
-    processedStats.length > 0
-      ? processedStats.reduce((sum, game) => sum + (Number(game.value) || 0), 0) /
-        processedStats.length
-      : 0;
+  const availableComparison = isFullScope && isHistoricalChartMode ? historicalSampleRows : absenceRows(phaseRows(processedStats,seasonPhase),effectiveAbsences,currentAbsence.matches);
+  const seasonAvgValue = availableComparison.length ? availableComparison.reduce((sum,row)=>sum+(Number(row.value)||0),0)/availableComparison.length : 0;
   const filteredAvgValue = Number(avgValue) || 0;
   const lineDifference = filteredAvgValue - Number(lineValue || 0);
 
@@ -1126,7 +1142,7 @@ export default function PlayerChartContainer({
 
       const xs: number[] = [];
       const ys: number[] = [];
-      for (const row of processedStats.slice(0, lastN)) {
+      for (const row of metricStats) {
         const metricValue = getMetricValueForCorrelation(row, metricId);
         const targetValue = Number(row.value);
         if (metricValue === null || !Number.isFinite(targetValue)) continue;
@@ -1142,7 +1158,7 @@ export default function PlayerChartContainer({
     }
 
     return bestMetric;
-  }, [activeStat, processedStats, lastN]);
+  }, [activeStat, metricStats]);
 
   // ── Clean slate only when the actual player changes. Do not clear filters on initial load. ──
   useEffect(() => {
@@ -1242,14 +1258,15 @@ export default function PlayerChartContainer({
       if (chartHomeAway) params.set("homeAway", chartHomeAway);
       if (chartHistMinMinutes) params.set("min", String(chartHistMinMinutes));
       if (chartOpponent) params.set("opponent", chartOpponent);
-      if (activeWoTeammate) params.set("wo", activeWoTeammate);
+      if (seasonPhase !== "ALL") params.set("phase", seasonPhase);
+      effectiveAbsences.forEach(name=>params.append("absent",name));
       const url = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
       await navigator.clipboard.writeText(url);
       return true;
     } catch {
       return false;
     }
-  }, [activeStat, lineValue, lastN, activeScope, chartSide, chartHomeAway, chartHistMinMinutes, chartOpponent, activeWoTeammate]);
+  }, [activeStat, lineValue, lastN, activeScope, chartSide, chartHomeAway, chartHistMinMinutes, chartOpponent, activeWoTeammate, seasonPhase, absenceKey]);
 
   return (
     <div className="space-y-5">
@@ -1411,9 +1428,7 @@ export default function PlayerChartContainer({
         <div className="2xl:order-2 2xl:sticky 2xl:top-4 rounded-[1.5rem] border border-[#10b981]/20 bg-[var(--surface)] p-3 shadow-xl shadow-[#10b981]/5 overflow-hidden">
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between gap-2">
-              <span className="inline-flex items-center gap-2 rounded-xl border border-[#10b981]/25 bg-[#10b981]/10 px-3 py-2 text-[9px] font-black uppercase tracking-widest text-[#10b981]">
-                <History size={12} /> Filtros
-              </span>
+              <span className="text-[9px] font-black uppercase tracking-widest text-cyan-300">Temporada</span>
               <button
                 type="button"
                 onClick={resetMainFilters}
@@ -1423,32 +1438,10 @@ export default function PlayerChartContainer({
               </button>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-xl border border-[#10b981]/25 bg-[#10b981]/10 px-2 py-2">
-                <p className="text-[8px] font-black uppercase tracking-widest text-[#10b981]">
-                  Muestra
-                </p>
-                <p className="mt-1 text-xs font-black text-[var(--text)]">
-                  {windowLabel}
-                </p>
-              </div>
-              <div className="rounded-xl border border-cyan-400/25 bg-cyan-400/10 px-2 py-2">
-                <p className="text-[8px] font-black uppercase tracking-widest text-cyan-300">
-                  Partidos
-                </p>
-                <p className="mt-1 text-xs font-black text-[var(--text)]">
-                  {metricStats.length}
-                </p>
-              </div>
-              <div className="rounded-xl border border-orange-400/25 bg-orange-400/10 px-2 py-2">
-                <p className="text-[8px] font-black uppercase tracking-widest text-orange-300">
-                  HR
-                </p>
-                <p className="mt-1 text-xs font-black text-[var(--text)]">
-                  {hitRate}%
-                </p>
-              </div>
+            <div className="grid grid-cols-3 gap-1 rounded-xl border border-[var(--border)] bg-[var(--bg)] p-1" role="group" aria-label="Fase de la temporada">
+              {PHASE_OPTIONS.map(option=><button type="button" key={option.value} aria-pressed={seasonPhase===option.value} title={option.label} onClick={()=>setSeasonPhase(option.value)} className={`min-w-0 rounded-lg px-1 py-2 text-[9px] font-black uppercase ${seasonPhase===option.value?'bg-cyan-400/15 text-cyan-300':'text-[var(--text-muted)] hover:text-[var(--text)]'}`}>{option.value==='Regular Season'?'Regular':option.label}</button>)}
             </div>
+            <PlayerAbsenceFilter playerId={String(playerId || '')} selected={effectiveAbsences} onChange={changeAbsences} loading={currentAbsence.loading} error={currentAbsence.error} onRetry={()=>setAbsenceRetry(n=>n+1)}/>
 
             {hasActiveInjuryContext && (
               <ActiveInjuryContextCard
@@ -1660,7 +1653,7 @@ export default function PlayerChartContainer({
                       <Loader2 size={11} className="animate-spin" /> Histórico
                     </span>
                   )}
-                  {!historicalChartLoading && historicalChartData?.summary && (
+                  {!historicalChartLoading && historicalChartData?.summary && !effectiveAbsences.length && (
                     <>
                       <span className="rounded-lg border border-[#10b981]/25 bg-[#10b981]/10 px-2 py-1 text-[#10b981]">
                         {historicalChartData.summary.hits}/
@@ -1713,6 +1706,7 @@ export default function PlayerChartContainer({
             <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#10b981] to-transparent" />
 
             <ChartIdentity playerName={playerName || "Jugador"} statLabel={activeStatLabel} scope={activeScope} count={chartStats.length} line={Number(lineValue)} />
+            <p className="mb-3 text-xs text-[var(--text-muted)]">{PHASE_OPTIONS.find(option=>option.value===seasonPhase)?.label}{effectiveAbsences.length?` · Sin ${effectiveAbsences.join(", ")}`:""}</p>
 
             <div className="mb-3 flex flex-wrap items-center gap-2">
               {!isFullScope && (
@@ -1732,7 +1726,7 @@ export default function PlayerChartContainer({
               )}
             </div>
 
-            {!isFullScope && activeWoTeammate && <p className="mb-3 text-xs text-amber-300">El filtro de ausencia seleccionado no tiene cobertura por período. Quitalo para consultar cuartos o mitades.</p>}
+
             {!isFullScope && periodLoading && <p className="mb-3 text-xs text-cyan-300">Cargando datos de períodos…</p>}
             {!isFullScope && periodError && <p className="mb-3 text-xs text-amber-300">{periodError}</p>}
             <div className="min-h-[470px] w-full relative">
@@ -1763,7 +1757,7 @@ export default function PlayerChartContainer({
       {analysisMode === "simple" ? (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
           {[
-            { label: "Prom. temporada", value: seasonAvgValue.toFixed(1), tone: "text-cyan-300", border: "border-cyan-400/25" },
+            { label: "Prom. disponible", value: seasonAvgValue.toFixed(1), tone: "text-cyan-300", border: "border-cyan-400/25" },
             { label: "Prom. filtrado", value: filteredAvgValue.toFixed(1), tone: "text-[#10b981]", border: "border-[#10b981]/25" },
             { label: "Hit rate", value: `${hitRate}%`, tone: hitRateNumber >= 50 ? "text-[#10b981]" : "text-red-400", border: hitRateNumber >= 50 ? "border-[#10b981]/25" : "border-red-400/25" },
             { label: "Línea", value: formatLineValue(lineValue, activeStat), tone: "text-orange-300", border: "border-orange-400/25" },
@@ -1852,7 +1846,7 @@ export default function PlayerChartContainer({
       {analysisMode === "pro" && <>
       {/* PICK INSIGHT PANEL */}
       <PickInsightPanel
-        stats={visibleStats}
+        stats={metricStats}
         lineValue={lineValue}
         activeStatLabel={activeStatLabel}
         hitRate={hitRateNumber}
@@ -1891,7 +1885,7 @@ export default function PlayerChartContainer({
       </div>
 
       {/* EXPLORADOR HISTÓRICO — separado de la data actual para evitar timeouts y no romper Q1/H1/H2 */}
-      <PlayerHistoricalExplorer
+      {seasonPhase === "ALL" && !effectiveAbsences.length && <PlayerHistoricalExplorer
         playerId={playerId}
         playerName={playerName || ""}
         activeStat={activeStat}
@@ -1906,11 +1900,11 @@ export default function PlayerChartContainer({
         initialData={historicalChartData}
         initialLoading={historicalChartLoading}
         initialError={historicalChartError}
-      />
+      />}
 
       {/* GAME LOG — sortable, extracted component */}
       <GameLogTable
-        stats={visibleStats}
+        stats={metricStats}
         lineValue={lineValue}
         activeStatLabel={activeStatLabel}
         activeScopeLabel={activeScopeOption.label}

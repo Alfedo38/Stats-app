@@ -323,6 +323,7 @@ export default function NBAContextExplorer({
   const [availableSeasons, setAvailableSeasons] = useState<string[]>([]);
   const [selectedSeason, setSelectedSeason] = useState("2025-26");
   const [seasonType, setSeasonType] = useState("ALL");
+  useEffect(()=>{if(sharedSample?.phase)setSeasonType(sharedSample.phase);},[sharedSample?.phase]);
   const [opponent, setOpponent] = useState(() => String(opponentAbbr || "ALL").trim().toUpperCase() || "ALL");
   const [position, setPosition] = useState("ALL");
   const [range, setRange] = useState<number>(5);

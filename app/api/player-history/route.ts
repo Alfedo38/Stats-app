@@ -1,4 +1,5 @@
 import { withAuth } from '@/lib/auth/server';
+import {parsePhase} from "@/lib/nbaGameFilters";
 import { NextResponse } from "next/server";
 import { getPlayerHistoricalExplorer } from "@/lib/playerHistory";
 
@@ -23,6 +24,7 @@ async function handlePOST(req: Request) {
       playerId: body.playerId ?? null,
       playerName: body.playerName ?? null,
       market: body.market,
+      phase: parsePhase(body.phase),
       line: Number(body.line),
       side: body.side === "under" ? "under" : "over",
       mode: body.mode === "all" ? "all" : "last2",

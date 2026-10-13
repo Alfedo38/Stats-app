@@ -1,3 +1,4 @@
+import {parsePhase,gamePhase,phaseSql,type NBASeasonPhase} from "@/lib/nbaGameFilters";
 import prisma from "@/lib/prisma";
 import { roundNumber } from "@/lib/formatters";
 
@@ -163,6 +164,7 @@ function formatGame(row: any, market: string, line: number, side: HistorySide) {
     game_id: row.game_id ?? null,
     game_date: normalizeDate(row.game_date),
     season_id: getSeasonKey(row),
+    season_type: gamePhase(row),
     matchup: row.matchup_clean ?? row.matchup ?? null,
     opponent: row.opponent_clean ?? row.opponent ?? null,
     home_away: row.home_away_clean ?? row.home_away ?? null,
@@ -207,6 +209,7 @@ export async function getPlayerHistoricalExplorer(input: {
   homeAway?: "HOME" | "AWAY" | string | null;
   minMinutes?: number | null;
   woTeammate?: string | null;
+  phase?: NBASeasonPhase;
   limit?: number;
 }) {
   const market = String(input.market || "PTS").toUpperCase();
@@ -216,6 +219,7 @@ export async function getPlayerHistoricalExplorer(input: {
   const opponent = normalizeTeam(input.opponent);
   const homeAway = normalizeHomeAway(input.homeAway);
   const minMinutes = input.minMinutes === null || input.minMinutes === undefined ? null : Number(input.minMinutes);
+  const phase = parsePhase(input.phase);
   const woTeammate = String(input.woTeammate || "").trim();
   const requestedLimit = Number(input.limit || 1000);
   // Permitir L5 real. Antes el mínimo era 20 y por eso, aunque la URL tuviera n=5,
@@ -241,12 +245,13 @@ export async function getPlayerHistoricalExplorer(input: {
     return prisma.$queryRawUnsafe<any[]>(
       `
       SELECT *
-      FROM ${source}
+      FROM ${source} AS h
       WHERE ${whereSql}
+        ${phase === "ALL" ? "" : `AND (${phaseSql("h")}) = $${params.length + 1}::text`}
       ORDER BY game_date DESC
-      LIMIT 500
+      LIMIT 3000
       `,
-      ...params
+      ...params, ...(phase === "ALL" ? [] : [phase])
     );
   }
 
@@ -374,6 +379,7 @@ export async function getPlayerHistoricalExplorer(input: {
   return {
     ok: true,
     mode,
+    phase,
     side,
     market,
     line,

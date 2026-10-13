@@ -4,6 +4,7 @@ import { useRef } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Radio } from "lucide-react";
 import { getTeamColor } from "@/lib/teamColors";
+import { buildMatchupHref, canonicalTeam } from "@/lib/matchupFilters";
 
 function formatArgTime(dateStr: string): string {
   return new Date(dateStr)
@@ -14,7 +15,7 @@ function formatArgTime(dateStr: string): string {
 function TeamBlock({ abbr, score, isLive }: { abbr: string; score?: string; isLive: boolean }) {
   const color = getTeamColor(abbr);
   return (
-    <Link href={`/teams/${abbr}`} className="flex items-center justify-between gap-3 w-full rounded-xl p-1 -m-1 transition hover:bg-white/[0.04]" title={`Abrir ${abbr}`}>
+    <div className="flex items-center justify-between gap-3 w-full rounded-xl p-1 -m-1 transition hover:bg-white/[0.04]">
       <div className="flex items-center gap-2.5 min-w-0">
         {/* Avatar con color del equipo en lugar de logo */}
         <div
@@ -32,7 +33,7 @@ function TeamBlock({ abbr, score, isLive }: { abbr: string; score?: string; isLi
           {score || "-"}
         </span>
       )}
-    </Link>
+    </div>
   );
 }
 
@@ -46,8 +47,10 @@ function GameCard({ game }: { game: any }) {
 
   if (!home || !away) return null;
 
-  const homeAbbr = home.team?.abbreviation ?? "HOME";
-  const awayAbbr = away.team?.abbreviation ?? "AWAY";
+  const href = buildMatchupHref(game);
+  if (!href) return null;
+  const homeAbbr = canonicalTeam(home.team?.abbreviation);
+  const awayAbbr = canonicalTeam(away.team?.abbreviation);
   const homeColor = getTeamColor(homeAbbr);
   const awayColor = getTeamColor(awayAbbr);
 
@@ -60,7 +63,7 @@ function GameCard({ game }: { game: any }) {
   const detail = game.status?.type?.shortDetail ?? "";
 
   return (
-    <div className="min-w-[260px] sm:min-w-[290px] snap-center bg-[var(--surface)] border border-[var(--border)] rounded-3xl overflow-hidden shadow-xl flex flex-col hover:border-[var(--border-strong)] transition-colors group relative">
+    <Link href={href} aria-label={`Comparar ${awayAbbr} contra ${homeAbbr}`} className="min-w-[260px] sm:min-w-[290px] snap-center bg-[var(--surface)] border border-[var(--border)] rounded-3xl overflow-hidden shadow-xl flex flex-col hover:border-[var(--border-strong)] transition-colors group relative">
 
       {/* Fondo decorativo: nombre del partido como watermark */}
       <span
@@ -130,7 +133,8 @@ function GameCard({ game }: { game: any }) {
           )}
         </div>
       )}
-    </div>
+      <div className="px-4 py-2 text-[9px] font-black uppercase tracking-widest text-[#10b981] border-t border-[var(--border)]">Comparar equipos →</div>
+    </Link>
   );
 }
 

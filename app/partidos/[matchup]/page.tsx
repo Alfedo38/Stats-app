@@ -8,6 +8,7 @@ import { argentinaDate, canonicalTeam, matchupFilters } from '@/lib/matchupFilte
 import { getMatchupData, getMatchupSeasons, type TeamAverage } from '@/lib/matchupData';
 import MatchupFilterBar from '@/components/MatchupFilterBar';
 import MatchupPlayerTable from '@/components/MatchupPlayerTable';
+import DefensiveMatchups from '@/components/DefensiveMatchups';
 import styles from './Matchup.module.css';
 
 export const dynamic = 'force-dynamic';
@@ -89,6 +90,11 @@ export default async function MatchupPage({ params, searchParams }: { params: Pr
         <Comparison title="Ataque y producción" metrics={offense} away={away} home={home} awayData={awayData} homeData={homeData} />
         <Comparison title="Rival y defensa" metrics={defense} away={away} home={home} awayData={awayData} homeData={homeData} />
       </div>
+      <DefensiveMatchups
+        key={`${away}-${home}:${filters.date}`}
+        away={away} home={home} date={filters.date} season={filters.season}
+        awayRoster={data.awayRoster} homeRoster={data.homeRoster} averages={data.players}
+      />
       <section className={styles.rosterContext}><h2>Jugadores de ambos equipos</h2><p>Planteles actuales {CURRENT_ROSTER_SEASON}, actualizados el {dateLabel(CURRENT_ROSTER_UPDATED_AT.slice(0, 10))}. Promedios de {filters.season}, incluyendo otros equipos en los que jugó cada jugador. Este plantel no reconstruye la alineación de partidos históricos ni confirma quién jugará.</p></section>
       <div className={styles.rosterGrid}>{[away, home].map(team => <section key={team} className={styles.panel}>
         <div className={styles.panelTitle}><h2>{teamName(team)}</h2><span>{team} · Plantel actual</span></div>

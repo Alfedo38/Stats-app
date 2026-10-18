@@ -1,0 +1,25 @@
+.shell { display:grid; place-items:center; width:100%; min-height:65vh; padding:32px 20px; color:var(--text, #f8fafc); background:var(--bg, #050505); }
+.overlay { position:fixed; inset:0; z-index:100; min-height:100dvh; background:var(--bg, #050505); background:color-mix(in srgb,var(--bg, #050505) 94%,transparent); backdrop-filter:blur(8px); }
+.card { width:min(100%,380px); text-align:center; }
+.illustration { width:230px; max-width:80%; margin:0 auto 12px; }
+.illustration svg { display:block; width:100%; overflow:visible; }
+.eyebrow { display:block; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.16em; color:var(--brand, #10b981); }
+.card h2 { font-size:clamp(21px,4vw,27px); font-weight:800; line-height:1.2; letter-spacing:-.035em; margin:10px 0; }
+.card p { max-width:310px; margin:0 auto; color:var(--text-muted, #94a3b8); font-size:14px; line-height:1.6; }
+.shadow { fill:var(--border, #334155); opacity:.4; animation:shadow 2s ease-in-out infinite; }
+.cat { animation:breathe 2s ease-in-out infinite; transform-origin:125px 177px; }
+.tail { animation:tail 2s ease-in-out infinite; transform-origin:174px 152px; }
+.paw { animation:paw 2s ease-in-out infinite; transform-origin:150px 145px; }
+.ball { animation:ball 2s ease-in-out infinite; transform-origin:204px 169px; }
+.sparkle { animation:twinkle 2s ease-in-out infinite; }
+.dots { display:flex; justify-content:center; gap:7px; margin-top:23px; }
+.dots i { width:6px; height:6px; border-radius:50%; background:var(--brand, #10b981); animation:dot 1.2s ease-in-out infinite; }
+.dots i:nth-child(2) { animation-delay:.15s; }.dots i:nth-child(3) { animation-delay:.3s; }
+@keyframes breathe { 50% { transform:scaleY(1.025); } }
+@keyframes tail { 50% { transform:rotate(-9deg); } }
+@keyframes paw { 35% { transform:rotate(-12deg); } 65% { transform:rotate(3deg); } }
+@keyframes ball { 35% { transform:translateX(7px) rotate(20deg); } 70% { transform:translateX(0) rotate(0); } }
+@keyframes shadow { 50% { opacity:.25; } }
+@keyframes twinkle { 50% { opacity:.3; } }
+@keyframes dot { 0%,80%,100% { opacity:.35; transform:translateY(0); } 40% { opacity:1; transform:translateY(-4px); } }
+@media(prefers-reduced-motion:reduce) { .shell *, .shell *::before, .shell *::after { animation:none !important; } }

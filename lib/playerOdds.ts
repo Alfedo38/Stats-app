@@ -1,18 +1,13 @@
 import prisma from './prisma';
 import { Prisma } from '@prisma/client';
+import { canonicalOddsPlayerName, oddsPlayerNameCandidates, matchesOddsPlayer } from './oddsPlayerNames';
+// BET365_NAME_ORDER_V1
 
 import {groupUniversalQuotes,type PriceQuote} from './nbaOdds';
 export type StakePlayerOdd=PriceQuote;
 
 function normalizeName(value: string | null | undefined) {
-  return String(value || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/['’`´]/g, '')
-    .replace(/[^a-zA-Z0-9 ]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
+  return canonicalOddsPlayerName(value);
 }
 
 function toNumberOrNull(value: any): number | null {
@@ -43,6 +38,7 @@ async function getUniversalOdds(
 ): Promise<StakePlayerOdd[]> {
   try {
     const books = normalizeBooks(options.books);
+    const nameCandidates = oddsPlayerNameCandidates(target);
 
     const rows = books.length > 0
       ? await prisma.$queryRaw<any[]>(Prisma.sql`
@@ -62,7 +58,7 @@ async function getUniversalOdds(
             COALESCE(to_jsonb(o)->>'event_date',to_jsonb(o)->>'game_date',to_jsonb(o)->>'start_time') AS event_date
           FROM public.latest_player_prop_odds_cache o
           WHERE lower(book) IN (${Prisma.join(books)})
-            AND player_norm = ${target}
+            AND player_norm IN (${Prisma.join(nameCandidates)})
           ORDER BY stat_key ASC, COALESCE(model_line, threshold) ASC, book ASC, side ASC, scraped_at_utc DESC
         `)
       : await prisma.$queryRaw<any[]>(Prisma.sql`
@@ -81,13 +77,13 @@ async function getUniversalOdds(
             COALESCE(to_jsonb(o)->>'period_scope',to_jsonb(o)->>'scope',to_jsonb(o)->>'market_scope',to_jsonb(o)->>'period') AS period_scope,
             COALESCE(to_jsonb(o)->>'event_date',to_jsonb(o)->>'game_date',to_jsonb(o)->>'start_time') AS event_date
           FROM public.latest_player_prop_odds_cache o
-          WHERE player_norm = ${target}
+          WHERE player_norm IN (${Prisma.join(nameCandidates)})
           ORDER BY stat_key ASC, COALESCE(model_line, threshold) ASC, book ASC, side ASC, scraped_at_utc DESC
         `);
 
     if (!Array.isArray(rows) || rows.length === 0) return [];
 
-    return groupUniversalQuotes(rows);
+    return groupUniversalQuotes(rows.filter(row => matchesOddsPlayer(row.jugador, row.player_norm, target)));
 
   } catch (error) {
     console.warn('PLAYER_ODDS_UNIVERSAL_UNAVAILABLE');

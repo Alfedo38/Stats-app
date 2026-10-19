@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   Home,
   Zap,
+  Ticket,
   Users,
   Flame,
   Stethoscope,
@@ -31,6 +32,7 @@ export default function Sidebar() {
 
   const nbaItems = [
     { name: "Dashboard", path: "/", icon: <Home size={18} /> },
+    { name: "Tickets NBA", path: "/tickets", icon: <Ticket size={18} /> },
     { name: "Cerebro EV+", path: "/ev-plays", icon: <Zap size={18} /> },
     { name: "Equipos", path: "/teams", icon: <Users size={18} /> },
     { name: "Parte Médico", path: "/injuries", icon: <Stethoscope size={18} /> },

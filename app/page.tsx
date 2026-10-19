@@ -1,7 +1,7 @@
 import { requirePageUser } from '@/lib/auth/server';
 // app/page.tsx — Home Page completa
 import Link from "next/link";
-import { Brain, CalendarDays, ChevronLeft, ChevronRight, Users, TrendingUp, Zap, ShieldCheck } from "lucide-react";
+import { Ticket, CalendarDays, ChevronLeft, ChevronRight, Users, TrendingUp, Zap, ShieldCheck } from "lucide-react";
 import { getTodayScoreboard, getTopPerformers } from "@/lib/api";
 import GameCarousel      from "@/components/GameCarousel";
 import TopPerformersGrid from "@/components/TopPerformersGrid";
@@ -20,12 +20,12 @@ export const metadata = {
 
 const QUICK_LINKS = [
   {
-    href:    "/ev-plays",
-    icon:    Brain,
+    href:    "/tickets",
+    icon:    Ticket,
     color:   "#10b981",
-    title:   "Cerebro EV+",
-    desc:    "Algoritmo matemático para detectar valor en las líneas de hoy.",
-    cta:     "Abrir escáner",
+    title:   "Tickets NBA",
+    desc:    "Selecciones x2 y x5 por partido y casa de apuestas.",
+    cta:     "Ver tickets",
   },
   {
     href:    "/trending",

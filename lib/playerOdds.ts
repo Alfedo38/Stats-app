@@ -1,17 +1,8 @@
 import prisma from './prisma';
 import { Prisma } from '@prisma/client';
 
-export type StakePlayerOdd = {
-  player_name: string;
-  prop_type: string;
-  line: number | null;
-  matchup: string | null;
-  over_price: number | null;
-  under_price: number | null;
-  updated_at: string | null;
-  book?: string | null;
-  source?: 'universal' | 'legacy';
-};
+import {groupUniversalQuotes,type PriceQuote} from './nbaOdds';
+export type StakePlayerOdd=PriceQuote;
 
 function normalizeName(value: string | null | undefined) {
   return String(value || '')
@@ -66,8 +57,10 @@ async function getUniversalOdds(
             odds_decimal,
             partido,
             game_norm,
-            scraped_at_utc
-          FROM public.latest_player_prop_odds_cache
+            scraped_at_utc,
+            COALESCE(to_jsonb(o)->>'period_scope',to_jsonb(o)->>'scope',to_jsonb(o)->>'market_scope',to_jsonb(o)->>'period') AS period_scope,
+            COALESCE(to_jsonb(o)->>'event_date',to_jsonb(o)->>'game_date',to_jsonb(o)->>'start_time') AS event_date
+          FROM public.latest_player_prop_odds_cache o
           WHERE lower(book) IN (${Prisma.join(books)})
             AND player_norm = ${target}
           ORDER BY stat_key ASC, COALESCE(model_line, threshold) ASC, book ASC, side ASC, scraped_at_utc DESC
@@ -84,51 +77,20 @@ async function getUniversalOdds(
             odds_decimal,
             partido,
             game_norm,
-            scraped_at_utc
-          FROM public.latest_player_prop_odds_cache
+            scraped_at_utc,
+            COALESCE(to_jsonb(o)->>'period_scope',to_jsonb(o)->>'scope',to_jsonb(o)->>'market_scope',to_jsonb(o)->>'period') AS period_scope,
+            COALESCE(to_jsonb(o)->>'event_date',to_jsonb(o)->>'game_date',to_jsonb(o)->>'start_time') AS event_date
+          FROM public.latest_player_prop_odds_cache o
           WHERE player_norm = ${target}
           ORDER BY stat_key ASC, COALESCE(model_line, threshold) ASC, book ASC, side ASC, scraped_at_utc DESC
         `);
 
     if (!Array.isArray(rows) || rows.length === 0) return [];
 
-    const grouped = new Map<string, StakePlayerOdd>();
+    return groupUniversalQuotes(rows);
 
-    for (const row of rows) {
-      const book = String(row.book || 'stake').toLowerCase();
-      const propType = String(row.stat_key || '').toUpperCase();
-      const line = toNumberOrNull(row.model_line ?? row.threshold);
-      if (!propType || line === null) continue;
-
-      const key = `${book}|${propType}|${line}`;
-      const existing = grouped.get(key) || {
-        player_name: row.jugador || target,
-        prop_type: propType,
-        line,
-        matchup: row.partido || row.game_norm || null,
-        over_price: null,
-        under_price: null,
-        updated_at: toTextOrNull(row.scraped_at_utc),
-        book,
-        source: 'universal' as const,
-      };
-
-      const side = String(row.side || '').toLowerCase();
-      const odds = toNumberOrNull(row.odds_decimal);
-
-      if (side === 'over') existing.over_price = odds;
-      if (side === 'under') existing.under_price = odds;
-
-      if (!existing.updated_at && row.scraped_at_utc) {
-        existing.updated_at = toTextOrNull(row.scraped_at_utc);
-      }
-
-      grouped.set(key, existing);
-    }
-
-    return Array.from(grouped.values()).sort((a, b) => oddSortValue(a).localeCompare(oddSortValue(b)));
   } catch (error) {
-    console.warn('getUniversalOdds fallback:', error);
+    console.warn('PLAYER_ODDS_UNIVERSAL_UNAVAILABLE');
     return [];
   }
 }
@@ -152,6 +114,7 @@ async function getLegacyStakeOdds(playerName: string): Promise<StakePlayerOdd[]>
       under_price: toNumberOrNull(row.under_price),
       updated_at: row.updated_at ?? null,
       book: 'stake',
+      scope: 'FULL',
       source: 'legacy' as const,
     }))
     .sort((a, b) => oddSortValue(a).localeCompare(oddSortValue(b)));

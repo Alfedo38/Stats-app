@@ -20,6 +20,8 @@ import GameLogTable from "@/components/GameLogTable";
 import FloatingPlayerIdentity, {ChartIdentity} from "@/components/PlayerIdentity";
 import PlayerAbsenceFilter from "@/components/PlayerAbsenceFilter";
 import {parsePhase,phaseRows,absenceRows,cleanAbsences,PHASE_OPTIONS,type NBASeasonPhase} from "@/lib/nbaGameFilters";
+import PlayerOddsComparison from "@/components/PlayerOddsComparison";
+import {comparableQuotes,selectUpcomingOddsEvent,decimalPrice,type PriceQuote} from "@/lib/nbaOdds";
 import ShareButton from "@/components/ShareButton";
 import { usePlayerUrlState } from "@/hooks/usePlayerUrlState";
 import {
@@ -37,17 +39,7 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type StakePlayerOdd = {
-  player_name: string;
-  prop_type: string;
-  line: number | null;
-  matchup: string | null;
-  over_price: number | null;
-  under_price: number | null;
-  updated_at: string | null;
-  book?: string | null;
-  source?: string | null;
-};
+type StakePlayerOdd = PriceQuote;
 
 interface PlayerChartContainerProps {
   stats: any[];
@@ -846,10 +838,29 @@ export default function PlayerChartContainer({
     return () => controller.abort();
   }, [playerId]);
 
+  const [liveOdds,setLiveOdds]=useState<PriceQuote[]>(stakeOdds);
+  const [oddsLoading,setOddsLoading]=useState(true),[oddsError,setOddsError]=useState<string|null>(null);
+  const oddsRequestKey=`${playerId}:${playerName}`;
+  const [oddsResolvedFor,setOddsResolvedFor]=useState('');
+  const oddsPlayerRef=useRef(playerId);
+  useEffect(()=>{
+    if(!playerName){setLiveOdds([]);setOddsLoading(false);setOddsResolvedFor(oddsRequestKey);return;}
+    const controller=new AbortController();
+    if(oddsPlayerRef.current!==playerId){setLiveOdds(stakeOdds);oddsPlayerRef.current=playerId;}
+    setOddsLoading(true);setOddsError(null);
+    fetch(`/api/player-odds?playerName=${encodeURIComponent(playerName)}`,{signal:controller.signal,cache:'no-store'})
+      .then(async response=>{const data=await response.json();if(!response.ok||!data.ok)throw new Error('No se pudieron actualizar las cuotas.');if(!controller.signal.aborted)setLiveOdds(Array.isArray(data.odds)?data.odds:[]);})
+      .catch(reason=>{if(!controller.signal.aborted)setOddsError(reason.message);})
+      .finally(()=>{if(!controller.signal.aborted){setOddsLoading(false);setOddsResolvedFor(oddsRequestKey);}});
+    return()=>controller.abort();
+  },[playerName,playerId,oddsRequestKey]);
+  const effectiveOddsEvent=selectUpcomingOddsEvent(liveOdds,asOfDate);
+  const currentPrices=useMemo(()=>comparableQuotes(liveOdds,activeStat,activeScope,effectiveOddsEvent),[liveOdds,activeStat,activeScope,effectiveOddsEvent]);
+  const autoLineContext=useRef('');
   // ── Stake odds ───────────────────────────────────────────────────────────────
   const selectedStakeOdds = useMemo(
-    () => findStakeOddsForStat(stakeOdds, activeStat),
-    [stakeOdds, activeStat],
+    () => comparableQuotes(liveOdds,activeStat,activeScope,effectiveOddsEvent).filter(quote=>decimalPrice(quote.over_price)!==null||decimalPrice(quote.under_price)!==null),
+    [liveOdds,activeStat,activeScope,effectiveOddsEvent],
   );
   const selectedStakeOdd = useMemo(
     () => pickPrimaryStakeOdd(selectedStakeOdds),
@@ -877,19 +888,22 @@ export default function PlayerChartContainer({
 
   // ── Auto-set line value ───────────────────────────────────────────────────────
   useEffect(() => {
-    if (hasLineParam) return;
+    if (hasLineParam || oddsResolvedFor !== oddsRequestKey) return;
+    const context=`${playerId}:${activeStat}:${activeScope}:${effectiveOddsEvent}`;
+    if(autoLineContext.current===context)return;
 
     if (
-      isFullScope &&
       selectedStakeOdd?.line != null &&
       Number.isFinite(Number(selectedStakeOdd.line))
     ) {
+      autoLineContext.current=context;
       setLineValue(
         normalizeLineForStat(Number(selectedStakeOdd.line), activeStat),
       );
       return;
     }
     if (uniqueStats.length > 0) {
+      autoLineContext.current=context;
       const recent = uniqueStats.slice(0, 10);
       const total = recent.reduce(
         (sum, s) => sum + getStatValue(s, activeStat, activeScope),
@@ -904,6 +918,10 @@ export default function PlayerChartContainer({
     activeScope,
     isFullScope,
     selectedStakeOdd,
+    effectiveOddsEvent,
+    oddsResolvedFor,
+    oddsRequestKey,
+    playerId,
     hasLineParam,
     setLineValue,
   ]);
@@ -1309,7 +1327,7 @@ export default function PlayerChartContainer({
       </div>
 
       {/* CONTROLES */}
-      <div className="flex flex-col md:flex-row justify-between items-center bg-[var(--surface)] border border-[#10b981]/20 rounded-2xl p-4 gap-6 shadow-xl shadow-[#10b981]/5">
+      <div className="flex flex-col md:flex-row justify-between items-center bg-[var(--surface)] border border-[#10b981]/20 rounded-2xl p-3 gap-3 shadow-xl shadow-[#10b981]/5 flex-wrap">
         <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
           <div className="flex flex-wrap bg-[var(--surface-soft)] p-1 rounded-xl border border-[var(--border)] max-w-full">
             {SPLIT_SCOPE_OPTIONS.map((scope) => (
@@ -1348,11 +1366,15 @@ export default function PlayerChartContainer({
           </div>
         </div>
 
+        <div className="order-3 w-full min-w-0 sm:w-[190px] lg:order-none lg:shrink-0">
+          <PlayerOddsComparison rows={currentPrices} line={Number(lineValue)} side={chartSide} loading={oddsLoading} error={oddsError}/>
+        </div>
+
         <div className="flex items-center gap-6 md:gap-8 w-full md:w-auto justify-between md:justify-end">
           <div className="flex flex-col items-start md:items-end">
             <span className="text-[8px] text-[var(--text-muted)] font-black uppercase tracking-[0.2em] flex items-center gap-1 mb-1">
               <Sparkles size={10} className="text-[#10b981]" />
-              {isFullScope && selectedStakeOdd ? "Línea Stake" : "Línea manual"}
+              Línea
             </span>
             <div className="flex items-center bg-[var(--bg)] px-2 py-1 rounded-lg border border-[var(--border)]">
               <Target size={14} className="text-red-500 ml-2" />
@@ -1719,11 +1741,7 @@ export default function PlayerChartContainer({
                   {chartStats.length} partidos filtrados
                 </span>
               )}
-              {selectedStakeOdds.length > 0 && (
-                <span className="rounded-xl border border-cyan-400/25 bg-cyan-400/10 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-cyan-300">
-                  Líneas Stake en panel izquierdo · {selectedStakeOdds.length}
-                </span>
-              )}
+
             </div>
 
 
@@ -1742,7 +1760,7 @@ export default function PlayerChartContainer({
                 data={chartStats}
                 statKey="value"
                 lineValue={lineValue}
-                side={isHistoricalChartMode ? chartSide : "over"}
+                side={chartSide}
                 overlayKey={opportunityOverlay?.key}
                 overlayLabel={opportunityOverlay?.label}
                 overlayColor={opportunityOverlay?.color}

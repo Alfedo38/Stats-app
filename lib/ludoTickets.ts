@@ -7,6 +7,7 @@ export type TicketLeg = {
   prop_type: string; side: string; line: number; price: number; period: string;
   L10_hits: number; L10_valid: number; L20_hits: number; L20_valid: number;
   season_hits: number; season_valid: number; reference_season: string;
+  season_transition?: boolean; current_season_n?: number; current_season_valid?: number;
   minutes_L10: number; history_through: string; quote_captured_at: string;
   fga_L10?: number | null; fg_pct_L10?: number | null;
 };
@@ -15,6 +16,7 @@ export type Ticket = {
   event_date: string; game_key: string; book: string; kind: string; revision: number;
   proposal: {
     matchup: string; start_utc: string; freeze_at: string; status: string; reason?: string | null;
+    option_rank?: number;
     nba_game_id?: string | null; odds_product_reference: number | null;
     actual_bookmaker_odds: number | null; joint_probability: null; picks: TicketLeg[];
     eligible_selections: number; exclusion_counts: Record<string, number>; notice: string;

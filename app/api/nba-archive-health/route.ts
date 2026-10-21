@@ -3,7 +3,7 @@ import {archiveEnabled,archiveManifest,archivePart} from '@/lib/nbaArchive';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 // Sólo metadatos de salud; los archivos deportivos siguen en rutas con autenticación.
 export async function GET(){
-  if(!archiveEnabled())return NextResponse.json({ok:false,readerVersion:1},{status:503});
+  if(!archiveEnabled())return NextResponse.json({ok:false,readerVersion:1,reason:'ARCHIVE_DISABLED'},{status:503});
   try{
     const m=await archiveManifest(true);
     for(const kind of ['facts','shots','matchups']){
@@ -13,5 +13,9 @@ export async function GET(){
     }
     await archivePart('summaries',m);
     return NextResponse.json({ok:true,readerVersion:1,archiveId:m.id},{headers:{'Cache-Control':'no-store'}});
-  }catch{return NextResponse.json({ok:false,readerVersion:1},{status:503});}
+   }catch(error){
+    const code=error instanceof Error?error.message:'';
+    const reason=/^ARCHIVE_(CONFIG|HTTP_[0-9]{3}|PATH|SIZE|MANIFEST|HASH_FORMAT|HASH|COUNT|EMPTY)$/.test(code)?code:'ARCHIVE_READ_FAILED';
+    return NextResponse.json({ok:false,readerVersion:1,reason},{status:503});
+  }
 }

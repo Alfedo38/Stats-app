@@ -1,5 +1,5 @@
 import 'server-only';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { gunzipSync } from 'node:zlib';
 
 type Part={path:string;sha256:string;rows:number;bytes:number};
@@ -13,7 +13,7 @@ async function download(path:string):Promise<Buffer>{
   const token=process.env.SUPABASE_SERVICE_ROLE_KEY;
   const bucket=process.env.NBA_ARCHIVE_BUCKET||'nba-history';
   if(!base?.startsWith('https://')||!token||!/^[a-zA-Z0-9-]+$/.test(bucket))throw Error('ARCHIVE_CONFIG');
-  const r=await fetch(`${base.replace(/\/$/,'')}/storage/v1/object/authenticated/${bucket}/${path}`,{headers:{apikey:token,Authorization:`Bearer ${token}`},cache:'no-store',signal:AbortSignal.timeout(60000)});
+  const r=await fetch(`${base.replace(/\/$/,'')}/storage/v1/object/authenticated/${bucket}/${path}${path==='manifest.json'?'?cacheNonce='+randomUUID():''}`,{headers:{apikey:token,Authorization:`Bearer ${token}`},cache:'no-store',signal:AbortSignal.timeout(60000)});
   if(!r.ok)throw Error('ARCHIVE_HTTP_'+r.status);
   const b=Buffer.from(await r.arrayBuffer());if(b.length>49_000_000)throw Error('ARCHIVE_SIZE');return b;
 }

@@ -1,3 +1,4 @@
+import { archiveEnabled, archivedFacts } from "@/lib/nbaArchive";
 import { periodMetricValue } from "@/lib/nbaPeriodStats";
 import prisma from "@/lib/prisma";
 
@@ -117,7 +118,7 @@ export async function getPlayerDataFast(playerId: string | number) {
       where: { id },
     }).catch(() => null),
 
-    prisma.$queryRawUnsafe<any[]>(
+    archiveEnabled() ? archivedFacts(id).then(rows=>rows.slice(0,500)) : prisma.$queryRawUnsafe<any[]>(
       `
       SELECT *
       FROM public.player_page_game_fact_cache

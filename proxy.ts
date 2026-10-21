@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 // No database query on every prefetch or static asset.
 export function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
-  const isPublic = path === '/login' || path === '/api/auth/login';
+  const isPublic = path === '/login' || path === '/api/auth/login' || path === '/api/nba-archive-health';
   const token = request.cookies.get('moskprops_session')?.value;
   if (!isPublic && !/^[A-Za-z0-9_-]{43}$/.test(token || '')) {
     if (path.startsWith('/api/') || path === '/injuries/sync') {

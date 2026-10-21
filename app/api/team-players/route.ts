@@ -1,3 +1,4 @@
+import {archiveEnabled,archivePart} from '@/lib/nbaArchive';
 import { withAuth } from '@/lib/auth/server';
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
@@ -180,7 +181,7 @@ async function loadTeamPlayersFast(teams: string[], stat: string, book: string) 
 
   if (playerIds.length === 0) return [];
 
-  const recentRows = await prisma.$queryRaw<any[]>(Prisma.sql`
+  const recentRows = archiveEnabled()?await archivePart('summaries').then(s=>playerIds.flatMap(id=>s.recent?.[String(id)]??[])):await prisma.$queryRaw<any[]>(Prisma.sql`
     WITH ranked AS (
       SELECT
         player_id::bigint AS player_id,

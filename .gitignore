@@ -77,3 +77,13 @@ browser_profile/
 *.bak
 *.backup
 .visual-backups/
+
+# LUDO_TICKETS_LOCAL_V1
+copias-tickets/
+.ludo-tickets-enabled
+ludo-tickets-settings.json
+
+# NBA_MAINTENANCE_V1
+.env.maintenance
+.venv-maintenance/
+maintenance-state/

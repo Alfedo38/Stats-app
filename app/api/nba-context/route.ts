@@ -1,3 +1,4 @@
+import {archiveEnabled,archivedContext} from "@/lib/nbaArchive";
 import { withAuth } from "@/lib/auth/server";
 import prisma from "@/lib/prisma";
 import { loadContextGames } from "@/lib/nbaContextGames";
@@ -32,6 +33,11 @@ async function handleGET(req: NextRequest) {
   }
 
   try {
+    if(archiveEnabled()) {
+      const [context,history]=await Promise.all([archivedContext(playerId,season),loadContextGames(playerId,season)]);
+      return NextResponse.json({ok:true,season,...plain(context),games:plain(history.games),availableSeasons:history.seasons,warnings:[]},
+        {headers:{'Cache-Control':'private, max-age=60'}});
+    }
     const [shotsResult, matchupsResult, gamesResult, foulsResult] = await Promise.allSettled([
       prisma.$queryRawUnsafe<any[]>(
         `

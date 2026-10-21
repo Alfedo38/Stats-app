@@ -1,3 +1,4 @@
+import {archiveEnabled,archivePart,archivedRest} from '@/lib/nbaArchive';
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@/lib/auth/server';
 import prisma from '@/lib/prisma';
@@ -12,6 +13,10 @@ export const GET=withAuth(async (req:NextRequest)=>{
     if(kind==='defense'){
       const opponent=params.get('opponent')??'';
       if(!TEAMS.has(opponent))return NextResponse.json({ok:false,error:'Elegí un rival válido'},{status:400});
+      if(archiveEnabled()) {
+        const summary=await archivePart('summaries');
+        return NextResponse.json({ok:true,zones:summary.defense?.[`${season}/${phase}/${opponent}`]??[]});
+      }
       const cacheKey=`${season}:${phase}:${opponent}`;
       const cached=defenseCache.get(cacheKey);
       if(cached && cached.expires>Date.now())return NextResponse.json(cached.value);
@@ -36,6 +41,7 @@ export const GET=withAuth(async (req:NextRequest)=>{
       return NextResponse.json(value);
     }
     if(kind==='rest'){
+      if(archiveEnabled())return NextResponse.json({ok:true,teamDates:await archivedRest(player,season)});
       const start=`${season.slice(0,4)}-10-01`,end=`${Number(season.slice(0,4))+1}-10-01`;
       let teamDates:{team:string;date:string}[]=[], successfulSources=0;
       for(const source of ['public.player_page_game_fact_cache','public.player_game_logs']){

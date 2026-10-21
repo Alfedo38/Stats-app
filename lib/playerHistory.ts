@@ -1,3 +1,4 @@
+import {archiveEnabled,archivedPlayer} from './nbaArchive';
 import {parsePhase,gamePhase,phaseSql,type NBASeasonPhase} from "@/lib/nbaGameFilters";
 import prisma from "@/lib/prisma";
 import { roundNumber } from "@/lib/formatters";
@@ -241,6 +242,10 @@ export async function getPlayerHistoricalExplorer(input: {
   const primaryLast = nameTokens.length > 1 ? nameTokens[nameTokens.length - 1] : "";
 
   async function runQuery(source: string, whereSql: string, params: any[]) {
+    if(archiveEnabled()) {
+      const data=await archivedPlayer(playerId?Number(playerId):null,playerName);
+      return data.filter(r=>phase==='ALL'||gamePhase(r)===phase).slice(0,3000);
+    }
     if (!allowedSources.includes(source)) throw new Error("Fuente histórica no permitida");
     return prisma.$queryRawUnsafe<any[]>(
       `
@@ -293,6 +298,7 @@ export async function getPlayerHistoricalExplorer(input: {
         break;
       }
     } catch (error: any) {
+      if(archiveEnabled())throw new Error("No se pudo verificar el archivo histórico; reintentá en unos minutos");
       // La vista unificada es recomendada pero opcional. Si todavía no corriste el SQL,
       // caemos a v_ludo_hist_player_games sin romper la página.
       if (!String(error?.message || "").includes("v_player_page_game_fact") && !String(error?.message || "").includes("v_ludo_player_page_history_unified")) {

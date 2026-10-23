@@ -8,9 +8,11 @@ import {outcome,reviewLeg,summarize,ticketObservations} from '@/lib/ticketReader
 import {readImages} from '@/lib/ticketReader/ocr';
 import {apiReport} from '@/lib/ticketReader/diagnosticModel';
 import {createReporter} from '@/lib/ticketReader/reportClient';
+import {buildAnalysisSnapshot,type AnalysisEntry} from '@/lib/ticketReader/analysisSnapshot';
+import {createAnalysisCollector} from '@/lib/ticketReader/analysisClient';
 import s from './reader.module.css';
 const books:Record<Book,string>={stake:'Stake',betano:'Betano',bet365:'Bet365',unknown:'Sin identificar'};
-type Entry={identity?:IdentityReview;result?:Result;error?:string;candidates?:PlayerOption[];needsTeam?:boolean};
+type Entry=AnalysisEntry;
 const fmt=(n:number|null,d=1)=>n===null?'—':n.toLocaleString('es-AR',{maximumFractionDigits:d});
 const label=(l:Leg)=>`${l.operator?OPERATORS[l.operator]:'Condición pendiente'} ${fmt(l.line)} ${l.market?MARKETS[l.market]:'mercado pendiente'}`;
 function blank(date:string):TicketDocument{return {version:1,title:'Mi ticket NBA',eventDate:date,totalOdds:null,legs:[],warnings:[]};}
@@ -22,12 +24,12 @@ export default function TicketReader({storageKey,isAdmin=false}:{storageKey:stri
  const [busy,setBusy]=useState(false),[progress,setProgress]=useState(''),[error,setError]=useState(''),[notice,setNotice]=useState('');
  const [upload,setUpload]=useState(false),[text,setText]=useState(''),[book,setBook]=useState<Book>('unknown'),[date,setDate]=useState(''),[editing,setEditing]=useState<string[]>([]);
  const input=useRef<HTMLInputElement>(null),modal=useRef<HTMLDialogElement>(null),controller=useRef<AbortController|null>(null),generation=useRef(0),trace=useRef(crypto.randomUUID()),connected=useRef(false);
- const reporter=useRef(createReporter(storageKey));
- useEffect(()=>{reporter.current=createReporter(storageKey);const today=argentinaDate();setDate(today);setDoc(blank(today));const flush=()=>void reporter.current.flush(),runtime=(event?:Event)=>{const reason=(event as ErrorEvent|undefined)?.error??(event as PromiseRejectionEvent|undefined)?.reason;reporter.current.record(trace.current,'client','error','UI_ERROR',{errorKind:reason instanceof Error?reason.name:'UnknownError'});};flush();window.addEventListener('online',flush);window.addEventListener('error',runtime);window.addEventListener('unhandledrejection',runtime);void call({action:'health'}).then(()=>{connected.current=true}).catch(()=>{});return()=>{generation.current++;controller.current?.abort();window.removeEventListener('online',flush);window.removeEventListener('error',runtime);window.removeEventListener('unhandledrejection',runtime);};},[storageKey]);
+ const reporter=useRef(createReporter(storageKey)),collector=useRef(createAnalysisCollector(storageKey));
+ useEffect(()=>{reporter.current=createReporter(storageKey);collector.current=createAnalysisCollector(storageKey);const today=argentinaDate();setDate(today);setDoc(blank(today));const flush=()=>{void reporter.current.flush();void collector.current.flush();},runtime=(event?:Event)=>{const reason=(event as ErrorEvent|undefined)?.error??(event as PromiseRejectionEvent|undefined)?.reason;reporter.current.record(trace.current,'client','error','UI_ERROR',{errorKind:reason instanceof Error?reason.name:'UnknownError'});};flush();window.addEventListener('online',flush);window.addEventListener('error',runtime);window.addEventListener('unhandledrejection',runtime);void call({action:'health'}).then(()=>{connected.current=true}).catch(()=>{});return()=>{generation.current++;controller.current?.abort();window.removeEventListener('online',flush);window.removeEventListener('error',runtime);window.removeEventListener('unhandledrejection',runtime);};},[storageKey]);
  useEffect(()=>{if(upload&&!modal.current?.open)modal.current?.showModal();},[upload]);
  async function call(value:Record<string,unknown>,signal?:AbortSignal){
   const body={...value,traceId:trace.current,reportId:crypto.randomUUID()};
-  try{const response=await fetch('/api/ticket-reader',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal});const data=await response.json();if(data.diagnostic?.event&&!data.diagnostic.saved)reporter.current.remember(data.diagnostic.event);else if(!data.diagnostic)reporter.current.remember(apiReport(body,{ok:false,code:response.ok?'CLIENT_ERROR':'NETWORK_ERROR'}));if(!response.ok)throw Object.assign(Error(publicError(data.code,response.status)),{recorded:true});return data;}
+  try{const response=await fetch('/api/ticket-reader',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal});const data=await response.json();if(data.diagnostic?.event&&!data.diagnostic.saved)reporter.current.remember(data.diagnostic.event);else if(!data.diagnostic)reporter.current.remember(apiReport(body,{ok:false,code:response.ok?'CLIENT_ERROR':'NETWORK_ERROR'}));if(!response.ok)throw Object.assign(Error(publicError(data.code,response.status)),{recorded:true,code:data.code||'ANALYSIS_ERROR'});return data;}
   catch(e){if(!signal?.aborted&&!(e as {recorded?:boolean}).recorded)reporter.current.remember(apiReport(body,{ok:false,code:'NETWORK_ERROR'}));throw e;}
  }
  function stop(){generation.current++;controller.current?.abort();controller.current=null;setBusy(false);setProgress('');}
@@ -70,16 +72,23 @@ export default function TicketReader({storageKey,isAdmin=false}:{storageKey:stri
  async function search(l:Leg){const turn=generation.current;try{const data=await call({action:'players',name:l.playerName,teams:l.teams.filter(t=>TEAMS.includes(t))});if(turn===generation.current)setEntries(e=>({...e,[l.id]:{candidates:data.candidates,error:data.candidates.length?'Elegí al jugador.':'No encontramos ese jugador. Revisá el nombre.'}}));}catch{if(turn===generation.current)setEntries(e=>({...e,[l.id]:{error:'No pudimos buscar al jugador. Intentá nuevamente.'}}));}}
  async function analyze(){
   stop();const c=new AbortController(),turn=++generation.current;controller.current=c;setBusy(true);setProgress('Comprobando selecciones…');setError('');setNotice('');
+  const meta={id:crypto.randomUUID(),traceId:trace.current,startedAt:new Date().toISOString(),code:undefined as string|undefined};
+  const settings:Settings={eventDate:doc.eventDate,phase:'Regular Season',seasons:'last2',minMinutes:null};
+  let finalDocument=doc;
+  const captured:Record<string,Entry>=Object.fromEntries(doc.legs.map(l=>[l.id,{identity:entries[l.id]?.identity}]));
+  const failureCode=(e:unknown)=>{const code=(e as {code?:unknown})?.code;return code==='INPUT_INVALID'?'INPUT_INCOMPLETE':typeof code==='string'&&/^(ARCHIVE_[A-Z_]+|PERIODS_UNAVAILABLE|INPUT_INCOMPLETE|NETWORK_ERROR|ANALYSIS_ERROR)$/.test(code)?code:'NETWORK_ERROR';};
   try{
    if(!connected.current){await call({action:'health'},c.signal);connected.current=true;}
    const checked=await inspect(doc,c,turn);if(!checked||c.signal.aborted||turn!==generation.current)return;
+   finalDocument=checked.document;
+   for(const l of finalDocument.legs){const identity=checked.map.get(l.id);captured[l.id]={identity:identity?{...identity,originalName:captured[l.id]?.identity?.originalName??identity.originalName}:undefined};}
    const selected=checked.document.legs.filter(l=>!missing(l)&&checked.map.get(l.id)?.status==='exact'),pending=checked.document.legs.filter(l=>!selected.includes(l));setEditing(v=>[...new Set([...v,...pending.filter(l=>missing(l)).map(l=>l.id)])]);
    if(!selected.length){setError('Completá los datos o elegí los jugadores señalados para analizar el ticket.');return;}
-   const settings:Settings={eventDate:checked.document.eventDate,phase:'Regular Season',seasons:'last2',minMinutes:null};let done=0;const queue=[...selected];
-   const run=async()=>{while(queue.length&&!c.signal.aborted&&turn===generation.current){const l=queue.shift()!;try{const data=await call({action:'analyze',leg:{...l,raw:'',confirmed:true},settings},c.signal);if(c.signal.aborted||turn!==generation.current)return;if(data.ok){setEntries(e=>({...e,[l.id]:{result:data.result}}));setDoc(d=>({...d,legs:d.legs.map(x=>x.id===l.id?{...x,...data.resolvedLeg,confirmed:true}:x)}));}else{setEntries(e=>({...e,[l.id]:data}));if(data.needsTeam)setEditing(v=>[...new Set([...v,l.id])]);}}catch(e){if(!c.signal.aborted&&turn===generation.current)setEntries(v=>({...v,[l.id]:{error:(e as Error).message||'No pudimos analizar esta selección.'}}));}done++;setProgress(`Analizando ${done} de ${selected.length} selecciones…`);}};
+   let done=0;const queue=[...selected];
+   const run=async()=>{while(queue.length&&!c.signal.aborted&&turn===generation.current){const l=queue.shift()!;try{const data=await call({action:'analyze',leg:{...l,raw:'',confirmed:true},settings},c.signal);if(c.signal.aborted||turn!==generation.current)return;if(data.ok){captured[l.id]={...captured[l.id],result:data.result};finalDocument={...finalDocument,legs:finalDocument.legs.map(x=>x.id===l.id?{...x,...data.resolvedLeg,confirmed:true}:x)};setEntries(e=>({...e,[l.id]:{...captured[l.id],result:data.result}}));setDoc(d=>({...d,legs:d.legs.map(x=>x.id===l.id?{...x,...data.resolvedLeg,confirmed:true}:x)}));}else{captured[l.id]={...captured[l.id],needsTeam:!!data.needsTeam,needsPlayer:!!data.needsPlayer,candidates:data.candidates,error:data.error,code:data.needsTeam?'TEAM_REVIEW':data.needsPlayer?'PLAYER_REVIEW':'ANALYSIS_ERROR'};setEntries(e=>({...e,[l.id]:{...captured[l.id],...data}}));if(data.needsTeam)setEditing(v=>[...new Set([...v,l.id])]);}}catch(e){if(!c.signal.aborted&&turn===generation.current){captured[l.id]={...captured[l.id],error:'No pudimos analizar esta selección.',code:failureCode(e)};setEntries(v=>({...v,[l.id]:{error:(e as Error).message||'No pudimos analizar esta selección.'}}));}}done++;setProgress(`Analizando ${done} de ${selected.length} selecciones…`);}};
    await Promise.all([run(),run(),run()]);if(!c.signal.aborted&&turn===generation.current)setNotice(pending.length?'Analizamos las selecciones completas. Revisá las que quedaron pendientes.':'Análisis terminado.');
-  }catch(e){if(!c.signal.aborted&&turn===generation.current)setError((e as Error).message||'No pudimos consultar las estadísticas. Intentá nuevamente.');}
-  finally{if(turn===generation.current){setBusy(false);setProgress('');controller.current=null;}}
+  }catch(e){meta.code=failureCode(e);if(!c.signal.aborted&&turn===generation.current)setError((e as Error).message||'No pudimos consultar las estadísticas. Intentá nuevamente.');}
+  finally{if(turn===generation.current){if(!c.signal.aborted){const snapshot=buildAnalysisSnapshot(finalDocument,captured,settings,meta);if(snapshot)collector.current.remember(snapshot);else reporter.current.record(trace.current,'client','error','INTERNAL_ERROR',{});}setBusy(false);setProgress('');controller.current=null;}}
  }
  const unsupported=doc.warnings.filter(w=>w.startsWith('Mercado sin análisis:')),observations=ticketObservations(doc.legs);
  return <main className={s.reader} onPaste={paste} onDragOver={e=>e.preventDefault()} onDrop={drop}>

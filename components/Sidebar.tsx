@@ -32,6 +32,7 @@ export default function Sidebar() {
   const nbaItems = [
     { name: "Dashboard", path: "/", icon: <Home size={18} /> },
     { name: "Tickets NBA", path: "/tickets", icon: <Ticket size={18} /> },
+    { name: "Analizar ticket", path: "/analizar-ticket", icon: <Ticket size={18} /> },
     { name: "Equipos", path: "/teams", icon: <Users size={18} /> },
     { name: "Parte Médico", path: "/injuries", icon: <Stethoscope size={18} /> },
     { name: "On Fire", path: "/trending", icon: <Flame size={18} /> },

@@ -1,0 +1,14 @@
+'use client';
+import {useEffect,useState} from 'react';
+import Link from 'next/link';
+import {createReporter} from '@/lib/ticketReader/reportClient';
+import type {ReaderReport} from '@/lib/ticketReader/diagnosticModel';
+import s from './reports.module.css';
+type Export={exportedAt:string;counts:{total:number;ok:number;review:number;error:number};reports:(ReaderReport&{receivedAt:string;tester:string})[]};
+export default function ReportConsole({storageKey}:{storageKey:string}){
+ const [data,setData]=useState<Export|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[pending,setPending]=useState(0);
+ async function refresh(){setBusy(true);setError('');try{const r=await fetch('/api/admin/ticket-reader-reports',{credentials:'same-origin',cache:'no-store'}),v=await r.json();if(!r.ok)throw Error(v.error||'No se pudieron consultar los informes.');setData(v);}catch(e){setData(null);setError((e as Error).message);}finally{setPending(createReporter(storageKey).queued().length);setBusy(false);}}
+ useEffect(()=>{void createReporter(storageKey).flush().finally(()=>void refresh());},[storageKey]);
+ function local(){const reports=createReporter(storageKey).queued();const blob=new Blob([JSON.stringify({version:5,exportedAt:new Date().toISOString(),source:'pending-browser',reports},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='lector-tickets-pendientes.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+ return <main className={s.page}><Link href="/analizar-ticket">← Volver al lector</Link><h1>Informes del lector</h1><p>Pruebas de todos los usuarios. Se conservan hasta 1.000 registros de los últimos 14 días.</p><div className={s.actions}><button disabled={busy} onClick={()=>void refresh()}>{busy?'Actualizando…':'Actualizar'}</button>{data&&<a href="/api/admin/ticket-reader-reports?download=1">Descargar JSON completo</a>}{pending>0&&<button onClick={local}>Descargar pendientes de este navegador ({pending})</button>}</div>{error&&<p role="alert" className={s.error}>{error}</p>}{data&&<><p className={s.connected}>Registro central activo</p><div className={s.metrics}>{Object.entries(data.counts).map(([key,value])=><div key={key}><span>{{total:'Total',ok:'Correctos',review:'Para revisar',error:'Errores'}[key]}</span><strong>{value}</strong></div>)}</div><h2>Últimos registros</h2><div className={s.table}><table><thead><tr><th>Fecha</th><th>Prueba</th><th>Resultado</th><th>Código</th><th>Usuario de prueba</th></tr></thead><tbody>{data.reports.map(r=><tr key={r.id}><td>{new Date(r.receivedAt).toLocaleString('es-AR',{timeZone:'America/Argentina/Buenos_Aires'})}</td><td>{r.stage}</td><td>{r.outcome}</td><td>{r.code}</td><td>{r.tester}</td></tr>)}</tbody></table></div>{!data.reports.length&&<p>Todavía no hay pruebas registradas. Cargá y analizá un ticket para comprobar el registro.</p>}</>}</main>;
+}

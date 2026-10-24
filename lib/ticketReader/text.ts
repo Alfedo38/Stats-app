@@ -2,10 +2,22 @@ import {normalize,type Market} from './model';
 
 const attempts=String.raw`\b(?:(?:gol(?:es)?|tiros?|lanzamientos?|canastas?)\s+(?:de\s+)?campo\s+(?:intentad[oa]s?|intentos)|tiros?\s+intentados?|field\s+goals?\s+attempt(?:ed|s)?|fga)\b`;
 const made=String.raw`\b(?:(?:gol(?:es)?|tiros?|lanzamientos?|canastas?)\s+(?:de\s+)?campo\s+(?:anotad[oa]s?|convertid[oa]s?|realizad[oa]s?|hech[oa]s?)|tiros?\s+(?:anotados?|convertidos?)|field\s+goals?\s+made|fgm)\b`;
-const statWords=String.raw`\b(?:puntos?|points?|pts|rebotes?|rebounds?|reb|asistencias?|assists?|ast|triples?|3pt|3pm|pra|pr|pa|ra|fgm|fga|robos?|steals?|stl|tapones?|bloqueos?|blocks?|blk|perdidas?|turnovers?|tov?)\b`;
+const attemptWord=String.raw`(?:intentad[oa]s?|intentos?|attempt(?:ed|s)?)`;
+const madeWord=String.raw`(?:anotad[oa]s?|convertid[oa]s?|realizad[oa]s?|made)`;
+const freeNoun=String.raw`(?:(?:tiros?|lanzamientos?)\s+libres?|free\s+throws?|tl)`;
+const tripleNoun=String.raw`(?:triples?|three\s+pointers?|(?:3|three)\s*(?:pt|point)s?(?:\s+field\s+goals?)?|(?:tiros?|lanzamientos?|canastas?)\s+(?:de\s+)?(?:3|tres)\s+puntos?)`;
+const freeAttempts=String.raw`\b(?:${freeNoun}\s+${attemptWord}|${attemptWord}\s+(?:de\s+)?${freeNoun}|fta)\b`;
+const freeMade=String.raw`\b(?:${freeNoun}\s+${madeWord}|ftm)\b`;
+const tripleAttempts=String.raw`\b(?:${tripleNoun}\s+${attemptWord}|${attemptWord}\s+(?:de\s+)?${tripleNoun}|tiros?\s+intentados?\s+(?:de\s+)?(?:3|tres)\s+puntos?|fg3a|3pa|3pta)\b`;
+const tripleMade=String.raw`\b(?:${tripleNoun}\s+${madeWord}|fg3m|3pm|3ptm)\b`;
+const statWords=String.raw`\b(?:puntos?|points?|pts|rebotes?|rebounds?|reb|asistencias?|assists?|ast|triples?|3pt|3pm|3pa|3pta|fg3a|fg3m|fta|ftm|pra|pr|pa|ra|fgm|fga|robos?|steals?|stl|tapones?|bloqueos?|blocks?|blk|perdidas?|turnovers?|tov?)\b`;
 
 export function detectMarket(text:string):Market|null {
  const n=normalize(text);
+ if(new RegExp(freeAttempts,'i').test(n))return 'FTA';
+ if(new RegExp(tripleAttempts,'i').test(n))return '3PA';
+ if(new RegExp(freeMade,'i').test(n)||new RegExp(`\\b${freeNoun}\\b`,'i').test(n))return 'FTM';
+ if(new RegExp(tripleMade,'i').test(n)||new RegExp(`\\b${tripleNoun}\\b`,'i').test(n))return '3PT';
  if(new RegExp(attempts,'i').test(n))return 'FGA';
  if(new RegExp(made,'i').test(n))return 'FGM';
  const pts=/\b(puntos?|points?|pts)\b/.test(n),reb=/\b(rebotes?|rebounds?|reb)\b/.test(n),ast=/\b(asistencias?|assists?|ast)\b/.test(n);
@@ -25,7 +37,9 @@ export function cleanPlayerText(value:string):string {
  let text=value.replace(/\b(?:cuota|odds)\s*[:=]?.*$/i,'').replace(/\b(?:1[°ºo]?\s*cuarto|primer\s+cuarto|primera\s+mitad|segunda\s+mitad|1st\s+(?:quarter|half)|2nd\s+half)\b/gi,' ');
  const labelled=detectMarket(text)!==null||/\b(?:total(?:es)?|gol(?:es)?|campo|intenta[dn][oa]s?|field goals?)\b/i.test(text);
  if(labelled){
-  text=text.replace(new RegExp(attempts,'gi'),' ').replace(new RegExp(made,'gi'),' ')
+  text=text.replace(new RegExp(freeAttempts,'gi'),' ').replace(new RegExp(tripleAttempts,'gi'),' ').replace(new RegExp(freeMade,'gi'),' ').replace(new RegExp(tripleMade,'gi'),' ')
+   .replace(new RegExp(`\\b${freeNoun}\\b`,'gi'),' ').replace(new RegExp(`\\b${tripleNoun}\\b`,'gi'),' ')
+   .replace(new RegExp(attempts,'gi'),' ').replace(new RegExp(made,'gi'),' ')
    .replace(/\bthree\s+pointers?\b/gi,' ').replace(new RegExp(statWords,'gi'),' ')
    .replace(/\btotal(?:es)?(?:\s+de)?\b/gi,' ').replace(/\b(?:realizados?|anotados?|convertidos?|intentados?)\b/gi,' ');
  }

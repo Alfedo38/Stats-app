@@ -15,9 +15,11 @@ export const POST=withAuth(async(req:NextRequest)=>{
  const respond=async(value:Record<string,unknown>,options:{status?:number}={})=>{const event=apiReport(body,value),saved=await saveReport(req,event);return NextResponse.json({...value,diagnostic:{saved,event}},options);};
  try{body=await readBody(req);}catch{return respond({ok:false,code:'INPUT_INVALID',error:'Solicitud inválida o demasiado grande.'},{status:400});}
  try{
+  if(body.archiveId!==undefined&&(typeof body.archiveId!=='string'||!/^[a-f0-9]{64}$/.test(body.archiveId)))throw Error('INPUT');
   if(body.action==='health')return respond({ok:true,connection:await readerConnection()});
   const validTeams=(value:unknown):value is string[]=>Array.isArray(value)&&value.length<=2&&value.every(t=>typeof t==='string'&&TEAMS.includes(t));
   if(body.action==='resolve'){
+   if(body.eventDate!==undefined&&!isDate(body.eventDate))throw Error('INPUT');
    if(!Array.isArray(body.items)||body.items.length<1||body.items.length>8)throw Error('INPUT');
    const items=body.items.map(value=>{
     if(!value||typeof value!=='object')throw Error('INPUT');
@@ -26,7 +28,7 @@ export const POST=withAuth(async(req:NextRequest)=>{
     return {id:x.id,name:x.name,teams:x.teams};
    });
    if(new Set(items.map(x=>x.id)).size!==items.length)throw Error('INPUT');
-   return respond({ok:true,reviews:await resolveNames(items)});
+   return respond({ok:true,reviews:await resolveNames(items,body.eventDate as string|undefined,body.archiveId as string|undefined)});
   }
   if(body.action==='players'){
    if(typeof body.name!=='string'||body.name.trim().length<2||body.name.length>100)return respond({ok:false,error:'Escribí al menos dos letras.'},{status:400});
@@ -37,8 +39,8 @@ export const POST=withAuth(async(req:NextRequest)=>{
   const s=body.settings as Settings;
   if(!isDate(s.eventDate)||!['ALL','Regular Season','Playoffs'].includes(s.phase)||!['last2','current','all'].includes(s.seasons)||s.minMinutes!==null&&(typeof s.minMinutes!=='number'||!Number.isFinite(s.minMinutes)||s.minMinutes<0||s.minMinutes>60))throw Error('INPUT');
   let leg;try{leg=importTicket({version:1,eventDate:s.eventDate,legs:[body.leg]}).legs[0];}catch{throw Error('INPUT');}
-  if((body.leg as {confirmed?:boolean}).confirmed!==true||!leg.market||!leg.operator||leg.line===null||leg.teams.length!==2||leg.teams[0]===leg.teams[1]||leg.playerName.trim().length<3)throw Error('INPUT');
-  return respond(await readAnalysis(leg,s));
+  if(leg.eventDate!==s.eventDate||(body.leg as {confirmed?:boolean}).confirmed!==true||!leg.market||!leg.operator||leg.line===null||leg.teams.length!==2||leg.teams[0]===leg.teams[1]||leg.playerName.trim().length<3)throw Error('INPUT');
+  return respond(await readAnalysis(leg,s,body.archiveId as string|undefined));
  }catch(error){
   if(error instanceof ReaderError)return respond({ok:false,error:error.message,code:error.code},{status:error.status});
   if(error instanceof Error&&error.message==='INPUT')return respond({ok:false,code:'INPUT_INVALID',error:'Confirmá jugador, equipos, mercado, línea y período.'},{status:400});

@@ -38,6 +38,11 @@ export async function readerManifest(fresh=false):Promise<ReaderManifest>{
   return m;
  })();const entry={until:Date.now()+30000,value};manifestCache=entry;value.catch(()=>{if(manifestCache===entry)manifestCache=undefined;});return value;
 }
+export async function expectedManifest(expectedId?:string):Promise<ReaderManifest>{
+ const manifest=await readerManifest();
+ if(expectedId&&manifest.id!==expectedId)throw new ReaderError('ARCHIVE_CHANGED','El histórico se actualizó durante el análisis. Volvé a pulsar Analizar para usar una sola versión.',409);
+ return manifest;
+}
 export async function readerPart<T=Record<string,unknown>[]>(name:string,manifest?:ReaderManifest):Promise<T>{
  const m=manifest??await readerManifest(),part=m.parts[name];
  if(!part)return (name==='summaries'?{}:[]) as T;

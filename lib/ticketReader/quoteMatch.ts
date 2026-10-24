@@ -15,19 +15,30 @@ export function settlementKey(line:number,operator:Operator){
  return `lte:${Math.floor(line)}|push:null`;
 }
 export function selectQuote(rows:Row[],leg:Leg,now=new Date()):QuoteInfo{
- if(leg.book==='unknown')return {status:'not_found',message:'Elegí la casa para buscar la cuota individual.'};
+ if(leg.book==='unknown')return {status:'not_found',message:'Elegí la casa para buscar la cuota individual.',diagnostic:{reason:'BOOK_REQUIRED'}};
+ const market=oddsMarket(leg.market);
+ if(!market)return {status:'not_found',message:'El mercado no tiene una correspondencia válida para buscar cuotas.',diagnostic:{reason:'INVALID_MARKET'}};
  const event=[...leg.teams].sort().join('-'),wanted=leg.line!==null&&leg.operator?settlementKey(leg.line,leg.operator):null;
- const matches=rows.filter(r=>{
-  if(r.league!=null&&String(r.league).toUpperCase()!=='NBA')return false;
-  const side=String(r.side??'').toLowerCase();if(!['over','under','at_least','at_most'].includes(side))return false;
-  const line=decimal(r.model_line??r.threshold);
-  return oddsBook(r.book)===leg.book&&matchesOddsPlayer(r.jugador,r.player_norm,leg.playerName)&&canonicalOddsPlayerName(leg.playerName)!==''&&dateOf(r)===leg.eventDate&&normalizedEvent(r.game_norm||r.partido)===event&&scopeOf(r)===leg.scope&&oddsMarket(r.stat_key)===oddsMarket(leg.market)&&line!==null&&settlementKey(line,side as Operator)===wanted;
- }).map(row=>({row,time:iso(row.scraped_at_utc??row.updated_at)})).filter(x=>x.time!==null&&Date.parse(x.time)<=now.getTime()+300000).sort((a,b)=>b.time!.localeCompare(a.time!));
- if(!matches.length)return {status:'not_found',message:'No hay cuota individual publicada para esta casa, fecha, partido, mercado, período y línea.'};
+ let candidates=rows.filter(r=>(r.league==null||String(r.league).toUpperCase()==='NBA')&&oddsBook(r.book)===leg.book&&canonicalOddsPlayerName(leg.playerName)!==''&&matchesOddsPlayer(r.jugador,r.player_norm,leg.playerName));
+ const counts={player:candidates.length,date:0,event:0,market:0,scope:0,line:0,timed:0};
+ const missing=(reason:string,message:string):QuoteInfo=>({status:'not_found',message,diagnostic:{reason,counts}});
+ if(!candidates.length)return missing('PLAYER_NOT_FOUND','No encontramos cuotas publicadas para este jugador en la casa elegida.');
+ candidates=candidates.filter(r=>dateOf(r)===leg.eventDate);counts.date=candidates.length;
+ if(!candidates.length)return missing('DATE_MISMATCH','Hay cuotas del jugador, pero no corresponden a la fecha del ticket.');
+ candidates=candidates.filter(r=>normalizedEvent(r.game_norm||r.partido)===event);counts.event=candidates.length;
+ if(!candidates.length)return missing('EVENT_MISMATCH','Hay cuotas para esta fecha, pero el partido no coincide con el ticket.');
+ candidates=candidates.filter(r=>oddsMarket(r.stat_key)===market);counts.market=candidates.length;
+ if(!candidates.length)return missing('MARKET_MISMATCH','Hay cuotas para este partido, pero no para el mercado elegido. Los intentos y anotados se buscan por separado.');
+ candidates=candidates.filter(r=>scopeOf(r)===leg.scope);counts.scope=candidates.length;
+ if(!candidates.length)return missing('SCOPE_MISMATCH','Las cuotas publicadas no corresponden al período elegido.');
+ candidates=candidates.filter(r=>{const side=String(r.side??'').toLowerCase(),line=decimal(r.model_line??r.threshold);return ['over','under','at_least','at_most'].includes(side)&&line!==null&&settlementKey(line,side as Operator)===wanted;});counts.line=candidates.length;
+ if(!candidates.length)return missing('LINE_MISMATCH','No hay una cuota individual publicada para esta línea y condición, ni una línea exactamente equivalente.');
+ const matches=candidates.map(row=>({row,time:iso(row.scraped_at_utc??row.updated_at)})).filter(x=>x.time!==null&&Date.parse(x.time)<=now.getTime()+300000).sort((a,b)=>b.time!.localeCompare(a.time!));counts.timed=matches.length;
+ if(!matches.length)return missing('CAPTURE_TIME_INVALID','La cotización no tiene un momento de captura válido. No se usa para comparar precios.');
  const latest=matches[0],same=matches.filter(x=>x.time===latest.time);
- if(same.some(x=>{const price=decimal(x.row.odds_decimal);return x.row.valid===false||x.row.active===false||x.row.bookmaker_is_active===false||price===null||price<=1;}))return {status:'inactive',message:'La última cotización coincide, pero está retirada o no tiene un precio válido.'};
+ if(same.some(x=>{const price=decimal(x.row.odds_decimal);return x.row.valid===false||x.row.active===false||x.row.bookmaker_is_active===false||price===null||price<=1;}))return {status:'inactive',message:'La última cotización coincide, pero está retirada o no tiene un precio válido.',diagnostic:{reason:'INACTIVE',counts}};
  const prices=new Set(same.map(x=>decimal(x.row.odds_decimal)));
- if(prices.size!==1)return {status:'conflict',message:'Hay precios contradictorios con la misma fecha de captura. No se eligió una cuota.'};
+ if(prices.size!==1)return {status:'conflict',message:'Hay precios contradictorios con la misma fecha de captura. No se eligió una cuota.',diagnostic:{reason:'CONFLICT',counts}};
  const price=decimal(latest.row.odds_decimal)!;
- return {status:'matched',price,book:leg.book,capturedAt:latest.time!,eventDate:leg.eventDate,line:decimal(latest.row.model_line??latest.row.threshold)!,side:String(latest.row.side),message:'Cuota individual consultada en las cuotas publicadas.'};
+ return {status:'matched',price,book:leg.book,capturedAt:latest.time!,eventDate:leg.eventDate,line:decimal(latest.row.model_line??latest.row.threshold)!,side:String(latest.row.side),message:'Cuota individual consultada en las cuotas publicadas.',diagnostic:{reason:'MATCHED',counts}};
 }

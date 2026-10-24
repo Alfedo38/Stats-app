@@ -10,7 +10,7 @@ let passed=0;
 const check=async(name,fn)=>{await fn();passed++;console.log('OK',name);};
 try{
  fs.writeFileSync(path.join(temporary,'package.json'),'{"type":"commonjs"}');
- for(const name of ['model','text','parser','analysis','diagnosticModel','analysisSnapshot','analysisClient'])fs.writeFileSync(path.join(temporary,name+'.js'),ts.transpileModule(fs.readFileSync(path.join(process.cwd(),'lib/ticketReader',name+'.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText);
+ for(const name of ['model','text','parser','analysis','diagnosticModel','analysisSnapshot','analysisClient','jointReference','quoteDiagnostic'])fs.writeFileSync(path.join(temporary,name+'.js'),ts.transpileModule(fs.readFileSync(path.join(process.cwd(),'lib/ticketReader',name+'.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText);
  const {buildAnalysisSnapshot:build,sanitizeAnalysis:sanitize,ANALYSIS_BYTES}=require(path.join(temporary,'analysisSnapshot.js'));
  const {createAnalysisCollector}=require(path.join(temporary,'analysisClient.js'));
  // Synthetic fixtures: these numbers do not describe an actual NBA player's results.

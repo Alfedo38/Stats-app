@@ -1,7 +1,7 @@
 import {normalize,TEAMS,type Game,type Leg,type Market,type Operator,type Settings} from './model';
 import {findTeams} from './parser';
 type Row=Record<string,unknown>;
-const fields:Record<Market,string[]>={PTS:['pts'],REB:['reb'],AST:['ast'],PRA:['pts','reb','ast'],PR:['pts','reb'],PA:['pts','ast'],RA:['reb','ast'],'3PT':['fg3m'],FGM:['fgm'],FGA:['fga'],STL:['stl'],BLK:['blk'],TO:['tov'],'STL+BLK':['stl','blk']};
+const fields:Record<Market,string[]>={PTS:['pts'],REB:['reb'],AST:['ast'],PRA:['pts','reb','ast'],PR:['pts','reb'],PA:['pts','ast'],RA:['reb','ast'],'3PT':['fg3m'],'3PA':['fg3a'],FTM:['ftm'],FTA:['fta'],FGM:['fgm'],FGA:['fga'],STL:['stl'],BLK:['blk'],TO:['tov'],'STL+BLK':['stl','blk']};
 export function numberOrNull(value:unknown):number|null {if(value===null||value===undefined||typeof value==='boolean'||String(value).trim()==='')return null;const n=Number(value);return Number.isFinite(n)?n:null;}
 function minutes(value:unknown){if(typeof value==='string'&&/^\d+:\d{2}/.test(value)){const [m,s]=value.split(':');return Number(m)+Number(s)/60;}return numberOrNull(value);}
 function gameId(row:Row){return String(row.game_id??'').replace(/^0+/,'');}
@@ -10,7 +10,7 @@ export function seasonOf(date:string){const y=Number(date.slice(0,4))-(Number(da
 function phaseOf(row:Row){const text=normalize(row.season_type);if(text==='regular season')return 'Regular Season';if(text==='playoffs')return 'Playoffs';const id=String(row.game_id??'').padStart(10,'0');return id.startsWith('002')?'Regular Season':id.startsWith('004')?'Playoffs':'Other';}
 function abbr(v:unknown){const code=String(v??'').toUpperCase().trim();return TEAMS.includes(code)?code:null;}
 function valueOf(row:Row,market:Market,prefix=''):number|null {
- const keys=fields[market];const direct:Record<string,string[]>={fg3m:['fg3m','3ptm','3pm'],tov:['tov','to']};
+ const keys=fields[market];const direct:Record<string,string[]>={fg3m:['fg3m','3ptm','3pm'],fg3a:['fg3a','3pta','3pa'],fta:['fta','free_throws_attempted'],ftm:['ftm','free_throws_made'],tov:['tov','to']};
  const take=(k:string)=>{for(const key of direct[k]??[k]){const n=numberOrNull(row[prefix+key]);if(n!==null)return n;}return null;};
  const parts=keys.map(take);if(parts.every(v=>v!==null))return parts.reduce<number>((a,b)=>a+b!,0);
  if(keys.length>1){for(const key of [market.toLowerCase(),keys.join('_'),keys.join('+')]){const n=numberOrNull(row[prefix+key]);if(n!==null)return n;}}

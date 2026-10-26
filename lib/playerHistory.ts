@@ -1,3 +1,5 @@
+import { trackingValue } from "@/lib/trackingValues";
+// potential-history-v1
 import {archiveEnabled,archivedPlayer} from './nbaArchive';
 import {parsePhase,gamePhase,phaseSql,type NBASeasonPhase} from "@/lib/nbaGameFilters";
 import prisma from "@/lib/prisma";
@@ -192,8 +194,8 @@ function formatGame(row: any, market: string, line: number, side: HistorySide) {
     usage_pct: row.usage_pct === null || row.usage_pct === undefined ? null : num(row.usage_pct),
     team_abbreviation: row.team_abbreviation ?? row.team_abbr ?? null,
     touches: row.touches === null || row.touches === undefined ? null : num(row.touches),
-    potential_ast: row.potential_ast === null || row.potential_ast === undefined ? null : num(row.potential_ast),
-    rebound_chances: row.rebound_chances === null || row.rebound_chances === undefined ? null : num(row.rebound_chances),
+    potential_ast: trackingValue(row.potential_ast),
+    rebound_chances: trackingValue(row.rebound_chances),
     hit,
   };
 }

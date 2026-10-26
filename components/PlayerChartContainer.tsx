@@ -19,6 +19,7 @@ import StatFilters, { type ActiveFilter } from "@/components/StatFilters";
 import GameLogTable from "@/components/GameLogTable";
 import FloatingPlayerIdentity, {ChartIdentity} from "@/components/PlayerIdentity";
 import PlayerAbsenceFilter from "@/components/PlayerAbsenceFilter";
+import {absenceScope as parseAbsenceScope,absenceTeam as parseAbsenceTeam,absenceEmptyMessage,type AbsenceScope} from "@/lib/playerAbsenceContext";
 import {parsePhase,phaseRows,absenceRows,cleanAbsences,PHASE_OPTIONS,type NBASeasonPhase} from "@/lib/nbaGameFilters";
 import PlayerOddsComparison from "@/components/PlayerOddsComparison";
 import {comparableQuotes,selectUpcomingOddsEvent,decimalPrice,type PriceQuote} from "@/lib/nbaOdds";
@@ -552,8 +553,14 @@ export default function PlayerChartContainer({
   const [seasonPhase, setSeasonPhase] = useState<NBASeasonPhase>(()=>parsePhase(searchParams.get("phase")));
   const [absentNames, setAbsentNames] = useState<string[]>(()=>cleanAbsences(searchParams.getAll("absent")));
   const effectiveAbsences = useMemo(()=>cleanAbsences([...absentNames,...(activeWoTeammate?[activeWoTeammate]:[])]),[absentNames,activeWoTeammate]);
+  // absence-roster-v1
+  // absence-roster-v2
+  const [absenceMode,setAbsenceMode]=useState<AbsenceScope>(()=>parseAbsenceScope(searchParams.get("absenceScope"),searchParams.getAll("absent").length>0||!!searchParams.get("wo")));
+  const [absenceTeamFilter,setAbsenceTeamFilter]=useState(()=>parseAbsenceScope(searchParams.get("absenceScope"),searchParams.getAll("absent").length>0||!!searchParams.get("wo"))==='historical'?parseAbsenceTeam(searchParams.get("absenceTeam")):'');
+  const changeAbsenceMode=useCallback((next:AbsenceScope)=>{setAbsenceMode(next);setAbsenceTeamFilter('');setAbsentNames([]);setActiveWoTeammateState(null);},[]);
+  const changeAbsenceTeam=useCallback((next:string)=>{setAbsenceTeamFilter(parseAbsenceTeam(next));setAbsentNames([]);setActiveWoTeammateState(null);},[]);
   const absenceKey = JSON.stringify(effectiveAbsences);
-  const absenceContextKey = `${playerId}:${absenceKey}`;
+  const absenceContextKey = `${playerId}:${absenceMode}:${absenceTeamFilter}:${absenceKey}`;
   const [absenceState, setAbsenceState] = useState<{key:string;matches:Record<string,string[]>|null;loading:boolean;error:string|null}>({key:'',matches:null,loading:false,error:null});
   const [absenceRetry,setAbsenceRetry] = useState(0);
   const currentAbsence = absenceState.key === absenceContextKey ? absenceState : {matches:null,loading:effectiveAbsences.length>0,error:null};
@@ -562,7 +569,7 @@ export default function PlayerChartContainer({
     if(!effectiveAbsences.length){setAbsenceState({key:absenceContextKey,matches:{},loading:false,error:null});return;}
     const controller=new AbortController();
     setAbsenceState({key:absenceContextKey,matches:null,loading:true,error:null});
-    fetch('/api/player-absence',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({playerId,names:effectiveAbsences}),signal:controller.signal,cache:'no-store'})
+    fetch('/api/player-absence',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({playerId,names:effectiveAbsences,scope:absenceMode,team:absenceTeamFilter}),signal:controller.signal,cache:'no-store'})
       .then(async response=>{const data=await response.json();if(!response.ok||!data.ok)throw new Error(data.error||'No se pudieron consultar las ausencias.');if(!controller.signal.aborted)setAbsenceState({key:absenceContextKey,matches:data.matches??{},loading:false,error:null});})
       .catch(error=>{if(!controller.signal.aborted)setAbsenceState({key:absenceContextKey,matches:null,loading:false,error:error.message});});
     return()=>controller.abort();
@@ -634,6 +641,7 @@ export default function PlayerChartContainer({
     setChartHomeAwayState(null);
     setActiveWoTeammateState(null);
     setAbsentNames([]);
+    setAbsenceMode("current");setAbsenceTeamFilter("");
     setSeasonPhase("ALL");
   }, []);
 
@@ -1278,13 +1286,15 @@ export default function PlayerChartContainer({
       if (chartOpponent) params.set("opponent", chartOpponent);
       if (seasonPhase !== "ALL") params.set("phase", seasonPhase);
       effectiveAbsences.forEach(name=>params.append("absent",name));
+      if(absenceMode==="historical"||effectiveAbsences.length)params.set("absenceScope",absenceMode);
+      if(absenceTeamFilter)params.set("absenceTeam",absenceTeamFilter);
       const url = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
       await navigator.clipboard.writeText(url);
       return true;
     } catch {
       return false;
     }
-  }, [activeStat, lineValue, lastN, activeScope, chartSide, chartHomeAway, chartHistMinMinutes, chartOpponent, activeWoTeammate, seasonPhase, absenceKey]);
+  }, [activeStat, lineValue, lastN, activeScope, chartSide, chartHomeAway, chartHistMinMinutes, chartOpponent, activeWoTeammate, seasonPhase, absenceKey, absenceMode, absenceTeamFilter]);
 
   return (
     <div className="space-y-5">
@@ -1463,7 +1473,7 @@ export default function PlayerChartContainer({
             <div className="grid grid-cols-3 gap-1 rounded-xl border border-[var(--border)] bg-[var(--bg)] p-1" role="group" aria-label="Fase de la temporada">
               {PHASE_OPTIONS.map(option=><button type="button" key={option.value} aria-pressed={seasonPhase===option.value} title={option.label} onClick={()=>setSeasonPhase(option.value)} className={`min-w-0 rounded-lg px-1 py-2 text-[9px] font-black uppercase ${seasonPhase===option.value?'bg-cyan-400/15 text-cyan-300':'text-[var(--text-muted)] hover:text-[var(--text)]'}`}>{option.value==='Regular Season'?'Regular':option.label}</button>)}
             </div>
-            <PlayerAbsenceFilter playerId={String(playerId || '')} selected={effectiveAbsences} onChange={changeAbsences} loading={currentAbsence.loading} error={currentAbsence.error} onRetry={()=>setAbsenceRetry(n=>n+1)}/>
+            <PlayerAbsenceFilter playerId={String(playerId || '')} scope={absenceMode} team={absenceTeamFilter} onScopeChange={changeAbsenceMode} onTeamChange={changeAbsenceTeam} selected={effectiveAbsences} onChange={changeAbsences} emptyReason={absenceEmptyMessage(effectiveAbsences,currentAbsence.matches)} loading={currentAbsence.loading} error={currentAbsence.error} onRetry={()=>setAbsenceRetry(n=>n+1)}/>
 
             {hasActiveInjuryContext && (
               <ActiveInjuryContextCard

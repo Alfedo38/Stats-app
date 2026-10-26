@@ -15,6 +15,9 @@ import {
   YAxis,
 } from "recharts";
 
+import { trackingValue } from "@/lib/trackingValues";
+
+// potential-history-v1
 type PlayerChartProps = {
   data: any[];
   statKey?: string;
@@ -121,9 +124,9 @@ function CustomTooltip({ active, payload }: any) {
         <div className="rounded-lg bg-white/[0.03] px-2 py-1">MIN: <span className="text-white">{getMinutes(row)}</span></div>
       </div>
 
-      {Number.isFinite(Number(row._overlayValue)) && row._overlayLabel && (
+      {row._overlayEnabled && row._overlayLabel && (
         <div className="mt-2 rounded-lg border border-cyan-400/25 bg-cyan-400/10 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-cyan-300">
-          {row._overlayLabel}: {formatNumber(row._overlayValue, 1)}
+          {row._overlayLabel}: {trackingValue(row._overlayValue) === null ? "Sin datos disponibles" : formatNumber(row._overlayValue, 1)}
         </div>
       )}
     </div>
@@ -152,8 +155,8 @@ function ValueLabel(props: any) {
 
 function OverlayPointLabel(props: any) {
   const { x, y, value, payload } = props;
-  const n = Number(value);
-  if (!Number.isFinite(n) || payload?._hideOverlayLabel) return null;
+  const n = trackingValue(value);
+  if (n === null || payload?._hideOverlayLabel) return null;
   const label = formatNumber(n, 1);
 
   return (
@@ -213,7 +216,7 @@ export default function PlayerChart({
       ? data
           .map((row) => {
             const rawValue = Number(row?.[statKey] ?? row?.value);
-            const rawOverlay = overlayKey ? Number(row?.[overlayKey]) : NaN;
+            const rawOverlay = overlayKey ? trackingValue(row?.[overlayKey]) : null;
             const value = Number.isFinite(rawValue) ? rawValue : 0;
             const result = getGameResult(row);
             const opp = getOpponent(row);
@@ -225,7 +228,8 @@ export default function PlayerChart({
               _chartSide: side,
               _xLabel: `${opp}${result ? ` · ${result}` : ""}`,
               _barState: getBarState(value, lineValue, side),
-              _overlayValue: Number.isFinite(rawOverlay) ? rawOverlay : null,
+              _overlayValue: rawOverlay,
+              _overlayEnabled: Boolean(overlayKey),
               _overlayLabel: overlayLabel || overlayRatioLabel || overlayKey || "",
               _overlayColor: overlayColor,
               _hideOverlayLabel: false,
@@ -269,7 +273,7 @@ export default function PlayerChart({
   const hasRealValues = chartData.some((row) => Number(row.value) > 0);
   const hasOverlay =
     Boolean(overlayKey) &&
-    chartData.some((row) => Number.isFinite(Number(row._overlayValue)) && Number(row._overlayValue) > 0);
+    chartData.some((row) => trackingValue(row._overlayValue) !== null);
 
   if (!hasRows) {
     return (
@@ -403,7 +407,7 @@ export default function PlayerChart({
             strokeDasharray="7 5"
             dot={{ r: 3, strokeWidth: 2, fill: "#050505", stroke: overlayColor }}
             activeDot={{ r: 5 }}
-            connectNulls
+            connectNulls={false}
             isAnimationActive={false}
           >
             <LabelList dataKey="_overlayValue" content={<OverlayPointLabel />} />

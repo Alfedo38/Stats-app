@@ -1,3 +1,6 @@
+import { trackingValue } from "@/lib/trackingValues";
+// potential-history-v1
+import {LEAGUE_TEAMS} from './teams';
 import 'server-only';
 import prisma from './prisma';
 import { Prisma } from '@prisma/client';
@@ -123,7 +126,9 @@ function getLogStatValue(log: any, stat: string | null | undefined): number {
 }
 
 function normalizeTeamAbbr(value: string | null | undefined): string {
-  return String(value || '').trim().toUpperCase();
+  const raw=String(value||'').trim();
+  const norm=(s:string)=>s.toLowerCase().replace('los angeles','la').replace(/[^a-z0-9]/g,'');
+  return LEAGUE_TEAMS.find(t=>norm(t.name)===norm(raw)||t.id===raw.toUpperCase())?.id??raw.toUpperCase();
 }
 
 // ─── Merge de resultados en bloques ──────────────────────────────────────────
@@ -503,8 +508,8 @@ export async function getPlayerData(playerId: string) {
 
         // Supporting data actual: vienen en public.player_game_logs / vista clean.
         usage_pct: num(s.usage_pct ?? s.usg_pct),
-        potential_ast: num(s.potential_ast ?? s.potential_assists ?? s.ast_potential ?? s.pot_ast),
-        rebound_chances: num(s.rebound_chances ?? s.reb_chances),
+        potential_ast: trackingValue(s.potential_ast ?? s.potential_assists ?? s.ast_potential ?? s.pot_ast),
+        rebound_chances: trackingValue(s.rebound_chances ?? s.reb_chances),
         touches: num(s.touches),
       } as any;
 
@@ -819,16 +824,9 @@ function parseTeamFromMatchup(matchup: string | null, side: 'home' | 'away'): st
 
 export async function getSchedule(): Promise<GameSlot[]> {
   try {
-    const rows = await prisma.game_odds.findMany({
-      select:   { matchup: true, home_team: true, away_team: true, spread: true, total: true },
-      distinct: ['matchup'],
-      orderBy:  { matchup: 'asc' },
-    });
-    return rows.map((r) => {
-      const home = r.home_team?.toUpperCase() || parseTeamFromMatchup(r.matchup, 'home');
-      const away = r.away_team?.toUpperCase() || parseTeamFromMatchup(r.matchup, 'away');
-      return { matchup: r.matchup ?? '', home_team: home, away_team: away, teams: [away, home].filter(Boolean), spread: r.spread ?? null, total: r.total ?? null };
-    }).filter((g) => g.teams.length > 0);
+    const today=formatArgDateKey();
+    const rows=await prisma.$queryRawUnsafe<any[]>(`SELECT away,home FROM public.nba_daily_schedule WHERE event_date BETWEEN $1::date AND $2::date AND postponed=false AND status_id=1 ORDER BY start_utc`,today,addDaysToDateKey(today,1));
+    return rows.map(r=>({matchup:`${r.away} @ ${r.home}`,home_team:r.home,away_team:r.away,teams:[r.away,r.home],spread:null,total:null}));
   } catch (e) { console.error('Error en getSchedule:', e); return []; }
 }
 
@@ -855,22 +853,10 @@ function normalizeInjuryStatus(raw: string): InjuryRow['status'] {
 
 export async function getInjuries(): Promise<InjuryRow[]> {
   try {
-    const todayArg = formatArgDateKey(new Date());
-    let rows = await prisma.nba_injuries.findMany({ where: { fetch_date: todayArg }, orderBy: [{ team_name: 'asc' }, { player_name: 'asc' }] });
-    if (rows.length === 0) {
-      const latest = await prisma.nba_injuries.findFirst({ orderBy: { created_at: 'desc' }, select: { fetch_date: true } });
-      if (latest?.fetch_date) rows = await prisma.nba_injuries.findMany({ where: { fetch_date: latest.fetch_date }, orderBy: [{ team_name: 'asc' }, { player_name: 'asc' }] });
-    }
-    return rows.map((r: any) => ({
-      player_id: r.player_id ?? undefined,
-      player_name: r.player_name,
-      team_name: r.team_name,
-      team_abbreviation: normalizeTeamAbbr(r.team_abbreviation || r.team_id),
-      team_logo: r.team_logo ?? undefined,
-      status: normalizeInjuryStatus(r.status),
-      reason: r.comment ?? undefined,
-      updated_at: r.created_at.toISOString(),
-    }));
+    const rows=await prisma.$queryRawUnsafe<any[]>(`SELECT player_name,team,normalized_status AS status,reason,report_ts
+      FROM nba_api_data.nba_injury_reports WHERE report_ts=(SELECT max(report_ts) FROM nba_api_data.nba_injury_reports)
+        AND report_ts>=now()-interval '36 hours' AND normalized_status IN ('OUT','DOUBTFUL','QUESTIONABLE','PROBABLE') ORDER BY team,player_name`);
+    return rows.map(r=>({player_name:r.player_name,team_name:r.team,team_abbreviation:normalizeTeamAbbr(r.team),status:r.status,reason:r.reason,updated_at:new Date(r.report_ts).toISOString()}));
   } catch (e) { console.error('Error en getInjuries:', e); return []; }
 }
 

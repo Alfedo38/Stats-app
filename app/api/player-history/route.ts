@@ -21,6 +21,7 @@ async function handlePOST(req: Request) {
   try {
     const body = await req.json();
     const data = await getPlayerHistoricalExplorer({
+      asOfDate:body.asOfDate??null,
       playerId: body.playerId ?? null,
       playerName: body.playerName ?? null,
       market: body.market,

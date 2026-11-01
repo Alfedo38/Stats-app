@@ -9,7 +9,7 @@ const temporary=fs.mkdtempSync(path.join(os.tmpdir(),'ticket-reader-v7-'));let p
 try{
  fs.writeFileSync(path.join(temporary,'package.json'),'{"type":"commonjs"}');
  const core=path.join(temporary,'ticketReader');fs.mkdirSync(core);
- for(const name of ['model','text','parser','analysis','diagnosticModel','analysisSnapshot','jointReference','teamContext','quoteMatch','quoteDiagnostic'])fs.writeFileSync(path.join(core,name+'.js'),ts.transpileModule(fs.readFileSync(path.join(process.cwd(),'lib/ticketReader',name+'.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText);
+ for(const name of ['model','text','parser','analysis','diagnosticModel','analysisSnapshot','contextModel','ticketAssessment','jointReference','teamContext','quoteMatch','quoteDiagnostic'])fs.writeFileSync(path.join(core,name+'.js'),ts.transpileModule(fs.readFileSync(path.join(process.cwd(),'lib/ticketReader',name+'.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText);
  for(const name of ['nbaOdds','oddsPlayerNames'])fs.writeFileSync(path.join(temporary,name+'.js'),ts.transpileModule(fs.readFileSync(path.join(process.cwd(),'lib',name+'.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText);
  const {detectMarket,cleanPlayerText,looksLikePlayer}=require(path.join(core,'text.js'));
  const {parseTicket,importTicket}=require(path.join(core,'parser.js'));

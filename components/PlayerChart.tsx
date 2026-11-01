@@ -15,6 +15,7 @@ import {
   YAxis,
 } from "recharts";
 
+import { finiteStat, selectionOutcome } from "@/lib/selectionStats";
 import { trackingValue } from "@/lib/trackingValues";
 
 // potential-history-v1
@@ -26,6 +27,8 @@ type PlayerChartProps = {
   overlayLabel?: string;
   overlayColor?: string;
   overlayRatioLabel?: string;
+  overlayValueReader?:(row:any)=>number|null;
+  overlayAxis?:"left"|"right";
   side?: "over" | "under";
 };
 
@@ -73,11 +76,9 @@ function getMinutes(row: any) {
   return formatMinutes(value);
 }
 
-function getBarState(value: number, line: number, side: "over" | "under" = "over") {
-  if (!Number.isFinite(value) || !Number.isFinite(line)) return "neutral";
-  if (Math.abs(value - line) < 0.0001) return "push";
-  const isHit = side === "under" ? value < line : value > line;
-  return isHit ? "over" : "under";
+function getBarState(value: unknown, line: number, side: "over" | "under" = "over") {
+  const outcome=selectionOutcome(value,line,side);
+  return outcome==='hit'?'over':outcome==='miss'?'under':outcome==='push'?'push':'neutral';
 }
 
 function CustomTooltip({ active, payload }: any) {
@@ -91,7 +92,7 @@ function CustomTooltip({ active, payload }: any) {
   const row = barPayload?.payload;
   if (!row) return null;
 
-  const value = Number(row.value);
+  const value = finiteStat(row.value);
   const line = Number(row.lineValue);
   const side = row._chartSide === "under" ? "under" : "over";
   const state = getBarState(value, line, side);
@@ -112,10 +113,10 @@ function CustomTooltip({ active, payload }: any) {
 
       <div className="mt-2 flex items-end gap-2">
         <div className="text-4xl font-black tabular-nums" style={{ color }}>
-          {Number.isFinite(value) ? formatNumber(value, 1) : "S/D"}
+          {value !== null ? formatNumber(value, 1) : "S/D"}
         </div>
         <div className="mb-1 rounded-lg border px-2 py-1 text-[9px] font-black uppercase tracking-widest" style={{ borderColor: `${color}66`, color }}>
-          {state === "over" ? "Hit" : state === "under" ? "Miss" : "Push"}
+          {state === "over" ? "Hit" : state === "under" ? "Miss" : state === "push" ? "Push" : "S/D"}
         </div>
       </div>
 
@@ -135,9 +136,9 @@ function CustomTooltip({ active, payload }: any) {
 
 function ValueLabel(props: any) {
   const { x, y, width, value } = props;
-  const n = Number(value);
+  const n = finiteStat(value);
 
-  if (!Number.isFinite(n)) return null;
+  if (n === null) return null;
 
   return (
     <text
@@ -184,6 +185,8 @@ export default function PlayerChart({
   overlayLabel,
   overlayColor = "#22d3ee",
   overlayRatioLabel,
+  overlayValueReader,
+  overlayAxis="left",
   side = "over",
 }: PlayerChartProps) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -215,9 +218,9 @@ export default function PlayerChart({
     return Array.isArray(data)
       ? data
           .map((row) => {
-            const rawValue = Number(row?.[statKey] ?? row?.value);
-            const rawOverlay = overlayKey ? trackingValue(row?.[overlayKey]) : null;
-            const value = Number.isFinite(rawValue) ? rawValue : 0;
+            const rawValue = finiteStat(row?.[statKey] ?? row?.value);
+            const rawOverlay = overlayKey ? overlayValueReader?overlayValueReader(row):trackingValue(row?.[overlayKey]) : null;
+            const value = rawValue;
             const result = getGameResult(row);
             const opp = getOpponent(row);
 
@@ -259,7 +262,7 @@ export default function PlayerChart({
             };
           })
       : [];
-  }, [data, statKey, lineValue, overlayKey, overlayLabel, overlayRatioLabel, side]);
+  }, [data, statKey, lineValue, overlayKey, overlayLabel, overlayRatioLabel, overlayValueReader, side]);
 
   const labelByXKey = useMemo(() => {
     const map = new Map<string, string>();
@@ -270,7 +273,7 @@ export default function PlayerChart({
   }, [chartData]);
 
   const hasRows = chartData.length > 0;
-  const hasRealValues = chartData.some((row) => Number(row.value) > 0);
+  const hasRealValues = chartData.some((row) => row.value !== null);
   const hasOverlay =
     Boolean(overlayKey) &&
     chartData.some((row) => trackingValue(row._overlayValue) !== null);
@@ -295,10 +298,10 @@ export default function PlayerChart({
       <div className="flex h-[470px] w-full min-w-0 items-center justify-center rounded-2xl border border-dashed border-yellow-500/40 bg-yellow-500/5 p-6 text-center">
         <div>
           <p className="text-sm font-black uppercase tracking-widest text-yellow-400">
-            Hay {chartData.length} partidos, pero la métrica vale 0
+            Hay {chartData.length} partidos sin datos de esta métrica
           </p>
           <p className="mt-2 text-xs font-bold text-[var(--text-muted)]">
-            La columna <code>{statKey}</code> llegó sin valores útiles.
+            Los datos ausentes se mantienen como S/D.
           </p>
         </div>
       </div>
@@ -360,6 +363,7 @@ export default function PlayerChart({
           domain={[0, "dataMax + 5"]}
         />
 
+        {hasOverlay&&overlayAxis==="right"&&<YAxis yAxisId="right" orientation="right" tick={{fill:overlayColor,fontSize:10,fontWeight:800}} axisLine={false} tickLine={false} allowDecimals={false} domain={[0,"dataMax + 2"]}/>}
         <Tooltip content={<CustomTooltip />} />
 
         <ReferenceLine
@@ -398,7 +402,7 @@ export default function PlayerChart({
 
         {hasOverlay && (
           <Line
-            yAxisId="left"
+            yAxisId={overlayAxis}
             type="monotone"
             dataKey="_overlayValue"
             name={overlayLabel || overlayKey || "Potencial"}

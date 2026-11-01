@@ -1,5 +1,7 @@
 "use client";
 
+import { selectionOutcome, selectionSummary, finiteStat } from "@/lib/selectionStats";
+import { formatDateOnly, getDateSortValue } from "@/lib/formatters";
 import { useState, useMemo } from "react";
 import { getMinutesValue, getMinutesLabel, getOpponent, getGameLocation, formatDateShort } from "@/lib/playerUtils";
 import { Table2, ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
@@ -10,7 +12,7 @@ export type GameLogStat = {
   game_id?: string | number;
   game_date: string;
   matchup?: string;
-  value: number;
+  value: number|null;
   is_percentage?: boolean;
   game_result?: "W" | "L" | null;   // optional — renders if present
   game_score?: string | null;        // e.g. "112-108" — optional
@@ -28,6 +30,8 @@ interface GameLogTableProps {
   activeStatLabel: string;
   activeScopeLabel?: string;
   activeStat?: string;
+  side?: "over"|"under";
+  loading?: boolean;
   /** Format line value for display (handles integer stats) */
   formatLine?: (v: number) => string;
 }
@@ -40,16 +44,11 @@ function getLocation(item: GameLogStat): string {
   return item?.matchup?.includes("@") ? "@" : "vs";
 }
 
-function formatDate(value: string): string {
-  if (!value) return "-";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "-";
-  return `${d.getMonth() + 1}/${d.getDate()}`;
-}
+function formatDate(value:string){return formatDateOnly(value,{year:true});}
 
-function formatStat(value: number, isPerc?: boolean): string {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return "—";
+function formatStat(value: number|null, isPerc?: boolean): string {
+  const n = finiteStat(value);
+  if (n===null) return "S/D";
   const s = Number.isInteger(n) ? String(n) : n.toFixed(1);
   return isPerc ? `${s}%` : s;
 }
@@ -98,7 +97,7 @@ export default function GameLogTable({
   activeStatLabel,
   activeScopeLabel = "Partido",
   activeStat = "",
-  formatLine,
+  formatLine, side="over", loading=false,
 }: GameLogTableProps) {
   const [open,    setOpen]    = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("date");
@@ -123,8 +122,8 @@ export default function GameLogTable({
       let va: number, vb: number;
       switch (sortKey) {
         case "date":
-          va = new Date(a.game_date).getTime();
-          vb = new Date(b.game_date).getTime();
+          va = getDateSortValue(a.game_date);
+          vb = getDateSortValue(b.game_date);
           break;
         case "minutes":
           va = getMinutesValue(a) ?? -1;
@@ -135,8 +134,8 @@ export default function GameLogTable({
           vb = Number(b.value) || 0;
           break;
         case "result":
-          va = Number(a.value) >= lineValue ? 1 : 0;
-          vb = Number(b.value) >= lineValue ? 1 : 0;
+          va = selectionOutcome(a.value,lineValue,side)==='hit'?1:0;
+          vb = selectionOutcome(b.value,lineValue,side)==='hit'?1:0;
           break;
         default:
           return 0;
@@ -144,12 +143,14 @@ export default function GameLogTable({
       return sortDir === "asc" ? va - vb : vb - va;
     });
     return arr;
-  }, [stats, sortKey, sortDir, lineValue]);
+  }, [stats, sortKey, sortDir, lineValue, side]);
 
   // ── Summary bar ────────────────────────────────────────────────────────────
   const totalGames = stats.length;
-  const overCount  = stats.filter((s) => Number(s.value) >= lineValue).length;
-  const hitPct     = totalGames > 0 ? Math.round((overCount / totalGames) * 100) : 0;
+  const summary=selectionSummary(stats.map(s=>s.value),lineValue,side);
+  const overCount=summary.hits;
+  const hitPct=summary.rate===null?null:Math.round(summary.rate);
+  const sideLabel=side==='under'?'Under':'Over';
   const lineLabel  = formatLine ? formatLine(lineValue) : lineValue.toFixed(1);
 
   return (
@@ -170,7 +171,7 @@ export default function GameLogTable({
             <h3 className="text-[var(--text)] font-black uppercase tracking-tight">
               {open
                 ? "Ocultar detalle"
-                : `Ver detalle de últimos ${totalGames} · ${activeScopeLabel}`}
+                : loading ? "Cargando muestra" : `Ver detalle de últimos ${totalGames} · ${activeScopeLabel}`}
             </h3>
           </div>
         </div>
@@ -179,10 +180,10 @@ export default function GameLogTable({
           {/* Hit rate summary */}
           <div className="hidden md:flex items-center gap-2 text-right">
             <span className="text-[9px] text-[var(--text-muted)] font-black uppercase tracking-widest">
-              {overCount}/{totalGames} over
+              {summary.rate===null?"S/D":`${overCount}/${summary.decided}`} {sideLabel}
             </span>
-            <span className={`text-sm font-black tabular-nums ${hitPct >= 50 ? "text-[#10b981]" : "text-red-400"}`}>
-              {hitPct}%
+            <span className={`text-sm font-black tabular-nums ${(hitPct ?? -1) >= 50 ? "text-[#10b981]" : "text-red-400"}`}>
+              {hitPct===null?"S/D":`${hitPct}%`}
             </span>
           </div>
           <div className="hidden md:block h-4 w-px bg-[var(--border)]" />
@@ -238,10 +239,11 @@ export default function GameLogTable({
             {/* Body */}
             <tbody>
               {sortedStats.map((s, idx) => {
-                const statVal      = Number(s.value) || 0;
-                const isOver       = statVal >= lineValue;
+                const statVal      = finiteStat(s.value);
+                const outcome      = selectionOutcome(statVal,lineValue,side);
+                const isOver       = outcome==='hit';
                 const minutes      = getMinutesValue(s);
-                const isLowMin     = minutes !== null && minutes < 20;
+                const isLowMin     = !["Q1","H1","H2_REG"].includes(String((s as any).period_scope??(s as any).split_code)) && minutes !== null && minutes < 20;
                 const wl           = s.game_result;
                 const score        = s.game_score;
 
@@ -249,7 +251,7 @@ export default function GameLogTable({
                   <tr
                     key={`${s.game_id ?? s.game_date}-${idx}`}
                     className={`border-t border-[var(--border)] transition-colors ${
-                      isOver
+                      outcome==='push'||outcome==='missing' ? "bg-yellow-500/[0.03]" : isOver
                         ? "bg-[#10b981]/[0.04] hover:bg-[#10b981]/[0.08]"
                         : "bg-red-500/[0.03] hover:bg-red-500/[0.06]"
                     }`}
@@ -299,7 +301,7 @@ export default function GameLogTable({
 
                     {/* Stat value */}
                     <td className={`px-5 py-3 text-sm text-right font-black tabular-nums whitespace-nowrap ${
-                      isOver ? "text-[#10b981]" : "text-red-400"
+                      outcome==='push'||outcome==='missing'?"text-yellow-300":isOver ? "text-[#10b981]" : "text-red-400"
                     }`}>
                       {formatStat(statVal, s.is_percentage)}
                     </td>
@@ -312,11 +314,11 @@ export default function GameLogTable({
                     {/* Over/Under badge */}
                     <td className="px-5 py-3 text-right whitespace-nowrap">
                       <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-md border ${
-                        isOver
+                        outcome==='push'||outcome==='missing'?"text-yellow-300 border-yellow-500/30 bg-yellow-500/10":isOver
                           ? "text-[#10b981] border-[#10b981]/30 bg-[#10b981]/10"
                           : "text-red-400 border-red-500/30 bg-red-500/10"
                       }`}>
-                        {isOver ? "Over" : "Under"}
+                        {outcome==='hit'?"Acierto":outcome==='miss'?"Fallo":outcome==='push'?"Empate":"S/D"}
                       </span>
                     </td>
                   </tr>
@@ -334,11 +336,11 @@ export default function GameLogTable({
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded bg-[#10b981]/30" />
-                <span className="text-[8px] text-[#10b981] font-black uppercase">{overCount} over</span>
+                <span className="text-[8px] text-[#10b981] font-black uppercase">{overCount} aciertos</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded bg-red-500/30" />
-                <span className="text-[8px] text-red-400 font-black uppercase">{totalGames - overCount} under</span>
+                <span className="text-[8px] text-red-400 font-black uppercase">{summary.misses} fallos · {summary.pushes} empates · {summary.missing} S/D</span>
               </div>
             </div>
           </div>

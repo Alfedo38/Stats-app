@@ -4,6 +4,8 @@ import Link from "next/link";
 import { ArrowLeft, Target, Zap, Trophy, GitMerge } from "lucide-react";
 import { getTopPerformers } from "@/lib/api";
 import { getTeamColor } from "@/lib/teamColors";
+import JornadaExplorer from "./JornadaExplorer";
+import {argDate} from "@/lib/nbaJornada";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "On Fire | MoskProps" };
@@ -111,9 +113,10 @@ function Section({ icon: Icon, title, color, players, statKey, statLabel }: {
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
-export default async function TrendingPage() {
-  await requirePageUser();
-  const data = await getTopPerformers();
+export default async function TrendingPage({searchParams}:{searchParams:Promise<Record<string,string|string[]|undefined>>}) {
+  const user=await requirePageUser();
+  const ranking=(await searchParams).view==='rankings';
+  const data = ranking?await getTopPerformers():{puntos:[],rebotes:[],asistencias:[],pra:[]};
 
   const { puntos, rebotes, asistencias, pra } = data as any;
 
@@ -132,25 +135,29 @@ export default async function TrendingPage() {
         </Link>
       </nav>
 
-      <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-10">
+      <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
         <header>
           <p className="text-[9px] font-black uppercase tracking-[0.35em] text-[#10b981] mb-2 flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse inline-block" />
-            Últimos 5 partidos
+            {ranking?'Últimos 5 partidos':'Explorá la jornada NBA'}
           </p>
           <h1 className="text-5xl md:text-6xl font-black italic uppercase tracking-tighter leading-none">
             On <span className="text-[#10b981]">Fire</span>
           </h1>
           <p className="text-[var(--text-muted)] text-sm mt-2">
-            Rendimiento real de los últimos 5 partidos por jugador.
+            {ranking?'Rendimiento real de los últimos 5 partidos por jugador.':'Encontrá jugadores, compará sus últimos partidos y llevá la selección al analizador.'}
           </p>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+        <nav aria-label="Vistas de On Fire" className="flex gap-2 flex-wrap">
+          <Link href="/trending" aria-current={!ranking?'page':undefined} className={`px-4 py-2.5 rounded-xl border text-xs font-black ${!ranking?'border-[#10b981] text-[#10b981] bg-[var(--brand-soft)]':'border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)]'}`}>Jornada</Link>
+          <Link href="/trending?view=rankings" aria-current={ranking?'page':undefined} className={`px-4 py-2.5 rounded-xl border text-xs font-black ${ranking?'border-[#10b981] text-[#10b981] bg-[var(--brand-soft)]':'border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)]'}`}>Rankings L5</Link>
+        </nav>
+        {ranking?<div className="grid grid-cols-1 lg:grid-cols-2 gap-10 max-w-5xl">
           {sections.map(s => (
             <Section key={s.title} {...s} />
           ))}
-        </div>
+        </div>:<JornadaExplorer initialDate={argDate()} storageKey={"moskprops-ticket-reader-v1:"+user.id}/>}
       </div>
     </main>
   );

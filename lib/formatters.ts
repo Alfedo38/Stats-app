@@ -1,5 +1,8 @@
 export function toFiniteNumber(value: unknown): number | null {
-  if (value === null || value === undefined || value === "") return null;
+  if (value !== null && typeof value === "object" && typeof (value as any).toNumber === "function") {
+    try { const n=(value as any).toNumber(); return typeof n==='number'&&Number.isFinite(n)?n:null; } catch { return null; }
+  }
+  if (value === null || value === undefined || value === "" || typeof value === "boolean" || typeof value === "object") return null;
 
   if (typeof value === "string") {
     const cleaned = value.trim();
@@ -9,8 +12,8 @@ export function toFiniteNumber(value: unknown): number | null {
       const [mRaw, sRaw = "0"] = cleaned.split(":");
       const minutes = Number(mRaw);
       const seconds = Number(sRaw);
-      if (!Number.isFinite(minutes)) return null;
-      return minutes + (Number.isFinite(seconds) ? seconds / 60 : 0);
+      if (!/^\d+:\d{1,2}(\.\d+)?$/.test(cleaned) || !Number.isFinite(minutes) || !Number.isFinite(seconds) || seconds >= 60) return null;
+      return minutes + seconds / 60;
     }
 
     const n = Number(cleaned.replace("m", "").replace("%", ""));
@@ -41,6 +44,8 @@ export function formatPercent(value: unknown, digits = 1): string {
 }
 
 export function getMinutesValue(row: any): number | null {
+  const scope = String(row?.period_scope ?? row?.split_code ?? "FULL").toUpperCase();
+  if (["Q1","H1","H2","H2_REG"].includes(scope) && row?.period_minutes_verified !== true) return null;
   const raw =
     row?.min_clean ??
     row?.minutes_clean ??
@@ -52,9 +57,12 @@ export function getMinutesValue(row: any): number | null {
     row?.min_sec ??
     row?.period_minutes ??
     row?.mp ??
+    row?.min_text ??
+    row?.mins ??
     null;
 
-  return roundNumber(raw, 1);
+  const result = roundNumber(raw, 1);
+  return result !== null && result >= 0 ? result : null;
 }
 
 export function formatMinutes(value: unknown): string {

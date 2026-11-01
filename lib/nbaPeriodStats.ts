@@ -1,3 +1,4 @@
+import { getMinutesValue, toFiniteNumber } from './formatters';
 export type PeriodScope='FULL'|'Q1'|'H1'|'H2_REG';
 const ALIASES:Record<string,string[]>={
   fg3m:['fg3m','3ptm','3pt','3pm','three_pm'], fg3a:['fg3a','3pta','three_pa'],
@@ -11,7 +12,10 @@ export function periodCode(value:unknown):PeriodScope|null {
  if(raw==='Q1')return 'Q1';if(raw==='H1')return 'H1';if(['H2','H2_REG'].includes(raw))return 'H2_REG';return null;
 }
 function num(value:unknown):number|null {
- if(value==null||String(value).trim()===''||typeof value==='boolean')return null;
+ if(value!==null&&typeof value==='object'&&typeof (value as {toNumber?:unknown}).toNumber==='function'){
+  try{value=(value as {toNumber:()=>unknown}).toNumber();}catch{return null;}
+ }
+ if(!['number','string','bigint'].includes(typeof value)||value==null||String(value).trim()==='')return null;
  const n=Number(value);return Number.isFinite(n)?n:null;
 }
 function take(row:Record<string,any>,keys:string[]):number|null {for(const key of keys){const value=num(row[key]);if(value!==null)return value;}return null;}
@@ -27,12 +31,20 @@ export function periodMetricValue(row:Record<string,any>,stat:string,scope:Perio
 function id(row:Record<string,any>){const raw=String(row.game_id??row.game_id_nozero??row.game_key??row.game_date??row.id??'');return /^\d+$/.test(raw)?raw.replace(/^0+/,'')||'0':raw;}
 function first(...values:any[]){return values.find(v=>v!=null&&String(v).trim()!=='')??null;}
 function clean(base:Record<string,any>,part:Record<string,any>,scope:PeriodScope,wide:boolean){
- const output:Record<string,any>={...base,...part,split_code:scope,period_scope:scope};
+ const output:Record<string,any>={...base,...part,split_code:scope,period_scope:scope, full_game_minutes:base.full_game_minutes??getMinutesValue(base)};
  const px=prefix(scope);
  for(const field of FIELDS){const names=keys(field).map(key=>wide?`${px}_${key}`:key);output[field]=take(part,names);}
  for(const field of FIELDS)for(const alias of keys(field))output[alias]=output[field];
- const minutes=first(...(wide?[part[`${px}_min`],part[`${px}_minutes`],part[`${px}_min_text`]]:[part.min_clean,part.minutes_clean,part.min,part.minutes,part.min_text]));
- for(const field of ['min','minutes','min_clean','minutes_clean','min_decimal','minutes_decimal','minutes_played','min_sec','period_minutes','mp','mins','min_text'])output[field]=minutes;
+ // Legacy min/min_text on period rows came from the full-game roster.
+ const explicit = wide ? part[`${px}_period_minutes`] : part.period_minutes;
+ const trusted = !wide && (part.period_minutes_verified===true || periodCode(part.minutes_scope)===scope);
+ const raw = explicit ?? (trusted ? first(part.min_clean,part.minutes_clean,part.min,part.minutes,part.min_text) : null);
+ const parsed = toFiniteNumber(raw);
+ const maximum = scope==='Q1'?12:24;
+ const minutes = parsed!==null && parsed>=0 && parsed<=maximum ? parsed : null;
+ output.period_minutes_verified=minutes!==null;
+ output.minutes_scope=minutes!==null?scope:null;
+ for(const field of ['min','minutes','min_clean','minutes_clean','min_decimal','minutes_decimal','minutes_played','min_sec','period_minutes','mp','mins','minutos','min_text'])output[field]=minutes;
  return output;
 }
 function complete(row:Record<string,any>){
@@ -50,7 +62,7 @@ export function buildPeriodRows(raw:Record<string,any>[],splits:Record<string,an
    const candidate=clean(base,part,scope,wide);
    if(!FIELDS.some(field=>candidate[field]!==null)&&candidate.min===null)return;
    const previous=merged.get(key);
-   if(previous){for(const field of FIELDS)if(previous[field]===null&&candidate[field]!==null)previous[field]=candidate[field];if(previous.min===null&&candidate.min!==null){for(const field of ['min','minutes','min_clean','minutes_clean','min_decimal','minutes_decimal','minutes_played','min_sec','period_minutes','mp','mins','min_text'])previous[field]=candidate.min;}}
+   if(previous){for(const field of FIELDS)if(previous[field]===null&&candidate[field]!==null)previous[field]=candidate[field];if(previous.min===null&&candidate.min!==null){previous.period_minutes_verified=true;previous.minutes_scope=scope;for(const field of ['min','minutes','min_clean','minutes_clean','min_decimal','minutes_decimal','minutes_played','min_sec','period_minutes','mp','mins','min_text'])previous[field]=candidate.min;}}
    else merged.set(key,candidate);
  }
  // Explicit period rows, then SSR prefixed values, then missing fields from API cache.

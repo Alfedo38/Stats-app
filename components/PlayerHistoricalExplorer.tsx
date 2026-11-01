@@ -1,5 +1,6 @@
 "use client";
 
+import { useAnalysisQuery } from "@/hooks/useAnalysisQuery";
 import { useEffect, useMemo, useState } from "react";
 import { formatDateOnly, formatMinutes, formatNumber, formatPercent, formatSeasonLabel } from "@/lib/formatters";
 import { History, Loader2, ShieldCheck, Table2 } from "lucide-react";
@@ -85,7 +86,7 @@ function toMarket(stat: string) {
 }
 
 function pct(value: any) {
-  return formatPercent(value, 1).replace("—", "S/D");
+  return value===null||value===undefined?"S/D":`${formatNumber(value,1)}%`;
 }
 
 function fmt(value: any, digits = 1) {
@@ -144,9 +145,13 @@ export default function PlayerHistoricalExplorer({
   const market = useMemo(() => toMarket(activeStat), [activeStat]);
   const normalizedOpponent = String(opponent || "").trim().toUpperCase() || null;
   const normalizedHomeAway = String(homeAway || "").toUpperCase() === "HOME" ? "HOME" : String(homeAway || "").toUpperCase() === "AWAY" ? "AWAY" : null;
-  const [data, setData] = useState<HistoryResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const supplied=initialData!==undefined||initialLoading!==undefined;
+  const query=useAnalysisQuery<HistoryResponse>(!supplied&&market&&playerName?'/api/player-history':null,{
+    playerId,playerName,market,line:Number(lineValue),side,mode:'all',opponent:normalizedOpponent,homeAway:normalizedHomeAway,minMinutes,woTeammate,limit:1000,
+  });
+  const data=supplied?initialData??null:query.data;
+  const loading=supplied?Boolean(initialLoading):query.loading;
+  const error=supplied?initialError:query.error;
   const [tableOpen, setTableOpen] = useState(false);
   const [tableLimit, setTableLimit] = useState(25);
 
@@ -154,56 +159,6 @@ export default function PlayerHistoricalExplorer({
     setTableOpen(false);
     setTableLimit(25);
   }, [playerId, activeStat, lineValue, side, minMinutes, opponent, homeAway, woTeammate]);
-
-  useEffect(() => {
-    if (initialData !== undefined || initialLoading !== undefined) {
-      setData(initialData ?? null);
-      setLoading(Boolean(initialLoading));
-      setError(initialError || null);
-      return;
-    }
-
-    if (!market || !playerName || !Number.isFinite(Number(lineValue))) {
-      setData(null);
-      return;
-    }
-
-    const controller = new AbortController();
-    setLoading(true);
-    setError(null);
-
-    fetch("/api/player-history", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        playerId,
-        playerName,
-        market,
-        line: Number(lineValue),
-        side,
-        mode: "all",
-        opponent: normalizedOpponent,
-        homeAway: normalizedHomeAway,
-        minMinutes,
-        woTeammate,
-        limit: 1000,
-      }),
-      signal: controller.signal,
-    })
-      .then((r) => r.json().then((json) => ({ ok: r.ok, json })))
-      .then(({ ok, json }) => {
-        if (!ok || json?.ok === false) throw new Error(json?.error || "Error consultando histórico");
-        setData(json);
-      })
-      .catch((err) => {
-        if (err?.name === "AbortError") return;
-        setError(err?.message || "Error consultando histórico");
-        setData(null);
-      })
-      .finally(() => setLoading(false));
-
-    return () => controller.abort();
-  }, [initialData, initialLoading, initialError, playerId, playerName, market, lineValue, side, normalizedOpponent, normalizedHomeAway, minMinutes, woTeammate]);
 
   if (!market) {
     return (
@@ -269,7 +224,7 @@ export default function PlayerHistoricalExplorer({
         <>
           <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2">
             <SummaryCard label="Muestra" value={String(summary.games)} sub={`completo · ${sampleQuality}`} tone={summary.games >= 20 ? "green" : summary.games >= 8 ? "yellow" : "red"} />
-            <SummaryCard label="Hit rate" value={pct(hitRatePct)} sub={`${summary.hits}/${summary.games}`} tone={hitTone(hitRatePct)} />
+            <SummaryCard label="Hit rate" value={pct(hitRatePct)} sub={`${summary.hits}/${summary.decided ?? summary.games}`} tone={hitTone(hitRatePct)} />
             <SummaryCard label="Promedio" value={fmt(summary.avg)} sub={market} />
             <SummaryCard label="Min prom." value={formatMinutes(summary.avgMinutes)} sub={minMinutes ? `MIN ≥ ${minMinutes}` : "sin filtro"} />
           </div>
@@ -292,7 +247,7 @@ export default function PlayerHistoricalExplorer({
                     <div key={label} className="flex items-center justify-between gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2">
                       <span className="text-[9px] font-black text-[var(--text-muted)]">{label}</span>
                       <span className={`text-sm font-black tabular-nums ${color}`}>{item?.games ? pct(item.hitRatePct) : "S/D"}</span>
-                      <span className="text-[8px] font-bold text-[var(--text-muted)]">{item?.games ? `${item.hits}/${item.games}` : "—"}</span>
+                      <span className="text-[8px] font-bold text-[var(--text-muted)]">{item?.games ? `${item.hits}/${item.decided ?? item.games}` : "—"}</span>
                     </div>
                   );
                 })}
@@ -359,7 +314,7 @@ export default function PlayerHistoricalExplorer({
                           {fmt(g[col.key], 0)}
                         </td>
                       ))}
-                      <td className={`px-3 py-2 text-right font-black ${g.hit ? "text-[#10b981]" : "text-red-400"}`}>{g.hit ? "✓" : "×"}</td>
+                      <td className={`px-3 py-2 text-right font-black ${g.outcome==='push'||g.hit===null?"text-yellow-300":g.hit ? "text-[#10b981]" : "text-red-400"}`}>{g.outcome==='push'?"Empate":g.hit===null?"S/D":g.hit?"✓":"×"}</td>
                     </tr>
                   ))}
                 </tbody>

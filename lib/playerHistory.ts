@@ -1,9 +1,10 @@
+import { finiteStat, selectionOutcome, selectionSummary } from "./selectionStats";
 import { trackingValue } from "@/lib/trackingValues";
 // potential-history-v1
 import {archiveEnabled,archivedPlayer} from './nbaArchive';
 import {parsePhase,gamePhase,phaseSql,type NBASeasonPhase} from "@/lib/nbaGameFilters";
 import prisma from "@/lib/prisma";
-import { roundNumber } from "@/lib/formatters";
+import { getMinutesValue } from "@/lib/formatters";
 
 export type HistoryMode = "last2" | "all";
 export type HistorySide = "over" | "under";
@@ -31,10 +32,9 @@ const MARKET_TO_COLUMN: Record<string, string> = {
   PF: "pf",
 };
 
-function num(value: any): number {
-  if (value === null || value === undefined || value === "") return 0;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : 0;
+function num(value: any): number | null {
+  if(value&&typeof value.toNumber==='function'){try{return finiteStat(value.toNumber());}catch{return null;}}
+  return finiteStat(value);
 }
 
 function normalizeDate(value: any): string | null {
@@ -68,21 +68,7 @@ function normalizeName(value: any): string {
     .toLowerCase();
 }
 
-function extractMinutes(row: any): number | null {
-  return roundNumber(
-    row.min_clean ??
-    row.minutes_clean ??
-    row.min_decimal ??
-    row.minutes_decimal ??
-    row.min ??
-    row.minutes ??
-    row.min_sec ??
-    row.minutes_played ??
-    row.mp ??
-    null,
-    1
-  );
-}
+function extractMinutes(row:any):number|null { return getMinutesValue(row); }
 
 function percentile(values: number[], p: number): number | null {
   if (!values.length) return null;
@@ -118,51 +104,37 @@ function getSeasonKey(row: any): string {
   return `${start}-${String((start + 1) % 100).padStart(2, "0")}`;
 }
 
-function getMarketValue(row: any, market: string): number {
+function getMarketValue(row: any, market: string): number | null {
   const col = MARKET_TO_COLUMN[String(market || "").toUpperCase()] || String(market || "").toLowerCase();
-  if (col === "pra") return num(row.pra ?? row.pts_reb_ast ?? row.pts + row.reb + row.ast);
-  if (col === "pr") return num(row.pr ?? row.pts_reb ?? row.pts + row.reb);
-  if (col === "pa") return num(row.pa ?? row.pts_ast ?? row.pts + row.ast);
-  if (col === "ra") return num(row.ra ?? row.reb_ast ?? row.reb + row.ast);
-  if (col === "stl_blk") return num(row.stl_blk ?? row.stocks ?? num(row.stl) + num(row.blk));
-  return num(row[col]);
+  const combinations: Record<string,string[]> = {pra:['pts','reb','ast'],pr:['pts','reb'],pa:['pts','ast'],ra:['reb','ast'],stl_blk:['stl','blk']};
+  const alias:Record<string,string>={pra:'pts_reb_ast',pr:'pts_reb',pa:'pts_ast',ra:'reb_ast',stl_blk:'stocks'};
+  const direct=num(row[col]??row[alias[col]]);
+  if(direct!==null)return direct;
+  if(!combinations[col])return null;
+  const parts=combinations[col].map(key=>num(row[key]));
+  return parts.some(v=>v===null)?null:parts.reduce<number>((sum,v)=>sum+v!,0);
 }
-
 function summarizeGames(rows: any[], market: string, line: number, side: HistorySide) {
-  const values = rows.map((r) => getMarketValue(r, market));
-  const minutes = rows.map(extractMinutes).filter((m): m is number => m !== null);
-  const hits = rows.filter((r) => {
-    const value = getMarketValue(r, market);
-    return side === "over" ? value >= line : value <= line;
-  }).length;
-
-  const games = rows.length;
-  const avg = values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
-  const med = median(values);
-  const avgMin = minutes.length ? minutes.reduce((a, b) => a + b, 0) / minutes.length : null;
-
-  return {
-    games,
-    hits,
-    misses: Math.max(0, games - hits),
-    hitRate: games ? hits / games : null,
-    avg,
-    median: med,
-    p25: percentile(values, 0.25),
-    p75: percentile(values, 0.75),
-    avgMinutes: avgMin,
-  };
+  const values=rows.map(row=>getMarketValue(row,market));
+  const summary=selectionSummary(values,line,side);
+  const valid=values.filter((v):v is number=>v!==null);
+  const minutes=rows.map(extractMinutes).filter((m):m is number=>m!==null);
+  return {games:rows.length,hits:summary.hits,misses:summary.misses,pushes:summary.pushes,missing:summary.missing,
+    decided:summary.decided,valid:summary.valid,hitRate:summary.rate===null?null:summary.rate/100,
+    avg:summary.average,median:summary.median,p25:percentile(valid,.25),p75:percentile(valid,.75),
+    avgMinutes:minutes.length?minutes.reduce((sum,m)=>sum+m,0)/minutes.length:null};
 }
 
 function round(value: any, digits = 1) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return null;
+  const n = num(value);
+  if (n === null) return null;
   return Number(n.toFixed(digits));
 }
 
 function formatGame(row: any, market: string, line: number, side: HistorySide) {
   const value = getMarketValue(row, market);
-  const hit = side === "over" ? value >= line : value <= line;
+  const outcome=selectionOutcome(value,line,side);
+  const hit=outcome==='hit'?true:outcome==='miss'?false:null;
   return {
     game_id: row.game_id ?? null,
     game_date: normalizeDate(row.game_date),
@@ -177,18 +149,19 @@ function formatGame(row: any, market: string, line: number, side: HistorySide) {
     pts: row.pts == null || String(row.pts).trim() === "" ? null : num(row.pts),
     reb: row.reb == null || String(row.reb).trim() === "" ? null : num(row.reb),
     ast: row.ast == null || String(row.ast).trim() === "" ? null : num(row.ast),
-    pra: num(row.pra ?? row.pts + row.reb + row.ast),
-    pr: num(row.pr ?? row.pts + row.reb),
-    pa: num(row.pa ?? row.pts + row.ast),
-    ra: num(row.ra ?? row.reb + row.ast),
+    pra: getMarketValue(row, "PRA"),
+    pr: getMarketValue(row, "PR"),
+    pa: getMarketValue(row, "PA"),
+    ra: getMarketValue(row, "RA"),
     fgm: row.fgm == null || String(row.fgm).trim() === "" ? null : num(row.fgm),
+    ftm: num(row.ftm), oreb:num(row.oreb), dreb:num(row.dreb),
     fta: row.fta == null || String(row.fta).trim() === "" ? null : num(row.fta),
     fga: row.fga == null || String(row.fga).trim() === "" ? null : num(row.fga),
     fg3m: row.fg3m == null || String(row.fg3m).trim() === "" ? null : num(row.fg3m),
     fg3a: row.fg3a == null || String(row.fg3a).trim() === "" ? null : num(row.fg3a),
     blk: row.blk == null || String(row.blk).trim() === "" ? null : num(row.blk),
     stl: row.stl == null || String(row.stl).trim() === "" ? null : num(row.stl),
-    stl_blk: num(row.stl_blk ?? num(row.stl) + num(row.blk)),
+    stl_blk: getMarketValue(row, "STOCKS"),
     tov: num(row.tov ?? row.to),
     pf: row.pf == null || String(row.pf).trim() === "" ? null : num(row.pf),
     usage_pct: row.usage_pct === null || row.usage_pct === undefined ? null : num(row.usage_pct),
@@ -196,7 +169,7 @@ function formatGame(row: any, market: string, line: number, side: HistorySide) {
     touches: row.touches === null || row.touches === undefined ? null : num(row.touches),
     potential_ast: trackingValue(row.potential_ast),
     rebound_chances: trackingValue(row.rebound_chances),
-    hit,
+    hit, outcome,
   };
 }
 
@@ -214,7 +187,10 @@ export async function getPlayerHistoricalExplorer(input: {
   woTeammate?: string | null;
   phase?: NBASeasonPhase;
   limit?: number;
+  asOfDate?:string|null;
 }) {
+  const cutoff=input.asOfDate??null;
+  if(cutoff!==null&&(!/^\d{4}-\d{2}-\d{2}$/.test(cutoff)||!Number.isFinite(Date.parse(cutoff+'T12:00:00Z'))||new Date(cutoff+'T12:00:00Z').toISOString().slice(0,10)!==cutoff))throw Error('Fecha de referencia inválida');
   const market = String(input.market || "PTS").toUpperCase();
   const line = Number(input.line);
   const side: HistorySide = input.side === "under" ? "under" : "over";
@@ -342,6 +318,7 @@ export async function getPlayerHistoricalExplorer(input: {
     }
   }
 
+  if(cutoff)rows=rows.filter(row=>{const date=normalizeDate(row.game_date);return date!==null&&date<cutoff;});
   const allRows = (rows || []).map((r) => ({ ...r, _season_key: getSeasonKey(r), _minutes: extractMinutes(r) }));
   const seasons = Array.from(new Set(allRows.map((r) => r._season_key).filter(Boolean))).sort().reverse();
   const last2Seasons = seasons.slice(0, 2);
@@ -386,6 +363,7 @@ export async function getPlayerHistoricalExplorer(input: {
 
   return {
     ok: true,
+    asOfDate:cutoff,
     mode,
     phase,
     side,

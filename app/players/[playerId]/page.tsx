@@ -1,6 +1,11 @@
+import { summarizeEvidence, EVIDENCE_METRICS } from "@/lib/marketEvidence";
+import {parseGameContext,type GameContext} from '@/lib/playerNavigation';
 import { requirePageUser } from '@/lib/auth/server';
 // app/players/[playerId]/page.tsx
 import PlayerHeader,      { type NextGame, type PlayerKPI } from "@/components/PlayerHeader";
+import {nbaHistoryCutoff} from "@/lib/injuryReport";
+import PlayerInjuryStatus from "@/components/PlayerInjuryStatus";
+import {argentinaDate} from "@/lib/ticketReader/model";
 import PlayerPageContent                      from "@/components/PlayerPageContent";
 import { getPlayerData } from "@/lib/api";
 import { getPlayerDataFast } from "@/lib/playerDataFast";
@@ -204,14 +209,16 @@ async function soft<T>(label: string, promise: Promise<T>, fallback: T, ms = 900
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default async function PlayerPage(props: any) {
-  await requirePageUser();
+  const pageUser=await requirePageUser();
+  let eventContext:GameContext|null=null;
   try {
     const params       = await Promise.resolve(props.params);
     const searchParams = await Promise.resolve(props.searchParams);
     const playerId     = params?.playerId;
     const currentRosterPlayer = getCurrentRosterPlayer(playerId);
+    eventContext=parseGameContext(new URLSearchParams(Object.entries(searchParams??{}).filter((entry):entry is [string,string]=>typeof entry[1]==='string')));
     const requestedStat = typeof searchParams?.stat === "string" ? searchParams.stat : "pts";
-    const requestedDate = typeof searchParams?.date === "string" ? searchParams.date.slice(0, 10) : null;
+    const requestedDate = eventContext?.date ?? null;
 
     const playerDataFastStart = Date.now();
     let data = await getPlayerDataFast(playerId);
@@ -244,6 +251,7 @@ export default async function PlayerPage(props: any) {
     const { firstName, lastName } = splitName(player, playerName);
 
     const cleanStats = rawStats
+      .filter((row:any)=>!eventContext||String(normalizeDate(row.game_date)||'')<nbaHistoryCutoff(eventContext))
       .map((s: any) => {
         const row = normPeriod(s);
         const min = normalizeMinutes(row);
@@ -288,6 +296,7 @@ export default async function PlayerPage(props: any) {
     const games: any[] = [];
     const teamGames: any[] = [];
     let nextGame: NextGame | undefined;
+    if(eventContext&&normalizedTeamAbbr&&[eventContext.away,eventContext.home].includes(normalizedTeamAbbr))nextGame={opponent:normalizedTeamAbbr===eventContext.home?eventContext.away:eventContext.home,isHome:normalizedTeamAbbr===eventContext.home,date:eventContext.date,time:eventContext.start?new Intl.DateTimeFormat('es-AR',{hour:'2-digit',minute:'2-digit',timeZone:'America/Argentina/Buenos_Aires'}).format(new Date(eventContext.start)):undefined};
     const activeInjuryContextDate = requestedDate || undefined;
     const activeInjuryContext: any[] = [];
 
@@ -299,12 +308,13 @@ export default async function PlayerPage(props: any) {
     const last5  = cleanStats.slice(0, 5);
     const last10 = cleanStats.slice(0, 10);
 
+    const kpiValue=(key:string,row:any)=>["potential_ast","rebound_chances"].includes(key)?summarizeEvidence([row],EVIDENCE_METRICS[key]).average:nullableStat(row[key]);
     const avgRange = (key: string, rows: any[]) => {
-      const values = rows.map(row => nullableStat(row[key])).filter((value): value is number => value !== null);
+      const values = rows.map(row => kpiValue(key,row)).filter((value): value is number => value !== null);
       return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
     };
     const calcAvg = (key: string): number | "S/D" => {
-      const values = last5.map(row => nullableStat(row[key])).filter((value): value is number => value !== null);
+      const values = last5.map(row => kpiValue(key,row)).filter((value): value is number => value !== null);
       return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : "S/D";
     };
 
@@ -324,11 +334,13 @@ export default async function PlayerPage(props: any) {
       school: currentRosterPlayer?.school || bioDetails?.school || null,
     };
 
+    const kpiSample=(key:string)=>({label:"L5 · Partido completo",count:last5.filter(row=>kpiValue(key,row)!==null).length,total:last5.length});
+    const completeTrend=(key:string,mul=1)=>last5.length===5&&last10.length===10&&last10.every(row=>kpiValue(key,row)!==null)?delta(key,mul):undefined;
     const kpis: PlayerKPI[] = [
-      { label: "Usage Rate",       value: usageDisplay, trend: usageAvg === "S/D" ? 0 : delta("usage_pct", 100), trendLabel: "vs L10" },
-      { label: "Pot. Asistencias", value: formatAvgVal(calcAvg("potential_ast")), trend: calcAvg("potential_ast") === "S/D" ? undefined : delta("potential_ast"), trendLabel: "vs L10" },
-      { label: "Chances Reb.",     value: formatAvgVal(calcAvg("rebound_chances")), trend: calcAvg("rebound_chances") === "S/D" ? undefined : delta("rebound_chances"), trendLabel: "vs L10" },
-      { label: "Toques",           value: formatAvgVal(calcAvg("touches")), trend: calcAvg("touches") === "S/D" ? undefined : delta("touches"), trendLabel: "vs L10" },
+      { label: "Usage Rate",       value: usageDisplay, sample:kpiSample("usage_pct"), trend:completeTrend("usage_pct",100), trendLabel: "vs L10" },
+      { label: "Pot. Asistencias", value: formatAvgVal(calcAvg("potential_ast")), sample:kpiSample("potential_ast"), trend:completeTrend("potential_ast"), trendLabel: "vs L10" },
+      { label: "Chances Reb.",     value: formatAvgVal(calcAvg("rebound_chances")), sample:kpiSample("rebound_chances"), trend:completeTrend("rebound_chances"), trendLabel: "vs L10" },
+      { label: "Toques",           value: formatAvgVal(calcAvg("touches")), sample:kpiSample("touches"), trend:completeTrend("touches"), trendLabel: "vs L10" },
     ];
 
     const clientStats = JSON.parse(JSON.stringify(clientPlain(cleanStats))) as any[];
@@ -338,8 +350,8 @@ export default async function PlayerPage(props: any) {
     return (
       <main className="min-h-screen bg-[var(--bg)] text-[var(--text)] font-sans pb-20">
         <nav data-player-nav className="border-b border-[var(--border)] bg-[var(--surface)]/95 backdrop-blur-md sticky top-0 z-50 px-6 py-4">
-          <Link href="/" className="text-[var(--text-muted)] hover:text-[#10b981] transition-colors flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
-            <ArrowLeft size={14} /> Volver al Inicio
+          <Link href={eventContext?.returnTo??"/"} className="text-[var(--text-muted)] hover:text-[#10b981] transition-colors flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
+            <ArrowLeft size={14} /> {eventContext?"Volver al partido":"Volver al Inicio"}
           </Link>
         </nav>
 
@@ -359,9 +371,12 @@ export default async function PlayerPage(props: any) {
 
           </div>
 
+          <PlayerInjuryStatus playerId={playerId} team={normalizedTeamAbbr} date={eventContext?.date??argentinaDate()} context={eventContext}/>
+
           {/* Grid sidebar + gráfico — maneja selectedGame en client */}
           <PlayerPageContent
-            key={`${playerId}-${requestedStat}`}
+            key={`${playerId}-${requestedStat}-${eventContext?.date??''}-${eventContext?.away??''}-${eventContext?.home??''}`}
+            analyzerStorageKey={`moskprops-ticket-reader-v1:${pageUser.id}`}
             stats={clientStats}
             navStats={NAV_STATS}
             playerName={playerName}
@@ -389,7 +404,7 @@ export default async function PlayerPage(props: any) {
       <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] flex flex-col items-center justify-center p-10 text-center">
         <h1 className="text-red-500 font-black text-3xl mb-4 uppercase tracking-tighter">Error al cargar el jugador</h1>
         <p className="text-[var(--text-muted)] text-xs font-bold uppercase tracking-widest">Intentá de nuevo en unos segundos</p>
-        <Link href="/" className="mt-8 border border-[var(--border)] px-6 py-3 rounded-xl uppercase text-xs font-black tracking-widest hover:bg-[var(--surface-hover)] hover:text-[#10b981] transition-all">
+        <Link href={eventContext?.returnTo??"/"} className="mt-8 border border-[var(--border)] px-6 py-3 rounded-xl uppercase text-xs font-black tracking-widest hover:bg-[var(--surface-hover)] hover:text-[#10b981] transition-all">
           Volver al Inicio
         </Link>
       </div>

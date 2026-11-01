@@ -7,6 +7,7 @@ export type PlayerKPI = {
   value: string;
   trend?: number;
   trendLabel?: string;
+  sample?: {label:string;count:number;total:number};
 };
 
 export type NextGame = {
@@ -187,11 +188,11 @@ export default function PlayerHeader({
             {kpis.map((kpi) => (
               <div key={kpi.label} className="rounded-xl border border-[var(--border)] bg-[var(--bg)]/65 px-3 py-2.5">
                 <p className="flex items-center gap-1 text-[8px] font-black uppercase tracking-[0.22em] text-[var(--text-muted)]">
-                  {kpi.trend !== undefined && <TrendIndicator value={kpi.trend} />}
-                  {kpi.trendLabel ?? kpi.label}
+                  {kpi.trend !== undefined && <span title={kpi.trendLabel||"Variación L5 frente a L10"}><TrendIndicator value={kpi.trend} /></span>}
+                  {kpi.sample?.label ?? kpi.trendLabel ?? kpi.label}
                 </p>
                 <p className="mt-1 text-xl font-black leading-none tabular-nums text-[var(--text)]">{kpi.value}</p>
-                <p className="mt-1 text-[8px] font-bold uppercase tracking-widest text-[var(--text-muted)]">{kpi.label}</p>
+                <p className="mt-1 text-[8px] font-bold uppercase tracking-widest text-[var(--text-muted)]">{kpi.label}{kpi.sample?` · ${kpi.sample.count}/${kpi.sample.total} PJ`:""}</p>
               </div>
             ))}
           </div>

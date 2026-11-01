@@ -1,10 +1,14 @@
 "use client";
 import {useEffect,useState} from 'react';
 import {ChevronDown,Users,X} from 'lucide-react';
+import AbsenceComparison from './AbsenceComparison';
+import type {ComparisonContext} from '@/lib/absenceComparison';
 import type {AbsenceScope,AbsenceOption} from '@/lib/playerAbsenceContext';
 type Catalog={key:string;options:Omit<AbsenceOption,'aliases'>[];teams:string[];team:string;at:string;warning:string;loading:boolean;error:string};
 const empty=(key:string):Catalog=>({key,options:[],teams:[],team:'',at:'',warning:'',loading:true,error:''});
-export default function PlayerAbsenceFilter({playerId,selected,onChange,loading,error,onRetry,scope,team,onScopeChange,onTeamChange,emptyReason}:{playerId:string;selected:string[];onChange:(names:string[])=>void;loading:boolean;error:string|null;onRetry:()=>void;scope:AbsenceScope;team:string;onScopeChange:(scope:AbsenceScope)=>void;onTeamChange:(team:string)=>void;emptyReason?:string|null}){
+export default function PlayerAbsenceFilter({playerId,selected,onChange,loading,error,onRetry,scope,team,onScopeChange,onTeamChange,emptyReason,comparison}:{playerId:string;selected:string[];onChange:(names:string[])=>void;loading:boolean;error:string|null;onRetry:()=>void;scope:AbsenceScope;team:string;onScopeChange:(scope:AbsenceScope)=>void;onTeamChange:(team:string)=>void;emptyReason?:string|null;comparison?:ComparisonContext}){
+ const [open,setOpen]=useState(false);
+ useEffect(()=>{const receive=(e:Event)=>{const d=(e as CustomEvent).detail;if(String(d?.playerId)!==playerId)return;setOpen(true);if(scope!=='current')onScopeChange('current');};window.addEventListener('nba-compare-teammate',receive);return()=>window.removeEventListener('nba-compare-teammate',receive);},[playerId,scope,onScopeChange]);
  const [catalog,setCatalog]=useState<Catalog>(()=>empty('')),[query,setQuery]=useState(''),[retry,setRetry]=useState(0);
  const key=JSON.stringify([playerId,scope,team]),active=catalog.key===key?catalog:empty(key);
  useEffect(()=>{
@@ -18,7 +22,7 @@ export default function PlayerAbsenceFilter({playerId,selected,onChange,loading,
  },[key,retry]);
  const options=[...new Set([...selected,...active.options.map(o=>o.name)])].filter(name=>name.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
  return <section className="rounded-xl border border-[var(--border)] bg-[var(--bg)] p-2.5">
-  <details className="group"><summary className="flex min-h-7 cursor-pointer list-none items-center justify-between gap-2 text-[10px] font-black uppercase text-[var(--text)]"><span className="flex items-center gap-2"><Users size={16} className="text-cyan-300"/>Ausencias de compañeros {selected.length?`(${selected.length})`:''}</span><ChevronDown size={16} className="shrink-0 group-open:rotate-180"/></summary>
+  <details className="group" open={open} onToggle={e=>setOpen(e.currentTarget.open)}><summary className="flex min-h-7 cursor-pointer list-none items-center justify-between gap-2 text-[10px] font-black uppercase text-[var(--text)]"><span className="flex items-center gap-2"><Users size={16} className="text-cyan-300"/>Ausencias de compañeros {selected.length?`(${selected.length})`:''}</span><ChevronDown size={16} className="shrink-0 group-open:rotate-180"/></summary>
    <div className="mt-2 grid grid-cols-2 gap-1 rounded-lg border border-[var(--border)] p-1" role="group" aria-label="Compañeros actuales o históricos">
     {([{value:'current',label:'Equipo actual'},{value:'historical',label:'Históricos'}] as const).map(option=><button key={option.value} type="button" aria-pressed={scope===option.value} onClick={()=>{if(scope!==option.value)onScopeChange(option.value);}} className={`rounded-md px-2 py-1.5 text-[10px] font-bold ${scope===option.value?'bg-cyan-400/15 text-cyan-300':'text-[var(--text-muted)]'}`}>{option.label}</button>)}
    </div>
@@ -31,6 +35,7 @@ export default function PlayerAbsenceFilter({playerId,selected,onChange,loading,
    {active.error&&<p className="text-xs text-amber-300">{active.error} <button type="button" onClick={()=>setRetry(n=>n+1)} className="underline">Reintentar</button></p>}
    <div className="max-h-36 space-y-1 overflow-auto">{options.map(name=>{const option=active.options.find(o=>o.name===name);return <label key={name} className="flex cursor-pointer items-center gap-2 rounded-lg px-1 py-1.5 text-[11px] hover:bg-white/5"><input type="checkbox" checked={selected.includes(name)} disabled={active.loading||(!selected.includes(name)&&selected.length>=8)} onChange={()=>onChange(selected.includes(name)?selected.filter(n=>n!==name):[...selected,name])}/><span className="min-w-0 flex-1">{name}</span><small className="text-[9px] text-[var(--text-muted)]">{option?(option.hasRecords?'Con registros':'Sin registros confirmados'):'Revisar selección'}</small></label>;})}</div>
    {!active.loading&&!active.error&&!options.length&&<p className="text-xs text-[var(--text-muted)]">No hay compañeros para esta búsqueda y contexto.</p>}
+   {comparison&&<AbsenceComparison playerId={playerId} options={active.options} mode={scope} team={scope==='current'?active.team:team} context={comparison} selectedNames={selected} onApplyWithout={name=>onChange([name])}/>}
    <details className="mt-2 text-[10px] text-[var(--text-muted)]"><summary className="cursor-pointer">Sobre estos datos</summary><p className="mt-1">Hasta 8 compañeros. El plantel actual es la referencia guardada de la aplicación. Sin registros no significa que el jugador estuviera disponible. Se cuentan ausencias confirmadas; estados desconocidos, dudosos y probables quedan fuera.</p></details>
   </details>
   {!!selected.length&&<div className="mt-2 flex flex-wrap gap-2">{selected.map(name=><button type="button" key={name} onClick={()=>onChange(selected.filter(n=>n!==name))} title={name} className="flex max-w-full items-center gap-1 rounded-lg border border-cyan-400/25 px-2 py-1 text-[10px] text-cyan-300" aria-label={`Quitar ausencia de ${name}`}><span className="min-w-0 truncate">{name}</span><X size={12} className="shrink-0"/></button>)}<button type="button" onClick={()=>onChange([])} className="text-xs text-[var(--text-muted)] underline">Quitar todas</button></div>}

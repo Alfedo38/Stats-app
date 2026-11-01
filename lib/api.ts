@@ -1,3 +1,5 @@
+import {getInjuryReport} from './injuryReportData';
+import {argentinaDate as injuryToday} from './ticketReader/model';
 import { trackingValue } from "@/lib/trackingValues";
 // potential-history-v1
 import {LEAGUE_TEAMS} from './teams';
@@ -851,14 +853,7 @@ function normalizeInjuryStatus(raw: string): InjuryRow['status'] {
   return 'PROBABLE';
 }
 
-export async function getInjuries(): Promise<InjuryRow[]> {
-  try {
-    const rows=await prisma.$queryRawUnsafe<any[]>(`SELECT player_name,team,normalized_status AS status,reason,report_ts
-      FROM nba_api_data.nba_injury_reports WHERE report_ts=(SELECT max(report_ts) FROM nba_api_data.nba_injury_reports)
-        AND report_ts>=now()-interval '36 hours' AND normalized_status IN ('OUT','DOUBTFUL','QUESTIONABLE','PROBABLE') ORDER BY team,player_name`);
-    return rows.map(r=>({player_name:r.player_name,team_name:r.team,team_abbreviation:normalizeTeamAbbr(r.team),status:r.status,reason:r.reason,updated_at:new Date(r.report_ts).toISOString()}));
-  } catch (e) { console.error('Error en getInjuries:', e); return []; }
-}
+export async function getInjuries(): Promise<InjuryRow[]> {const date=injuryToday(),report=await getInjuryReport(date);if(!report.available||report.stale)return [];return report.items.filter(p=>p.date===date&&!p.stale&&p.reportAt&&['OUT','DOUBTFUL','QUESTIONABLE','PROBABLE'].includes(p.status)).map(p=>({player_id:p.playerId?String(p.playerId):undefined,player_name:p.name,team_name:p.team,team_abbreviation:p.team,status:p.status as InjuryRow['status'],reason:p.reason??undefined,updated_at:p.reportAt!}));}
 
 // ─── ACTIVE INJURY CONTEXT / W-O histórico ──────────────────────────────────
 

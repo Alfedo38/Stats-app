@@ -1,0 +1,42 @@
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {readFileSync} from 'node:fs';
+import ts from 'typescript';
+import React from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
+const native=createRequire(new URL('../package.json',import.meta.url));
+const modules=new Map();let handler=async()=>[],queries=[],authenticated=0;
+const prisma={$queryRaw:async(statement)=>{queries.push(statement);return handler(statement);},player_odds:{findMany:async()=>[]}};
+function load(file){
+ if(modules.has(file))return modules.get(file).exports;
+ const module={exports:{}};modules.set(file,module);
+ const code=ts.transpileModule(readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
+ const require=(name)=>{
+  if(name==='./prisma')return {__esModule:true,default:prisma};
+  if(name==='@prisma/client')return {Prisma:{sql:(strings,...values)=>({strings,values}),join:values=>values}};
+  if(name==='@/lib/auth/server')return {withAuth:fn=>{authenticated++;return fn;}};
+  if(name==='next/server')return {NextResponse:{json:(data,options={})=>({data,status:options.status??200,headers:options.headers??{}})}};
+  if(name.startsWith('@/lib/'))return load(`lib/${name.slice(6)}.ts`);
+  if(name.startsWith('./'))return load('lib/'+name.slice(2)+'.ts');
+  return native(name);
+ };
+ new Function('require','module','exports',code)(require,module,module.exports);return module.exports;
+}
+const panel=load('components/PlayerOddsComparison.tsx').default;
+const fixture={player_name:'Jugador',prop_type:'PTS',line:36.5,matchup:'CHI vs DEN',over_price:1.9,under_price:1.8,updated_at:'2026-10-13T22:00:00Z',book:'stake'};
+const render=(line,rows=[fixture],side='over')=>renderToStaticMarkup(React.createElement(panel,{rows,line,side,onSide:()=>{},events:[{key:'CHI-DEN',label:'CHI vs DEN'}],event:'CHI-DEN',onEvent:()=>{},loading:false,error:null,onRefresh:()=>{}}));
+const html=render(36.5);for(const label of ['365','Bto','Ste','1,90'])assert.ok(html.includes(label));
+assert.ok(!html.includes('1,80'));
+const under=render(36.5,[fixture],'under');assert.ok(under.includes('1,80'));assert.ok(!under.includes('1,90'));
+assert.ok(under.includes('aria-label="Cuotas Under 36,5"'));
+assert.ok(render(36.5,[]).includes('sin cuota disponible'));
+for(const name of ['Bet365','Betano','Stake'])assert.ok(!html.includes(name));
+assert.ok(!render(35.5).includes('1,90'));
+assert.ok(render(35.5).includes('sin cuota disponible'));
+const busy=renderToStaticMarkup(React.createElement(panel,{rows:[],line:36.5,side:'under',loading:true,error:null}));
+assert.ok(busy.includes('aria-busy="true"'));assert.ok(busy.includes('Actualizando cuotas'));
+const route=load('app/api/player-odds/route.ts');assert.equal(authenticated,1);
+assert.equal((await route.GET({url:'http://localhost/?playerName='})).status,400);assert.equal(queries.length,0);
+handler=async()=>[{book:'stake',jugador:'Jugador',stat_key:'PTS',side:'over',model_line:36.5,odds_decimal:1.9,partido:'CHI vs DEN',scraped_at_utc:new Date('2026-10-13T22:00:00Z')}];
+const result=await route.GET({url:'http://localhost/?playerName=Jugador'});assert.equal(result.status,200);assert.equal(result.data.odds[0].over_price,1.9);assert.equal(result.headers['Cache-Control'],'private, no-store');assert.ok(JSON.stringify(queries[0].values).includes('jugador'));
+console.log('Panel y API de cuotas (base simulada): códigos visibles, línea única, precios exactos/faltantes, lado Over/Under, autenticación aplicada y lectura por jugador OK.');

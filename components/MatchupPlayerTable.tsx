@@ -1,5 +1,8 @@
 'use client';
 
+import InjuryStatusBadge from './InjuryStatusBadge';
+import type {InjuryItem} from '@/lib/injuryReport';
+import {playerGameHref,type GameContext} from '@/lib/playerNavigation';
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import type { PlayerAverage } from '@/lib/matchupData';
@@ -15,7 +18,7 @@ const groups: Record<string, [Stat, string][]> = {
 const format = (n: number | null | undefined) => n == null ? '—' : n.toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
-export default function MatchupPlayerTable({ team, roster, averages, season }: { team: string; roster: Player[]; averages: PlayerAverage[]; season: string }) {
+export default function MatchupPlayerTable({ team, roster, averages, season, gameContext, injuries=[] }: { team: string; roster: Player[]; averages: PlayerAverage[]; season: string;gameContext?:GameContext;injuries?:InjuryItem[] }) {
   const [group, setGroup] = useState('Principales');
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<Stat>('min');
@@ -40,8 +43,9 @@ export default function MatchupPlayerTable({ team, roster, averages, season }: {
         <thead><tr><th scope="col">Jugador</th><th scope="col" title="Partidos jugados incluidos en el promedio">PJ</th>{groups[group].map(([key, label]) => <th scope="col" key={key} aria-sort={sort === key ? descending ? 'descending' : 'ascending' : 'none'}><button type="button" onClick={() => { setDescending(sort === key ? !descending : true); setSort(key); }}>{label}{sort === key ? descending ? ' ↓' : ' ↑' : ''}</button></th>)}</tr></thead>
         <tbody>{players.map(player => {
           const avg = lookup.get(player.player_id);
+          const reports=injuries.filter(item=>item.playerId===player.player_id&&item.team===team),injury=reports.length===1?reports[0]:null;
           return <tr key={player.player_id}>
-            <th scope="row"><Link href={`/players/${player.player_id}`} className={styles.playerName}>{player.full_name}</Link><small>{player.position || 'Jugador'}{avg ? ` · Historial: ${avg.historical_teams}` : ` · Sin datos en ${season}`}</small></th>
+            <th scope="row"><Link href={playerGameHref(player.player_id,gameContext??null,team)} className={styles.playerName}>{player.full_name}</Link>{injury&&<InjuryStatusBadge item={injury}/>}<small>{player.position || 'Jugador'}{avg ? ` · Historial: ${avg.historical_teams}` : ` · Sin datos en ${season}`}</small></th>
             <td title={avg ? `${avg.first_date} a ${avg.last_date}` : 'Sin partidos para estos filtros'}>{avg?.gp ?? '—'}</td>
             {groups[group].map(([key]) => <td key={key}>{format(avg?.[key])}</td>)}
           </tr>;

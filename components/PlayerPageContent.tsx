@@ -23,6 +23,7 @@ type StakeOdd = {
 };
 
 interface PlayerPageContentProps {
+  analyzerStorageKey?:string;
   stats: any[];
   navStats: { id: string; label: string }[];
   playerName: string;
@@ -51,6 +52,7 @@ const TEAMMATES_CLIENT_TTL_MS = 5 * 60 * 1000;
 
 export default function PlayerPageContent({
   stats,
+  analyzerStorageKey,
   navStats,
   playerName,
   initialStat = "pts",
@@ -68,10 +70,16 @@ export default function PlayerPageContent({
 }: PlayerPageContentProps) {
   const [analysisSample, setAnalysisSample] = useState<AnalysisSample | null>(null);
   const handleAnalysisSample = useCallback((sample: AnalysisSample) => setAnalysisSample(sample), []);
+  const currentSample=analysisSample?.playerId===String(currentPlayerId)?analysisSample:null;
+  const rosterStat=currentSample?.market||initialStat;
   const [selectedGame, setSelectedGame] = useState<GameSlot | null>(null);
   const [externalFilters, setExternalFilters] = useState<ActiveFilter[]>([]);
+  const [resolvedEventDate,setResolvedEventDate]=useState<string|null>(null);
   const [dvpOpponentFromFilters, setDvpOpponentFromFilters] = useState<string | null>(null);
   const [clientTeammates, setClientTeammates] = useState<TeamMate[]>(teammates || []);
+  const [teammatesResolvedFor,setTeammatesResolvedFor]=useState('');
+  const rosterKey=`${String(teamAbbr||'').toUpperCase()}:${rosterStat}:stake`;
+  const visibleTeammates=teammatesResolvedFor===rosterKey&&currentSample?.scope==='FULL'?clientTeammates:clientTeammates.map(player=>({...player,current_line:null,current_prop:null,hit_rate:null}));
   const [rosterOpen, setRosterOpen] = useState(false);
   const [analysisMode, setAnalysisMode] = useState<"simple" | "pro">("simple");
 
@@ -87,6 +95,8 @@ export default function PlayerPageContent({
 
   useEffect(() => {
     setDvpOpponentFromFilters(null);
+    setClientTeammates(teammates||[]);
+    setTeammatesResolvedFor('');
     setRosterOpen(false);
   }, [currentPlayerId]);
 
@@ -122,8 +132,9 @@ export default function PlayerPageContent({
   }, [rosterOpen]);
 
   useEffect(() => {
+    if(!rosterOpen||currentSample?.scope!=='FULL')return;
     const team = String(teamAbbr || "").trim().toUpperCase();
-    const stat = String(initialStat || "pts").trim().toLowerCase();
+    const stat = String(rosterStat || "pts").trim().toLowerCase();
     const cacheKey = `${team}:${stat}:stake`;
 
     if (!team) {
@@ -134,6 +145,7 @@ export default function PlayerPageContent({
     const cached = TEAMMATES_CLIENT_CACHE.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
       setClientTeammates(cached.players);
+      setTeammatesResolvedFor(cacheKey);
       return;
     }
 
@@ -146,12 +158,14 @@ export default function PlayerPageContent({
     })
       .then((r) => r.json())
       .then((json) => {
+        if (controller.signal.aborted) return;
         if (json?.ok && Array.isArray(json.players)) {
           TEAMMATES_CLIENT_CACHE.set(cacheKey, {
             expiresAt: Date.now() + TEAMMATES_CLIENT_TTL_MS,
             players: json.players,
           });
           setClientTeammates(json.players);
+          setTeammatesResolvedFor(cacheKey);
         } else {
           setClientTeammates(teammates || []);
         }
@@ -161,7 +175,7 @@ export default function PlayerPageContent({
       });
 
     return () => controller.abort();
-  }, [teamAbbr, currentPlayerId, initialStat]);
+  }, [teamAbbr, currentPlayerId, rosterStat,rosterOpen,currentSample?.scope]);
 
   useEffect(() => {
     const handler = (event: Event) => {
@@ -169,6 +183,7 @@ export default function PlayerPageContent({
       if (detail?.playerId && String(detail.playerId) !== String(currentPlayerId)) return;
       const next = String(detail?.opponent || "").trim().toUpperCase();
       setDvpOpponentFromFilters(next || null);
+      setResolvedEventDate(typeof detail.eventDate==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(detail.eventDate)?detail.eventDate:null);
     };
 
     window.addEventListener("player-dvp-context-change", handler as EventListener);
@@ -180,7 +195,7 @@ export default function PlayerPageContent({
     : undefined;
 
   const dvpOpponent = String(
-    dvpOpponentFromFilters || nextOpponent || lastOpponent || ""
+    resolvedEventDate!==null?(dvpOpponentFromFilters??""):(nextOpponent??"")
   ).trim().toUpperCase();
   const dvpKey = `${currentPlayerId}:${dvpOpponent}:${position || ""}`;
 
@@ -202,7 +217,7 @@ export default function PlayerPageContent({
             <div className="mb-2 flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
               <div>
                 <p className="text-[8px] font-black uppercase tracking-[0.22em] text-[#10b981]">Roster y líneas</p>
-                <p className="text-sm font-black uppercase text-[var(--text)]">{teamAbbr || "Equipo"} · {clientTeammates.length} jugadores</p>
+                <p className="text-sm font-black uppercase text-[var(--text)]">{teamAbbr || "Equipo"} · {clientTeammates.length} jugadores · {rosterStat.toUpperCase()}{currentSample?` · ${currentSample.scope} · Línea ${currentSample.line}`:""}</p>
               </div>
               <button
                 type="button"
@@ -215,7 +230,7 @@ export default function PlayerPageContent({
             </div>
             <TeamMatesPanel
               teamAbbr={teamAbbr}
-              players={clientTeammates}
+              players={visibleTeammates}
               currentPlayerId={currentPlayerId}
               games={games}
               selectedGame={selectedGame}
@@ -256,9 +271,12 @@ export default function PlayerPageContent({
         </section>
 
         <PlayerChartContainer
+          analyzerStorageKey={analyzerStorageKey}
           stats={stats}
           navStats={navStats}
           playerName={playerName}
+          playerPosition={position}
+          playerTeam={teamAbbr}
           playerId={currentPlayerId}
           stakeOdds={stakeOdds}
           filterTeams={filterTeams}
@@ -282,7 +300,7 @@ export default function PlayerPageContent({
             opponentAbbr={dvpOpponent}
             playerPosition={position}
             dvpKey={dvpKey}
-            nextGameDate={nextGameDate}
+            nextGameDate={resolvedEventDate??nextGameDate}
             sharedSample={analysisSample?.playerId === String(currentPlayerId) ? analysisSample : null}
           />
           </>

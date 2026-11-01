@@ -6,7 +6,10 @@ import { getTeamColor } from '@/lib/teamColors';
 import { CURRENT_ROSTER_SEASON, CURRENT_ROSTER_UPDATED_AT } from '@/lib/currentRosters';
 import { argentinaDate, canonicalTeam, matchupFilters } from '@/lib/matchupFilters';
 import { getMatchupData, getMatchupSeasons, type TeamAverage } from '@/lib/matchupData';
+import {getInjuryReport} from '@/lib/injuryReportData';
+import {reportTimeLabel} from '@/lib/injuryReport';
 import MatchupFilterBar from '@/components/MatchupFilterBar';
+import {matchupHref} from '@/lib/playerNavigation';
 import MatchupPlayerTable from '@/components/MatchupPlayerTable';
 import DefensiveMatchups from '@/components/DefensiveMatchups';
 import styles from './Matchup.module.css';
@@ -60,7 +63,8 @@ export default async function MatchupPage({ params, searchParams }: { params: Pr
   const filters = matchupFilters(sp, seasons);
   const rawStart = Array.isArray(sp.start) ? sp.start[0] : sp.start;
   const start = rawStart && /^\d{4}-\d{2}-\d{2}T/.test(rawStart) && argentinaDate(rawStart) === filters.date ? rawStart : '';
-  const data = await getMatchupData(away, home, filters);
+  const [data,injuryReport] = await Promise.all([getMatchupData(away, home, filters),getInjuryReport(filters.date)]);
+  const matchInjuries=injuryReport.items.filter(p=>p.date===filters.date&&p.game?.away===away&&p.game?.home===home);
   const awayData = data.teams.find(t => t.team_abbreviation === away);
   const homeData = data.teams.find(t => t.team_abbreviation === home);
   const sample = filters.last ? `Últimos ${filters.last} partidos disponibles` : 'Toda la temporada disponible';
@@ -95,10 +99,11 @@ export default async function MatchupPage({ params, searchParams }: { params: Pr
         away={away} home={home} date={filters.date} season={filters.season}
         awayRoster={data.awayRoster} homeRoster={data.homeRoster} averages={data.players}
       />
+      <div className={styles.context}><strong>Parte médico del partido</strong><p>{injuryReport.available?`Reporte más reciente de la ventana: ${reportTimeLabel(injuryReport.latestReportAt)}. Cada estado conserva su captura.`:"Parte no disponible. No se confirma disponibilidad por falta de un registro."} {injuryReport.stale?"Reporte con más de 36 horas.":""}</p><Link href={`/injuries?date=${filters.date}`}>Ver parte y filtrar jugadores →</Link></div>
       <section className={styles.rosterContext}><h2>Jugadores de ambos equipos</h2><p>Planteles actuales {CURRENT_ROSTER_SEASON}, actualizados el {dateLabel(CURRENT_ROSTER_UPDATED_AT.slice(0, 10))}. Promedios de {filters.season}, incluyendo otros equipos en los que jugó cada jugador. Este plantel no reconstruye la alineación de partidos históricos ni confirma quién jugará.</p></section>
       <div className={styles.rosterGrid}>{[away, home].map(team => <section key={team} className={styles.panel}>
         <div className={styles.panelTitle}><h2>{teamName(team)}</h2><span>{team} · Plantel actual</span></div>
-        <MatchupPlayerTable team={team} roster={team === away ? data.awayRoster : data.homeRoster} averages={data.players} season={filters.season} />
+        <MatchupPlayerTable injuries={matchInjuries} gameContext={{away,home,date:filters.date,start:start||undefined,returnTo:matchupHref(away,home,filters.date,start||undefined,new URLSearchParams(Object.entries(sp).filter((entry):entry is [string,string]=>typeof entry[1]==='string')))}} team={team} roster={team === away ? data.awayRoster : data.homeRoster} averages={data.players} season={filters.season} />
       </section>)}</div>
       <details className={styles.method}><summary>Cómo se calculan los promedios</summary><p>Los filtros se aplican antes de seleccionar los últimos partidos. En equipos, la muestra cuenta partidos del equipo; en jugadores, sus apariciones con minutos. «Como en este partido» compara al visitante jugando fuera y al local jugando en casa, según la condición de cada registro histórico.</p><p>Los porcentajes de tiro se calculan con el total de anotados dividido por el total de intentados. Los datos ausentes se muestran con —. PR: puntos + rebotes; PA: puntos + asistencias; RA: rebotes + asistencias; PRA: las tres. Las barras comparan cantidades y no representan probabilidades de ganar.</p></details>
     </div>

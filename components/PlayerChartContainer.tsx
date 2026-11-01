@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   getMinutesValue,
@@ -8,13 +8,28 @@ import {
   getGameLocation,
   formatDateShort,
 } from "@/lib/playerUtils";
+import {quotesForEvent} from "@/lib/playerEvent";
+import {usePlayerEvent} from "@/hooks/usePlayerEvent";
+import PlayerEventControl from "@/components/PlayerEventControl";
+import AddSelectionToAnalyzer from "@/components/AddSelectionToAnalyzer";
+import DefenseContextCard from "@/components/DefenseContextCard";
+import {usePlayerDefense} from "@/hooks/usePlayerDefense";
+import {DEFENSE_BANDS,defenseUrlChoice} from "@/lib/nbaDefense";
+import {parseGameContext,putGameContext} from "@/lib/playerNavigation";
+import { useAnalysisQuery } from "@/hooks/useAnalysisQuery";
+import { finiteStat, selectionSummary } from "@/lib/selectionStats";
 import { buildPeriodRows, periodMetricValue } from "@/lib/nbaPeriodStats";
 import { sampleCoverage, type AnalysisSample } from "@/lib/nbaAnalysis";
 import PlayerChart from "@/components/PlayerChart";
+import PlayerChangeCard from "@/components/PlayerChangeCard";
+import PlayerSecondaryControl from "@/components/PlayerSecondaryControl";
+import {parseSecondary,selectedSecondary,validSecondaryChoice,secondaryValue,type SecondaryChoice} from "@/lib/playerRecentChange";
 import SupportingDataGrid from "@/components/SupportingDataGrid";
 import PickInsightPanel from "@/components/PickInsightPanel";
 import PlayerHistoricalExplorer from "@/components/PlayerHistoricalExplorer";
-import ActiveInjuryContextCard from "@/components/ActiveInjuryContextCard";
+import {nbaHistoryCutoff} from "@/lib/injuryReport";
+import {comparisonMarket} from "@/lib/absenceComparison";
+import {argentinaDate,isDate} from "@/lib/ticketReader/model";
 import StatFilters, { type ActiveFilter } from "@/components/StatFilters";
 import GameLogTable from "@/components/GameLogTable";
 import FloatingPlayerIdentity, {ChartIdentity} from "@/components/PlayerIdentity";
@@ -22,7 +37,7 @@ import PlayerAbsenceFilter from "@/components/PlayerAbsenceFilter";
 import {absenceScope as parseAbsenceScope,absenceTeam as parseAbsenceTeam,absenceEmptyMessage,type AbsenceScope} from "@/lib/playerAbsenceContext";
 import {parsePhase,phaseRows,absenceRows,cleanAbsences,PHASE_OPTIONS,type NBASeasonPhase} from "@/lib/nbaGameFilters";
 import PlayerOddsComparison from "@/components/PlayerOddsComparison";
-import {comparableQuotes,selectUpcomingOddsEvent,decimalPrice,type PriceQuote} from "@/lib/nbaOdds";
+import {decimalPrice,quoteMatches,type PriceQuote} from "@/lib/nbaOdds";
 import ShareButton from "@/components/ShareButton";
 import { usePlayerUrlState } from "@/hooks/usePlayerUrlState";
 import {
@@ -43,9 +58,12 @@ import {
 type StakePlayerOdd = PriceQuote;
 
 interface PlayerChartContainerProps {
+  analyzerStorageKey?:string;
   stats: any[];
   navStats: { id: string; label: string }[];
   playerName?: string;
+  playerPosition?: string;
+  playerTeam?: string|null;
   playerId?: string | number | null;
   stakeOdds?: StakePlayerOdd[];
   filterTeams?: string[];
@@ -213,29 +231,10 @@ function getRawStatValue(s: any, statId: string, scope: SplitScope): number {
   return value === null ? (scope === "FULL" ? 0 : Number.NaN) : value;
 }
 
-function getStatValue(s: any, statId: string, scope: SplitScope): number {
-  if (statId.includes("+")) {
-    return statId
-      .split("+")
-      .reduce((acc, part) => acc + getRawStatValue(s, part, scope), 0);
-  }
-  return getRawStatValue(s, statId, scope);
+function getStatValue(s:any,statId:string,scope:SplitScope):number {
+  return periodMetricValue(s,statId,scope)??NaN;
 }
-
-function getScopedMinutesRaw(raw: any, scope: SplitScope) {
-  if (scope === "FULL") return null;
-  if (isPeriodRowForScope(raw, scope)) return raw?.min_clean ?? raw?.minutes_clean ?? raw?.min ?? raw?.minutes ?? raw?.min_text ?? null;
-  const prefix = SPLIT_SCOPE_BY_ID[scope]?.prefix;
-  if (!prefix) return null;
-  return (
-    raw?.[`${prefix}_min`] ??
-    raw?.[`${prefix}_minutes`] ??
-    raw?.[`${prefix}_mins`] ??
-    raw?.[`${prefix}_min_text`] ??
-    (isPeriodRowForScope(raw, scope) ? raw?.min_text : null) ??
-    null
-  );
-}
+function getScopedMinutesRaw(raw:any,scope:SplitScope) { return scope==='FULL'?null:getMinutesValue(raw); }
 
 function formatStatValue(value: any, isPercentage?: boolean) {
   if (value === null || value === undefined || value === "") return "S/D";
@@ -353,29 +352,6 @@ function formatLineValue(value: number, activeStat: string) {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
-function getOpportunityOverlayConfig(
-  activeStat: string,
-  scope: SplitScope,
-): { key: string; label: string; color: string; ratioLabel: string } | null {
-  if (scope !== "FULL") return null;
-  if (activeStat === "ast") {
-    return {
-      key: "potential_ast",
-      label: "Pot. AST",
-      color: "#60a5fa",
-      ratioLabel: "Conversión",
-    };
-  }
-  if (activeStat === "reb") {
-    return {
-      key: "rebound_chances",
-      label: "Chances Reb.",
-      color: "#a78bfa",
-      ratioLabel: "Captura",
-    };
-  }
-  return null;
-}
 
 function parseExternalPlayerFilterId(
   id: string,
@@ -469,12 +445,15 @@ export default function PlayerChartContainer({
   stats,
   navStats,
   playerName,
+  playerPosition,
+  playerTeam,
   playerId,
   stakeOdds = [],
   filterTeams,
   opponent,
   homeAway,
   asOfDate,
+  analyzerStorageKey,
   externalFilters = [],
   onRemoveExternalFilter,
   activeInjuryContext = [],
@@ -482,6 +461,13 @@ export default function PlayerChartContainer({
   onAnalysisSampleChange,
 }: PlayerChartContainerProps) {
   const searchParams = useSearchParams();
+  const linkedContext=useMemo(()=>parseGameContext(searchParams),[searchParams]);
+  const pageEvent=usePlayerEvent({playerId,team:playerTeam,initialContext:linkedContext,referenceDate:asOfDate});
+  const gameContext=pageEvent.context;
+  const eventDate=gameContext?.date??(isDate(pageEvent.date)?pageEvent.date:asOfDate??argentinaDate());
+  const historyCutoff=gameContext?nbaHistoryCutoff(gameContext):pageEvent.mode==='day'||isDate(asOfDate)?pageEvent.date:null;
+  const [selectedBook,setSelectedBook]=useState<string|null>(null);
+  const [oddsRetry,setOddsRetry]=useState(0);
 
   // ── Core state — synced to URL ─────────────────────────────────────────────
   const {
@@ -563,6 +549,7 @@ export default function PlayerChartContainer({
   const absenceContextKey = `${playerId}:${absenceMode}:${absenceTeamFilter}:${absenceKey}`;
   const [absenceState, setAbsenceState] = useState<{key:string;matches:Record<string,string[]>|null;loading:boolean;error:string|null}>({key:'',matches:null,loading:false,error:null});
   const [absenceRetry,setAbsenceRetry] = useState(0);
+  const [secondaryChoice,setSecondaryChoice]=useState<SecondaryChoice>(()=>parseSecondary(searchParams.get("compare")));
   const currentAbsence = absenceState.key === absenceContextKey ? absenceState : {matches:null,loading:effectiveAbsences.length>0,error:null};
   const changeAbsences = useCallback((names:string[])=>{setAbsentNames(cleanAbsences(names));setActiveWoTeammateState(null);},[]);
   useEffect(()=>{
@@ -574,20 +561,6 @@ export default function PlayerChartContainer({
       .catch(error=>{if(!controller.signal.aborted)setAbsenceState({key:absenceContextKey,matches:null,loading:false,error:error.message});});
     return()=>controller.abort();
   },[playerId,absenceContextKey,absenceRetry]);
-  const [clientActiveInjuryContext, setClientActiveInjuryContext] = useState<
-    any[]
-  >([]);
-  const [historicalChartData, setHistoricalChartData] = useState<any | null>(
-    null,
-  );
-  const [historicalChartLoading, setHistoricalChartLoading] = useState(false);
-  const [historicalChartError, setHistoricalChartError] = useState<
-    string | null
-  >(null);
-  const [periodSplitRows, setPeriodSplitRows] = useState<any[]>([]);
-  const [periodLoading, setPeriodLoading] = useState(false);
-  const [periodError, setPeriodError] = useState<string | null>(null);
-
   const setChartSide = useCallback((next: ChartSide) => {
     const safe = next === "under" ? "under" : "over";
     setChartSideState(safe);
@@ -614,22 +587,26 @@ export default function PlayerChartContainer({
     setActiveWoTeammateState(safe);
   }, []);
 
+  const defenseOpponent=chartOpponent||pageEvent.opponent||(!pageEvent.selectedByUser?opponent:null)||"";
+  const defense=usePlayerDefense({initial:defenseUrlChoice(searchParams),playerId:String(playerId||''),position:playerPosition,opponent:defenseOpponent,market:activeStat,asOfDate:historyCutoff??eventDate,phase:seasonPhase,scope:activeScope});
+
   // DVP vive fuera de este componente, pero el rival real lo controla este panel.
   // Avisamos al parent cada vez que cambia para evitar que DVP quede congelado
   // con el rival anterior o con el próximo partido equivocado.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const effectiveOpponent = cleanOpponentParam(chartOpponent || opponent || "");
+    const effectiveOpponent = cleanOpponentParam(defenseOpponent);
     window.dispatchEvent(
       new CustomEvent("player-dvp-context-change", {
         detail: {
           playerId: String(playerId || ""),
           opponent: effectiveOpponent || null,
           hasOpponentFilter: Boolean(chartOpponent),
+          eventDate,context:gameContext,
         },
       }),
     );
-  }, [playerId, chartOpponent, opponent]);
+  }, [playerId, chartOpponent, defenseOpponent,eventDate,gameContext]);
 
   const resetMainFilters = useCallback(() => {
     setActiveFilters([]);
@@ -643,7 +620,8 @@ export default function PlayerChartContainer({
     setAbsentNames([]);
     setAbsenceMode("current");setAbsenceTeamFilter("");
     setSeasonPhase("ALL");
-  }, []);
+    defense.setBand("all");
+  }, [defense.setBand]);
 
   // ── Filter handlers ─────────────────────────────────────────────────────────
 
@@ -744,9 +722,10 @@ export default function PlayerChartContainer({
 
   const activeScopeOption = SPLIT_SCOPE_BY_ID[activeScope];
   const isFullScope = activeScope === "FULL";
+  const effectiveSecondaryChoice=validSecondaryChoice(activeStat,secondaryChoice);
   const opportunityOverlay = useMemo(
-    () => getOpportunityOverlayConfig(activeStat, activeScope),
-    [activeStat, activeScope],
+    () => selectedSecondary(activeStat, effectiveSecondaryChoice, activeScope),
+    [activeStat, effectiveSecondaryChoice, activeScope],
   );
   const historicalMarket = useMemo(
     () => getStakePropType(activeStat),
@@ -755,121 +734,29 @@ export default function PlayerChartContainer({
   const isHistoricalChartMode = isFullScope && Boolean(historicalMarket);
   const windowLabel = `L${lastN}`;
 
-  useEffect(() => {
-    if (
-      !isHistoricalChartMode ||
-      !historicalMarket ||
-      !playerName ||
-      !Number.isFinite(Number(lineValue))
-    ) {
-      setHistoricalChartData(null);
-      setHistoricalChartLoading(false);
-      return;
-    }
-
-    const controller = new AbortController();
-    setHistoricalChartLoading(true);
-    setHistoricalChartError(null);
-
-    fetch("/api/player-history", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        playerId,
-        playerName,
-        market: historicalMarket,
-        line: Number(lineValue),
-        side: chartSide,
-        mode: "all",
-        opponent: chartOpponent || null,
-        homeAway: chartHomeAway,
-        minMinutes: chartHistMinMinutes,
-        woTeammate: null,
-        phase: seasonPhase,
-        limit: 1000,
-      }),
-      signal: controller.signal,
-    })
-      .then((r) => r.json().then((json) => ({ ok: r.ok, json })))
-      .then(({ ok, json }) => {
-        if (controller.signal.aborted) return;
-        if (!ok || json?.ok === false)
-          throw new Error(json?.error || "Error consultando histórico");
-        setHistoricalChartData(json);
-      })
-      .catch((err) => {
-        if (controller.signal.aborted || err?.name === "AbortError") return;
-        setHistoricalChartError(err?.message || "Error consultando histórico");
-        setHistoricalChartData(null);
-      })
-      .finally(() => { if (!controller.signal.aborted) setHistoricalChartLoading(false); });
-
-    return () => controller.abort();
-  }, [
-    isHistoricalChartMode,
-    historicalMarket,
-    playerId,
-    playerName,
-    lineValue,
-    chartSide,
-    chartOpponent,
-    chartHomeAway,
-    chartHistMinMinutes,
-    activeWoTeammate,
-    seasonPhase,
-  ]);
-
-  // ── Period splits client fallback ────────────────────────────────────────────
-  // Los períodos usan registros propios, sin copiar el partido completo.
-  useEffect(() => {
-    const numericPlayerId = Number(playerId);
-    setPeriodSplitRows([]); setPeriodError(null);
-    if (!Number.isSafeInteger(numericPlayerId) || numericPlayerId <= 0) {
-      setPeriodLoading(false);
-      return;
-    }
-    const controller = new AbortController();
-    setPeriodLoading(true);
-    fetch(`/api/player-period-splits?playerId=${encodeURIComponent(String(numericPlayerId))}&limit=3000`, {
-      signal: controller.signal, cache: "no-store",
-    })
-      .then(async (r) => {
-        const json = await r.json();
-        if (controller.signal.aborted) return;
-        if (!r.ok || !json?.ok || !Array.isArray(json.rows)) throw new Error(json?.error || "No se pudieron cargar los períodos");
-        setPeriodSplitRows(json.rows);
-      })
-      .catch((err) => {
-        if (!controller.signal.aborted) { setPeriodSplitRows([]); setPeriodError(err?.message || "No se pudieron cargar los períodos"); }
-      })
-      .finally(() => { if (!controller.signal.aborted) setPeriodLoading(false); });
-    return () => controller.abort();
-  }, [playerId]);
-
-  const [liveOdds,setLiveOdds]=useState<PriceQuote[]>(stakeOdds);
-  const [oddsLoading,setOddsLoading]=useState(true),[oddsError,setOddsError]=useState<string|null>(null);
+  const historyQuery=useAnalysisQuery(isHistoricalChartMode&&!pageEvent.loading&&historicalMarket&&playerName&&Number.isFinite(Number(lineValue))?'/api/player-history':null,{
+    playerId,playerName,market:historicalMarket,line:Number(lineValue),side:chartSide,mode:'all',
+    opponent:chartOpponent||null,homeAway:chartHomeAway,minMinutes:chartHistMinMinutes,woTeammate:null,phase:seasonPhase,limit:1000,asOfDate:historyCutoff,
+  });
+  const historicalChartData=historyQuery.data;
+  const historicalChartLoading=historyQuery.loading;
+  const historicalChartError=historyQuery.error;
+  const numericPlayerId=Number(playerId);
+  const periodsQuery=useAnalysisQuery(Number.isSafeInteger(numericPlayerId)&&numericPlayerId>0?`/api/player-period-splits?playerId=${encodeURIComponent(String(numericPlayerId))}&limit=3000`:null);
+  const periodSplitRows=useMemo(()=>Array.isArray(periodsQuery.data?.rows)?periodsQuery.data.rows:[],[periodsQuery.data]);
+  const periodLoading=periodsQuery.loading;
+  const periodError=periodsQuery.error;
+  const oddsQuery=useAnalysisQuery(playerName?`/api/player-odds?playerName=${encodeURIComponent(playerName)}&playerId=${encodeURIComponent(String(playerId??''))}&retry=${oddsRetry}`:null);
+  const liveOdds:PriceQuote[]=useMemo(()=>Array.isArray(oddsQuery.data?.odds)?oddsQuery.data.odds:[],[oddsQuery.data]);
+  const oddsLoading=oddsQuery.loading,oddsError=oddsQuery.error;
   const oddsRequestKey=`${playerId}:${playerName}`;
-  const [oddsResolvedFor,setOddsResolvedFor]=useState('');
-  const oddsPlayerRef=useRef(playerId);
-  useEffect(()=>{
-    if(!playerName){setLiveOdds([]);setOddsLoading(false);setOddsResolvedFor(oddsRequestKey);return;}
-    const controller=new AbortController();
-    if(oddsPlayerRef.current!==playerId){setLiveOdds(stakeOdds);oddsPlayerRef.current=playerId;}
-    setOddsLoading(true);setOddsError(null);
-    fetch(`/api/player-odds?playerName=${encodeURIComponent(playerName)}`,{signal:controller.signal,cache:'no-store'})
-      .then(async response=>{const data=await response.json();if(!response.ok||!data.ok)throw new Error('No se pudieron actualizar las cuotas.');if(!controller.signal.aborted)setLiveOdds(Array.isArray(data.odds)?data.odds:[]);})
-      .catch(reason=>{if(!controller.signal.aborted)setOddsError(reason.message);})
-      .finally(()=>{if(!controller.signal.aborted){setOddsLoading(false);setOddsResolvedFor(oddsRequestKey);}});
-    return()=>controller.abort();
-  },[playerName,playerId,oddsRequestKey]);
-  const effectiveOddsEvent=selectUpcomingOddsEvent(liveOdds,asOfDate);
-  const currentPrices=useMemo(()=>comparableQuotes(liveOdds,activeStat,activeScope,effectiveOddsEvent),[liveOdds,activeStat,activeScope,effectiveOddsEvent]);
+  const oddsResolvedFor=oddsLoading?'':oddsRequestKey;
   const autoLineContext=useRef('');
-  // ── Stake odds ───────────────────────────────────────────────────────────────
-  const selectedStakeOdds = useMemo(
-    () => comparableQuotes(liveOdds,activeStat,activeScope,effectiveOddsEvent).filter(quote=>decimalPrice(quote.over_price)!==null||decimalPrice(quote.under_price)!==null),
-    [liveOdds,activeStat,activeScope,effectiveOddsEvent],
-  );
+  const eventOdds=useMemo(()=>quotesForEvent(liveOdds,gameContext),[liveOdds,gameContext]);
+  const effectiveOddsEvent=gameContext?`${gameContext.date}:${gameContext.away}-${gameContext.home}`:'unconfirmed';
+  const currentPrices=useMemo(()=>eventOdds.filter(q=>quoteMatches(q,activeStat,activeScope)),[eventOdds,activeStat,activeScope]);
+  const selectedStakeOdds=useMemo(()=>currentPrices.filter(q=>decimalPrice(q.over_price)!==null||decimalPrice(q.under_price)!==null),[currentPrices]);
+
   const selectedStakeOdd = useMemo(
     () => pickPrimaryStakeOdd(selectedStakeOdds),
     [selectedStakeOdds],
@@ -877,8 +764,8 @@ export default function PlayerChartContainer({
 
   // ── Raw scoped stats ─────────────────────────────────────────────────────────
   const scopedRawStats = useMemo(
-    () => buildPeriodRows(stats || [], periodSplitRows, activeScope, activeStat),
-    [stats, periodSplitRows, activeScope, activeStat],
+    () => buildPeriodRows((stats || []).filter(row=>!historyCutoff||String(row.game_date).slice(0,10)<historyCutoff), periodSplitRows.filter((row:any)=>!historyCutoff||String(row.game_date).slice(0,10)<historyCutoff), activeScope, activeStat),
+    [stats, periodSplitRows, activeScope, activeStat,historyCutoff],
   );
 
   const uniqueStats = useMemo(() => {
@@ -940,7 +827,7 @@ export default function PlayerChartContainer({
       const rawValue = getStatValue(s, activeStat, activeScope);
       const safeValue = Number.isFinite(rawValue)
         ? Number(rawValue.toFixed(1))
-        : 0;
+        : null;
 
       return {
         ...s,
@@ -954,12 +841,12 @@ export default function PlayerChartContainer({
   }, [uniqueStats, activeStat, activeScope, lineValue]);
 
   // ── Apply filters (internal threshold + external W/O) ────────────────────────
-  const filteredStats = useMemo(() => {
+  const filteredStatsBeforeWindow = useMemo(() => {
     let result = absenceRows(phaseRows(processedStats,seasonPhase),effectiveAbsences,currentAbsence.matches).slice().reverse();
     if (!isFullScope) {
       if (chartOpponent) result = result.filter(row => getOpponent(row) === chartOpponent);
       if (chartHomeAway) result = result.filter(row => getGameLocation(row) === (chartHomeAway === "HOME" ? "vs" : "@"));
-      if (chartHistMinMinutes !== null) result = result.filter(row => { const minutes = getMinutesValue(row); return minutes !== null && minutes >= chartHistMinMinutes; });
+      if (chartHistMinMinutes !== null) result = result.filter(row => { const minutes = finiteStat(row.full_game_minutes)??getMinutesValue(row); return minutes !== null && minutes >= chartHistMinMinutes; });
     }
 
     const allFilters = [...activeFilters, ...externalFilters];
@@ -970,7 +857,7 @@ export default function PlayerChartContainer({
 
         if (metricId === "minutes") {
           result = result.filter((s) => {
-            const m = getMinutesValue(s);
+            const m = finiteStat(s.full_game_minutes)??getMinutesValue(s);
             return m !== null && m >= filter.value!;
           });
         } else {
@@ -999,10 +886,11 @@ export default function PlayerChartContainer({
       }
     }
 
-    return lastN >= 999 ? result : result.slice(-lastN);
-  }, [seasonPhase,absenceKey,currentAbsence.matches,processedStats, lastN, activeFilters, externalFilters, externalGameIds, isFullScope, chartOpponent, chartHomeAway, chartHistMinMinutes, activeWoTeammate]);
+    result = defense.apply(result);
+    return result;
+  }, [defense.report,defense.band,defense.options.position,seasonPhase,absenceKey,currentAbsence.matches,processedStats, lastN, activeFilters, externalFilters, externalGameIds, isFullScope, chartOpponent, chartHomeAway, chartHistMinMinutes, activeWoTeammate]);
 
-  const visibleStats = filteredStats;
+  const visibleStats = useMemo(()=>lastN>=999?filteredStatsBeforeWindow:filteredStatsBeforeWindow.slice(-lastN),[filteredStatsBeforeWindow,lastN]);
 
   const historicalChartStats = useMemo(() => {
     const games = Array.isArray(historicalChartData?.games)
@@ -1018,7 +906,8 @@ export default function PlayerChartContainer({
         season_id: g.season_id,
         team_abbreviation: g.team_abbreviation,
         fta: g.fta,
-        value: Number(g.value) || 0,
+        ftm:g.ftm,oreb:g.oreb,dreb:g.dreb,
+        value: finiteStat(g.value),
         lineValue,
         opponent_clean: g.opponent_clean ?? g.opponent,
         opponent: g.opponent_clean ?? g.opponent,
@@ -1060,13 +949,13 @@ export default function PlayerChartContainer({
   const historicalChartWindow = historicalSampleRows;
 
   // Aplicar los mismos filtros locales al histórico y a la muestra Pro.
-  const sharedHistoricalWindow = useMemo(() => {
+  const sharedHistoricalBeforeWindow = useMemo(() => {
     let result = historicalChartWindow;
     for (const filter of [...activeFilters, ...externalFilters]) {
       if (filter.type === 'threshold' && filter.value !== undefined) {
         const key = filter.id.replace('threshold:', '');
         result = result.filter((row: any) => {
-          const value = key === 'minutes' ? getMinutesValue(row) : row[key] == null ? null : Number(row[key]);
+          const value = key === 'minutes' ? finiteStat(row.full_game_minutes)??getMinutesValue(row) : row[key] == null ? null : Number(row[key]);
           return value !== null && Number.isFinite(value) && value >= filter.value!;
         });
       }
@@ -1077,20 +966,27 @@ export default function PlayerChartContainer({
         result = result.filter((row: any) => parsed.mode === 'with' ? played.has(normalizeGameId(row.game_id)) : !played.has(normalizeGameId(row.game_id)));
       }
     }
-    return lastN >= 999 ? result : result.slice(-lastN);
-  }, [historicalChartWindow, lastN, activeFilters, externalFilters, externalGameIds]);
-  const chartStats: any[] = isFullScope && isHistoricalChartMode && historicalChartData?.ok
-    ? sharedHistoricalWindow
-    : visibleStats;
+    result = defense.apply(result);
+    return result;
+  }, [defense.report,defense.band,defense.options.position,historicalChartWindow, lastN, activeFilters, externalFilters, externalGameIds]);
+  const sharedHistoricalWindow=useMemo(()=>lastN>=999?sharedHistoricalBeforeWindow:sharedHistoricalBeforeWindow.slice(-lastN),[sharedHistoricalBeforeWindow,lastN]);
+  const defenseFilterLoading=defense.band!=="all"&&defense.loading;
+  const defenseFilterError=defense.band!=="all"&&!defense.loading&&(!defense.report||!defense.canFilter)?"El filtro defensivo no tiene una referencia completa. Quitá el filtro o elegí otra temporada.":null;
+  const sampleLoading=pageEvent.loading||defenseFilterLoading||currentAbsence.loading||(isHistoricalChartMode?historicalChartLoading:!isFullScope&&periodLoading);
+  const sampleError=defenseFilterError||currentAbsence.error||(isHistoricalChartMode?historicalChartError:!isFullScope?periodError:null);
+  const chartStats: any[] = useMemo(()=>sampleLoading||sampleError?[]:isHistoricalChartMode?sharedHistoricalWindow:visibleStats,[sampleLoading,sampleError,isHistoricalChartMode,sharedHistoricalWindow,visibleStats]);
   const metricStats: any[] = chartStats;
+  const changeRows=sampleLoading||sampleError?[]:isHistoricalChartMode?sharedHistoricalBeforeWindow:filteredStatsBeforeWindow;
+  const changeReferenceRows=useMemo(()=>[...(stats||[]),...historicalChartStats],[stats,historicalChartStats]);
   const supportingStats = useMemo(
-    () => metricStats.slice(-30),
+    () => metricStats,
     [metricStats],
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!onAnalysisSampleChange) return;
     const labels = [PHASE_OPTIONS.find(option=>option.value===seasonPhase)?.label || '', effectiveAbsences.length?`Ausentes: ${effectiveAbsences.join(', ')}`:'', chartOpponent ? `vs ${chartOpponent}` : '', chartHomeAway || '', chartHistMinMinutes !== null ? `MIN ≥ ${chartHistMinMinutes}` : '', activeWoTeammate ? `Ausencia: ${activeWoTeammate}` : '', ...activeFilters.map(f => f.label), ...externalFilters.map(f => f.label)].filter(Boolean);
+    if(defense.band!=="all")labels.push(`Defensa: ${DEFENSE_BANDS[defense.band]} · ${defense.options.season}`);
     const hasThreshold = [...activeFilters, ...externalFilters].some(f => f.type === 'threshold' && f.id !== 'threshold:minutes');
     const hasLocalFilters = activeFilters.length > 0 || externalFilters.length > 0;
     onAnalysisSampleChange({
@@ -1098,35 +994,26 @@ export default function PlayerChartContainer({
       trainingRows: isFullScope && isHistoricalChartMode && !hasLocalFilters ? historicalSampleRows : metricStats,
       scope: activeScope, phase: seasonPhase, market: activeStat, line: Number(lineValue), opponent: chartOpponent || null,
       homeAway: chartHomeAway, minMinutes: chartHistMinMinutes, labels,
-      outcomeFiltered: hasThreshold || (isFullScope && hasLocalFilters && isHistoricalChartMode),
+      outcomeFiltered: defense.band!=="all" || hasThreshold || (isFullScope && hasLocalFilters && isHistoricalChartMode),
       coverage: sampleCoverage(phaseRows(stats || [],seasonPhase),phaseRows(scopedRawStats,seasonPhase)),
-      loading: currentAbsence.loading || (isFullScope ? Boolean(historicalChartLoading && isHistoricalChartMode) : periodLoading),
-      error: currentAbsence.error || (isFullScope && isHistoricalChartMode ? historicalChartError : !isFullScope ? periodError : null),
+      loading: pageEvent.loading || defenseFilterLoading || currentAbsence.loading || (isFullScope ? Boolean(historicalChartLoading && isHistoricalChartMode) : periodLoading),
+      error: defenseFilterError || currentAbsence.error || (isFullScope && isHistoricalChartMode ? historicalChartError : !isFullScope ? periodError : null),
     });
-  }, [onAnalysisSampleChange, playerId, metricStats, activeScope, activeStat, lineValue, chartOpponent, chartHomeAway, chartHistMinMinutes, activeWoTeammate, activeFilters, externalFilters, isFullScope, isHistoricalChartMode, historicalChartStats, stats, scopedRawStats, historicalChartLoading, historicalChartError, periodLoading, periodError, seasonPhase, absenceKey, currentAbsence.loading, currentAbsence.error, historicalSampleRows]);
+  }, [pageEvent.loading,defense.band,defense.options.season,defenseFilterLoading,defenseFilterError,onAnalysisSampleChange, playerId, metricStats, activeScope, activeStat, lineValue, chartOpponent, chartHomeAway, chartHistMinMinutes, activeWoTeammate, activeFilters, externalFilters, isFullScope, isHistoricalChartMode, historicalChartStats, stats, scopedRawStats, historicalChartLoading, historicalChartError, periodLoading, periodError, seasonPhase, absenceKey, currentAbsence.loading, currentAbsence.error, historicalSampleRows]);
 
   // ── Derived metrics ───────────────────────────────────────────────────────────
-  const avgValue =
-    metricStats.length > 0
-      ? (
-          metricStats.reduce((a, b) => a + (Number(b.value) || 0), 0) /
-          metricStats.length
-        ).toFixed(1)
-      : "0.0";
-
+  const selection=selectionSummary(metricStats.map(row=>row.value),lineValue,chartSide);
+  const avgValue=selection.average===null?'S/D':selection.average.toFixed(1);
   const availableComparison = isFullScope && isHistoricalChartMode ? historicalSampleRows : absenceRows(phaseRows(processedStats,seasonPhase),effectiveAbsences,currentAbsence.matches);
-  const seasonAvgValue = availableComparison.length ? availableComparison.reduce((sum,row)=>sum+(Number(row.value)||0),0)/availableComparison.length : 0;
-  const filteredAvgValue = Number(avgValue) || 0;
-  const lineDifference = filteredAvgValue - Number(lineValue || 0);
-
-  const hits = metricStats.filter((s) =>
-    chartSide === "under"
-      ? Number(s.value) <= lineValue
-      : Number(s.value) >= lineValue,
-  ).length;
-  const hitRateNumber =
-    metricStats.length > 0 ? Math.round((hits / metricStats.length) * 100) : 0;
-  const hitRate = String(hitRateNumber);
+  const currentSampleLabel=`${windowLabel} · ${metricStats.length} PJ`;
+  const baseSampleLabel=`${isHistoricalChartMode?"Histórico":"Base disponible"} · ${availableComparison.length} PJ`;
+  const seasonAvgValue=selectionSummary(availableComparison.map(row=>row.value),lineValue,chartSide).average;
+  const filteredAvgValue=selection.average;
+  const lineDifference=filteredAvgValue===null?null:filteredAvgValue-Number(lineValue);
+  // -1 is a display-only sentinel; the shared summary retains null, never 0% for no sample.
+  const hits=selection.hits;
+  const hitRateNumber=selection.rate===null?-1:Math.round(selection.rate);
+  const hitRate=selection.rate===null?'S/D':String(hitRateNumber);
 
   const minutesValues = metricStats
     .map((s) => getMinutesValue(s))
@@ -1138,10 +1025,10 @@ export default function PlayerChartContainer({
         ).toFixed(1)
       : "S/D";
 
-  const lowMinuteGames = minutesValues.filter((m) => m < 20).length;
+  const lowMinuteGames = isFullScope?minutesValues.filter((m) => m < 20).length:0;
 
   const trendLabel =
-    hitRateNumber >= 60
+    sampleLoading ? "Cargando muestra" : selection.rate===null ? "Sin muestra para evaluar" : hitRateNumber >= 60
       ? "Tendencia fuerte"
       : hitRateNumber >= 50
         ? "Tendencia media"
@@ -1170,8 +1057,8 @@ export default function PlayerChartContainer({
       const ys: number[] = [];
       for (const row of metricStats) {
         const metricValue = getMetricValueForCorrelation(row, metricId);
-        const targetValue = Number(row.value);
-        if (metricValue === null || !Number.isFinite(targetValue)) continue;
+        const targetValue = finiteStat(row.value);
+        if (metricValue === null || targetValue===null) continue;
         xs.push(metricValue);
         ys.push(targetValue);
       }
@@ -1219,72 +1106,23 @@ export default function PlayerChartContainer({
     Math.max(0, (minSliderValue / 48) * 100),
   );
 
-  const effectiveInjuryContextDate = useMemo(() => {
-    const raw = String(asOfDate || "").slice(0, 10);
-    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
-    return new Date().toISOString().slice(0, 10);
-  }, [asOfDate]);
-
-  useEffect(() => {
-    if ((activeInjuryContext || []).length > 0 || !playerId) {
-      setClientActiveInjuryContext([]);
-      return;
-    }
-
-    const controller = new AbortController();
-    fetch(
-      `/api/active-injury-context?playerId=${encodeURIComponent(String(playerId))}&gameDate=${encodeURIComponent(effectiveInjuryContextDate)}`,
-      {
-        signal: controller.signal,
-      },
-    )
-      .then((r) => r.json())
-      .then((json) => {
-        if (json?.ok && Array.isArray(json.rows))
-          setClientActiveInjuryContext(json.rows);
-        else setClientActiveInjuryContext([]);
-      })
-      .catch((err) => {
-        if (err?.name !== "AbortError") setClientActiveInjuryContext([]);
-      });
-
-    return () => controller.abort();
-  }, [playerId, effectiveInjuryContextDate, activeInjuryContext]);
-
-  const injuryContextSource =
-    (activeInjuryContext || []).length > 0
-      ? activeInjuryContext
-      : clientActiveInjuryContext;
-
-  const activeInjuryRows = useMemo(() => {
-    return [...(injuryContextSource || [])]
-      .filter((row) => row?.absent_teammate)
-      .sort((a, b) => {
-        const score =
-          Number(b?.absent_importance_score || 0) -
-          Number(a?.absent_importance_score || 0);
-        if (score !== 0) return score;
-        return Number(b?.games || 0) - Number(a?.games || 0);
-      })
-      .slice(0, 3);
-  }, [injuryContextSource]);
-
-  const hasActiveInjuryContext = activeInjuryRows.length > 0;
-
   // ─────────────────────────────────────────────────────────────────────────────
 
   const shareCurrentAnalysisUrl = useCallback(async (): Promise<boolean> => {
     try {
       const params = new URLSearchParams();
+      putGameContext(params,gameContext);
       params.set("stat", activeStat);
       params.set("line", String(lineValue));
       params.set("n", String(lastN));
+      if(effectiveSecondaryChoice!=="auto")params.set("compare",effectiveSecondaryChoice);
       if (activeScope !== "FULL") params.set("scope", activeScope);
       if (chartSide !== "over") params.set("side", chartSide);
       if (chartHomeAway) params.set("homeAway", chartHomeAway);
       if (chartHistMinMinutes) params.set("min", String(chartHistMinMinutes));
       if (chartOpponent) params.set("opponent", chartOpponent);
       if (seasonPhase !== "ALL") params.set("phase", seasonPhase);
+      params.set('defSeason',defense.options.season);params.set('defWindow',defense.options.window);params.set('defPosition',defense.options.position);if(defense.band!=='all')params.set('defBand',defense.band);
       effectiveAbsences.forEach(name=>params.append("absent",name));
       if(absenceMode==="historical"||effectiveAbsences.length)params.set("absenceScope",absenceMode);
       if(absenceTeamFilter)params.set("absenceTeam",absenceTeamFilter);
@@ -1294,11 +1132,46 @@ export default function PlayerChartContainer({
     } catch {
       return false;
     }
-  }, [activeStat, lineValue, lastN, activeScope, chartSide, chartHomeAway, chartHistMinMinutes, chartOpponent, activeWoTeammate, seasonPhase, absenceKey, absenceMode, absenceTeamFilter]);
+  }, [effectiveSecondaryChoice,defense.options.season,defense.options.window,defense.options.position,defense.band,activeStat, lineValue, lastN, activeScope, chartSide, chartHomeAway, chartHistMinMinutes, chartOpponent, activeWoTeammate, seasonPhase, absenceKey, absenceMode, absenceTeamFilter,gameContext]);
+
+    const marketContext=(
+<div>
+        <div className="flex items-center justify-between mb-3 px-1">
+          <p className="text-[9px] text-cyan-300 font-black uppercase tracking-widest flex items-center gap-2">
+            <LayoutList size={12} className="text-[#10b981]" />
+            Contexto de la apuesta
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowSupportingData((p) => !p)}
+            className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text)] transition-colors border border-[var(--border)] px-2.5 py-1 rounded-lg"
+          >
+            {showSupportingData ? "Ocultar" : "Mostrar"}
+          </button>
+        </div>
+
+        {showSupportingData && (
+          <SupportingDataGrid
+            stats={supportingStats}
+            scope={activeScope}
+            sampleLabel={currentSampleLabel}
+            loading={sampleLoading}
+            error={sampleError}
+            activeStat={activeStat}
+            activeStatLabel={activeStatLabel}
+            onFilterChange={handleMetricFilter}
+            correlatedMetric={correlatedMetric}
+            resetToken={filterResetCount}
+          />
+        )}
+      </div>
+  );
+
 
   return (
     <div className="space-y-5">
       <FloatingPlayerIdentity playerName={playerName || "Jugador"} statLabel={activeStatLabel} scope={activeScope} />
+      {gameContext&&<p className="text-xs font-bold text-[var(--text-muted)]">Partido: {gameContext.away} – {gameContext.home} · {gameContext.date.split('-').reverse().join('/')} · Estadísticas anteriores a esa fecha.</p>}
       {/* MENÚ DE ESTADÍSTICAS */}
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-3 shadow-xl">
         <div className="flex items-center justify-between gap-3 px-1">
@@ -1377,7 +1250,7 @@ export default function PlayerChartContainer({
         </div>
 
         <div className="order-3 w-full min-w-0 sm:w-[190px] lg:order-none lg:shrink-0">
-          <PlayerOddsComparison rows={currentPrices} line={Number(lineValue)} side={chartSide} loading={oddsLoading} error={oddsError}/>
+          <PlayerOddsComparison selectedBook={selectedBook} onSelectBook={setSelectedBook} rows={currentPrices} line={Number(lineValue)} side={chartSide} loading={oddsLoading} error={oddsError} eventReady={!!gameContext} eventRows={eventOdds} market={activeStat} scope={activeScope} onSelectLine={value=>{setLineValue(value);setSelectedBook(null);}} onRetry={()=>setOddsRetry(n=>n+1)}/>
         </div>
 
         <div className="flex items-center gap-6 md:gap-8 w-full md:w-auto justify-between md:justify-end">
@@ -1427,16 +1300,17 @@ export default function PlayerChartContainer({
             <span
               className={`text-3xl font-black tabular-nums leading-none ${hitRateNumber >= 50 ? "text-[#10b981]" : "text-red-500"}`}
             >
-              {hitRate}%
+              {hitRate}{selection.rate===null?"":"%"}
             </span>
           </div>
         </div>
       </div>
 
       {/* SHARE BUTTON */}
-      <div className="flex justify-end">
-        <ShareButton onShare={shareCurrentAnalysisUrl} />
-      </div>
+
+      {!analyzerStorageKey&&<div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#10b981]/25 p-3"><PlayerEventControl event={pageEvent}/><span className="ml-auto"><ShareButton onShare={shareCurrentAnalysisUrl}/></span></div>}
+      {analyzerStorageKey&&<AddSelectionToAnalyzer storageKey={analyzerStorageKey} playerId={playerId||''} playerName={playerName||''} stat={activeStat} scope={activeScope} side={chartSide} line={Number(lineValue)} context={gameContext} team={pageEvent.team??playerTeam} managedEvent={pageEvent} onShare={shareCurrentAnalysisUrl} quotes={currentPrices} book={selectedBook} />}
+
 
       {/* FILTROS ACTIVOS — internos (sliders) + externos (W/O) en un solo lugar */}
       <StatFilters
@@ -1459,6 +1333,7 @@ export default function PlayerChartContainer({
         {/* FILTROS GLOBALES — panel lateral limpio */}
         <div className="2xl:order-2 2xl:sticky 2xl:top-4 rounded-[1.5rem] border border-[#10b981]/20 bg-[var(--surface)] p-3 shadow-xl shadow-[#10b981]/5 overflow-hidden">
           <div className="flex flex-col gap-3">
+            <DefenseContextCard state={defense} opponent={defenseOpponent} scope={activeScope} side={chartSide}/>
             <div className="flex items-center justify-between gap-2">
               <span className="text-[9px] font-black uppercase tracking-widest text-cyan-300">Temporada</span>
               <button
@@ -1473,22 +1348,8 @@ export default function PlayerChartContainer({
             <div className="grid grid-cols-3 gap-1 rounded-xl border border-[var(--border)] bg-[var(--bg)] p-1" role="group" aria-label="Fase de la temporada">
               {PHASE_OPTIONS.map(option=><button type="button" key={option.value} aria-pressed={seasonPhase===option.value} title={option.label} onClick={()=>setSeasonPhase(option.value)} className={`min-w-0 rounded-lg px-1 py-2 text-[9px] font-black uppercase ${seasonPhase===option.value?'bg-cyan-400/15 text-cyan-300':'text-[var(--text-muted)] hover:text-[var(--text)]'}`}>{option.value==='Regular Season'?'Regular':option.label}</button>)}
             </div>
-            <PlayerAbsenceFilter playerId={String(playerId || '')} scope={absenceMode} team={absenceTeamFilter} onScopeChange={changeAbsenceMode} onTeamChange={changeAbsenceTeam} selected={effectiveAbsences} onChange={changeAbsences} emptyReason={absenceEmptyMessage(effectiveAbsences,currentAbsence.matches)} loading={currentAbsence.loading} error={currentAbsence.error} onRetry={()=>setAbsenceRetry(n=>n+1)}/>
+            <PlayerAbsenceFilter playerId={String(playerId || '')} scope={absenceMode} team={absenceTeamFilter} onScopeChange={changeAbsenceMode} onTeamChange={changeAbsenceTeam} selected={effectiveAbsences} onChange={changeAbsences} emptyReason={absenceEmptyMessage(effectiveAbsences,currentAbsence.matches)} loading={currentAbsence.loading} error={currentAbsence.error} onRetry={()=>setAbsenceRetry(n=>n+1)} comparison={comparisonMarket(activeStat)?{market:comparisonMarket(activeStat)!,scope:activeScope,side:chartSide,line:Number(lineValue),asOfDate:historyCutoff??eventDate,phase:seasonPhase,lastN:lastN>=999?1000:lastN,opponent:chartOpponent||null,homeAway:chartHomeAway,minMinutes:chartHistMinMinutes,thresholds:[...activeFilters,...externalFilters].filter(f=>f.type==='threshold'&&f.value!==undefined).map(f=>({metric:f.id.replace('threshold:',''),value:Number(f.value)})),unsupportedFilters:[...activeFilters,...externalFilters].some(f=>f.type==='wo')||defense.band!=='all'}:undefined}/>
 
-            {hasActiveInjuryContext && (
-              <ActiveInjuryContextCard
-                rows={activeInjuryRows}
-                playerId={playerId}
-                gameDate={effectiveInjuryContextDate}
-                activeWoTeammate={activeWoTeammate}
-                onApplyWo={(row) =>
-                  setActiveWoTeammate(
-                    String(row?.absent_teammate || "").trim() || null,
-                  )
-                }
-                onClearWo={() => setActiveWoTeammate(null)}
-              />
-            )}
 
             {isHistoricalChartMode && (
               <>
@@ -1687,16 +1548,14 @@ export default function PlayerChartContainer({
                   )}
                   {!historicalChartLoading && historicalChartData?.summary && !effectiveAbsences.length && (
                     <>
+                      <span title="Histórico con rival, cancha, minutos y fase seleccionados; no se limita a L5/L10/L20/L30 ni a los filtros de las tarjetas." className="text-[var(--text-muted)]">Histórico · {historicalChartData.summary.games} PJ</span>
                       <span className="rounded-lg border border-[#10b981]/25 bg-[#10b981]/10 px-2 py-1 text-[#10b981]">
-                        {historicalChartData.summary.hits}/
-                        {historicalChartData.summary.games}
+                        {historicalChartData.summary.hitRatePct==null?"S/D":`${historicalChartData.summary.hits}/${historicalChartData.summary.decided ?? historicalChartData.summary.games}`}
                       </span>
                       <span className="rounded-lg border border-cyan-400/25 bg-cyan-400/10 px-2 py-1 text-cyan-300">
                         HR{" "}
-                        {Number(
-                          historicalChartData.summary.hitRatePct ?? 0,
-                        ).toFixed(1)}
-                        %
+                        {historicalChartData.summary.hitRatePct==null?"S/D":Number(historicalChartData.summary.hitRatePct).toFixed(1)}
+                        {historicalChartData.summary.hitRatePct==null?"":"%"}
                       </span>
                       <span className="rounded-lg border border-orange-400/25 bg-orange-400/10 px-2 py-1 text-orange-300">
                         AVG {historicalChartData.summary.avg ?? "S/D"}
@@ -1755,10 +1614,11 @@ export default function PlayerChartContainer({
             </div>
 
 
+            {isFullScope&&<PlayerSecondaryControl market={activeStat} marketLabel={activeStatLabel} choice={effectiveSecondaryChoice} onChange={setSecondaryChoice} rows={chartStats} disabled={sampleLoading||!!sampleError}/>}
             {!isFullScope && periodLoading && <p className="mb-3 text-xs text-cyan-300">Cargando datos de períodos…</p>}
             {!isFullScope && periodError && <p className="mb-3 text-xs text-amber-300">{periodError}</p>}
             <div className="min-h-[470px] w-full relative">
-              {isHistoricalChartMode && historicalChartLoading && (
+              {isHistoricalChartMode && (pageEvent.loading||historicalChartLoading) && (
                 <div className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-black/45 backdrop-blur-sm">
                   <div className="flex items-center gap-2 rounded-2xl border border-cyan-400/25 bg-cyan-400/10 px-4 py-3 text-xs font-black uppercase tracking-widest text-cyan-300">
                     <Loader2 size={16} className="animate-spin" /> Cargando
@@ -1771,10 +1631,11 @@ export default function PlayerChartContainer({
                 statKey="value"
                 lineValue={lineValue}
                 side={chartSide}
-                overlayKey={opportunityOverlay?.key}
+                overlayKey={opportunityOverlay?.id}
                 overlayLabel={opportunityOverlay?.label}
                 overlayColor={opportunityOverlay?.color}
-                overlayRatioLabel={opportunityOverlay?.ratioLabel}
+                overlayValueReader={opportunityOverlay?(row)=>secondaryValue(row,opportunityOverlay.id):undefined}
+                overlayAxis={isFullScope?"right":"left"}
               />
             </div>
           </div>
@@ -1785,16 +1646,16 @@ export default function PlayerChartContainer({
       {analysisMode === "simple" ? (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
           {[
-            { label: "Prom. disponible", value: seasonAvgValue.toFixed(1), tone: "text-cyan-300", border: "border-cyan-400/25" },
-            { label: "Prom. filtrado", value: filteredAvgValue.toFixed(1), tone: "text-[#10b981]", border: "border-[#10b981]/25" },
-            { label: "Hit rate", value: `${hitRate}%`, tone: hitRateNumber >= 50 ? "text-[#10b981]" : "text-red-400", border: hitRateNumber >= 50 ? "border-[#10b981]/25" : "border-red-400/25" },
-            { label: "Línea", value: formatLineValue(lineValue, activeStat), tone: "text-orange-300", border: "border-orange-400/25" },
-            { label: "Diferencia", value: `${lineDifference >= 0 ? "+" : ""}${lineDifference.toFixed(1)}`, tone: lineDifference >= 0 ? "text-[#10b981]" : "text-red-400", border: lineDifference >= 0 ? "border-[#10b981]/25" : "border-red-400/25" },
+            { label: "Prom. histórico", sample:baseSampleLabel, value: seasonAvgValue===null?"S/D":seasonAvgValue.toFixed(1), tone: "text-cyan-300", border: "border-cyan-400/25" },
+            { label: "Prom. gráfico", sample:currentSampleLabel, value: filteredAvgValue===null?"S/D":filteredAvgValue.toFixed(1), tone: "text-[#10b981]", border: "border-[#10b981]/25" },
+            { label: "Hit rate", sample:`${currentSampleLabel} · ${selection.decided} decididos`, value: selection.rate===null?"S/D":`${hitRate}%`, tone: hitRateNumber >= 50 ? "text-[#10b981]" : "text-red-400", border: hitRateNumber >= 50 ? "border-[#10b981]/25" : "border-red-400/25" },
+            { label: "Línea", sample:activeScopeOption.label, value: formatLineValue(lineValue, activeStat), tone: "text-orange-300", border: "border-orange-400/25" },
+            { label: "Diferencia", sample:currentSampleLabel, value: lineDifference===null?"S/D":`${(lineDifference ?? -1) >= 0 ? "+" : ""}${lineDifference.toFixed(1)}`, tone: (lineDifference ?? -1) >= 0 ? "text-[#10b981]" : "text-red-400", border: (lineDifference ?? -1) >= 0 ? "border-[#10b981]/25" : "border-red-400/25" },
           ].map((item) => (
             <div key={item.label} className={`rounded-2xl border bg-[var(--surface)] p-4 ${item.border}`}>
               <p className="text-[8px] font-black uppercase tracking-widest text-[var(--text-muted)]">{item.label}</p>
               <p className={`mt-1 text-2xl font-black tabular-nums ${item.tone}`}>{item.value}</p>
-              <p className="mt-1 text-[9px] font-bold uppercase tracking-widest text-[var(--text-muted)]">{activeStatLabel}</p>
+              <p className="mt-1 text-[9px] font-bold uppercase tracking-widest text-[var(--text-muted)]">{item.sample} · {activeStatLabel}</p>
             </div>
           ))}
         </div>
@@ -1808,10 +1669,10 @@ export default function PlayerChartContainer({
           <p
             className={`text-2xl font-black ${hitRateNumber >= 50 ? "text-[#10b981]" : "text-red-500"}`}
           >
-            {hits}/{metricStats.length}
+            {selection.rate===null?"S/D":`${hits}/${selection.decided}`}
           </p>
           <p className="text-[9px] text-[var(--text-muted)] font-black uppercase tracking-widest mt-1">
-            {trendLabel}
+            {trendLabel}{selection.pushes?` · ${selection.pushes} empates`:""}{selection.missing?` · ${selection.missing} S/D`:""}
           </p>
         </div>
 
@@ -1854,7 +1715,7 @@ export default function PlayerChartContainer({
           </p>
           <p className="text-sm font-black text-[#10b981] uppercase flex items-center gap-2">
             <Gauge size={14} />{" "}
-            {lowMinuteGames > 0
+            {sampleLoading ? "Cargando muestra" : sampleError ? "No disponible" : !metricStats.length ? "Sin muestra" : minutesValues.length!==metricStats.length ? "Minutos sin confirmar" : !isFullScope ? "Minutos del período" : lowMinuteGames > 0
               ? `${lowMinuteGames} baja min.`
               : "Muestra limpia"}
           </p>
@@ -1871,12 +1732,19 @@ export default function PlayerChartContainer({
       </div>
       )}
 
+      {isFullScope&&<PlayerChangeCard rows={changeRows} referenceRows={changeReferenceRows} market={activeStat} marketLabel={activeStatLabel} cutoff={historyCutoff??eventDate} playerId={playerId} loading={sampleLoading} error={sampleError}/>}
+      {analysisMode === "simple" && marketContext}
+
       {analysisMode === "pro" && <>
       {/* PICK INSIGHT PANEL */}
       <PickInsightPanel
         stats={metricStats}
         lineValue={lineValue}
         activeStatLabel={activeStatLabel}
+        side={chartSide}
+        loading={sampleLoading}
+        error={sampleError}
+        scope={activeScope}
         hitRate={hitRateNumber}
         hits={hits}
         avgValue={avgValue}
@@ -1884,36 +1752,10 @@ export default function PlayerChartContainer({
         lastN={metricStats.length}
       />
 
-      {/* CONTEXTO DE OPORTUNIDAD Y PRODUCCIÓN */}
-      <div>
-        <div className="flex items-center justify-between mb-3 px-1">
-          <p className="text-[9px] text-cyan-300 font-black uppercase tracking-widest flex items-center gap-2">
-            <LayoutList size={12} className="text-[#10b981]" />
-            Contexto de la apuesta
-          </p>
-          <button
-            type="button"
-            onClick={() => setShowSupportingData((p) => !p)}
-            className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text)] transition-colors border border-[var(--border)] px-2.5 py-1 rounded-lg"
-          >
-            {showSupportingData ? "Ocultar" : "Mostrar"}
-          </button>
-        </div>
-
-        {showSupportingData && (
-          <SupportingDataGrid
-            stats={supportingStats}
-            activeStat={activeStat}
-            activeStatLabel={activeStatLabel}
-            onFilterChange={handleMetricFilter}
-            correlatedMetric={correlatedMetric}
-            resetToken={filterResetCount}
-          />
-        )}
-      </div>
+      {marketContext}
 
       {/* EXPLORADOR HISTÓRICO — separado de la data actual para evitar timeouts y no romper Q1/H1/H2 */}
-      {seasonPhase === "ALL" && !effectiveAbsences.length && <PlayerHistoricalExplorer
+      {isFullScope && seasonPhase === "ALL" && !effectiveAbsences.length && <PlayerHistoricalExplorer
         playerId={playerId}
         playerName={playerName || ""}
         activeStat={activeStat}
@@ -1935,6 +1777,8 @@ export default function PlayerChartContainer({
         stats={metricStats}
         lineValue={lineValue}
         activeStatLabel={activeStatLabel}
+        side={chartSide}
+        loading={sampleLoading}
         activeScopeLabel={activeScopeOption.label}
         activeStat={activeStat}
         formatLine={(v) => formatLineValue(v, activeStat)}

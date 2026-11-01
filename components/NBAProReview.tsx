@@ -2,14 +2,16 @@
 import AnalysisAccordion from "@/components/AnalysisAccordion";
 import {useMemo,useState} from 'react';
 import {evaluateForecast,roleExplanation,type AnalysisSample} from '@/lib/nbaAnalysis';
-import {ROLE_METRICS,summarizeRole} from '@/lib/nbaRole';
+import {ROLE_METRICS,roleValue,summarizeRole} from '@/lib/nbaRole';
 const fmt=(n:number|null)=>n===null?'S/D':n.toLocaleString('es-AR',{maximumFractionDigits:1});
 const muted='text-xs leading-5 text-[var(--text-muted)]';
 export default function NBAProReview({sample}:{sample:AnalysisSample|null}){
  const [mode,setMode]=useState<'game'|'per36'>('game');
  const report=useMemo(()=>sample&&!sample.loading&&!sample.error?evaluateForecast(sample.trainingRows,sample.market,sample.scope):null,[sample]);
  if(!sample)return <section className="rounded-2xl border border-cyan-400/20 p-4"><p className={muted}>Preparando la muestra del gráfico…</p></section>;
- const rows=[...sample.rows].sort((a,b)=>String(b.game_date).localeCompare(String(a.game_date)));
+ const rows=[...(sample.loading||sample.error?[]:sample.rows)].sort((a,b)=>String(b.game_date).localeCompare(String(a.game_date)));
+ const canPer36=rows.length>0&&rows.every(row=>(roleValue(row,ROLE_METRICS[0])??0)>0);
+ const effectiveMode=mode==='per36'&&!canPer36?'game':mode;
  const scope={FULL:'Partido completo',Q1:'Primer cuarto',H1:'Primera mitad',H2_REG:'Segunda mitad sin prórroga'}[sample.scope];
  return <section className="space-y-4 rounded-2xl border border-cyan-400/25 bg-[var(--surface)] p-4 md:p-5">
   <h2 className="text-lg font-black text-[var(--text)]">Rol y rendimiento</h2>
@@ -20,8 +22,9 @@ export default function NBAProReview({sample}:{sample:AnalysisSample|null}){
   {!rows.length?<p className={muted}>No hay partidos para analizar con este período y filtros. No se reemplazan por el partido completo.</p>:<>
   <AnalysisAccordion title="Minutos y oportunidades" icon="role">
    <p className={`${muted} mt-3`}>Compará cuánto juega, cuántas oportunidades tiene y qué produce. “Por 36 minutos” permite comparar su participación aunque cambie el tiempo en cancha.</p>
-   <div className="my-3 flex gap-2">{(['game','per36']as const).map(value=><button type="button" key={value} aria-pressed={mode===value} onClick={()=>setMode(value)} className={`rounded-lg border px-3 py-2 text-xs ${mode===value?'border-cyan-400 text-cyan-300':'border-[var(--border)]'}`}>{value==='game'?'Por partido / período':'Por 36 minutos'}</button>)}</div>
-   <div className="overflow-x-auto"><table className="w-full min-w-[540px] text-xs"><thead><tr><th className="p-2 text-left">Métrica</th>{['Partidos del gráfico','Últimos 10','Últimos 5'].map(label=><th key={label} className="p-2 text-right">{label}</th>)}</tr></thead><tbody>{ROLE_METRICS.map(metric=><tr key={metric.id} className="border-t border-[var(--border)]"><th className="p-2 text-left">{metric.label}</th>{[rows,rows.slice(0,10),rows.slice(0,5)].map((group,index)=>{const result=summarizeRole(group,metric,mode);return <td key={index} className="p-2 text-right"><strong>{fmt(result.value)}{result.value!==null&&metric.percent?'%':''}</strong><div className="text-[10px] text-[var(--text-muted)]">{result.count}/{result.total} PJ{result.invalid?` · ${result.invalid} inconsistentes`:''}</div></td>;})}</tr>)}</tbody></table></div>
+   <div className="my-3 flex gap-2">{(['game','per36']as const).map(value=><button type="button" key={value} disabled={value==='per36'&&!canPer36} title={value==='per36'&&!canPer36?'Faltan minutos comprobados de este período.':undefined} aria-pressed={effectiveMode===value} onClick={()=>setMode(value)} className={`rounded-lg border px-3 py-2 text-xs ${effectiveMode===value?'border-cyan-400 text-cyan-300':'border-[var(--border)]'}`}>{value==='game'?'Por partido / período':'Por 36 minutos'}</button>)}</div>
+   {!canPer36&&<p className={muted}>Por 36 desactivado: faltan minutos comprobados para esta muestra. MIN corresponde al período elegido.</p>}
+   <div className="overflow-x-auto"><table className="w-full min-w-[540px] text-xs"><thead><tr><th className="p-2 text-left">Métrica</th>{['Partidos del gráfico','Últimos 10','Últimos 5'].map(label=><th key={label} className="p-2 text-right">{label}</th>)}</tr></thead><tbody>{ROLE_METRICS.map(metric=><tr key={metric.id} className="border-t border-[var(--border)]"><th className="p-2 text-left">{metric.label}</th>{[rows,rows.slice(0,10),rows.slice(0,5)].map((group,index)=>{const result=summarizeRole(group,metric,effectiveMode);return <td key={index} className="p-2 text-right"><strong>{fmt(result.value)}{result.value!==null&&metric.percent?'%':''}</strong><div className="text-[10px] text-[var(--text-muted)]">{result.count}/{result.total} PJ{result.invalid?` · ${result.invalid} inconsistentes`:''}</div></td>;})}</tr>)}</tbody></table></div>
    <details className="mt-3"><summary className="cursor-pointer text-xs text-cyan-300">Qué significa cada métrica</summary><dl className="mt-2 space-y-2 text-xs text-[var(--text-muted)]"><div><dt className="font-bold">Uso ofensivo</dt><dd>Porcentaje de posesiones del equipo que termina el jugador mientras está en cancha.</dd></div><div><dt className="font-bold">Toques</dt><dd>Veces que recibe o controla el balón.</dd></div><div><dt className="font-bold">Asistencias potenciales</dt><dd>Pases que generan un intento de tiro; cuentan aunque el compañero falle.</dd></div><div><dt className="font-bold">Oportunidades de rebote</dt><dd>Veces que está cerca del balón en una situación de rebote; no son rebotes asegurados.</dd></div><div><dt className="font-bold">Tiros intentados y tiros libres intentados</dt><dd>Volumen de lanzamientos, independientemente de si los convierte.</dd></div><div><dt className="font-bold">Puntos, asistencias y rebotes</dt><dd>Resultados reales del período elegido.</dd></div></dl></details>
    <div className="mt-3 space-y-2 rounded-lg bg-cyan-400/5 p-3">{roleExplanation(rows).map(text=><p className={muted} key={text}>{text}</p>)}</div>
    <p className={muted}>S/D = sin datos. Debajo de cada valor se indica cuántos partidos tienen datos válidos; los inconsistentes se excluyen de ese promedio.</p>

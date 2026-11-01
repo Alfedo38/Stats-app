@@ -147,12 +147,21 @@ def summaries(directory,manifest,c=None,*,summary_data=None):
                 result.append({'zone':z,'attempts':a['attempts'],'made':a['made'],'games':len(games),'league_attempts':sum(v['attempts'] for v in lv),'league_made':sum(v['made'] for v in lv),'league_team_games':len(league[k])})
             defense[k+'/'+t]=sorted(result,key=lambda r:-r['attempts'])
     fouls,positions=summary_data if summary_data is not None else summary_inputs(c)
+    # DEFENSE_SNAPSHOT_V1: cálculo local; comparte publicación y verificación del índice.
+    from .defense_snapshot import archive_parts as defense_parts
+    defense_parts(directory,manifest,positions,load_part,save_part)
     payload={'recent':recent,'defense':defense,'teamDates':{k:sorted(v) for k,v in dates.items()},'players':players,'positions':positions,'fouls':fouls}
     manifest['parts']['summaries']=save_part(directory,'summaries',payload)
     # Los objetos de resumen son objetos JSON, no listas.
     manifest['parts']['summaries']['rows']=len(payload)
 
 def export(upload=False):
+    # REBOUND_HISTORY_V1: un único escritor del índice y sus partes locales.
+    from .rebound_history import archive_guard
+    with archive_guard(STATE):
+        return _export_with_rebounds(upload)
+
+def _export_with_rebounds(upload=False):
     directory=STATE/'archive';directory.mkdir(parents=True,exist_ok=True)
     manifest=read_manifest(directory);db=engine()
     # NBA_ARCHIVE_TIMEOUT_FIX_V2: no compresión ni hashing dentro de la transacción.
@@ -189,6 +198,8 @@ def export(upload=False):
     # POTENTIAL_HISTORY_V1
     from .potential_history import enrich_archive
     enrich_archive(directory,manifest,load_part,save_part)
+    from .rebound_history import enrich_archive as enrich_rebounds
+    enrich_rebounds(directory,manifest,load_part,save_part)
     summaries(directory,manifest,summary_data=summary_data)
     manifest['updated_at']=datetime.now(timezone.utc).isoformat()
     manifest['counts']={kind:sum(m['rows'] for n,m in manifest['parts'].items() if n.startswith(kind+'/')) for kind in SOURCES}

@@ -27,6 +27,7 @@ export function roleNumber(raw: unknown, metric?: RoleMetric): number | null {
   return value;
 }
 export function roleValue(row: RoleRow, metric: RoleMetric): number | null {
+  if (metric.minutes && ['Q1','H1','H2','H2_REG'].includes(String(row.period_scope??row.split_code??'').toUpperCase()) && row.period_minutes_verified!==true) return null;
   for (const key of metric.keys) {
     const value = roleNumber(row[key], metric);
     if (value !== null) return value;
@@ -38,7 +39,7 @@ export function compactRoleRows(rows: RoleRow[]): RoleRow[] {
   return rows.map(row => ({
     game_id: row.game_id, game_date: row.game_date ?? row.date,
     season: row.season ?? row.season_id, season_type: row.season_type,
-    split_code: row.split_code,
+    split_code: row.split_code, period_scope:row.period_scope, period_minutes_verified:row.period_minutes_verified, minutes_scope:row.minutes_scope, full_game_minutes:row.full_game_minutes,
     ...Object.fromEntries(ROLE_METRICS.map(metric => {
       const value = roleValue(row, metric);
       return [metric.keys[0], metric.percent && value !== null ? `${value}%` : value];

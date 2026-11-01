@@ -44,7 +44,7 @@ export function priceAt(rows:PriceQuote[],book:string,line:number,side:'over'|'u
  const quote=quotes[0];if(!quote)return null;const price=decimalPrice(side==='over'?quote.over_price:quote.under_price);return price===null?null:{price,updatedAt:quoteTime(quote.updated_at)||null};
 }
 export function groupUniversalQuotes(rows:Record<string,any>[]):PriceQuote[]{
- const grouped=new Map<string,PriceQuote>(),seenSides=new Set<string>();
+ const grouped=new Map<string,PriceQuote>(),states=new Map<string,{time:string;price:number|null}>();
  for(const row of [...rows].sort((a,b)=>quoteTime(b.scraped_at_utc).localeCompare(quoteTime(a.scraped_at_utc)))){
   const book=oddsBook(row.book),market=oddsMarket(row.stat_key),scope=oddsScope(row.period_scope??row.period??row.scope??row.market_scope),line=oddsNumber(row.model_line??row.threshold),price=decimalPrice(row.odds_decimal);
   if(!book||!market||!scope||line===null||line<0||!['over','under'].includes(String(row.side).toLowerCase()))continue;
@@ -54,7 +54,10 @@ export function groupUniversalQuotes(rows:Record<string,any>[]):PriceQuote[]{
   const key=`${book}|${eventKey}|${scope}|${market}|${line}`;
   const quote=grouped.get(key)??{player_name:row.jugador??row.player_norm??'',prop_type:market,line,matchup:row.partido||row.game_norm||null,over_price:null,under_price:null,updated_at:quoteTime(row.scraped_at_utc)||null,book,scope,event_key:eventKey,event_date:date,source:'universal'};
   const field=String(row.side).toLowerCase()==='over'?'over_price':'under_price';
-  const sideKey=`${key}|${field}`;if(!seenSides.has(sideKey)){quote[field]=price;seenSides.add(sideKey);}
+  const sideKey=`${key}|${field}`,flags=[row.active,row.is_active].filter(v=>v!==undefined&&v!==null);
+  const enabled=flags.every(v=>v===true||v===1||['true','t','1'].includes(String(v).toLowerCase())),nextPrice=enabled?price:null,time=quoteTime(row.scraped_at_utc),previous=states.get(sideKey);
+  if(!previous){quote[field]=nextPrice;states.set(sideKey,{time,price:nextPrice});}
+  else if(previous.time===time&&previous.price!==nextPrice)quote[field]=null;
   grouped.set(key,quote);
  }
  return [...grouped.values()];

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {resolve,dirname} from 'node:path';
-import {createHash} from 'node:crypto';
+import {createHash,randomUUID} from 'node:crypto';
 import {gzipSync} from 'node:zlib';
 import ts from 'typescript';
 const fixture={facts:[{player_id:1,player_name:'Test Player',game_id:'0022600001',game_date:'2026-10-20',season:'2026-27',season_type:'Regular Season',team_abbreviation:'BOS',min:30,pts:20,reb:8,ast:6}],shots:[{player_id:1,game_id:'0022600001',game_date:'2026-10-20',game_event_id:1,shot_made_flag:1}],matchups:[{offensive_player_id:1,defensive_player_id:2,partial_possessions:10,game_date:'2026-10-20'}]};
@@ -21,7 +21,7 @@ function loader(){
   const js=ts.transpileModule(readFileSync(path,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;
   function req(name){
    if(name==='server-only')return {};
-   if(name.startsWith('node:'))return name==='node:crypto'?{createHash}:name==='node:zlib'?{gunzipSync:(...a)=>requireNativeGunzip(...a)}:{};
+   if(name.startsWith('node:'))return name==='node:crypto'?{createHash,randomUUID}:name==='node:zlib'?{gunzipSync:(...a)=>requireNativeGunzip(...a)}:{};
    if(name==='@/lib/prisma'||name==='./prisma')return {__esModule:true,default:prisma};
    if(name==='@/lib/auth/server')return {withAuth:fn=>{wrapped++;return fn;}};
    if(name==='next/server')return {NextResponse:{json:(data,init={})=>({data,status:init.status??200}),next:()=>({next:true,headers:new Map()}),redirect:()=>({status:307})}};
@@ -36,7 +36,7 @@ import {gunzipSync as requireNativeGunzip} from 'node:zlib';
 const original=globalThis.fetch;let corrupt=false;
 globalThis.fetch=async(url,options)=>{
  assert.equal(options.headers.Authorization,'Bearer TEST_ONLY');
- const name=String(url).split('/nba-history/')[1];let bytes=objects.get(name);
+ const name=String(url).split('/nba-history/')[1]?.split('?')[0];let bytes=objects.get(name);
  if(!bytes)return {ok:false,status:404};
  if(corrupt&&name!=='manifest.json')bytes=Buffer.from('alterado');
  return {ok:true,arrayBuffer:async()=>bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength)};

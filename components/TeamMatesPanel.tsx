@@ -14,6 +14,7 @@
 "use client";
 
 import Link from "next/link";
+import {parseGameContext,playerGameHref} from "@/lib/playerNavigation";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -331,13 +332,15 @@ function PlayerRow({
   isCurrent: boolean;
   dimmed: boolean;
 }) {
+  const rowParams=useSearchParams();
+  const rowContext=parseGameContext(rowParams);
   const injStatus = player.injury_status;
   const statusCfg = injStatus ? STATUS_DOT[injStatus] : null;
   const isOut     = injStatus === "OUT";
 
   return (
     <Link
-      href={`/players/${player.id}`}
+      href={playerGameHref(player.id,rowContext,player.team_abbreviation||player.team)}
       className={`group flex items-center gap-3 rounded-2xl p-3 transition-all border ${
         isCurrent
           ? "bg-[#10b981]/10 border-[#10b981]/40"
@@ -738,7 +741,7 @@ export default function TeamMatesPanel({
           )}
         </div>
 
-        <CurrentPlayerOddsCard player={currentPlayer} stakeOdds={stakeOdds} />
+
       </div>
 
       {/* ── Lista de jugadores ──────────────────────────────────────────────── */}

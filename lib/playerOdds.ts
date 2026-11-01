@@ -1,139 +1,27 @@
 import prisma from './prisma';
-import { Prisma } from '@prisma/client';
-import { canonicalOddsPlayerName, oddsPlayerNameCandidates, matchesOddsPlayer } from './oddsPlayerNames';
-// BET365_NAME_ORDER_V1
-
-import {groupUniversalQuotes,type PriceQuote} from './nbaOdds';
+import {Prisma} from '@prisma/client';
+import {canonicalOddsPlayerName,oddsPlayerNameCandidates,matchesOddsPlayer} from './oddsPlayerNames';
+import {groupUniversalQuotes,oddsBook,type PriceQuote} from './nbaOdds';
 export type StakePlayerOdd=PriceQuote;
-
-function normalizeName(value: string | null | undefined) {
-  return canonicalOddsPlayerName(value);
+export type PlayerOddsSnapshot={odds:PriceQuote[];availability:'ready'|'unavailable';reason:'OK'|'SOURCE_UNAVAILABLE'|'CANDIDATE_LIMIT'};
+const cache=new Map<string,{until:number;value:Promise<PlayerOddsSnapshot>}>();
+export function getPlayerOddsSnapshot(playerName:string,options:{books?:string[]}={}):Promise<PlayerOddsSnapshot>{
+ const target=canonicalOddsPlayerName(playerName),books=[...new Set((options.books??[]).map(oddsBook).filter((b):b is string=>!!b))].sort();
+ if(!target)return Promise.resolve({odds:[],availability:'ready',reason:'OK'});
+ const key=JSON.stringify([target,books]),old=cache.get(key);if(old&&old.until>Date.now())return old.value;
+ const value=(async():Promise<PlayerOddsSnapshot>=>{try{
+  const names=oddsPlayerNameCandidates(target),filter=books.length?Prisma.sql`AND lower(book) IN (${Prisma.join(books)})`:Prisma.empty;
+  const rows=await prisma.$queryRaw<Record<string,unknown>[]>(Prisma.sql`SELECT book,jugador,player_norm,stat_key,side,model_line,threshold,odds_decimal,partido,game_norm,scraped_at_utc,
+   COALESCE(NULLIF(to_jsonb(o)->>'period_scope',''),NULLIF(to_jsonb(o)->>'scope',''),NULLIF(to_jsonb(o)->>'market_scope',''),NULLIF(to_jsonb(o)->>'period','')) AS period_scope,
+   COALESCE(NULLIF(to_jsonb(o)->>'event_date',''),NULLIF(to_jsonb(o)->>'game_date',''),NULLIF(to_jsonb(o)->>'start_time','')) AS event_date,
+   to_jsonb(o)->>'active' AS active,to_jsonb(o)->>'is_active' AS is_active
+   FROM public.latest_player_prop_odds_cache o WHERE lower(btrim(player_norm)) IN (${Prisma.join(names)}) ${filter}
+   ORDER BY scraped_at_utc DESC LIMIT 4001`);
+  if(rows.length>4000)return {odds:[],availability:'unavailable',reason:'CANDIDATE_LIMIT'};
+  return {odds:groupUniversalQuotes(rows.filter(row=>matchesOddsPlayer(row.jugador,row.player_norm,target))),availability:'ready',reason:'OK'};
+ }catch{return {odds:[],availability:'unavailable',reason:'SOURCE_UNAVAILABLE'};}})();
+ if(cache.size>=32)cache.delete(cache.keys().next().value!);cache.set(key,{until:Date.now()+30000,value});
+ void value.then(result=>{if(result.availability==='unavailable'&&cache.get(key)?.value===value)cache.delete(key);});return value;
 }
-
-function toNumberOrNull(value: any): number | null {
-  if (value === null || value === undefined || value === '') return null;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
-}
-
-function toTextOrNull(value: any): string | null {
-  if (value === null || value === undefined) return null;
-  return String(value);
-}
-
-function oddSortValue(odd: StakePlayerOdd) {
-  const book = String(odd.book || 'stake');
-  const prop = String(odd.prop_type || '');
-  const line = Number(odd.line ?? 9999);
-  return `${prop.padEnd(8, ' ')}_${line.toString().padStart(8, '0')}_${book}`;
-}
-
-function normalizeBooks(books?: string[]) {
-  return Array.from(new Set((books || []).map((b) => String(b).trim().toLowerCase()).filter(Boolean)));
-}
-
-async function getUniversalOdds(
-  target: string,
-  options: { books?: string[] } = {}
-): Promise<StakePlayerOdd[]> {
-  try {
-    const books = normalizeBooks(options.books);
-    const nameCandidates = oddsPlayerNameCandidates(target);
-
-    const rows = books.length > 0
-      ? await prisma.$queryRaw<any[]>(Prisma.sql`
-          SELECT
-            book,
-            jugador,
-            player_norm,
-            stat_key,
-            side,
-            model_line,
-            threshold,
-            odds_decimal,
-            partido,
-            game_norm,
-            scraped_at_utc,
-            COALESCE(to_jsonb(o)->>'period_scope',to_jsonb(o)->>'scope',to_jsonb(o)->>'market_scope',to_jsonb(o)->>'period') AS period_scope,
-            COALESCE(to_jsonb(o)->>'event_date',to_jsonb(o)->>'game_date',to_jsonb(o)->>'start_time') AS event_date
-          FROM public.latest_player_prop_odds_cache o
-          WHERE lower(book) IN (${Prisma.join(books)})
-            AND player_norm IN (${Prisma.join(nameCandidates)})
-          ORDER BY stat_key ASC, COALESCE(model_line, threshold) ASC, book ASC, side ASC, scraped_at_utc DESC
-        `)
-      : await prisma.$queryRaw<any[]>(Prisma.sql`
-          SELECT
-            book,
-            jugador,
-            player_norm,
-            stat_key,
-            side,
-            model_line,
-            threshold,
-            odds_decimal,
-            partido,
-            game_norm,
-            scraped_at_utc,
-            COALESCE(to_jsonb(o)->>'period_scope',to_jsonb(o)->>'scope',to_jsonb(o)->>'market_scope',to_jsonb(o)->>'period') AS period_scope,
-            COALESCE(to_jsonb(o)->>'event_date',to_jsonb(o)->>'game_date',to_jsonb(o)->>'start_time') AS event_date
-          FROM public.latest_player_prop_odds_cache o
-          WHERE player_norm IN (${Prisma.join(nameCandidates)})
-          ORDER BY stat_key ASC, COALESCE(model_line, threshold) ASC, book ASC, side ASC, scraped_at_utc DESC
-        `);
-
-    if (!Array.isArray(rows) || rows.length === 0) return [];
-
-    return groupUniversalQuotes(rows.filter(row => matchesOddsPlayer(row.jugador, row.player_norm, target)));
-
-  } catch (error) {
-    console.warn('PLAYER_ODDS_UNIVERSAL_UNAVAILABLE');
-    return [];
-  }
-}
-
-async function getLegacyStakeOdds(playerName: string): Promise<StakePlayerOdd[]> {
-  const target = normalizeName(playerName);
-  if (!target) return [];
-
-  const rows = await prisma.player_odds.findMany({
-    orderBy: [{ prop_type: 'asc' }],
-  });
-
-  return rows
-    .filter((row: any) => normalizeName(row.player_name) === target)
-    .map((row: any) => ({
-      player_name: row.player_name,
-      prop_type: row.prop_type,
-      line: toNumberOrNull(row.line),
-      matchup: row.matchup ?? null,
-      over_price: toNumberOrNull(row.over_price),
-      under_price: toNumberOrNull(row.under_price),
-      updated_at: row.updated_at ?? null,
-      book: 'stake',
-      scope: 'FULL',
-      source: 'legacy' as const,
-    }))
-    .sort((a, b) => oddSortValue(a).localeCompare(oddSortValue(b)));
-}
-
-export async function getPlayerOddsMultiBook(
-  playerName: string,
-  options: { books?: string[] } = {}
-): Promise<StakePlayerOdd[]> {
-  const target = normalizeName(playerName);
-  if (!target) return [];
-
-  const universal = await getUniversalOdds(target, options);
-  if (universal.length > 0) return universal;
-
-  const books = normalizeBooks(options.books);
-  if (books.length === 0 || books.includes('stake')) {
-    return getLegacyStakeOdds(playerName);
-  }
-
-  return [];
-}
-
-export async function getPlayerStakeOdds(playerName: string): Promise<StakePlayerOdd[]> {
-  return getPlayerOddsMultiBook(playerName, { books: ['stake'] });
-}
+export async function getPlayerOddsMultiBook(playerName:string,options:{books?:string[]}={}):Promise<StakePlayerOdd[]>{return (await getPlayerOddsSnapshot(playerName,options)).odds;}
+export async function getPlayerStakeOdds(playerName:string):Promise<StakePlayerOdd[]>{return getPlayerOddsMultiBook(playerName,{books:['stake']});}

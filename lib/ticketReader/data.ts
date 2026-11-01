@@ -9,6 +9,7 @@ import {playerKey,playerCandidates,reviewIdentity} from './identity';
 import {prepareGames} from './analysis';
 import {rosterFitsDate,resolveTeamContext} from './teamContext';
 import {ticketSchedule} from './calendar';
+import {readSelectionContext} from './contextData';
 
 async function directory(manifest?:ReaderManifest):Promise<PlayerOption[]>{
  const players=new Map<number,PlayerOption>();
@@ -67,9 +68,11 @@ export async function readAnalysis(leg:Leg,settings:Settings,archiveId?:string){
  if(coverage==='missing_period')warnings.push('Hay partidos del jugador, pero faltan los valores de este mercado o período. No se calcularon porcentajes.');
  const missing=games.slice(0,10).filter(g=>g.value===null).length;if(missing)warnings.push(`${missing} de los últimos ${Math.min(games.length,10)} partidos no tienen este mercado/período. No se cuentan como cero.`);
  if(leg.scope!=='FULL')warnings.push('Se usan exclusivamente datos del período elegido; los minutos mostrados corresponden al partido completo.');
- const quote=await lookupQuote({...leg,playerId:player.id,playerName:player.name,eventDate:settings.eventDate});
+ const resolved={...leg,playerId:player.id,playerName:player.name,playerTeam:team,eventDate:settings.eventDate};
+ const [quote,enrichment]=await Promise.all([lookupQuote(resolved),readSelectionContext(manifest,resolved,settings,teamContext).catch(()=>undefined)]);
+ if(!enrichment)warnings.push('No pudimos completar el contexto defensivo y médico. El historial se conserva.');
  if(leg.playerName!==player.name)warnings.push(`Nombre leído: ${leg.playerName}. Identidad verificada: ${player.name}.`);
- return {ok:true,result:{player:{...player,team},games,warnings,asOf:settings.eventDate,source:'Archivo NBA verificado',archiveId:manifest.id,coverage,quote,teamContext},resolvedLeg:{playerId:player.id,playerName:player.name,playerTeam:team,teamConfirmed:!!leg.teamConfirmed}};
+ return {ok:true,result:{player:{...player,team},games,warnings,asOf:settings.eventDate,source:'Archivo NBA verificado',archiveId:manifest.id,coverage,quote,teamContext,...(enrichment?{context:enrichment}:{})},resolvedLeg:{playerId:player.id,playerName:player.name,playerTeam:team,teamConfirmed:!!leg.teamConfirmed}};
 }
 
 export async function readerConnection(){

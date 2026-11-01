@@ -1,0 +1,19 @@
+'use client';
+import Link from 'next/link';
+import {useMemo,useEffect,useState} from 'react';
+import {useAnalysisQuery} from '@/hooks/useAnalysisQuery';
+import {selectPlayerInjury,reportDateLabel,reportTimeLabel,type InjuryReport} from '@/lib/injuryReport';
+import {parseGameContext,type GameContext} from '@/lib/playerNavigation';
+import {isDate} from '@/lib/ticketReader/model';
+import InjuryStatusBadge from './InjuryStatusBadge';
+export default function PlayerInjuryStatus({playerId,team,date,context}:{playerId:number;team:string|null;date:string;context:GameContext|null}){
+ const owner=[playerId,date,context?.away,context?.home].join('|');
+ const [live,setLive]=useState<{owner:string;date:string;context:GameContext|null}|null>(null);
+ useEffect(()=>{const receive=(event:Event)=>{const d=(event as CustomEvent).detail;if(String(d?.playerId)!==String(playerId)||!isDate(d.eventDate))return;const c=d.context?parseGameContext(new URLSearchParams({game:`${d.context.away}-${d.context.home}`,date:d.eventDate,...(d.context.start?{start:d.context.start}:{})})):null;setLive({owner,date:d.eventDate,context:c});};window.addEventListener('player-dvp-context-change',receive);return()=>window.removeEventListener('player-dvp-context-change',receive);},[owner,playerId]);
+ const target=live?.owner===owner?live:{date,context},targetDate=target.date,targetContext=target.context;
+ const q=useAnalysisQuery<InjuryReport>(`/api/injury-report?date=${targetDate}`),report=q.data,own=useMemo(()=>report?selectPlayerInjury(report,playerId,targetDate,targetContext):null,[report,playerId,targetDate,targetContext]);
+ const teammates=report?.items.filter(p=>p.date===targetDate&&p.team===team&&p.playerId!==playerId&&p.status!=='AVAILABLE'&&(!targetContext||p.game?.away===targetContext.away&&p.game?.home===targetContext.home))??[];
+ return <section aria-label="Estado médico del jugador" className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-xs"><div className="flex flex-wrap items-center gap-2"><strong className="text-[var(--text-muted)]">Parte · {reportDateLabel(targetDate)}</strong>{q.loading?<span className="text-[var(--text-muted)]">Consultando…</span>:q.error||!report?.available?<span className="text-amber-400">Parte no disponible</span>:own?<><InjuryStatusBadge item={own}/><span className="text-[var(--text-muted)]">Reporte {reportTimeLabel(own.reportAt)}</span></>:<span className="text-[var(--text-muted)]">Sin estado publicado para este jugador y partido</span>}<Link href={`/injuries?date=${targetDate}${team?'&team='+team:''}`} className="ml-auto text-[#10b981]">Ver parte ↗</Link></div>
+ {own?.reason&&<p className="mt-1 text-[11px] text-[var(--text-muted)]">{own.reason}</p>}{own&&own.reportGameDate!==own.date&&<p className="mt-1 text-[10px] text-[var(--text-muted)]">Fecha NBA del parte: {reportDateLabel(own.reportGameDate)} · fecha visible según calendario.</p>}{(report?.stale||own?.stale)&&<p className="mt-1 text-[11px] text-amber-400">Reporte anterior o sin hora comprobada. Revisá la captura del jugador.</p>}
+ {teammates.length>0&&<details className="mt-2 text-[11px]"><summary className="cursor-pointer text-[var(--text-muted)]">Compañeros en seguimiento ({teammates.length})</summary><div className="mt-2 grid gap-2">{teammates.map(p=><div key={p.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border)] px-2 py-1.5"><strong>{p.name}</strong><InjuryStatusBadge item={p}/><small className="text-[var(--text-muted)]">{reportTimeLabel(p.reportAt)}</small>{p.playerId&&team&&<button type="button" className="ml-auto text-[#10b981]" onClick={()=>window.dispatchEvent(new CustomEvent('nba-compare-teammate',{detail:{playerId,name:p.name,team}}))}>Comparar con/sin</button>}</div>)}</div><p className="mt-2 text-[var(--text-muted)]">Un estado dudoso no confirma una baja. La comparación usa antecedentes comprobados.</p></details>}</section>;
+}

@@ -9,6 +9,7 @@ import {
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
+import { selectionSummary } from "@/lib/selectionStats";
 import { getMinutesValue } from "@/lib/playerUtils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -22,6 +23,10 @@ type PickInsightPanelProps = {
   avgValue: string;
   avgMinutes: string;
   lastN: number;
+  side?: "over"|"under";
+  scope?: string;
+  loading?: boolean;
+  error?: string|null;
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -34,7 +39,8 @@ function median(values: number[]) {
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
-function formatNumber(value: number) {
+function formatNumber(value: number|null) {
+  if(value===null)return "S/D";
   if (Number.isInteger(value)) return String(value);
   return value.toFixed(1);
 }
@@ -87,57 +93,60 @@ export default function PickInsightPanel({
   stats,
   lineValue,
   activeStatLabel,
-  hitRate,
-  hits,
-  avgValue,
   avgMinutes,
   lastN,
+  side="over", scope="FULL", loading=false, error=null,
 }: PickInsightPanelProps) {
-  const values = stats.map((s) => Number(s.value) || 0);
-  const avg = Number(avgValue) || 0;
-  const med = median(values);
+  const safeStats=loading||error?[]:stats;
+  const summary=selectionSummary(safeStats.map(s=>s.value),lineValue,side);
+  const overSummary=selectionSummary(safeStats.map(s=>s.value),lineValue,'over');
+  const avg=summary.average,med=summary.median;
+  const avgValue=formatNumber(avg),hits=summary.hits;
+  const hitRate=summary.rate===null?null:Math.round(summary.rate);
+  const last3=safeStats.slice(-3);
+  const last3Summary=selectionSummary(last3.map(s=>s.value),lineValue,side);
+  const last3Hits=last3Summary.hits;
+  const sideLabel=side==='under'?'Under':'Over';
+  const unavailable=loading?'Cargando muestra':error?'No se pudo cargar la muestra':summary.rate===null?'Sin muestra para evaluar':null;
 
-  const last3 = stats.slice(-3);
-  const last3Hits = last3.filter((s) => Number(s.value) >= lineValue).length;
-
-  const minuteValues = stats
+  const minuteValues = safeStats
     .map((s) => getMinutesValue(s))
     .filter((v): v is number => v !== null);
-  const lowMinuteGames = minuteValues.filter((m) => m < 20).length;
+  const lowMinuteGames = scope==='FULL'?minuteValues.filter((m) => m < 20).length:0;
 
-  const lean = getLean(hitRate, avg, lineValue);
+  const lean = unavailable||summary.decided<5 ? {...getLean(50,lineValue,lineValue),label:unavailable||"Muestra insuficiente"} : getLean(overSummary.rate!, avg!, lineValue);
   const LeanIcon = lean.icon;
 
   // ── Razones del veredicto ──────────────────────────────────────────────────
   const reasons: { icon: React.ElementType; label: string; ok: boolean }[] = [
     {
-      icon: hitRate >= 60 ? Flame : hitRate <= 40 ? TrendingDown : ShieldQuestion,
+      icon: hitRate !== null && hitRate >= 60 ? Flame : (hitRate ?? 50) <= 40 ? TrendingDown : ShieldQuestion,
       label:
-        hitRate >= 60
+        unavailable ? "Sin evaluación" : (hitRate ?? -1) >= 60
           ? "Tendencia positiva"
-          : hitRate <= 40
+          : (hitRate ?? 50) <= 40
           ? "Tendencia fría"
           : "Tendencia mixta",
-      ok: hitRate >= 60,
+      ok: (hitRate ?? -1) >= 60,
     },
     {
       icon: lowMinuteGames > 0 ? AlertTriangle : Timer,
-      label: lowMinuteGames > 0 ? `${lowMinuteGames} juego${lowMinuteGames > 1 ? "s" : ""} baja min.` : "Minutos limpios",
-      ok: lowMinuteGames === 0,
+      label: minuteValues.length===0 ? "Minutos S/D" : minuteValues.length!==safeStats.length ? "Cobertura parcial de MIN" : scope!=="FULL" ? "Minutos del período" : lowMinuteGames > 0 ? `${lowMinuteGames} juego${lowMinuteGames > 1 ? "s" : ""} baja min.` : "Minutos limpios",
+      ok: safeStats.length>0 && minuteValues.length===safeStats.length && lowMinuteGames === 0,
     },
     {
-      icon: avg >= lineValue ? BadgeCheck : AlertTriangle,
-      label: avg >= lineValue ? "AVG sobre línea" : "AVG bajo línea",
-      ok: avg >= lineValue,
+      icon: avg!==null&&avg >= lineValue ? BadgeCheck : AlertTriangle,
+      label: avg===null ? "AVG S/D" : avg >= lineValue ? "AVG sobre línea" : "AVG bajo línea",
+      ok: avg!==null && (side==='under'?avg<lineValue:avg>lineValue),
     },
   ];
 
   // ── Chips de métricas ──────────────────────────────────────────────────────
   const metricChips = [
-    { label: `${hits}/${lastN} hits`,   highlight: true },
+    { label: summary.rate===null?"Aciertos S/D":`${hits}/${summary.decided} ${sideLabel}`,   highlight: true },
     { label: `AVG ${avgValue}`,          highlight: false },
     { label: `MED ${formatNumber(med)}`, highlight: false },
-    { label: `Últimos 3: ${last3Hits}/3`, highlight: last3Hits >= 2 },
+    { label: `Últimos ${last3.length}: ${last3Summary.rate===null?"S/D":`${last3Hits}/${last3Summary.decided}`}`, highlight: last3Hits >= 2 },
     { label: `${avgMinutes} MIN prom.`,  highlight: false },
   ];
 
@@ -166,9 +175,9 @@ export default function PickInsightPanel({
           {/* Hit rate grande */}
           <div className="flex items-baseline gap-1 sm:text-right">
             <span className={`text-5xl font-black tabular-nums leading-none ${lean.heroTextClass}`}>
-              {hitRate}
+              {hitRate===null?"S/D":hitRate}
             </span>
-            <span className="text-lg text-[var(--text-muted)] font-black">%</span>
+            <span className="text-lg text-[var(--text-muted)] font-black">{hitRate===null?"":"%"}</span>
             <span className="text-[10px] text-[var(--text-muted)] font-black uppercase ml-1">hit rate</span>
           </div>
         </div>
@@ -222,7 +231,7 @@ export default function PickInsightPanel({
 
         {/* Contexto textual */}
         <p className="text-xs text-[#aaa] font-bold leading-relaxed mt-3">
-          <span className="text-[var(--text)] font-black">{hits}/{lastN}</span> sobre{" "}
+          <span className="text-[var(--text)] font-black">{summary.rate===null?"S/D":`${hits}/${summary.decided}`}</span> {side==='under'?"por debajo de":"por encima de"}{" "}
           <span className="text-[var(--text)] font-black">{lineValue} {activeStatLabel}</span>
           {" · "}
           <span className="text-[#10b981] font-black">{avgMinutes} MIN prom.</span>
@@ -231,7 +240,9 @@ export default function PickInsightPanel({
           {" · "}
           MED <span className="text-[var(--text)] font-black">{formatNumber(med)}</span>
           {" · "}
-          Últimos 3: <span className="text-[var(--text)] font-black">{last3Hits}/3</span>
+          Últimos {last3.length}: <span className="text-[var(--text)] font-black">{last3Summary.rate===null?"S/D":`${last3Hits}/${last3Summary.decided}`}</span>
+          {summary.pushes>0&&` · ${summary.pushes} empate(s), fuera del porcentaje`}
+          {summary.missing>0&&` · ${summary.missing} sin dato`}
         </p>
       </div>
     </div>

@@ -1,3 +1,5 @@
+import {sanitizeSelectionContext} from './contextModel';
+import {assessSelection,assessTicket} from './ticketAssessment';
 import {outcome, reviewLeg, seasonOf, summarize, ticketObservations} from './analysis';
 import {combinedHistory} from './jointReference';
 import {sanitizeQuoteDiagnostic} from './quoteDiagnostic';
@@ -11,7 +13,7 @@ export const ANALYSIS_TOTAL_BYTES = 2 * 1024 * 1024;
 export type AnalysisEntry = {identity?:IdentityReview; result?:Result; candidates?:PlayerOption[]; error?:string; code?:string; needsTeam?:boolean; needsPlayer?:boolean};
 type Row = Record<string, unknown>;
 type Summary = ReturnType<typeof summarize>;
-const issueCodes = ['INPUT_INCOMPLETE','PLAYER_REVIEW','TEAM_REVIEW','ANALYSIS_ERROR','NETWORK_ERROR','ARCHIVE_CONFIG','ARCHIVE_INVALID','ARCHIVE_EMPTY','ARCHIVE_HASH','ARCHIVE_HTTP','ARCHIVE_ACCESS','ARCHIVE_CONNECTION','ARCHIVE_COUNT','ARCHIVE_NETWORK','ARCHIVE_TIMEOUT','PERIODS_UNAVAILABLE','NO_HISTORY','FILTERED_OUT','MISSING_PERIOD','MISSING_VALUES','QUOTE_UNAVAILABLE','QUOTE_NOT_FOUND','QUOTE_INACTIVE','QUOTE_CONFLICT','SMALL_RECENT_SAMPLE','SMALL_OPPONENT_SAMPLE','UNSUPPORTED_MARKET','MULTIPLE_ARCHIVE_VERSIONS','ARCHIVE_CHANGED'] as const;
+const issueCodes = ['INPUT_INCOMPLETE','PLAYER_REVIEW','TEAM_REVIEW','ANALYSIS_ERROR','NETWORK_ERROR','ARCHIVE_CONFIG','ARCHIVE_INVALID','ARCHIVE_EMPTY','ARCHIVE_HASH','ARCHIVE_HTTP','ARCHIVE_ACCESS','ARCHIVE_CONNECTION','ARCHIVE_COUNT','ARCHIVE_NETWORK','ARCHIVE_TIMEOUT','PERIODS_UNAVAILABLE','NO_HISTORY','FILTERED_OUT','MISSING_PERIOD','MISSING_VALUES','QUOTE_UNAVAILABLE','QUOTE_NOT_FOUND','QUOTE_INACTIVE','QUOTE_CONFLICT','SMALL_RECENT_SAMPLE','SMALL_OPPONENT_SAMPLE','UNSUPPORTED_MARKET','MULTIPLE_ARCHIVE_VERSIONS','ARCHIVE_CHANGED','CONTEXT_INVALID','CONTEXT_UNAVAILABLE'] as const;
 function object(value:unknown):Row {if(!value || typeof value !== 'object' || Array.isArray(value)) throw Error('INVALID_ANALYSIS'); return value as Row;}
 function choice<T extends string>(value:unknown, values:readonly T[]):T {if(typeof value !== 'string' || !values.includes(value as T)) throw Error('INVALID_ANALYSIS'); return value as T;}
 function number(value:unknown, max:number, nullable=false):number|null {if(nullable && value === null)return null; if(typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > max)throw Error('INVALID_ANALYSIS'); return value;}
@@ -61,7 +63,7 @@ function cleanQuote(value:unknown, leg:Leg,attempted:boolean) {
  const matchedPrice=price(q.price);if(matchedPrice===null)throw Error('INVALID_ANALYSIS');
  return {status,lookupAttempted:true,diagnostic,price:matchedPrice,book,capturedAt:stamp(q.capturedAt),eventDate:q.eventDate,line:number(q.line,300),side:choice(q.side,['over','under','at_least','at_most'])};
 }
-function legSnapshot(value:unknown,position:number,settings:Settings) {
+function legSnapshot(value:unknown,position:number,settings:Settings,readerVersion:number) {
  const input=object(value);if(!validId(input.id))throw Error('INVALID_ANALYSIS');
  const leg=selection(input.selection,input.id,settings),identity=object(input.identity);
  const identityStatus=choice(identity.status,['exact','suggested','ambiguous','not_found','invalid','not_checked']);
@@ -73,10 +75,15 @@ function legSnapshot(value:unknown,position:number,settings:Settings) {
  if(input.history!==null && input.history!==undefined){
   if(incomplete(leg)||!leg.playerId||!leg.playerTeam||!leg.teams.includes(leg.playerTeam)||identityStatus!=='exact')throw Error('INVALID_ANALYSIS');
   const h=object(input.history);
+  const columns=['id','date','phase','team','opponent','minutes','value'];
+  if(h.gameColumns!==undefined&&(readerVersion<9||JSON.stringify(h.gameColumns)!==JSON.stringify(columns)))throw Error('INVALID_ANALYSIS');
+  const decode=(value:unknown)=>{if(!Array.isArray(value))throw Error('INVALID_ANALYSIS');return h.gameColumns===undefined?value:value.map(row=>{if(!Array.isArray(row)||row.length!==7)throw Error('INVALID_ANALYSIS');return {...Object.fromEntries(columns.map((k,index)=>[k,row[index]])),season:typeof row[1]==='string'?seasonOf(row[1]):null};});};
   if(h.cutoffDate!==settings.eventDate||typeof h.archiveId!=='string'||!/^[a-f0-9]{64}$/.test(h.archiveId))throw Error('INVALID_ANALYSIS');
   const coverage=choice(h.coverage,['ready','no_history','filtered_out','missing_period']);
-  const recentGames=cleanGames(object(h.recent).games,10,settings),opponent=leg.teams.find(t=>t!==leg.playerTeam)!;
-  const opponentGames=cleanGames(object(h.versusOpponent).games,5,settings);
+  const recentGames=cleanGames(decode(object(h.recent).games),10,settings),opponent=leg.teams.find(t=>t!==leg.playerTeam)!;
+  const rawOpponent=object(h.versusOpponent),refs=rawOpponent.recentGameIds??[];
+  if(!Array.isArray(refs)||refs.length>5||readerVersion<9&&refs.length||refs.some(id=>typeof id!=='string'||!recentGames.some(g=>g.id===id))||!Array.isArray(rawOpponent.games))throw Error('INVALID_ANALYSIS');
+  const opponentGames=cleanGames([...refs.map(id=>recentGames.find(g=>g.id===id)),...decode(rawOpponent.games)],5,settings);
   if(opponentGames.some(g=>g.opponent!==opponent))throw Error('INVALID_ANALYSIS');
   const all=new Map(recentGames.map(g=>[g.id,g]));
   for(const g of opponentGames){const old=all.get(g.id);if(old&&JSON.stringify(old)!==JSON.stringify(g))throw Error('INVALID_ANALYSIS');all.set(g.id,g);}
@@ -87,30 +94,32 @@ function legSnapshot(value:unknown,position:number,settings:Settings) {
   const recent=summarize(recentGames,leg.line!,leg.operator!);
   if(coverage!=='ready')codes.push(coverage==='no_history'?'NO_HISTORY':coverage==='filtered_out'?'FILTERED_OUT':'MISSING_PERIOD');
   if(recent.missing)codes.push('MISSING_VALUES');
-  if(recent.n<5)codes.push('SMALL_RECENT_SAMPLE');
+  if(recent.hits+recent.misses<5)codes.push('SMALL_RECENT_SAMPLE');
   if(opponentGames.filter(g=>g.value!==null).length<5)codes.push('SMALL_OPPONENT_SAMPLE');
-  history={cutoffDate:settings.eventDate,source:'NBA archive reported by reader',archiveId:h.archiveId,coverage,availableGames,recent:{target:10,sampleStatus:recent.n===0?'none':recent.n<5?'small':recent.missing?'incomplete':'usable',summary:recent,games:withOutcome(recentGames)},last5:summarize(recentGames.slice(0,5),leg.line!,leg.operator!),versusOpponent:{opponent,target:5,summary:summarize(opponentGames,leg.line!,leg.operator!),games:withOutcome(opponentGames)},currentSeason,nearbyLines:[leg.line!-1,leg.line!,leg.line!+1].filter(n=>n>=0).map(line=>({line,operator:leg.operator,summary:summarize(recentGames,line,leg.operator!)}))};
+  history={cutoffDate:settings.eventDate,source:'NBA archive reported by reader',archiveId:h.archiveId,coverage,availableGames,recent:{target:10,sampleStatus:recent.n===0?'none':recent.hits+recent.misses<5?'small':recent.missing?'incomplete':'usable',summary:recent,games:withOutcome(recentGames)},last5:summarize(recentGames.slice(0,5),leg.line!,leg.operator!),versusOpponent:{opponent,target:5,summary:summarize(opponentGames,leg.line!,leg.operator!),games:withOutcome(opponentGames)},currentSeason,...(readerVersion<9?{nearbyLines:[leg.line!-1,leg.line!,leg.line!+1].filter(n=>n>=0).map(line=>({line,operator:leg.operator,summary:summarize(recentGames,line,leg.operator!)}))}:{})};
  }
  if(incomplete(leg))codes.push('INPUT_INCOMPLETE');
  if(teamContext?.status==='conflict')codes.push('TEAM_REVIEW');
  if(identityStatus!=='exact')codes.push('PLAYER_REVIEW');
  const quote=cleanQuote(input.quote??{status:'not_found'},leg,!!history);
  if(quote.lookupAttempted&&quote.status!=='matched'&&quote.status!=='not_queried')codes.push(({unavailable:'QUOTE_UNAVAILABLE',not_found:'QUOTE_NOT_FOUND',inactive:'QUOTE_INACTIVE',conflict:'QUOTE_CONFLICT'} as const)[quote.status]);
+ const context=history&&input.context?sanitizeSelectionContext(input.context,leg,history.archiveId):null;
+ if(input.context&&!context)codes.push('CONTEXT_INVALID');
  const selectedPrice=leg.odds??quote.price;
  const status=history?'analyzed':codes.some(c=>c==='NETWORK_ERROR'||c==='ANALYSIS_ERROR'||c.startsWith('ARCHIVE_')||c==='PERIODS_UNAVAILABLE')?'error':'review';
- return {id:leg.id,position,selection:{book:leg.book,group:leg.group,playerName:leg.playerName,playerId:leg.playerId??null,playerTeam:leg.playerTeam??null,teamConfirmed:!!leg.teamConfirmed,teamSource:leg.teamSource??null,parseIssues:leg.parseIssues??[],teams:leg.teams,market:leg.market,operator:leg.operator,line:leg.line,scope:leg.scope,eventDate:leg.eventDate,odds:leg.odds,groupOdds:leg.groupOdds},identity:{status:identityStatus,teamContext,inputName:name(identity.inputName),canonicalName:identityStatus==='exact'?leg.playerName:null,candidates},status,issues:[...new Set(codes.filter(c=>quote.lookupAttempted||!c.startsWith('QUOTE_')))],history,quote,breakEven:{individualPrice:selectedPrice,source:leg.odds!==null?'ticket':quote.status==='matched'?'market':null,decidedRate:selectedPrice?1/selectedPrice:null,assumption:'standard settlement; pushes excluded; no commission'}};
+ return {id:leg.id,position,selection:{book:leg.book,group:leg.group,playerName:leg.playerName,playerId:leg.playerId??null,playerTeam:leg.playerTeam??null,teamConfirmed:!!leg.teamConfirmed,teamSource:leg.teamSource??null,parseIssues:leg.parseIssues??[],teams:leg.teams,market:leg.market,operator:leg.operator,line:leg.line,scope:leg.scope,eventDate:leg.eventDate,odds:leg.odds,groupOdds:leg.groupOdds},identity:{status:identityStatus,teamContext,inputName:name(identity.inputName),canonicalName:identityStatus==='exact'?leg.playerName:null,candidates},status,issues:[...new Set(codes.filter(c=>quote.lookupAttempted||!c.startsWith('QUOTE_')))],history,context,quote,breakEven:{individualPrice:selectedPrice,source:leg.odds!==null?'ticket':quote.status==='matched'?'market':null,decidedRate:selectedPrice?1/selectedPrice:null,assumption:'standard settlement; pushes excluded; no commission'}};
 }
 
 /** A bounded observation of one click on Analyze. It contains no image or raw OCR. */
 export function sanitizeAnalysis(value:unknown,now=new Date()) {
  try{
   const input=object(value);
-  if(input.schema!=='nba-ticket-analysis'||input.version!==1||(input.readerVersion!==6&&input.readerVersion!==7&&input.readerVersion!==8)||!validId(input.id)||!validId(input.traceId))return null;
+  if(input.schema!=='nba-ticket-analysis'||input.version!==1||(input.readerVersion!==6&&input.readerVersion!==7&&input.readerVersion!==8&&input.readerVersion!==9)||!validId(input.id)||!validId(input.traceId))return null;
   const startedAt=stamp(input.startedAt),completedAt=stamp(input.completedAt),start=Date.parse(startedAt),end=Date.parse(completedAt);
   if(start>end||end>now.getTime()+300000||start<now.getTime()-ANALYSIS_DAYS*86400000)return null;
   const settings=cleanSettings(input.settings);
   if(!Array.isArray(input.legs)||!input.legs.length||input.legs.length>40)return null;
-  const legs=input.legs.map((value,i)=>legSnapshot(value,i+1,settings));
+  const legs=input.legs.map((value,i)=>legSnapshot(value,i+1,settings,input.readerVersion as number));
   if(new Set(legs.map(l=>l.id)).size!==legs.length)return null;
   const unsupported=integer(input.unsupportedSelections??0,100),rootIssues=Array.isArray(input.issues)?input.issues.filter((c):c is string=>typeof c==='string'&&(issueCodes as readonly string[]).includes(c)):[];
   if(unsupported)rootIssues.push('UNSUPPORTED_MARKET');
@@ -118,26 +127,37 @@ export function sanitizeAnalysis(value:unknown,now=new Date()) {
   if(archiveIds.length>1)rootIssues.push('MULTIPLE_ARCHIVE_VERSIONS');
   const pinnedArchiveId=typeof input.pinnedArchiveId==='string'&&/^[a-f0-9]{64}$/.test(input.pinnedArchiveId)?input.pinnedArchiveId:null;
   if(pinnedArchiveId&&archiveIds.some(id=>id!==pinnedArchiveId))rootIssues.push('ARCHIVE_CHANGED');
-  const counts={smallSamples:legs.filter(l=>l.history&&l.history.recent.summary.n<5).length,quoteLookups:legs.filter(l=>l.quote.lookupAttempted).length,quoteMatched:legs.filter(l=>l.quote.status==='matched').length,total:legs.length,analyzed:legs.filter(l=>l.status==='analyzed').length,ready:legs.filter(l=>l.history?.coverage==='ready').length,review:legs.filter(l=>l.status==='review').length,error:legs.filter(l=>l.status==='error').length};
+  const counts={smallSamples:legs.filter(l=>l.history&&l.history.recent.summary.hits+l.history.recent.summary.misses<5).length,quoteLookups:legs.filter(l=>l.quote.lookupAttempted).length,quoteMatched:legs.filter(l=>l.quote.status==='matched').length,total:legs.length,analyzed:legs.filter(l=>l.status==='analyzed').length,ready:legs.filter(l=>l.history?.coverage==='ready').length,review:legs.filter(l=>l.status==='review').length,error:legs.filter(l=>l.status==='error').length};
   const status=counts.analyzed===0?(counts.error===legs.length?'error':'review'):counts.ready===legs.length&&!rootIssues.length?'complete':'partial';
   const preparedLegs=legs.map(l=>selection(l.selection,l.id,settings));
   let combinedReference=input.readerVersion!==6?combinedHistory(preparedLegs,Object.fromEntries(legs.map(l=>[l.id,l.history?{games:l.history.recent.games,coverage:l.history.coverage,asOf:l.history.cutoffDate,archiveId:l.history.archiveId}:undefined])),unsupported):{status:'unavailable',rate:null,isPrediction:false,issues:['LEGACY_CAPTURE']};
   if(rootIssues.includes('ARCHIVE_CHANGED'))combinedReference={status:'unavailable',rate:null,isPrediction:false,issues:['ARCHIVE_CHANGED']};
-  const report={schema:'nba-ticket-analysis' as const,version:1 as const,readerVersion:input.readerVersion as 6|7|8,id:input.id,traceId:input.traceId,startedAt,completedAt,collection:{source:'authenticated_browser_capture',sampleStatistics:'recomputed_from_included_games',seasonStatistics:'aggregate_reported_by_reader',aiUsed:false},settings,totalOdds:price(input.totalOdds),unsupportedSelections:unsupported,status,counts,pinnedArchiveId,archiveIds,combinedReference,issues:[...new Set(rootIssues)],observations:ticketObservations(legs.map(l=>selection(l.selection,l.id,settings))),context:{injuries:'not_queried',projectedMinutes:'not_estimated',nextGameProbabilities:'not_estimated'},interpretation:{historicalFrequenciesArePredictions:false,combinedProbability:null,hitRateDefinition:'hits / (hits + misses)',missingValues:'excluded; never replaced with zero',cutoff:'games strictly before eventDate',minutes:'full-game minutes, including for Q1/H1/H2_REG',opponentSample:'up to five games under the same filters; no minimum forced'},legs};
-  return new TextEncoder().encode(JSON.stringify(report)).length<=ANALYSIS_BYTES?report:null;
+  const assessmentEntries=Object.fromEntries(legs.map(l=>{if(!l.history)return [l.id,{error:l.status==='error'?'Error de consulta':undefined}];const games=[...new Map([...l.history.recent.games,...l.history.versusOpponent.games].map(g=>[g.id,g])).values()].sort((a,b)=>b.date.localeCompare(a.date));return [l.id,{result:{player:{id:l.selection.playerId!,name:l.selection.playerName,team:l.selection.playerTeam},games,archiveId:l.history.archiveId,asOf:l.history.cutoffDate,source:'Archivo NBA verificado',coverage:l.history.coverage,quote:{status:'not_found' as const,message:''},warnings:[],...(l.context?{context:l.context}:{})}}];}));
+  const ticketAssessment=assessTicket({version:1,title:'',eventDate:settings.eventDate,totalOdds:null,legs:preparedLegs,warnings:[]},assessmentEntries);
+  const assessedLegs=input.readerVersion===9?legs.map((l,index)=>{const entry=assessmentEntries[l.id];const a=entry.result?assessSelection(preparedLegs[index],entry.result):null;return {...l,assessment:a?{method:'descriptive-context-v1',title:a.title,support:a.support.map(f=>f.code),concerns:a.concerns.map(f=>f.code),limitations:a.limitations.map(f=>f.code),minimumDecided:a.minimumDecided}:null};}):legs;
+  const report={schema:'nba-ticket-analysis' as const,version:1 as const,readerVersion:input.readerVersion as 6|7|8|9,id:input.id,traceId:input.traceId,startedAt,completedAt,collection:{source:'authenticated_browser_capture',sampleStatistics:'recomputed_from_included_games',seasonStatistics:'aggregate_reported_by_reader',aiUsed:false,contextStatistics:'allowlisted_context_reported_by_reader'},settings,totalOdds:price(input.totalOdds),unsupportedSelections:unsupported,status,counts,pinnedArchiveId,archiveIds,combinedReference,issues:[...new Set(rootIssues)],observations:ticketObservations(legs.map(l=>selection(l.selection,l.id,settings))),context:{injuries:legs.some(l=>l.context)?'reported_when_available':'not_queried',defense:legs.some(l=>l.context)?'pinned_archive_reference':'not_queried',projectedMinutes:'not_estimated',nextGameProbabilities:'not_estimated'},interpretation:{historicalFrequenciesArePredictions:false,combinedProbability:null,hitRateDefinition:'hits / (hits + misses)',missingValues:'excluded; never replaced with zero',cutoff:'games strictly before eventDate',minutes:'full-game minutes, including for Q1/H1/H2_REG',opponentSample:'up to five games under the same filters; no minimum forced'},...(input.readerVersion===9?{assessment:ticketAssessment}:{}),legs:assessedLegs};
+  // v9 keeps each observed row once per selection. Outcome/distance and nearby-line
+  // tables are derivable from the selection; opponent rows already in L10 use IDs.
+  const compact=input.readerVersion===9?{...report,legs:report.legs.map(leg=>{
+   const h=leg.history;if(!h)return leg;
+   const plain=(g:Game)=>[g.id,g.date,g.phase,g.team,g.opponent,g.minutes,g.value];
+   const recentIds=new Set(h.recent.games.map(g=>g.id));
+   return {...leg,history:{...h,gameColumns:['id','date','phase','team','opponent','minutes','value'],recent:{...h.recent,games:h.recent.games.map(plain)},versusOpponent:{...h.versusOpponent,recentGameIds:h.versusOpponent.games.filter(g=>recentIds.has(g.id)).map(g=>g.id),games:h.versusOpponent.games.filter(g=>!recentIds.has(g.id)).map(plain)}}};
+  })}:report;
+  return new TextEncoder().encode(JSON.stringify(compact)).length<=ANALYSIS_BYTES?compact:null;
  }catch{return null;}
 }
 export type AnalysisSnapshot=NonNullable<ReturnType<typeof sanitizeAnalysis>>;
 
-export function buildAnalysisSnapshot(document:TicketDocument,entries:Record<string,AnalysisEntry>,settings:Settings,meta:{id:string;traceId:string;startedAt:string;completedAt?:string;code?:string;pinnedArchiveId?:string}):AnalysisSnapshot|null {
+export function buildAnalysisSnapshot(document:TicketDocument,entries:Record<string,AnalysisEntry>,settings:Settings,meta:{id:string;traceId:string;startedAt:string;completedAt?:string;code?:string;pinnedArchiveId?:string;readerVersion?:9}):AnalysisSnapshot|null {
  const legs=document.legs.map(leg=>{
   const entry=entries[leg.id]??{},result=entry.result;
   const validPrice=(value:number|null)=>typeof value==='number'&&Number.isFinite(value)&&value>1&&value<=1_000_000?value:null;
   const resolved={...leg,teams:[...new Set(leg.teams.filter(t=>TEAMS.includes(t)))],line:leg.line!==null&&Number.isFinite(leg.line)&&leg.line>=0&&leg.line<=300?leg.line:null,odds:validPrice(leg.odds),groupOdds:validPrice(leg.groupOdds),...(result?{playerId:result.player.id,playerName:result.player.name,playerTeam:result.player.team??undefined}:{})};
   const review=result?reviewLeg(result.games,resolved):null;
   const current=result?.games.filter(g=>g.season===seasonOf(settings.eventDate))??[];
-  return {id:leg.id,selection:resolved,identity:{status:result?'exact':entry.identity?.status??'not_checked',inputName:entry.identity?.originalName??leg.playerName,teamContext:result?.teamContext??entry.identity?.teamContext,candidates:entry.identity?.candidates??entry.candidates??[]},issues:[...(entry.code?[entry.code]:[]),...(entry.needsTeam?['TEAM_REVIEW']:[]),...(entry.needsPlayer?['PLAYER_REVIEW']:[]),...(entry.error&&!entry.needsTeam&&!entry.needsPlayer?[entry.code??'ANALYSIS_ERROR']:[]),...(meta.code&&!result?[meta.code]:[])],history:result?{cutoffDate:result.asOf,archiveId:result.archiveId,coverage:result.coverage,availableGames:result.games.length,recent:{games:result.games.slice(0,10)},versusOpponent:{games:review!.h2h},currentSeason:summarize(current,resolved.line!,resolved.operator!)}:null,quote:result?.quote??{status:'not_found'}};
+  return {id:leg.id,selection:resolved,identity:{status:result?'exact':entry.identity?.status??'not_checked',inputName:entry.identity?.originalName??leg.playerName,teamContext:result?.teamContext??entry.identity?.teamContext,candidates:entry.identity?.candidates??entry.candidates??[]},issues:[...(entry.code?[entry.code]:[]),...(entry.needsTeam?['TEAM_REVIEW']:[]),...(entry.needsPlayer?['PLAYER_REVIEW']:[]),...(entry.error&&!entry.needsTeam&&!entry.needsPlayer?[entry.code??'ANALYSIS_ERROR']:[]),...(meta.code&&!result?[meta.code]:[])],history:result?{cutoffDate:result.asOf,archiveId:result.archiveId,coverage:result.coverage,availableGames:result.games.length,recent:{games:result.games.slice(0,10)},versusOpponent:{games:review!.h2h},currentSeason:summarize(current,resolved.line!,resolved.operator!)}:null,context:result?.context??null,quote:result?.quote??{status:'not_found'}};
  });
  const totalOdds=typeof document.totalOdds==='number'&&Number.isFinite(document.totalOdds)&&document.totalOdds>1&&document.totalOdds<=1_000_000?document.totalOdds:null;
- return sanitizeAnalysis({schema:'nba-ticket-analysis',version:1,readerVersion:8,pinnedArchiveId:meta.pinnedArchiveId,id:meta.id,traceId:meta.traceId,startedAt:meta.startedAt,completedAt:meta.completedAt??new Date().toISOString(),settings,totalOdds,unsupportedSelections:document.warnings.filter(w=>w.startsWith('Mercado sin análisis:')).length,issues:meta.code?[meta.code]:[],legs});
+ return sanitizeAnalysis({schema:'nba-ticket-analysis',version:1,readerVersion:meta.readerVersion??(Object.values(entries).some(e=>e.result?.context)?9:8),pinnedArchiveId:meta.pinnedArchiveId,id:meta.id,traceId:meta.traceId,startedAt:meta.startedAt,completedAt:meta.completedAt??new Date().toISOString(),settings,totalOdds,unsupportedSelections:document.warnings.filter(w=>w.startsWith('Mercado sin análisis:')).length,issues:meta.code?[meta.code]:[],legs});
 }

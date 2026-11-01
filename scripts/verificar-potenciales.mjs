@@ -27,10 +27,11 @@ check('Cero confirmado y números válidos se conservan', () => {
   assert.equal(v(2n), 2); assert.equal(v({toNumber: () => 6}), 6);
   assert.equal(v({toNumber: () => {throw Error('invalid decimal')}}), null);
 });
+const selection = evaluate('lib/selectionStats.ts');
 const formatters = evaluate('lib/formatters.ts');
 const react = { useEffect() {}, useMemo: f => f(), useRef: () => ({ current: null }), useState: x => [x, () => {}] };
 const recharts = Object.fromEntries(['Bar','CartesianGrid','Cell','ComposedChart','LabelList','Line','ReferenceLine','Tooltip','XAxis','YAxis'].map(x => [x, x]));
-const chart = evaluate('components/PlayerChart.tsx', { react, recharts, '@/lib/trackingValues': tracking, '@/lib/formatters': formatters }, '\nmodule.exports.testTooltip=CustomTooltip;module.exports.testOverlayLabel=OverlayPointLabel;');
+const chart = evaluate('components/PlayerChart.tsx', { react, recharts, '@/lib/selectionStats': selection, '@/lib/trackingValues': tracking, '@/lib/formatters': formatters }, '\nmodule.exports.testTooltip=CustomTooltip;module.exports.testOverlayLabel=OverlayPointLabel;');
 function find(tree, name) {
   if (!tree || typeof tree !== 'object') return null;
   if (tree.type === name) return tree;

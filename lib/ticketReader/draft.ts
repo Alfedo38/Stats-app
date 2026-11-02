@@ -2,14 +2,14 @@ import {importTicket} from './parser';
 import {isDate,type TicketDocument,type Leg} from './model';
 import {safePlayerHref,mergeSelection} from '../playerNavigation';
 export type Draft={version:1;revision:string;at:number;document:TicketDocument;returnTo:string|null};
-export const DRAFT_BYTES=110000,DRAFT_DAYS=14;
+export const DRAFT_BYTES=500000,DRAFT_DAYS=14;
 export type StorageLike=Pick<Storage,'getItem'|'setItem'|'removeItem'>;
 export function cleanDraftDocument(value:unknown):TicketDocument {
  const d=importTicket(value),raw=value as TicketDocument;
  const used=new Set<string>();
  return {...d,warnings:d.warnings.filter(w=>w.startsWith('Mercado sin análisis:')||w.startsWith('El ticket incluye un mercado de ganador')),legs:d.legs.map((l,i)=>{
   let id=String(raw.legs[i]?.id??'');if(!/^[a-zA-Z0-9-]{1,100}$/.test(id)||used.has(id))id=`draft-${i+1}`;while(used.has(id))id+='-x';used.add(id);
-  return {id,book:l.book,group:l.group,playerName:l.playerName,playerId:l.playerId,matchup:l.teams.join(' – '),teams:l.teams,playerTeam:l.playerTeam,teamConfirmed:false,teamSource:l.teamSource,market:l.market,operator:l.operator,line:l.line,scope:l.scope,odds:l.odds,groupOdds:l.groupOdds,eventDate:l.eventDate,raw:'',confirmed:false,origin:l.origin,quoteCapturedAt:l.quoteCapturedAt};
+  return {id,book:l.book,group:l.group,playerName:l.playerName,playerId:l.playerId,matchup:l.teams.join(' – '),teams:l.teams,playerTeam:l.playerTeam,teamConfirmed:false,teamSource:l.teamSource,market:l.market,operator:l.operator,line:l.line,scope:l.scope,odds:l.odds,groupOdds:l.groupOdds,eventDate:l.eventDate,raw:'',confirmed:false,origin:l.origin,pageSample:l.pageSample,quoteCapturedAt:l.quoteCapturedAt};
  })};
 }
 export function draftKey(userKey:string){if(!userKey||userKey.length>180)throw Error('DRAFT_INVALID');return userKey+':draft-v1';}

@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState, useCallback, useRef, type ReactNode } from "react";
+import {gamePhase} from "@/lib/nbaGameFilters";
+import {historySeasons,twoSeasonRows} from "@/lib/nbaHistoryWindow";
+import {secondaryAxis} from "@/lib/playerRecentChange";
 import { useSearchParams } from "next/navigation";
 import {
   getMinutesValue,
@@ -30,6 +33,7 @@ import PlayerHistoricalExplorer from "@/components/PlayerHistoricalExplorer";
 import {nbaHistoryCutoff} from "@/lib/injuryReport";
 import {comparisonMarket} from "@/lib/absenceComparison";
 import {argentinaDate,isDate} from "@/lib/ticketReader/model";
+import {cleanPageSample,sampleGameKey} from '@/lib/playerSample';
 import StatFilters, { type ActiveFilter } from "@/components/StatFilters";
 import GameLogTable from "@/components/GameLogTable";
 import FloatingPlayerIdentity, {ChartIdentity} from "@/components/PlayerIdentity";
@@ -76,6 +80,8 @@ interface PlayerChartContainerProps {
   onRemoveExternalFilter?: (id: string) => void;
   activeInjuryContext?: any[];
   analysisMode?: "simple" | "pro";
+  detailTab?: "summary"|"volume"|"opponent"|"shots";
+  detailNavigation?:ReactNode;
   onAnalysisSampleChange?: (sample: AnalysisSample) => void;
 }
 
@@ -458,6 +464,7 @@ export default function PlayerChartContainer({
   onRemoveExternalFilter,
   activeInjuryContext = [],
   analysisMode = "pro",
+  detailTab="summary",detailNavigation,
   onAnalysisSampleChange,
 }: PlayerChartContainerProps) {
   const searchParams = useSearchParams();
@@ -483,7 +490,7 @@ export default function PlayerChartContainer({
   } = usePlayerUrlState({
     defaultStat: "pts",
     defaultLine: 18.5,
-    defaultN: 30,
+    defaultN: 20,
   });
 
   const previousPlayerIdRef = useRef<string | number | null | undefined>(
@@ -532,7 +539,7 @@ export default function PlayerChartContainer({
   );
   const [chartHomeAway, setChartHomeAwayState] = useState<
     "HOME" | "AWAY" | null
-  >(() => readHomeAway(searchParams.get("homeAway") || String(homeAway || "")));
+  >(() => readHomeAway(searchParams.get("homeAway")));
   const [activeWoTeammate, setActiveWoTeammateState] = useState<string | null>(
     () => cleanWoParam(searchParams.get("wo")),
   );
@@ -610,8 +617,9 @@ export default function PlayerChartContainer({
 
   const resetMainFilters = useCallback(() => {
     setActiveFilters([]);
+    setLastN(20);
+    externalFilters.forEach(f=>onRemoveExternalFilter?.(f.id));
     setFilterResetCount((count) => count + 1);
-    setChartSideState("over");
     setChartHistMinMinutesState(null);
     setChartOpponentState("");
     setChartOpponentInput("");
@@ -621,7 +629,7 @@ export default function PlayerChartContainer({
     setAbsenceMode("current");setAbsenceTeamFilter("");
     setSeasonPhase("ALL");
     defense.setBand("all");
-  }, [defense.setBand]);
+  }, [defense.setBand,setLastN,externalFilters,onRemoveExternalFilter]);
 
   // ── Filter handlers ─────────────────────────────────────────────────────────
 
@@ -700,13 +708,7 @@ export default function PlayerChartContainer({
     setChartOpponentState(nextOpponent);
   }, [opponent, searchParams]);
 
-  useEffect(() => {
-    if (searchParams.has("homeAway")) return;
-    const nextHomeAway = String(homeAway || "").toUpperCase();
-    setChartHomeAwayState(
-      nextHomeAway === "HOME" || nextHomeAway === "AWAY" ? nextHomeAway : null,
-    );
-  }, [homeAway, searchParams]);
+
 
 
   // ── Derived nav stats ───────────────────────────────────────────────────────
@@ -735,7 +737,7 @@ export default function PlayerChartContainer({
   const windowLabel = `L${lastN}`;
 
   const historyQuery=useAnalysisQuery(isHistoricalChartMode&&!pageEvent.loading&&historicalMarket&&playerName&&Number.isFinite(Number(lineValue))?'/api/player-history':null,{
-    playerId,playerName,market:historicalMarket,line:Number(lineValue),side:chartSide,mode:'all',
+    playerId,playerName,market:historicalMarket,line:Number(lineValue),side:chartSide,mode:'last2',
     opponent:chartOpponent||null,homeAway:chartHomeAway,minMinutes:chartHistMinMinutes,woTeammate:null,phase:seasonPhase,limit:1000,asOfDate:historyCutoff,
   });
   const historicalChartData=historyQuery.data;
@@ -762,10 +764,12 @@ export default function PlayerChartContainer({
     [selectedStakeOdds],
   );
 
+  const twoSeasonStats=useMemo(()=>twoSeasonRows(stats||[],historyCutoff??eventDate).filter(r=>["Regular Season","Playoffs"].includes(gamePhase(r)??"")),[stats,historyCutoff,eventDate]);
+
   // ── Raw scoped stats ─────────────────────────────────────────────────────────
   const scopedRawStats = useMemo(
-    () => buildPeriodRows((stats || []).filter(row=>!historyCutoff||String(row.game_date).slice(0,10)<historyCutoff), periodSplitRows.filter((row:any)=>!historyCutoff||String(row.game_date).slice(0,10)<historyCutoff), activeScope, activeStat),
-    [stats, periodSplitRows, activeScope, activeStat,historyCutoff],
+    () => buildPeriodRows(twoSeasonStats.filter(row=>!historyCutoff||String(row.game_date).slice(0,10)<historyCutoff), periodSplitRows.filter((row:any)=>!historyCutoff||String(row.game_date).slice(0,10)<historyCutoff), activeScope, activeStat),
+    [twoSeasonStats, periodSplitRows, activeScope, activeStat,historyCutoff],
   );
 
   const uniqueStats = useMemo(() => {
@@ -896,7 +900,8 @@ export default function PlayerChartContainer({
     const games = Array.isArray(historicalChartData?.games)
       ? historicalChartData.games
       : [];
-    return games
+    return twoSeasonRows(games,historyCutoff??eventDate)
+      .filter(r=>["Regular Season","Playoffs"].includes(gamePhase(r)??""))
       .slice()
       .reverse()
       .map((g: any, index: number) => ({
@@ -943,7 +948,7 @@ export default function PlayerChartContainer({
         game_result: g.game_result ?? null,
         source_mode: "historical",
       }));
-  }, [historicalChartData, lineValue]);
+  }, [historicalChartData, lineValue,historyCutoff,eventDate]);
 
   const historicalSampleRows = useMemo(()=>absenceRows(phaseRows(historicalChartStats,seasonPhase),effectiveAbsences,currentAbsence.matches),[historicalChartStats,seasonPhase,absenceKey,currentAbsence.matches]);
   const historicalChartWindow = historicalSampleRows;
@@ -977,7 +982,13 @@ export default function PlayerChartContainer({
   const chartStats: any[] = useMemo(()=>sampleLoading||sampleError?[]:isHistoricalChartMode?sharedHistoricalWindow:visibleStats,[sampleLoading,sampleError,isHistoricalChartMode,sharedHistoricalWindow,visibleStats]);
   const metricStats: any[] = chartStats;
   const changeRows=sampleLoading||sampleError?[]:isHistoricalChartMode?sharedHistoricalBeforeWindow:filteredStatsBeforeWindow;
-  const changeReferenceRows=useMemo(()=>[...(stats||[]),...historicalChartStats],[stats,historicalChartStats]);
+  const changeReferenceRows=useMemo(()=>[...twoSeasonStats,...historicalChartStats],[twoSeasonStats,historicalChartStats]);
+  const pageSample=useMemo(()=>{
+    if(!/^[1-9]\d{0,12}$/.test(String(playerId))||!isDate(eventDate))return undefined;
+    const labels=[historySeasons(historyCutoff??eventDate).join(" + "),seasonPhase==='ALL'?'Regular + playoffs':seasonPhase==='Playoffs'?'Playoffs':'Temporada regular',chartHomeAway==='HOME'?'Solo local':chartHomeAway==='AWAY'?'Solo visitante':'Local y visitante',chartOpponent?`vs ${chartOpponent}`:'Todos los rivales',chartHistMinMinutes!==null?`MIN ≥ ${chartHistMinMinutes}`:'',effectiveAbsences.length?`Sin ${effectiveAbsences.join(', ')}`:'',...activeFilters.map(f=>f.label),...externalFilters.map(f=>f.label),defense.band!=='all'?`Defensa: ${DEFENSE_BANDS[defense.band]}`:''].filter(Boolean).map(x=>x.slice(0,100));
+    const exactIds=effectiveAbsences.length>0||activeFilters.length>0||externalFilters.length>0||defense.band!=='all';
+    return cleanPageSample({version:1,playerId:String(playerId),eventDate,cutoffDate:historyCutoff??eventDate,scope:activeScope,phase:seasonPhase,seasons:'last2',homeAway:chartHomeAway,opponent:chartOpponent||null,minMinutes:chartHistMinMinutes,labels:labels.slice(0,12),...(exactIds?{gameIds:changeRows.map(row=>sampleGameKey(row.game_id??row.id)).filter(Boolean).slice(0,1000)}:{})});
+  },[playerId,eventDate,historyCutoff,activeScope,seasonPhase,chartHomeAway,chartOpponent,chartHistMinMinutes,absenceKey,activeFilters,externalFilters,defense.band,changeRows]);
   const supportingStats = useMemo(
     () => metricStats,
     [metricStats],
@@ -995,7 +1006,7 @@ export default function PlayerChartContainer({
       scope: activeScope, phase: seasonPhase, market: activeStat, line: Number(lineValue), opponent: chartOpponent || null,
       homeAway: chartHomeAway, minMinutes: chartHistMinMinutes, labels,
       outcomeFiltered: defense.band!=="all" || hasThreshold || (isFullScope && hasLocalFilters && isHistoricalChartMode),
-      coverage: sampleCoverage(phaseRows(stats || [],seasonPhase),phaseRows(scopedRawStats,seasonPhase)),
+      coverage: sampleCoverage(phaseRows(twoSeasonStats,seasonPhase),phaseRows(scopedRawStats,seasonPhase)),
       loading: pageEvent.loading || defenseFilterLoading || currentAbsence.loading || (isFullScope ? Boolean(historicalChartLoading && isHistoricalChartMode) : periodLoading),
       error: defenseFilterError || currentAbsence.error || (isFullScope && isHistoricalChartMode ? historicalChartError : !isFullScope ? periodError : null),
     });
@@ -1137,14 +1148,14 @@ export default function PlayerChartContainer({
     const marketContext=(
 <div>
         <div className="flex items-center justify-between mb-3 px-1">
-          <p className="text-[9px] text-cyan-300 font-black uppercase tracking-widest flex items-center gap-2">
+          <p className="text-[11px] text-cyan-300 font-black uppercase tracking-widest flex items-center gap-2">
             <LayoutList size={12} className="text-[#10b981]" />
             Contexto de la apuesta
           </p>
           <button
             type="button"
             onClick={() => setShowSupportingData((p) => !p)}
-            className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text)] transition-colors border border-[var(--border)] px-2.5 py-1 rounded-lg"
+            className="text-[11px] font-black uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text)] transition-colors border border-[var(--border)] px-2.5 py-1 rounded-lg"
           >
             {showSupportingData ? "Ocultar" : "Mostrar"}
           </button>
@@ -1169,26 +1180,12 @@ export default function PlayerChartContainer({
 
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       <FloatingPlayerIdentity playerName={playerName || "Jugador"} statLabel={activeStatLabel} scope={activeScope} />
       {gameContext&&<p className="text-xs font-bold text-[var(--text-muted)]">Partido: {gameContext.away} – {gameContext.home} · {gameContext.date.split('-').reverse().join('/')} · Estadísticas anteriores a esa fecha.</p>}
       {/* MENÚ DE ESTADÍSTICAS */}
-      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-3 shadow-xl">
-        <div className="flex items-center justify-between gap-3 px-1">
-          <div>
-            <p className="text-[8px] text-[#10b981] font-black uppercase tracking-[0.22em]">
-              Estadística
-            </p>
-            <p className="text-[11px] text-[var(--text-muted)] font-black uppercase tracking-widest mt-1">
-              Seleccioná la métrica del histórico
-            </p>
-          </div>
-          <span className="shrink-0 rounded-full border border-[#10b981]/30 bg-[#10b981]/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-[#10b981]">
-            {activeStatLabel}
-          </span>
-        </div>
-
-        <div className="mt-3 flex flex-wrap items-center gap-2 max-w-full">
+      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-2">
+        <div className="flex flex-wrap items-center gap-1.5 max-w-full">
           {visibleNavStats.map((stat) => {
             const active = activeStat === stat.id;
             return (
@@ -1196,7 +1193,7 @@ export default function PlayerChartContainer({
                 key={stat.id}
                 type="button"
                 onClick={() => setActiveStat(stat.id)}
-                className={`shrink-0 rounded-xl border px-3 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${
+                className={`shrink-0 rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-widest transition-all ${
                   active
                     ? "border-[#10b981]/60 bg-[#10b981] text-black shadow-[0_0_14px_rgba(16,185,129,0.22)]"
                     : "border-[var(--border)] bg-[var(--bg)] text-[var(--text-muted)] hover:border-[#10b981]/35 hover:text-[var(--text)]"
@@ -1217,7 +1214,7 @@ export default function PlayerChartContainer({
               <button
                 key={scope.id}
                 type="button"
-                className={`shrink-0 flex items-center gap-2 px-4 py-2 text-[10px] font-black rounded-lg transition-all ${
+                className={`shrink-0 flex items-center gap-2 px-4 py-2 text-xs font-black rounded-lg transition-all ${
                   activeScope === scope.id
                     ? "bg-[#10b981] text-black shadow-[0_0_10px_rgba(16,185,129,0.3)]"
                     : "text-[var(--text-muted)] hover:text-[var(--text)]"
@@ -1237,7 +1234,7 @@ export default function PlayerChartContainer({
               <button
                 key={n}
                 onClick={() => setLastN(n)}
-                className={`flex-1 md:flex-none px-5 py-2.5 rounded-lg text-[10px] font-black transition-all ${
+                className={`flex-1 md:flex-none px-5 py-2.5 rounded-lg text-xs font-black transition-all ${
                   lastN === n
                     ? "bg-[var(--brand-soft)] text-[var(--text)] shadow-md border border-[var(--border-strong)]"
                     : "text-[var(--text-muted)] hover:text-[var(--text)] border border-transparent"
@@ -1253,9 +1250,32 @@ export default function PlayerChartContainer({
           <PlayerOddsComparison selectedBook={selectedBook} onSelectBook={setSelectedBook} rows={currentPrices} line={Number(lineValue)} side={chartSide} loading={oddsLoading} error={oddsError} eventReady={!!gameContext} eventRows={eventOdds} market={activeStat} scope={activeScope} onSelectLine={value=>{setLineValue(value);setSelectedBook(null);}} onRetry={()=>setOddsRetry(n=>n+1)}/>
         </div>
 
-        <div className="flex items-center gap-6 md:gap-8 w-full md:w-auto justify-between md:justify-end">
+        <div className="flex flex-wrap items-center gap-3 md:gap-5 w-full md:w-auto justify-between md:justify-end">
+                <div role="group" aria-label="Lado de la selección">
+                  <p className="mb-1.5 text-[11px] font-black uppercase tracking-[0.22em] text-[var(--text-muted)]">
+                    Lado
+                  </p>
+                  <div className="grid grid-cols-2 gap-1 rounded-2xl border border-[var(--border)] bg-[var(--bg)] p-1">
+                    <button
+                      type="button"
+                      onClick={() => setChartSide("over")}
+                      className={`rounded-xl px-3 py-2 text-xs font-black uppercase tracking-widest transition-all ${chartSide === "over" ? "bg-[#10b981] text-black shadow-[0_0_14px_rgba(16,185,129,0.25)]" : "text-[var(--text-muted)] hover:text-[var(--text)]"}`}
+                    >
+                      Over
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setChartSide("under")}
+                      className={`rounded-xl px-3 py-2 text-xs font-black uppercase tracking-widest transition-all ${chartSide === "under" ? "bg-red-500 text-white shadow-[0_0_14px_rgba(239,68,68,0.25)]" : "text-[var(--text-muted)] hover:text-[var(--text)]"}`}
+                    >
+                      Under
+                    </button>
+                  </div>
+                </div>
+
+
           <div className="flex flex-col items-start md:items-end">
-            <span className="text-[8px] text-[var(--text-muted)] font-black uppercase tracking-[0.2em] flex items-center gap-1 mb-1">
+            <span className="text-[11px] text-[var(--text-muted)] font-black uppercase tracking-[0.2em] flex items-center gap-1 mb-1">
               <Sparkles size={10} className="text-[#10b981]" />
               Línea
             </span>
@@ -1293,7 +1313,7 @@ export default function PlayerChartContainer({
           <div className="bg-gradient-to-b from-transparent via-[#10b981]/40 to-transparent w-[1px] h-10 hidden md:block" />
 
           <div className="flex flex-col items-end min-w-[70px]">
-            <span className="text-[8px] text-[var(--text-muted)] font-black uppercase tracking-[0.2em] mb-1">
+            <span className="text-[11px] text-[var(--text-muted)] font-black uppercase tracking-[0.2em] mb-1">
               AVG: {avgValue}
               {activeStat === "usage_pct" ? "%" : ""}
             </span>
@@ -1309,7 +1329,7 @@ export default function PlayerChartContainer({
       {/* SHARE BUTTON */}
 
       {!analyzerStorageKey&&<div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#10b981]/25 p-3"><PlayerEventControl event={pageEvent}/><span className="ml-auto"><ShareButton onShare={shareCurrentAnalysisUrl}/></span></div>}
-      {analyzerStorageKey&&<AddSelectionToAnalyzer storageKey={analyzerStorageKey} playerId={playerId||''} playerName={playerName||''} stat={activeStat} scope={activeScope} side={chartSide} line={Number(lineValue)} context={gameContext} team={pageEvent.team??playerTeam} managedEvent={pageEvent} onShare={shareCurrentAnalysisUrl} quotes={currentPrices} book={selectedBook} />}
+      {analyzerStorageKey&&<AddSelectionToAnalyzer storageKey={analyzerStorageKey} playerId={playerId||''} playerName={playerName||''} stat={activeStat} scope={activeScope} side={chartSide} line={Number(lineValue)} context={gameContext} team={pageEvent.team??playerTeam} pageSample={pageSample} samplePending={sampleLoading||!!sampleError} managedEvent={pageEvent} onShare={shareCurrentAnalysisUrl} quotes={currentPrices} book={selectedBook} />}
 
 
       {/* FILTROS ACTIVOS — internos (sliders) + externos (W/O) en un solo lugar */}
@@ -1329,75 +1349,96 @@ export default function PlayerChartContainer({
         }}
       />
 
-      <div className="grid grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_330px] gap-4 items-start">
+      <div className="grid grid-cols-1 min-[1100px]:grid-cols-[minmax(0,1fr)_300px] gap-4 items-start">
+        {/* GRÁFICA PRINCIPAL + ODDS COMPACTAS */}
+        <div className="min-w-0">
+          <div className="bg-[var(--surface)] p-4 md:p-5 rounded-[2rem] border border-[#10b981]/25 shadow-2xl shadow-[#10b981]/5 relative min-w-0 overflow-hidden">
+            <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#10b981] to-transparent" />
+
+            <ChartIdentity playerName={playerName || "Jugador"} statLabel={activeStatLabel} scope={activeScope} count={chartStats.length} line={Number(lineValue)} />
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-[var(--text-muted)]">{pageSample?.labels.join(" · ")||PHASE_OPTIONS.find(option=>option.value===seasonPhase)?.label}</p><button type="button" onClick={resetMainFilters} title="Restablecer 20 partidos, dos temporadas, todos los rivales, local y visitante" className="rounded-lg border border-[#10b981]/30 px-3 py-2 text-xs font-bold text-[#10b981]">Muestra base · L20</button></div>
+
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              {!isFullScope && (
+                <span className="rounded-xl border border-[#10b981]/30 bg-[#10b981]/10 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-[#10b981]">
+                  {activeScopeOption.badgeLabel}
+                </span>
+              )}
+              {activeFilters.length + externalFilters.length > 0 && (
+                <span className="rounded-xl border border-orange-500/30 bg-orange-500/10 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-orange-400">
+                  {chartStats.length} partidos filtrados
+                </span>
+              )}
+
+            </div>
+
+
+            {isFullScope&&<PlayerSecondaryControl market={activeStat} marketLabel={activeStatLabel} choice={effectiveSecondaryChoice} onChange={setSecondaryChoice} rows={chartStats} disabled={sampleLoading||!!sampleError}/>}
+            {!isFullScope && periodLoading && <p className="mb-3 text-xs text-cyan-300">Cargando datos de períodos…</p>}
+            {!isFullScope && periodError && <p className="mb-3 text-xs text-amber-300">No se pudieron cargar los datos del período.</p>}
+            <div className="min-h-[470px] w-full relative">
+              {sampleLoading?<div className="flex min-h-[420px] items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--bg)]" role="status"><Loader2 size={18} className="mr-2 animate-spin text-[#10b981]"/>Actualizando la muestra…</div>:sampleError?<div className="flex min-h-[420px] items-center justify-center p-5 text-sm text-amber-300" role="alert">No pudimos consultar esta muestra. Revisá los filtros o reintentá.</div>:              <PlayerChart
+                data={chartStats}
+                statKey="value"
+                lineValue={lineValue}
+                side={chartSide}
+                overlayKey={opportunityOverlay?.id}
+                overlayLabel={opportunityOverlay?.label}
+                overlayColor={opportunityOverlay?.color}
+                overlayValueReader={opportunityOverlay?(row)=>secondaryValue(row,opportunityOverlay.id):undefined}
+                overlayAxis={isFullScope?secondaryAxis(activeStat,opportunityOverlay?.id):"left"}
+              />}
+            </div>
+          </div>
+        </div>
         {/* FILTROS GLOBALES — panel lateral limpio */}
-        <div className="2xl:order-2 2xl:sticky 2xl:top-4 rounded-[1.5rem] border border-[#10b981]/20 bg-[var(--surface)] p-3 shadow-xl shadow-[#10b981]/5 overflow-hidden">
+        <div className="min-[1100px]:sticky min-[1100px]:top-4 rounded-[1.5rem] border border-[#10b981]/20 bg-[var(--surface)] p-3 shadow-xl shadow-[#10b981]/5 overflow-hidden">
           <div className="flex flex-col gap-3">
             <DefenseContextCard state={defense} opponent={defenseOpponent} scope={activeScope} side={chartSide}/>
+            <details className="rounded-xl border border-[var(--border)] p-3"><summary className="cursor-pointer text-sm font-bold text-[var(--text)]">Filtrar histórico</summary><div className="mt-3 flex flex-col gap-3">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[9px] font-black uppercase tracking-widest text-cyan-300">Temporada</span>
+              <span className="text-[11px] font-black uppercase tracking-widest text-cyan-300">Fase</span>
               <button
                 type="button"
                 onClick={resetMainFilters}
-                className="rounded-xl border border-[var(--border)] bg-[var(--bg)] px-2.5 py-2 text-[8px] font-black uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text)]"
+                className="rounded-xl border border-[var(--border)] bg-[var(--bg)] px-2.5 py-2 text-[11px] font-black uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text)]"
               >
                 Reset
               </button>
             </div>
 
             <div className="grid grid-cols-3 gap-1 rounded-xl border border-[var(--border)] bg-[var(--bg)] p-1" role="group" aria-label="Fase de la temporada">
-              {PHASE_OPTIONS.map(option=><button type="button" key={option.value} aria-pressed={seasonPhase===option.value} title={option.label} onClick={()=>setSeasonPhase(option.value)} className={`min-w-0 rounded-lg px-1 py-2 text-[9px] font-black uppercase ${seasonPhase===option.value?'bg-cyan-400/15 text-cyan-300':'text-[var(--text-muted)] hover:text-[var(--text)]'}`}>{option.value==='Regular Season'?'Regular':option.label}</button>)}
+              {PHASE_OPTIONS.map(option=><button type="button" key={option.value} aria-pressed={seasonPhase===option.value} title={option.label} onClick={()=>setSeasonPhase(option.value)} className={`min-w-0 rounded-lg px-1 py-2 text-[11px] font-black uppercase ${seasonPhase===option.value?'bg-cyan-400/15 text-cyan-300':'text-[var(--text-muted)] hover:text-[var(--text)]'}`}>{option.value==='Regular Season'?'Regular':option.label}</button>)}
             </div>
             <PlayerAbsenceFilter playerId={String(playerId || '')} scope={absenceMode} team={absenceTeamFilter} onScopeChange={changeAbsenceMode} onTeamChange={changeAbsenceTeam} selected={effectiveAbsences} onChange={changeAbsences} emptyReason={absenceEmptyMessage(effectiveAbsences,currentAbsence.matches)} loading={currentAbsence.loading} error={currentAbsence.error} onRetry={()=>setAbsenceRetry(n=>n+1)} comparison={comparisonMarket(activeStat)?{market:comparisonMarket(activeStat)!,scope:activeScope,side:chartSide,line:Number(lineValue),asOfDate:historyCutoff??eventDate,phase:seasonPhase,lastN:lastN>=999?1000:lastN,opponent:chartOpponent||null,homeAway:chartHomeAway,minMinutes:chartHistMinMinutes,thresholds:[...activeFilters,...externalFilters].filter(f=>f.type==='threshold'&&f.value!==undefined).map(f=>({metric:f.id.replace('threshold:',''),value:Number(f.value)})),unsupportedFilters:[...activeFilters,...externalFilters].some(f=>f.type==='wo')||defense.band!=='all'}:undefined}/>
 
 
             {isHistoricalChartMode && (
               <>
-                <div>
-                  <p className="mb-1.5 text-[8px] font-black uppercase tracking-[0.22em] text-[var(--text-muted)]">
-                    Lado
-                  </p>
-                  <div className="grid grid-cols-2 gap-1 rounded-2xl border border-[var(--border)] bg-[var(--bg)] p-1">
-                    <button
-                      type="button"
-                      onClick={() => setChartSide("over")}
-                      className={`rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${chartSide === "over" ? "bg-[#10b981] text-black shadow-[0_0_14px_rgba(16,185,129,0.25)]" : "text-[var(--text-muted)] hover:text-[var(--text)]"}`}
-                    >
-                      Over
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setChartSide("under")}
-                      className={`rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest transition-all ${chartSide === "under" ? "bg-red-500 text-white shadow-[0_0_14px_rgba(239,68,68,0.25)]" : "text-[var(--text-muted)] hover:text-[var(--text)]"}`}
-                    >
-                      Under
-                    </button>
-                  </div>
-                </div>
 
                 <div>
-                  <p className="mb-1.5 text-[8px] font-black uppercase tracking-[0.22em] text-[var(--text-muted)]">
+                  <p className="mb-1.5 text-[11px] font-black uppercase tracking-[0.22em] text-[var(--text-muted)]">
                     Cancha
                   </p>
                   <div className="grid grid-cols-3 gap-1 rounded-2xl border border-[var(--border)] bg-[var(--bg)] p-1">
                     <button
                       type="button"
                       onClick={() => setChartHomeAway(null)}
-                      className={`rounded-xl px-2 py-2 text-[9px] font-black uppercase tracking-widest transition-all ${chartHomeAway === null ? "bg-purple-400 text-black" : "text-[var(--text-muted)] hover:text-[var(--text)]"}`}
+                      className={`rounded-xl px-2 py-2 text-[11px] font-black uppercase tracking-widest transition-all ${chartHomeAway === null ? "bg-purple-400 text-black" : "text-[var(--text-muted)] hover:text-[var(--text)]"}`}
                     >
                       Todos
                     </button>
                     <button
                       type="button"
                       onClick={() => setChartHomeAway("HOME")}
-                      className={`rounded-xl px-2 py-2 text-[9px] font-black uppercase tracking-widest transition-all ${chartHomeAway === "HOME" ? "bg-purple-400 text-black" : "text-[var(--text-muted)] hover:text-[var(--text)]"}`}
+                      className={`rounded-xl px-2 py-2 text-[11px] font-black uppercase tracking-widest transition-all ${chartHomeAway === "HOME" ? "bg-purple-400 text-black" : "text-[var(--text-muted)] hover:text-[var(--text)]"}`}
                     >
                       Local
                     </button>
                     <button
                       type="button"
                       onClick={() => setChartHomeAway("AWAY")}
-                      className={`rounded-xl px-2 py-2 text-[9px] font-black uppercase tracking-widest transition-all ${chartHomeAway === "AWAY" ? "bg-purple-400 text-black" : "text-[var(--text-muted)] hover:text-[var(--text)]"}`}
+                      className={`rounded-xl px-2 py-2 text-[11px] font-black uppercase tracking-widest transition-all ${chartHomeAway === "AWAY" ? "bg-purple-400 text-black" : "text-[var(--text-muted)] hover:text-[var(--text)]"}`}
                     >
                       Visit.
                     </button>
@@ -1407,7 +1448,7 @@ export default function PlayerChartContainer({
                 <div className="rounded-[1.25rem] border border-cyan-400/20 bg-cyan-400/[0.035] p-3 min-w-0">
                   <div className="mb-2 flex items-center justify-between gap-2">
                     <div>
-                      <p className="text-[8px] font-black uppercase tracking-[0.22em] text-cyan-300">
+                      <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-300">
                         Minutos
                       </p>
                       <p className="mt-0.5 text-sm font-black uppercase tracking-tight text-[var(--text)]">
@@ -1420,7 +1461,7 @@ export default function PlayerChartContainer({
                       <button
                         type="button"
                         onClick={() => setChartHistMinMinutes(null)}
-                        className="rounded-lg border border-cyan-400/20 bg-cyan-400/10 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-cyan-300"
+                        className="rounded-lg border border-cyan-400/20 bg-cyan-400/10 px-2 py-1 text-[11px] font-black uppercase tracking-widest text-cyan-300"
                       >
                         Limpiar
                       </button>
@@ -1441,7 +1482,7 @@ export default function PlayerChartContainer({
                       background: `linear-gradient(90deg, #22d3ee 0%, #10b981 ${minSliderProgress}%, rgba(148,163,184,0.22) ${minSliderProgress}%, rgba(148,163,184,0.22) 100%)`,
                     }}
                   />
-                  <div className="mt-3 grid grid-cols-6 gap-1 text-[8px] font-black uppercase tracking-widest">
+                  <div className="mt-3 grid grid-cols-6 gap-1 text-[11px] font-black uppercase tracking-widest">
                     {[0, 20, 25, 30, 35, 40].map((m) => (
                       <button
                         key={`quick-min-${m}`}
@@ -1460,7 +1501,7 @@ export default function PlayerChartContainer({
                 <div className="rounded-[1.25rem] border border-[#10b981]/20 bg-[#10b981]/[0.035] p-3 min-w-0">
                   <div className="mb-2 flex items-center justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="text-[8px] font-black uppercase tracking-[0.22em] text-[#10b981]">
+                      <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#10b981]">
                         Rival
                       </p>
                       <p className="mt-0.5 truncate text-sm font-black uppercase tracking-tight text-[var(--text)]">
@@ -1478,7 +1519,7 @@ export default function PlayerChartContainer({
                           setChartOpponent("");
                           setChartOpponentInput("");
                         }}
-                        className="rounded-lg border border-[#10b981]/20 bg-[#10b981]/10 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-[#10b981]"
+                        className="rounded-lg border border-[#10b981]/20 bg-[#10b981]/10 px-2 py-1 text-[11px] font-black uppercase tracking-widest text-[#10b981]"
                       >
                         Limpiar
                       </button>
@@ -1501,11 +1542,11 @@ export default function PlayerChartContainer({
                       value={chartOpponentInput}
                       onChange={(e) => setChartOpponentInput(e.target.value)}
                       placeholder="OKC, Thunder..."
-                      className="min-w-0 flex-1 bg-transparent text-[10px] font-black uppercase tracking-widest text-[var(--text)] outline-none placeholder:text-[var(--text-muted)]"
+                      className="min-w-0 flex-1 bg-transparent text-xs font-black uppercase tracking-widest text-[var(--text)] outline-none placeholder:text-[var(--text-muted)]"
                     />
                     <button
                       type="submit"
-                      className="rounded-lg bg-[#10b981] px-2.5 py-1.5 text-[8px] font-black uppercase tracking-widest text-black"
+                      className="rounded-lg bg-[#10b981] px-2.5 py-1.5 text-[11px] font-black uppercase tracking-widest text-black"
                     >
                       OK
                     </button>
@@ -1526,10 +1567,10 @@ export default function PlayerChartContainer({
                               }}
                               className={`rounded-xl border px-3 py-2 text-left transition-all ${active ? "border-[#10b981] bg-[#10b981] text-black" : "border-[var(--border)] bg-[var(--bg)] text-[var(--text-muted)] hover:border-[#10b981]/35 hover:text-[var(--text)]"}`}
                             >
-                              <span className="block text-[10px] font-black uppercase tracking-widest">
+                              <span className="block text-xs font-black uppercase tracking-widest">
                                 {team.abbr}
                               </span>
-                              <span className="block truncate text-[8px] font-bold uppercase tracking-widest opacity-80">
+                              <span className="block truncate text-[11px] font-bold uppercase tracking-widest opacity-80">
                                 {team.short}
                               </span>
                             </button>
@@ -1540,7 +1581,7 @@ export default function PlayerChartContainer({
                   )}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 text-[8px] font-black uppercase tracking-widest text-[var(--text-muted)]">
+                <div className="flex flex-wrap items-center gap-2 text-[11px] font-black uppercase tracking-widest text-[var(--text-muted)]">
                   {historicalChartLoading && (
                     <span className="inline-flex items-center gap-1 text-cyan-300">
                       <Loader2 size={11} className="animate-spin" /> Histórico
@@ -1583,67 +1624,20 @@ export default function PlayerChartContainer({
                     </>
                   )}
                   {historicalChartError && (
-                    <span className="text-red-300">{historicalChartError}</span>
+                    <span className="text-red-300">No se pudo cargar el histórico.</span>
                   )}
                 </div>
               </>
             )}
-          </div>
-        </div>
-
-        {/* GRÁFICA PRINCIPAL + ODDS COMPACTAS */}
-        <div className="2xl:order-1 min-w-0">
-          <div className="bg-[var(--surface)] p-4 md:p-5 rounded-[2rem] border border-[#10b981]/25 shadow-2xl shadow-[#10b981]/5 relative min-w-0 overflow-hidden">
-            <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#10b981] to-transparent" />
-
-            <ChartIdentity playerName={playerName || "Jugador"} statLabel={activeStatLabel} scope={activeScope} count={chartStats.length} line={Number(lineValue)} />
-            <p className="mb-3 text-xs text-[var(--text-muted)]">{PHASE_OPTIONS.find(option=>option.value===seasonPhase)?.label}{effectiveAbsences.length?` · Sin ${effectiveAbsences.join(", ")}`:""}</p>
-
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              {!isFullScope && (
-                <span className="rounded-xl border border-[#10b981]/30 bg-[#10b981]/10 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-[#10b981]">
-                  {activeScopeOption.badgeLabel}
-                </span>
-              )}
-              {activeFilters.length + externalFilters.length > 0 && (
-                <span className="rounded-xl border border-orange-500/30 bg-orange-500/10 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-orange-400">
-                  {chartStats.length} partidos filtrados
-                </span>
-              )}
-
-            </div>
-
-
-            {isFullScope&&<PlayerSecondaryControl market={activeStat} marketLabel={activeStatLabel} choice={effectiveSecondaryChoice} onChange={setSecondaryChoice} rows={chartStats} disabled={sampleLoading||!!sampleError}/>}
-            {!isFullScope && periodLoading && <p className="mb-3 text-xs text-cyan-300">Cargando datos de períodos…</p>}
-            {!isFullScope && periodError && <p className="mb-3 text-xs text-amber-300">{periodError}</p>}
-            <div className="min-h-[470px] w-full relative">
-              {isHistoricalChartMode && (pageEvent.loading||historicalChartLoading) && (
-                <div className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-black/45 backdrop-blur-sm">
-                  <div className="flex items-center gap-2 rounded-2xl border border-cyan-400/25 bg-cyan-400/10 px-4 py-3 text-xs font-black uppercase tracking-widest text-cyan-300">
-                    <Loader2 size={16} className="animate-spin" /> Cargando
-                    histórico
-                  </div>
-                </div>
-              )}
-              <PlayerChart
-                data={chartStats}
-                statKey="value"
-                lineValue={lineValue}
-                side={chartSide}
-                overlayKey={opportunityOverlay?.id}
-                overlayLabel={opportunityOverlay?.label}
-                overlayColor={opportunityOverlay?.color}
-                overlayValueReader={opportunityOverlay?(row)=>secondaryValue(row,opportunityOverlay.id):undefined}
-                overlayAxis={isFullScope?"right":"left"}
-              />
-            </div>
+            </div></details>
           </div>
         </div>
       </div>
 
+      {analysisMode==="pro"&&detailNavigation}
+
       {/* CONTEXTO RÁPIDO */}
-      {analysisMode === "simple" ? (
+      {!metricStats.length ? <p className="rounded-xl border border-[var(--border)] p-4 text-sm text-[var(--text-muted)]">{sampleLoading?"Actualizando estadísticas…":sampleError?"La muestra no está disponible.":"Sin partidos para esta selección. Ampliá los filtros para analizarla."}</p> : analysisMode === "simple" ? (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
           {[
             { label: "Prom. histórico", sample:baseSampleLabel, value: seasonAvgValue===null?"S/D":seasonAvgValue.toFixed(1), tone: "text-cyan-300", border: "border-cyan-400/25" },
@@ -1653,9 +1647,9 @@ export default function PlayerChartContainer({
             { label: "Diferencia", sample:currentSampleLabel, value: lineDifference===null?"S/D":`${(lineDifference ?? -1) >= 0 ? "+" : ""}${lineDifference.toFixed(1)}`, tone: (lineDifference ?? -1) >= 0 ? "text-[#10b981]" : "text-red-400", border: (lineDifference ?? -1) >= 0 ? "border-[#10b981]/25" : "border-red-400/25" },
           ].map((item) => (
             <div key={item.label} className={`rounded-2xl border bg-[var(--surface)] p-4 ${item.border}`}>
-              <p className="text-[8px] font-black uppercase tracking-widest text-[var(--text-muted)]">{item.label}</p>
+              <p className="text-[11px] font-black uppercase tracking-widest text-[var(--text-muted)]">{item.label}</p>
               <p className={`mt-1 text-2xl font-black tabular-nums ${item.tone}`}>{item.value}</p>
-              <p className="mt-1 text-[9px] font-bold uppercase tracking-widest text-[var(--text-muted)]">{item.sample} · {activeStatLabel}</p>
+              <p className="mt-1 text-[11px] font-bold uppercase tracking-widest text-[var(--text-muted)]">{item.sample} · {activeStatLabel}</p>
             </div>
           ))}
         </div>
@@ -1663,7 +1657,7 @@ export default function PlayerChartContainer({
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="bg-[var(--surface)] border border-[#10b981]/25 rounded-2xl p-4 shadow-xl shadow-[#10b981]/5 relative overflow-hidden">
           <div className="absolute inset-x-0 top-0 h-[2px] bg-[#10b981]" />
-          <p className="text-[8px] text-[#10b981] font-black uppercase tracking-widest">
+          <p className="text-[11px] text-[#10b981] font-black uppercase tracking-widest">
             Hit Rate
           </p>
           <p
@@ -1671,33 +1665,33 @@ export default function PlayerChartContainer({
           >
             {selection.rate===null?"S/D":`${hits}/${selection.decided}`}
           </p>
-          <p className="text-[9px] text-[var(--text-muted)] font-black uppercase tracking-widest mt-1">
+          <p className="text-[11px] text-[var(--text-muted)] font-black uppercase tracking-widest mt-1">
             {trendLabel}{selection.pushes?` · ${selection.pushes} empates`:""}{selection.missing?` · ${selection.missing} S/D`:""}
           </p>
         </div>
 
         <div className="bg-[var(--surface)] border border-cyan-400/25 rounded-2xl p-4 shadow-xl shadow-cyan-400/5 relative overflow-hidden">
           <div className="absolute inset-x-0 top-0 h-[2px] bg-cyan-400" />
-          <p className="text-[8px] text-cyan-300 font-black uppercase tracking-widest">
+          <p className="text-[11px] text-cyan-300 font-black uppercase tracking-widest">
             Min Prom.
           </p>
           <p className="text-2xl font-black text-[var(--text)] tabular-nums">
             {avgMinutes}
           </p>
-          <p className="text-[9px] text-[var(--text-muted)] font-black uppercase tracking-widest mt-1">
+          <p className="text-[11px] text-[var(--text-muted)] font-black uppercase tracking-widest mt-1">
             {volumeLabel}
           </p>
         </div>
 
         <div className="bg-[var(--surface)] border border-orange-400/25 rounded-2xl p-4 shadow-xl shadow-orange-400/5 relative overflow-hidden">
           <div className="absolute inset-x-0 top-0 h-[2px] bg-orange-400" />
-          <p className="text-[8px] text-orange-300 font-black uppercase tracking-widest">
+          <p className="text-[11px] text-orange-300 font-black uppercase tracking-widest">
             Línea
           </p>
           <p className="text-2xl font-black text-[var(--text)] tabular-nums">
             {formatLineValue(lineValue, activeStat)}
           </p>
-          <p className="text-[9px] text-[var(--text-muted)] font-black uppercase tracking-widest mt-1">
+          <p className="text-[11px] text-[var(--text-muted)] font-black uppercase tracking-widest mt-1">
             {activeStatLabel}
           </p>
         </div>
@@ -1709,7 +1703,7 @@ export default function PlayerChartContainer({
             className={`absolute inset-x-0 top-0 h-[2px] ${lowMinuteGames > 0 ? "bg-yellow-400" : "bg-[#10b981]"}`}
           />
           <p
-            className={`text-[8px] font-black uppercase tracking-widest ${lowMinuteGames > 0 ? "text-yellow-300" : "text-[#10b981]"}`}
+            className={`text-[11px] font-black uppercase tracking-widest ${lowMinuteGames > 0 ? "text-yellow-300" : "text-[#10b981]"}`}
           >
             Alerta
           </p>
@@ -1719,7 +1713,7 @@ export default function PlayerChartContainer({
               ? `${lowMinuteGames} baja min.`
               : "Muestra limpia"}
           </p>
-          <p className="text-[9px] text-[var(--text-muted)] font-black uppercase tracking-widest mt-2 flex items-center gap-1">
+          <p className="text-[11px] text-[var(--text-muted)] font-black uppercase tracking-widest mt-2 flex items-center gap-1">
             <TrendingUp size={10} /> {windowLabel}
             {activeFilters.length + externalFilters.length > 0 && (
               <span className="text-orange-400 ml-1">
@@ -1732,12 +1726,12 @@ export default function PlayerChartContainer({
       </div>
       )}
 
-      {isFullScope&&<PlayerChangeCard rows={changeRows} referenceRows={changeReferenceRows} market={activeStat} marketLabel={activeStatLabel} cutoff={historyCutoff??eventDate} playerId={playerId} loading={sampleLoading} error={sampleError}/>}
+      {(analysisMode==="simple"||detailTab==="volume")&&isFullScope&&<PlayerChangeCard rows={changeRows} referenceRows={changeReferenceRows} market={activeStat} marketLabel={activeStatLabel} cutoff={historyCutoff??eventDate} playerId={playerId} loading={sampleLoading} error={sampleError}/>}
       {analysisMode === "simple" && marketContext}
 
-      {analysisMode === "pro" && <>
+      {analysisMode === "pro" && (detailTab==="summary"||detailTab==="volume") && <div id={`analysis-panel-${detailTab}`} role="tabpanel" aria-labelledby={`analysis-tab-${detailTab}`}>
       {/* PICK INSIGHT PANEL */}
-      <PickInsightPanel
+      {detailTab==="summary"&&metricStats.length>0&&<PickInsightPanel
         stats={metricStats}
         lineValue={lineValue}
         activeStatLabel={activeStatLabel}
@@ -1750,12 +1744,14 @@ export default function PlayerChartContainer({
         avgValue={avgValue}
         avgMinutes={avgMinutes}
         lastN={metricStats.length}
-      />
+        onSelectLine={value=>{setLineValue(value);setSelectedBook(null);}}
+        formatLine={value=>formatLineValue(value,activeStat)}
+      />}
 
-      {marketContext}
+      {detailTab==="volume"&&marketContext}
 
       {/* EXPLORADOR HISTÓRICO — separado de la data actual para evitar timeouts y no romper Q1/H1/H2 */}
-      {isFullScope && seasonPhase === "ALL" && !effectiveAbsences.length && <PlayerHistoricalExplorer
+      {detailTab==="summary"&&isFullScope && seasonPhase === "ALL" && !effectiveAbsences.length && <details className="rounded-xl border border-[var(--border)] p-3"><summary className="cursor-pointer text-sm font-bold">Detalle de estas dos temporadas</summary><PlayerHistoricalExplorer
         playerId={playerId}
         playerName={playerName || ""}
         activeStat={activeStat}
@@ -1770,10 +1766,10 @@ export default function PlayerChartContainer({
         initialData={historicalChartData}
         initialLoading={historicalChartLoading}
         initialError={historicalChartError}
-      />}
+      /></details>}
 
       {/* GAME LOG — sortable, extracted component */}
-      <GameLogTable
+      {detailTab==="summary"&&metricStats.length>0&&<GameLogTable
         stats={metricStats}
         lineValue={lineValue}
         activeStatLabel={activeStatLabel}
@@ -1782,8 +1778,8 @@ export default function PlayerChartContainer({
         activeScopeLabel={activeScopeOption.label}
         activeStat={activeStat}
         formatLine={(v) => formatLineValue(v, activeStat)}
-      />
-      </>}
+      />}
+      </div>}
     </div>
   );
 }

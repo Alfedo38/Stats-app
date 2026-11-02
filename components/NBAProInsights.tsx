@@ -1,4 +1,5 @@
 "use client";
+import {sampleGameKey} from '@/lib/playerSample';
 import AnalysisAccordion from "@/components/AnalysisAccordion";
 import { useEffect, useMemo, useState } from 'react';
 import { ROLE_METRICS, prepareRoleSeason, summarizeRole, roleValue, type RoleRow } from '@/lib/nbaRole';
@@ -38,10 +39,12 @@ function Status({state}: {state:ReturnType<typeof useRemote>}) {
 function Section({title,children,onToggle}: {title:string; children:React.ReactNode; onToggle?:(value:boolean)=>void}) {
   return <AnalysisAccordion title={title} icon={title.startsWith('Descanso')?'rest':'defense'} onToggle={onToggle}>{children}</AnalysisAccordion>;
 }
-export default function NBAProInsights({rows,shots,playerId,opponent,seasonType,range,nextGameDate}: {rows:RoleRow[];shots:ShotRow[];playerId:string;opponent:string;seasonType:string;range:number;nextGameDate?:string|null}) {
+export default function NBAProInsights({rows,shots,playerId,opponent,seasonType,range,nextGameDate,rivalOnly:controlledRivalOnly,onRivalOnlyChange,referenceSeason,view="all"}: {rows:RoleRow[];shots:ShotRow[];playerId:string;opponent:string;seasonType:string;range:number;nextGameDate?:string|null;rivalOnly?:boolean;onRivalOnlyChange?:(value:boolean)=>void;referenceSeason?:string;view?:"all"|"opponent"|"shots"}) {
   const [mode,setMode]=useState<'game'|'per36'>('game');
   const [window,setWindow]=useState<5|10>(5);
-  const [rivalOnly,setRivalOnly]=useState(false);
+  const [localRivalOnly,setLocalRivalOnly]=useState(false);
+  const rivalOnly=controlledRivalOnly??localRivalOnly;
+  const setRivalOnly=onRivalOnlyChange??setLocalRivalOnly;
   const [restOpen,setRestOpen]=useState(false), [defenseOpen,setDefenseOpen]=useState(false);
   const season = prepareRoleSeason(rows,seasonType==='ALL'?'all':seasonType==='Playoffs'?'playoffs':'regular');
   const scope = season.games.filter(row=>!rivalOnly||opponent==='ALL'||proOpponent(row)===opponent);
@@ -54,25 +57,28 @@ export default function NBAProInsights({rows,shots,playerId,opponent,seasonType,
     if(metric.percent?Math.abs(delta)<2:pct===null||Math.abs(pct)<10)return[];
     return [{label:metric.label,delta,change:metric.percent?`${fmt(delta)} pp`:`${fmt(pct)}%`,a:a.value,b:b.value}];
   });
-  const query=`playerId=${encodeURIComponent(playerId)}&season=${encodeURIComponent(season.label)}&phase=${encodeURIComponent(seasonType)}`;
-  const defense=useRemote(`/api/nba-pro-context?kind=defense&${query}&opponent=${encodeURIComponent(opponent)}`,defenseOpen&&opponent!=='ALL');
-  const rest=useRemote(`/api/nba-pro-context?kind=rest&${query}`,restOpen);
+  const seasonLabel=referenceSeason??season.label;
+  const query=`playerId=${encodeURIComponent(playerId)}&season=${encodeURIComponent(seasonLabel)}&phase=${encodeURIComponent(seasonType)}`;
+  const defense=useRemote(`/api/nba-pro-context?kind=defense&${query}&opponent=${encodeURIComponent(opponent)}`,view!=='shots'&&defenseOpen&&opponent!=='ALL');
+  const rest=useRemote(`/api/nba-pro-context?kind=rest&${query}`,view!=='shots'&&restOpen);
   const restSummary=restGroups(recent,rest.data?.teamDates??[]);
   const zones = useMemo(()=>{
-    const ids=new Set(recent.map(row=>String(row.game_id)));
+    const ids=new Set(recent.map(row=>sampleGameKey(row.game_id)));
     const totals=new Map<string,{attempts:number;made:number}>();
-    for(const shot of shots){if(!ids.has(String(shot.game_id)))continue;const zone=shot.shot_zone_basic||'Sin zona';const total=totals.get(zone)??{attempts:0,made:0};total.attempts++;total.made+=shot.shot_made_flag===1?1:0;totals.set(zone,total);}
+    for(const shot of shots){if(!ids.has(sampleGameKey(shot.game_id)))continue;const zone=shot.shot_zone_basic||'Sin zona';const total=totals.get(zone)??{attempts:0,made:0};total.attempts++;total.made+=shot.shot_made_flag===1?1:0;totals.set(zone,total);}
     return [...totals.entries()].sort((a,b)=>b[1].attempts-a[1].attempts);
   },[recent,shots]);
   const totalShots=zones.reduce((sum,[,value])=>sum+value.attempts,0);
   return <div className="space-y-3">
-    <p className={muted}>Contexto del rival · {season.label} · {seasonType==='ALL'?'Todas las fases':seasonType}. Este bloque usa partidos completos. El resumen de rol sigue el período del gráfico.</p>
-    <label className={`flex items-center gap-2 ${muted}`}><input type="checkbox" checked={rivalOnly} disabled={opponent==='ALL'} onChange={event=>setRivalOnly(event.target.checked)} />Analizar solamente partidos contra {opponent==='ALL'?'el rival seleccionado':opponent}</label>
+    <p className={muted}>Contexto del rival · {seasonLabel} · {seasonType==='ALL'?'Todas las fases':seasonType}. Este bloque usa partidos completos. El resumen de rol sigue el período del gráfico.</p>
+    <label className={`flex items-center gap-2 ${muted}`}><input type="checkbox" checked={rivalOnly} disabled={opponent==='ALL'} onChange={event=>setRivalOnly(event.target.checked)} />Solo contra el rival · {opponent==='ALL'?'el rival seleccionado':opponent}</label>
+    {view!=="shots"&&<>
     <Section title="Perfil del rival · defensa por zona" onToggle={setDefenseOpen}>
-      {opponent==='ALL'?<p className={muted}>Elegí el equipo rival arriba.</p>:<><Status state={defense}/>{defense.data&&<><p className={muted}>Jugador: {recent.length} PJ seleccionados · Rival {opponent}: tiros que concede a todos los jugadores en {season.label}, {seasonType==='ALL'?'todas las fases':seasonType}. La defensa usa la fase completa, no L5/L10.</p><div className="overflow-x-auto"><table className="w-full min-w-[540px] text-xs"><thead><tr>{['Zona','Peso del jugador','TC jugador','TC concedido','TC liga disponible','Diferencia vs liga','Tiros / PJ rival'].map(label=><th className="p-2 text-left" key={label}>{label}</th>)}</tr></thead><tbody>{zones.map(([zone,value])=>{const rival=defense.data?.zones?.find(z=>z.zone===zone);return <tr key={zone} className="border-t border-[var(--border)]"><td className="p-2">{zone}</td><td className="p-2">{fmt(totalShots?value.attempts/totalShots*100:null)}% · {value.attempts} tiros</td><td className="p-2">{fmt(value.made/value.attempts*100)}%</td><td className="p-2">{rival&&rival.attempts?`${fmt(rival.made/rival.attempts*100)}% · ${rival.attempts} tiros`:'S/D'}</td><td className="p-2">{rival&&rival.league_attempts?`${fmt(rival.league_made/rival.league_attempts*100)}% · ${rival.league_attempts} tiros`:'S/D'}</td><td className="p-2">{rival ? (()=>{const delta=leagueDelta(rival,{attempts:rival.league_attempts,made:rival.league_made});return delta===null?'Muestra insuficiente':`${delta>=0?'+':''}${fmt(delta)} pp`;})():'S/D'}</td><td className="p-2">{rival?`${fmt(rival.games?rival.attempts/rival.games:null)} · ${rival.games} PJ`:'S/D'}</td></tr>;})}</tbody></table></div>{!zones.length&&<p className={muted}>Sin tiros del jugador en la muestra elegida.</p>}<p className={muted}>PJ rival cuenta partidos con tiros disponibles en la fuente. Describe zonas; no mide todavía pick and roll, tiros tras pase o tras bote. La referencia de liga incluye únicamente tiros disponibles en esta fuente. Mostramos diferencia con al menos 50 tiros del rival y 200 de liga por zona. No es una prueba estadística ni demuestra una ventaja por sí sola.</p></>}</>}
+      {opponent==='ALL'?<p className={muted}>Elegí el equipo rival arriba.</p>:<><Status state={defense}/>{defense.data&&<><p className={muted}>Jugador: {recent.length} PJ seleccionados · Rival {opponent}: tiros que concede a todos los jugadores en {seasonLabel}, {seasonType==='ALL'?'todas las fases':seasonType}. La defensa usa la fase completa, no L5/L10.</p><div className="overflow-x-auto"><table className="w-full min-w-[540px] text-xs"><thead><tr>{['Zona','Peso del jugador','TC jugador','TC concedido','TC liga disponible','Diferencia vs liga','Tiros / PJ rival'].map(label=><th className="p-2 text-left" key={label}>{label}</th>)}</tr></thead><tbody>{zones.map(([zone,value])=>{const rival=defense.data?.zones?.find(z=>z.zone===zone);return <tr key={zone} className="border-t border-[var(--border)]"><td className="p-2">{zone}</td><td className="p-2">{fmt(totalShots?value.attempts/totalShots*100:null)}% · {value.attempts} tiros</td><td className="p-2">{fmt(value.made/value.attempts*100)}%</td><td className="p-2">{rival&&rival.attempts?`${fmt(rival.made/rival.attempts*100)}% · ${rival.attempts} tiros`:'S/D'}</td><td className="p-2">{rival&&rival.league_attempts?`${fmt(rival.league_made/rival.league_attempts*100)}% · ${rival.league_attempts} tiros`:'S/D'}</td><td className="p-2">{rival ? (()=>{const delta=leagueDelta(rival,{attempts:rival.league_attempts,made:rival.league_made});return delta===null?'Muestra insuficiente':`${delta>=0?'+':''}${fmt(delta)} pp`;})():'S/D'}</td><td className="p-2">{rival?`${fmt(rival.games?rival.attempts/rival.games:null)} · ${rival.games} PJ`:'S/D'}</td></tr>;})}</tbody></table></div>{!zones.length&&<p className={muted}>Sin tiros del jugador en la muestra elegida.</p>}<p className={muted}>PJ rival cuenta partidos con tiros disponibles en la fuente. Describe zonas; no mide todavía pick and roll, tiros tras pase o tras bote. La referencia de liga incluye únicamente tiros disponibles en esta fuente. Mostramos diferencia con al menos 50 tiros del rival y 200 de liga por zona. No es una prueba estadística ni demuestra una ventaja por sí sola.</p></>}</>}
     </Section>
     <Section title="Descanso y partidos consecutivos" onToggle={setRestOpen}>
       <Status state={rest}/>{rest.data&&<><p className={muted}>Descanso del equipo, incluyendo partidos que el jugador no disputó. {nextGameDate?`Próximo partido: ${nextGameDate.slice(0,10)}.`:''}</p><div className="overflow-x-auto"><table className="w-full min-w-[450px] text-xs"><thead><tr>{['Situación','PJ','MIN','PTS','REB','AST'].map(label=><th className="p-2 text-left" key={label}>{label}</th>)}</tr></thead><tbody>{restSummary.groups.map(group=><tr key={group.label} className="border-t border-[var(--border)]"><th className="p-2 text-left">{group.label}</th><td className="p-2">{group.rows.length}</td>{['minutes','pts','reb','ast'].map(id=>{const sample=summarizeRole(group.rows,ROLE_METRICS.find(m=>m.id===id)!);return <td className="p-2" key={id}>{fmt(sample.value)} <small>({sample.count})</small></td>;})}</tr>)}</tbody></table></div><p className={muted}>{restSummary.unknown} PJ sin antecedente de calendario disponible. Las diferencias son descriptivas; pueden cambiar por rival, lesiones o minutos.</p></>}
     </Section>
+    </>}
   </div>;
 }

@@ -5,13 +5,14 @@ import {Plus,ArrowRight} from 'lucide-react';
 import {argentinaDate,isDate,type Leg} from '@/lib/ticketReader/model';
 import {appendDraft,readDraft,draftKey} from '@/lib/ticketReader/draft';
 import {selectionFromPage,eventFromQuotes,safePlayerHref,matchupHref,PAGE_MARKETS,type GameContext} from '@/lib/playerNavigation';
+import type {PageSample} from '@/lib/playerSample';
 import type {PriceQuote} from '@/lib/nbaOdds';
 import {useAnalysisQuery} from '@/hooks/useAnalysisQuery';
 import {type PlayerEventState} from '@/hooks/usePlayerEvent';
 import ShareButton from './ShareButton';
 import PlayerEventControl from './PlayerEventControl';
 import type {PlayerGameChoices} from './AnalyzerGameChoice';
-type Props={storageKey:string;playerId:string|number;playerName:string;team?:string|null;stat:string;scope:Leg['scope'];side:'over'|'under';line:number;context:GameContext|null;quotes:PriceQuote[];book:string|null;managedEvent?:PlayerEventState;onShare?:()=>Promise<boolean>};
+type Props={storageKey:string;playerId:string|number;playerName:string;team?:string|null;stat:string;scope:Leg['scope'];side:'over'|'under';line:number;context:GameContext|null;quotes:PriceQuote[];book:string|null;pageSample?:PageSample;samplePending?:boolean;managedEvent?:PlayerEventState;onShare?:()=>Promise<boolean>};
 export default function AddSelectionToAnalyzer(props:Props){
  const managed=props.managedEvent;
  const inferred=managed?managed.context:props.context??eventFromQuotes(props.quotes);
@@ -26,7 +27,7 @@ export default function AddSelectionToAnalyzer(props:Props){
  useEffect(()=>setMessage(''),[identity]);
  async function add(){setSaving(true);setMessage('');const selected=current.current;
   try{
-   const leg=selectionFromPage({...selected,context,date:context?.date??managed?.date??date});
+   const leg={...selectionFromPage({...selected,context,date:context?.date??managed?.date??date}),pageSample:selected.pageSample};
    const back=new URLSearchParams(window.location.search);back.set('stat',selected.stat);back.set('line',String(selected.line));back.set('scope',selected.scope);back.set('side',selected.side);if(context){back.set('game',context.away+'-'+context.home);back.set('date',context.date);if(context.start)back.set('start',context.start);back.set('from',context.returnTo);}
    const returnHref=safePlayerHref(window.location.pathname+'?'+back);
    const write=()=>appendDraft(localStorage,selected.storageKey,leg,returnHref);
@@ -42,7 +43,7 @@ export default function AddSelectionToAnalyzer(props:Props){
    {!!data?.games.length&&<select aria-label="Partido para agregar selección" value={game?.id??(choice?.key===key?choice.id:'')} onChange={e=>setChoice({key,id:e.target.value})} className="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-2 py-1 text-[10px]"><option value="">Elegir partido</option>{data.games.map(g=><option key={g.id} value={g.id}>{g.away} – {g.home}</option>)}</select>}
    <span className="text-[10px] text-[var(--text-muted)]">{query.loading?'Buscando partido…':game?`${game.away} – ${game.home}`:'Partido por completar en el analizador'}</span>
   </>}
-  <button type="button" disabled={saving||!isDate(context?.date??managed?.date??date)} onClick={()=>void add()} className="inline-flex items-center gap-1.5 rounded-xl border border-[#10b981]/40 bg-[#10b981]/10 px-3 py-2 text-[10px] font-black text-[#10b981] disabled:opacity-50"><Plus size={13}/>{saving?'Guardando…':'Agregar al analizador'}</button>
+  <button type="button" disabled={saving||props.samplePending||!isDate(context?.date??managed?.date??date)} onClick={()=>void add()} className="inline-flex items-center gap-1.5 rounded-xl border border-[#10b981]/40 bg-[#10b981]/10 px-3 py-2 text-[10px] font-black text-[#10b981] disabled:opacity-50"><Plus size={13}/>{saving?'Guardando…':'Agregar al analizador'}</button>
   <Link href="/analizar-ticket" className="inline-flex items-center gap-1 text-[10px] font-bold text-[var(--text-muted)] hover:text-[#10b981]">Abrir analizador{count?` (${count})`:''}<ArrowRight size={12}/></Link>
   {props.onShare&&<span className="ml-auto"><ShareButton onShare={props.onShare}/></span>}
   {!!message&&<span className="basis-full text-xs text-[var(--text-muted)]" role="status">{message}</span>}

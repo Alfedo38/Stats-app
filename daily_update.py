@@ -13,20 +13,14 @@ from sqlalchemy.engine import URL
 
 from nba_api.stats.endpoints import playergamelogs, boxscoreplayertrackv3
 from nba_incremental_store import SaveReport, upsert_logs, quote
+from daily_tracking_canonical import sync_tracking_window
 
-load_dotenv()
+load_dotenv(".env.local", override=False)
+load_dotenv(".env", override=False)
 
 # =========================================================
 # CONFIGURACION
 # =========================================================
-DB_PASSWORD = os.getenv("DB_PASSWORD")
-if not DB_PASSWORD:
-    raise ValueError("❌ Falta DB_PASSWORD en el archivo .env")
-
-DB_USER = os.getenv("DB_USER", "postgres.xxhdctrvjsngwbagamns")
-DB_HOST = os.getenv("DB_HOST", "aws-1-sa-east-1.pooler.supabase.com")
-DB_PORT = int(os.getenv("DB_PORT", "6543"))
-DB_NAME = os.getenv("DB_NAME", "postgres")
 TABLE_NAME = os.getenv("PLAYER_LOGS_TABLE", "player_game_logs")
 quote(TABLE_NAME)  # Validate before interpolating the configured table name.
 
@@ -83,16 +77,8 @@ HEADERS = {
 # =========================================================
 # DB
 # =========================================================
-db_url = URL.create(
-    drivername="postgresql",
-    username=DB_USER,
-    password=DB_PASSWORD,
-    host=DB_HOST,
-    port=DB_PORT,
-    database=DB_NAME,
-    query={"sslmode": "require"},
-)
-engine = create_engine(db_url, pool_pre_ping=True)
+from db import get_engine
+engine = get_engine()
 
 # =========================================================
 # HELPERS
@@ -301,7 +287,7 @@ def fetch_player_game_logs(measure_type: str, season_type: str) -> pd.DataFrame:
                 date_from_nullable=start_nba,
                 date_to_nullable=end_nba,
                 measure_type_player_game_logs_nullable=measure_type,
-                headers=HEADERS,
+                headers=None,
                 timeout=REQUEST_TIMEOUT,
             )
             df = endpoint.get_data_frames()[0]
@@ -343,7 +329,7 @@ def fetch_tracking_for_game(game_id: str) -> pd.DataFrame:
         try:
             endpoint = boxscoreplayertrackv3.BoxScorePlayerTrackV3(
                 game_id=gid,
-                headers=HEADERS,
+                headers=None,
                 timeout=REQUEST_TIMEOUT,
             )
             df = endpoint.get_data_frames()[0]
@@ -463,7 +449,7 @@ def build_final_dataframe() -> pd.DataFrame:
 
     # Tracking: touches / rebound_chances / passes_made / potential_ast
     unique_games = sorted(base["game_key"].dropna().astype(str).unique().tolist())
-    tracking = fetch_tracking_for_games(unique_games)
+    tracking = pd.DataFrame() if os.getenv('NBA_CANONICAL_TRACKING_ONLY')=='1' else fetch_tracking_for_games(unique_games)
     if not tracking.empty:
         base = base.merge(tracking, on=["game_key", "player_id"], how="left", suffixes=("", "_track"))
 
@@ -582,10 +568,19 @@ def main() -> None:
     start, end = parse_iso_date(START_DATE), parse_iso_date(END_DATE)
     if start > end:
         raise ValueError('Rango de fechas invertido.')
+    span_days = (end - start).days + 1
+    max_days = int(os.getenv('NBA_DAILY_MAX_DAYS', '7'))
+    if span_days > max_days and os.getenv('NBA_ALLOW_LONG_RANGE', '0') != '1':
+        raise ValueError(
+            f'Bloqueo de seguridad: {span_days} días solicitados; máximo diario: {max_days}. '
+            'Para históricos usá el exportador/backfill, no daily_update.py.'
+        )
     if args.refresh_cache_only:
         if not REFRESH_PLAYER_PAGE_CACHE:
             raise ValueError('Para reintentar caché usá REFRESH_PLAYER_PAGE_CACHE=1.')
         refresh_player_page_cache_window(START_DATE, END_DATE)
+        from ludo_tickets_hook import after_stats_update
+        after_stats_update()
         return
     print("===========================================================")
     print("🔄 DAILY UPDATE INCREMENTAL - PLAYER GAME LOGS")
@@ -597,14 +592,44 @@ def main() -> None:
     df = build_final_dataframe()
     if df.empty:
         print("\n😴 No hubo datos nuevos para ese rango. Fin.")
+        from ludo_tickets_hook import after_stats_update
+        after_stats_update()
         return
 
     report = save_to_db(df)
-    for day in report.dates:
-        refresh_player_page_cache_window(day.isoformat(), day.isoformat())
-    if not report.changed:
-        print('⏭️ No cambiaron estadísticas: no se reescribió la tabla destino ni se refrescó su caché.')
-    print(f"✅ Proceso terminado. Filas insertadas/actualizadas: {report.changed}")
+
+    # DAILY_TRACKING_CANONICAL_V1: descarga el tracking oficial solo para la
+    # ventana diaria, actualiza la tabla canónica y corrige cuatro métricas base.
+    tracking_report = sync_tracking_window(
+        engine=engine,
+        season=SEASON,
+        start_date=START_DATE,
+        end_date=END_DATE,
+        apply=True,
+    )
+
+    refresh_dates = set(report.dates)
+    if tracking_report["base_changed"]:
+        day = parse_iso_date(START_DATE)
+        end_day = parse_iso_date(END_DATE)
+        while day <= end_day:
+            refresh_dates.add(day)
+            day += timedelta(days=1)
+
+    if refresh_dates:
+        refresh_player_page_cache_window(
+            min(refresh_dates).isoformat(),
+            max(refresh_dates).isoformat(),
+        )
+    if not report.changed and not tracking_report["base_changed"]:
+        print('⏭️ No cambiaron estadísticas ni tracking: no se reescribió la caché.')
+    print(
+        f"✅ Proceso terminado. Boxscore: {report.changed}; "
+        f"tracking base: {tracking_report['base_changed']}"
+    )
+
+    from ludo_tickets_hook import after_stats_update
+    after_stats_update()
 
 
 if __name__ == "__main__":

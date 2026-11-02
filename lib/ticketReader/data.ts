@@ -7,6 +7,7 @@ import {getAllCurrentRosterPlayers,CURRENT_ROSTER_UPDATED_AT} from '@/lib/curren
 import {isDate,TEAMS,type Leg,type PlayerOption,type Settings} from './model';
 import {playerKey,playerCandidates,reviewIdentity} from './identity';
 import {prepareGames} from './analysis';
+import {cleanPageSample,pageSampleRows} from '../playerSample';
 import {rosterFitsDate,resolveTeamContext} from './teamContext';
 import {ticketSchedule} from './calendar';
 import {readSelectionContext} from './contextData';
@@ -37,6 +38,8 @@ export async function resolveNames(items:{id:string;name:string;teams:string[]}[
  });
 }
 export async function readAnalysis(leg:Leg,settings:Settings,archiveId?:string){
+ const sample=cleanPageSample(leg.pageSample);
+ if(sample&&(sample.playerId!==String(leg.playerId)||sample.eventDate!==settings.eventDate||sample.scope!==leg.scope))throw new ReaderError('INPUT_INVALID','La muestra de la ficha no corresponde a esta selección.',400);
  const manifest=await expectedManifest(archiveId);
  const people=await directory(manifest),identity=reviewIdentity(leg.playerName,people,leg.teams);
  const exact=leg.playerId?people.filter(p=>p.id===leg.playerId&&playerKey(p.name)===playerKey(leg.playerName)):identity.status==='exact'&&identity.player?[identity.player]:[];
@@ -57,8 +60,10 @@ export async function readAnalysis(leg:Leg,settings:Settings,archiveId?:string){
  if(teamContext.status==='conflict')return {ok:false,needsTeam:true,player,teamContext,error:teamContext.message};
  let splits:Record<string,unknown>[]=[];
  if(leg.scope!=='FULL')try{splits=await prisma.$queryRawUnsafe('SELECT * FROM public.player_period_splits_front_v2_cache WHERE player_id = $1::bigint AND game_date < $2::date ORDER BY game_date DESC LIMIT 3000',player.id,settings.eventDate);}catch{throw new ReaderError('PERIODS_UNAVAILABLE','El histórico está conectado, pero no se pudieron consultar los parciales. Revisá la conexión de la base de datos.');}
+ const analysisSettings=sample?{...settings,phase:sample.phase,seasons:sample.seasons,minMinutes:sample.minMinutes}:settings;
  const targetId=teamContext.status==='matched'?teamContext.gameId?.replace(/^0+/,''):null;
- const games=prepareGames(facts,splits,leg,settings).filter(g=>!targetId||g.id.replace(/^0+/,'')!==targetId);const warnings:string[]=[];
+ const games=prepareGames(sample?pageSampleRows(facts,sample):facts,splits,leg,sample?{...analysisSettings,eventDate:sample.cutoffDate}:analysisSettings).filter(g=>!targetId||g.id.replace(/^0+/,'')!==targetId).slice(0,sample?1000:undefined);const warnings:string[]=[];
+ if(sample)warnings.push('Muestra de la ficha: '+(sample.labels.join(' · ')||'Sin filtros adicionales')+'. Los valores se consultaron de nuevo en el archivo verificado.');
  if(leg.teamConfirmed)warnings.push(`Equipo para este partido confirmado por vos: ${team}.`);
  else warnings.push(rosterFresh&&player.team===team?`Equipo de referencia: ${team}. Plantel actualizado: ${String(CURRENT_ROSTER_UPDATED_AT).slice(0,10)}. Revisalo si hubo un traspaso.`:`Equipo tomado del último partido histórico anterior a esta fecha: ${team}. Revisalo si hubo un traspaso.`);
  warnings.push(teamContext.message);
@@ -69,7 +74,7 @@ export async function readAnalysis(leg:Leg,settings:Settings,archiveId?:string){
  const missing=games.slice(0,10).filter(g=>g.value===null).length;if(missing)warnings.push(`${missing} de los últimos ${Math.min(games.length,10)} partidos no tienen este mercado/período. No se cuentan como cero.`);
  if(leg.scope!=='FULL')warnings.push('Se usan exclusivamente datos del período elegido; los minutos mostrados corresponden al partido completo.');
  const resolved={...leg,playerId:player.id,playerName:player.name,playerTeam:team,eventDate:settings.eventDate};
- const [quote,enrichment]=await Promise.all([lookupQuote(resolved),readSelectionContext(manifest,resolved,settings,teamContext).catch(()=>undefined)]);
+ const [quote,enrichment]=await Promise.all([lookupQuote(resolved),readSelectionContext(manifest,resolved,analysisSettings,teamContext).catch(()=>undefined)]);
  if(!enrichment)warnings.push('No pudimos completar el contexto defensivo y médico. El historial se conserva.');
  if(leg.playerName!==player.name)warnings.push(`Nombre leído: ${leg.playerName}. Identidad verificada: ${player.name}.`);
  return {ok:true,result:{player:{...player,team},games,warnings,asOf:settings.eventDate,source:'Archivo NBA verificado',archiveId:manifest.id,coverage,quote,teamContext,...(enrichment?{context:enrichment}:{})},resolvedLeg:{playerId:player.id,playerName:player.name,playerTeam:team,teamConfirmed:!!leg.teamConfirmed}};

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { selectionSummary } from "@/lib/selectionStats";
 import { getMinutesValue } from "@/lib/playerUtils";
+import PlayerLineExplorer from "@/components/PlayerLineExplorer";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -27,6 +28,8 @@ type PickInsightPanelProps = {
   scope?: string;
   loading?: boolean;
   error?: string|null;
+  onSelectLine?: (line: number) => void;
+  formatLine?: (line: number) => string;
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -56,21 +59,22 @@ type LeanResult = {
   badgeClass: string;         // pill pequeño
 };
 
-function getLean(hitRate: number, avgValue: number, lineValue: number): LeanResult {
-  if (hitRate >= 65 && avgValue >= lineValue) {
+function getLean(hitRate: number, avgValue: number, lineValue: number, side: "over"|"under"="over"): LeanResult {
+  const favorableAverage=side==='under'?avgValue<lineValue:avgValue>lineValue;
+  if (hitRate >= 65 && favorableAverage) {
     return {
-      label: "Lean Over",
-      verdict: "over",
-      icon: TrendingUp,
+      label: side==='under'?"Lean Under":"Lean Over",
+      verdict: side,
+      icon: side==='under'?TrendingDown:TrendingUp,
       heroClass: "bg-[#10b981]/10 border-[#10b981]/40",
       heroTextClass: "text-[#10b981]",
       badgeClass: "bg-[#10b981]/15 border-[#10b981]/30 text-[#10b981]",
     };
   }
-  if (hitRate <= 35 && avgValue < lineValue) {
+  if (hitRate <= 35 && !favorableAverage) {
     return {
-      label: "Lean Under",
-      verdict: "under",
+      label: side==='under'?"Revisar Under":"Revisar Over",
+      verdict: "nobet",
       icon: TrendingDown,
       heroClass: "bg-red-500/10 border-red-500/40",
       heroTextClass: "text-red-400",
@@ -96,10 +100,10 @@ export default function PickInsightPanel({
   avgMinutes,
   lastN,
   side="over", scope="FULL", loading=false, error=null,
+  onSelectLine, formatLine,
 }: PickInsightPanelProps) {
   const safeStats=loading||error?[]:stats;
   const summary=selectionSummary(safeStats.map(s=>s.value),lineValue,side);
-  const overSummary=selectionSummary(safeStats.map(s=>s.value),lineValue,'over');
   const avg=summary.average,med=summary.median;
   const avgValue=formatNumber(avg),hits=summary.hits;
   const hitRate=summary.rate===null?null:Math.round(summary.rate);
@@ -114,7 +118,7 @@ export default function PickInsightPanel({
     .filter((v): v is number => v !== null);
   const lowMinuteGames = scope==='FULL'?minuteValues.filter((m) => m < 20).length:0;
 
-  const lean = unavailable||summary.decided<5 ? {...getLean(50,lineValue,lineValue),label:unavailable||"Muestra insuficiente"} : getLean(overSummary.rate!, avg!, lineValue);
+  const lean = unavailable||summary.decided<5 ? {...getLean(50,lineValue,lineValue,side),label:unavailable||"Muestra insuficiente"} : getLean(summary.rate!, avg!, lineValue,side);
   const LeanIcon = lean.icon;
 
   // ── Razones del veredicto ──────────────────────────────────────────────────
@@ -164,7 +168,7 @@ export default function PickInsightPanel({
             </div>
             <div>
               <p className="text-[9px] text-[var(--text-muted)] font-black uppercase tracking-[0.25em] mb-0.5">
-                Veredicto · L{lastN}
+                Lectura histórica · L{lastN}
               </p>
               <p className={`text-2xl font-black uppercase tracking-tight leading-none ${lean.heroTextClass}`}>
                 {lean.label}
@@ -178,7 +182,7 @@ export default function PickInsightPanel({
               {hitRate===null?"S/D":hitRate}
             </span>
             <span className="text-lg text-[var(--text-muted)] font-black">{hitRate===null?"":"%"}</span>
-            <span className="text-[10px] text-[var(--text-muted)] font-black uppercase ml-1">hit rate</span>
+            <span className="text-[10px] text-[var(--text-muted)] font-black uppercase ml-1">acierto {sideLabel}</span>
           </div>
         </div>
 
@@ -198,6 +202,8 @@ export default function PickInsightPanel({
           ))}
         </div>
       </div>
+
+      <PlayerLineExplorer stats={stats} line={lineValue} side={side} marketLabel={activeStatLabel} onSelectLine={onSelectLine} formatLine={formatLine} loading={loading} error={error}/>
 
       {/* ── Razones del veredicto ──────────────────────────────────────────── */}
       <div className="px-5 py-4">

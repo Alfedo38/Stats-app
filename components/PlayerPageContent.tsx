@@ -81,6 +81,8 @@ export default function PlayerPageContent({
   const rosterKey=`${String(teamAbbr||'').toUpperCase()}:${rosterStat}:stake`;
   const visibleTeammates=teammatesResolvedFor===rosterKey&&currentSample?.scope==='FULL'?clientTeammates:clientTeammates.map(player=>({...player,current_line:null,current_prop:null,hit_rate:null}));
   const [rosterOpen, setRosterOpen] = useState(false);
+  const [detailTab,setDetailTab]=useState<"summary"|"volume"|"opponent"|"shots">("summary");
+  const [contextVisited,setContextVisited]=useState(false);
   const [analysisMode, setAnalysisMode] = useState<"simple" | "pro">("simple");
 
   useEffect(() => {
@@ -94,7 +96,7 @@ export default function PlayerPageContent({
   }, []);
 
   useEffect(() => {
-    setDvpOpponentFromFilters(null);
+    setDvpOpponentFromFilters(null);setResolvedEventDate(null);setDetailTab("summary");setContextVisited(false);
     setClientTeammates(teammates||[]);
     setTeammatesResolvedFor('');
     setRosterOpen(false);
@@ -244,13 +246,13 @@ export default function PlayerPageContent({
       )}
 
       <main className="flex flex-col gap-4 min-w-0 overflow-hidden">
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2 shadow-xl">
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-1.5">
           <div className="grid grid-cols-2 gap-2" role="group" aria-label="Modo de análisis">
             <button
               type="button"
               onClick={() => changeAnalysisMode("simple")}
               aria-pressed={analysisMode === "simple"}
-              className={`flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-[10px] font-black uppercase tracking-widest transition-all ${analysisMode === "simple" ? "bg-[#10b981] text-black shadow-[0_0_18px_rgba(16,185,129,0.22)]" : "text-[var(--text-muted)] hover:bg-white/[0.035] hover:text-[var(--text)]"}`}
+              className={`flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-black uppercase tracking-widest transition-all ${analysisMode === "simple" ? "bg-[#10b981] text-black shadow-[0_0_18px_rgba(16,185,129,0.22)]" : "text-[var(--text-muted)] hover:bg-white/[0.035] hover:text-[var(--text)]"}`}
             >
               <BarChart3 size={15} /> Vista rápida
             </button>
@@ -258,16 +260,12 @@ export default function PlayerPageContent({
               type="button"
               onClick={() => changeAnalysisMode("pro")}
               aria-pressed={analysisMode === "pro"}
-              className={`flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-[10px] font-black uppercase tracking-widest transition-all ${analysisMode === "pro" ? "bg-cyan-300 text-slate-950 shadow-[0_0_18px_rgba(34,211,238,0.18)]" : "text-[var(--text-muted)] hover:bg-white/[0.035] hover:text-[var(--text)]"}`}
+              className={`flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-black uppercase tracking-widest transition-all ${analysisMode === "pro" ? "bg-cyan-300 text-slate-950 shadow-[0_0_18px_rgba(34,211,238,0.18)]" : "text-[var(--text-muted)] hover:bg-white/[0.035] hover:text-[var(--text)]"}`}
             >
               <BrainCircuit size={15} /> Análisis detallado
             </button>
           </div>
-          <p className="px-2 pb-1 pt-2 text-center text-[9px] font-bold text-[var(--text-muted)]">
-            {analysisMode === "simple"
-              ? "Línea, filtros y tendencia sin distracciones."
-              : "Rol del jugador, estimación, zonas de tiro y defensa del rival."}
-          </p>
+
         </section>
 
         <PlayerChartContainer
@@ -287,13 +285,17 @@ export default function PlayerPageContent({
           onRemoveExternalFilter={removeExternalFilter}
           activeInjuryContext={activeInjuryContext}
           analysisMode={analysisMode}
+          detailTab={detailTab}
+          detailNavigation={<div className="flex flex-wrap gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1" role="tablist" aria-label="Secciones del análisis">{([{id:"summary",label:"Resumen"},{id:"volume",label:"Volumen"},{id:"opponent",label:"Rival"},{id:"shots",label:"Tiros"}] as const).map(item=><button key={item.id} type="button" role="tab" id={`analysis-tab-${item.id}`} aria-selected={detailTab===item.id} tabIndex={detailTab===item.id?0:-1} onKeyDown={event=>{const ids=["summary","volume","opponent","shots"] as const;const index=ids.indexOf(item.id);const next=event.key==="ArrowRight"?ids[(index+1)%4]:event.key==="ArrowLeft"?ids[(index+3)%4]:event.key==="Home"?ids[0]:event.key==="End"?ids[3]:null;if(next){event.preventDefault();setDetailTab(next);if(next==="opponent"||next==="shots")setContextVisited(true);document.getElementById(`analysis-tab-${next}`)?.focus();}}} aria-controls={`analysis-panel-${item.id}`} onClick={()=>{setDetailTab(item.id);if(item.id==="opponent"||item.id==="shots")setContextVisited(true);}} className={`min-h-10 flex-1 rounded-lg px-4 py-2 text-sm font-bold ${detailTab===item.id?"bg-[#10b981] text-black":"text-[var(--text-muted)] hover:text-[var(--text)]"}`}>{item.label}</button>)}</div>}
           onAnalysisSampleChange={handleAnalysisSample}
         />
 
         {analysisMode === "pro" && (
           <>
-          <NBAProReview sample={analysisSample?.playerId === String(currentPlayerId) ? analysisSample : null} />
+          {detailTab==="volume"&&<section id="analysis-role-panel" aria-label="Rol y estimaciones"><NBAProReview sample={analysisSample?.playerId === String(currentPlayerId) ? analysisSample : null} /></section>}
+          {contextVisited&&<div hidden={detailTab!=="opponent"&&detailTab!=="shots"} id={`analysis-panel-${detailTab==="shots"?"shots":"opponent"}`} role="tabpanel" aria-labelledby={`analysis-tab-${detailTab==="shots"?"shots":"opponent"}`}>
           <NBAContextExplorer
+            view={detailTab==="shots"?"shots":"opponent"}
             key={currentPlayerId}
             playerId={currentPlayerId}
             playerName={playerName}
@@ -303,6 +305,7 @@ export default function PlayerPageContent({
             nextGameDate={resolvedEventDate??nextGameDate}
             sharedSample={analysisSample?.playerId === String(currentPlayerId) ? analysisSample : null}
           />
+          </div>}
           </>
         )}
       </main>

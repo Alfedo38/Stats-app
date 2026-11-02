@@ -29,7 +29,7 @@ function nodes(t){return !t||typeof t!=='object'?[]:[t,...[t.props?.children].fl
 function find(t,type){return nodes(t).find(n=>n.type===type);}
 function text(t){return t==null||typeof t==='boolean'?'':typeof t!=='object'?String(t):[t.props?.children].flat(Infinity).map(text).join('');}
 const load=loader(),s=load('./lib/selectionStats.ts'),f=load('./lib/formatters.ts'),p=load('./lib/nbaPeriodStats.ts'),role=load('./lib/nbaRole.ts');
-const base={player_id:1,game_id:'0001',game_date:'2026-10-27',pts:40,reb:6,ast:8,min:35.5,matchup:'LAL vs. POR'},values=[30,35,45,40,50,39,38,33,42,31];
+const base={season_type:'Regular Season',player_id:1,game_id:'0001',game_date:'2026-10-27',pts:40,reb:6,ast:8,min:35.5,matchup:'LAL vs. POR'},values=[30,35,45,40,50,39,38,33,42,31];
 await check('Ausentes, booleanos y objetos no inventan cero',()=>{for(const v of[null,undefined,'',' ',false,true,{},[],NaN,Infinity,-1])assert.equal(s.finiteStat(v),null);assert.equal(s.finiteStat(0),0);});
 await check('Under y Over estrictos separan el empate',()=>{for(const side of['over','under'])assert.equal(s.selectionOutcome(20,20,side),'push');assert.equal(s.selectionOutcome(19,20,'under'),'hit');assert.equal(s.selectionOutcome(21,20,'over'),'hit');});
 await check('Under L10 7/10 y últimos tres 2/3',()=>{assert.equal(s.selectionSummary(values,41.5,'under').hits,7);assert.equal(s.selectionSummary(values.slice(-3),41.5,'under').hits,2);});
@@ -73,7 +73,7 @@ const stubs=Object.fromEntries(['PlayerChart','SupportingDataGrid','PickInsightP
 let answer={data:null,loading:true,error:null};
 const container=loader({...stubs,'@/hooks/useAnalysisQuery':{useAnalysisQuery:url=>url==='/api/player-history'?answer:{data:null,loading:false,error:null}},'./useAnalysisQuery':{useAnalysisQuery:url=>url==='/api/player-history'?answer:{data:null,loading:false,error:null}}})('./components/PlayerChartContainer.tsx').default;
 const props={stats:[base],navStats:[{id:'pts',label:'PTS'}],playerName:'QA',playerId:1,externalFilters:[]};
-await check('Contenedor no usa SSR mientras espera el histórico',()=>{const t=container(props);assert.equal(find(t,'PlayerChart').props.data.length,0);assert.ok(!text(t).includes('AVG: 40'));});
+await check('Contenedor no usa SSR mientras espera el histórico',()=>{const t=container(props);assert.equal(find(t,'PlayerChart'),undefined);assert.ok(nodes(t).some(n=>n.props?.role==='status'));assert.ok(!text(t).includes('AVG: 40'));});
 await check('Contenedor usa los datos vigentes al terminar',()=>{answer={data:{ok:true,games:[{...base,value:12,minutes:30}]},loading:false,error:null};assert.equal(find(container(props),'PlayerChart').props.data[0].value,12);});
 const report={package:'nba-correcciones-analisis-v1',ok:true,checks:checks.length,tests:checks,fixtures:true,network:false,database:false};
 const output=path.join(root,'maintenance-state/qa/correcciones-analisis-v1.json');fs.mkdirSync(path.dirname(output),{recursive:true});fs.writeFileSync(output,JSON.stringify(report,null,2),{mode:0o600});

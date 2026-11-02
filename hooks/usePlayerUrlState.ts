@@ -83,7 +83,7 @@ function normalizeStat(raw: string | null, fallback: string) {
 export function usePlayerUrlState({
   defaultStat = "pts",
   defaultLine = 18.5,
-  defaultN = 30,
+  defaultN = 20,
   defaultScope = "FULL",
 }: UsePlayerUrlStateOptions = {}): PlayerUrlState {
   const pathname = usePathname();

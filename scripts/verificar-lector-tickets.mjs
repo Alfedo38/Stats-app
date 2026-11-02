@@ -10,7 +10,7 @@ try{
  const core=path.join(temporary,'lib','ticketReader');fs.mkdirSync(core,{recursive:true});
  fs.writeFileSync(path.join(temporary,'package.json'),'{"type":"commonjs"}');
  for(const name of ['model','text','identity','parser','analysis','examples','quoteMatch'])fs.writeFileSync(path.join(core,name+'.js'),ts.transpileModule(fs.readFileSync(path.join(process.cwd(),'lib/ticketReader',name+'.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText);
- for(const name of ['nbaOdds','oddsPlayerNames'])fs.writeFileSync(path.join(temporary,'lib',name+'.js'),ts.transpileModule(fs.readFileSync(path.join(process.cwd(),'lib',name+'.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText);
+ for(const name of ['nbaOdds','oddsPlayerNames','playerSample'])fs.writeFileSync(path.join(temporary,'lib',name+'.js'),ts.transpileModule(fs.readFileSync(path.join(process.cwd(),'lib',name+'.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText);
  const {selectQuote,settlementKey}=require(path.join(core,'quoteMatch.js'));
  const {parseTicket,importTicket,findTeams}=require(path.join(core,'parser.js'));
  const {outcome,summarize,prepareGames,reviewLeg,ticketObservations}=require(path.join(core,'analysis.js'));

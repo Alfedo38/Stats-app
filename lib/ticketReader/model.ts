@@ -1,4 +1,5 @@
 import type {SelectionContext} from './contextModel';
+import type {PageSample} from '../playerSample';
 export const MARKETS = { PTS:'Puntos', REB:'Rebotes', AST:'Asistencias', PRA:'Puntos + rebotes + asistencias', PR:'Puntos + rebotes', PA:'Puntos + asistencias', RA:'Rebotes + asistencias', '3PT':'Triples anotados', '3PA':'Triples intentados', FTM:'Tiros libres anotados', FTA:'Tiros libres intentados', FGM:'Tiros de campo anotados', FGA:'Tiros de campo intentados', STL:'Robos', BLK:'Tapones', TO:'Pérdidas', 'STL+BLK':'Robos + tapones' } as const;
 export type Market = keyof typeof MARKETS;
 export type Book = 'stake'|'betano'|'bet365'|'unknown';
@@ -8,7 +9,7 @@ export const SCOPES:Record<Scope,string> = {FULL:'Partido completo',Q1:'Primer c
 export const OPERATORS:Record<Operator,string> = {over:'Más de',under:'Menos de',at_least:'Al menos',at_most:'Como máximo'};
 export const TEAMS = ['ATL','BOS','BKN','CHA','CHI','CLE','DAL','DEN','DET','GSW','HOU','IND','LAC','LAL','MEM','MIA','MIL','MIN','NOP','NYK','OKC','ORL','PHI','PHX','POR','SAC','SAS','TOR','UTA','WAS'];
 export const PARSE_ISSUES=['NAME_MISSING','NAME_AMBIGUOUS','MARKET_MISSING','MARKET_AMBIGUOUS','EVENT_FROM_FOOTER','EVENT_MISSING'] as const;
-export type Leg = { id:string; book:Book; group:string; playerName:string; playerId?:number; matchup:string; teams:string[]; playerTeam?:string; teamConfirmed?:boolean; teamSource?:'ticket'|'schedule'|'manual'; parseIssues?:string[]; market:Market|null; operator:Operator|null; line:number|null; scope:Scope; odds:number|null; groupOdds:number|null; eventDate:string; raw:string; origin?:'player-page'; quoteCapturedAt?:string; confirmed:boolean };
+export type Leg = { id:string; book:Book; group:string; playerName:string; playerId?:number; matchup:string; teams:string[]; playerTeam?:string; teamConfirmed?:boolean; teamSource?:'ticket'|'schedule'|'manual'; parseIssues?:string[]; market:Market|null; operator:Operator|null; line:number|null; scope:Scope; odds:number|null; groupOdds:number|null; eventDate:string; raw:string; origin?:'player-page'; pageSample?:PageSample; quoteCapturedAt?:string; confirmed:boolean };
 export type TicketDocument = {version:1; title:string; eventDate:string; totalOdds:number|null; legs:Leg[]; warnings:string[]};
 export type PlayerOption = {id:number;name:string;team:string|null};
 export type TeamContext = {status:'matched'|'conflict'|'ambiguous'|'not_found'|'unavailable'|'not_checked';team:string|null;teams:string[];gameId:string|null;referenceAt:string;referenceSource:'roster'|'recent_archive'|'manual';message:string};

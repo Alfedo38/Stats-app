@@ -13,7 +13,7 @@ export const maxDuration=60;
 export const POST=withAuth(async(req:NextRequest)=>{
  let body:Record<string,unknown>={};
  const respond=async(value:Record<string,unknown>,options:{status?:number}={})=>{const event=apiReport(body,value),saved=await saveReport(req,event);return NextResponse.json({...value,diagnostic:{saved,event}},options);};
- try{body=await readBody(req);}catch{return respond({ok:false,code:'INPUT_INVALID',error:'Solicitud inválida o demasiado grande.'},{status:400});}
+ try{body=await readBody(req,32768);}catch{return respond({ok:false,code:'INPUT_INVALID',error:'Solicitud inválida o demasiado grande.'},{status:400});}
  try{
   if(body.archiveId!==undefined&&(typeof body.archiveId!=='string'||!/^[a-f0-9]{64}$/.test(body.archiveId)))throw Error('INPUT');
   if(body.action==='health')return respond({ok:true,connection:await readerConnection()});

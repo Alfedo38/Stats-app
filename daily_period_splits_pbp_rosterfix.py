@@ -418,7 +418,7 @@ def fetch_roster_from_nba_boxscore(game_id: str) -> pd.DataFrame:
                     game_id=gid,
                     start_period=0,
                     end_period=0,
-                    headers=HEADERS,
+                    headers=None,
                     timeout=REQUEST_TIMEOUT,
                 )
                 frames = box.get_data_frames()
@@ -442,7 +442,7 @@ def fetch_roster_from_nba_boxscore(game_id: str) -> pd.DataFrame:
                     game_id=gid,
                     start_period=0,
                     end_period=0,
-                    headers=HEADERS,
+                    headers=None,
                     timeout=REQUEST_TIMEOUT,
                 )
                 frames = box.get_data_frames()
@@ -483,7 +483,7 @@ def fetch_games_from_nba(season: str, start: date, end: date) -> pd.DataFrame:
             finder = leaguegamefinder.LeagueGameFinder(
                 season_nullable=season,
                 league_id_nullable=LEAGUE_ID,
-                headers=HEADERS,
+                headers=None,
                 timeout=REQUEST_TIMEOUT,
             )
             df = finder.get_data_frames()[0]
@@ -615,7 +615,7 @@ def fetch_pbp(game_id: str) -> pd.DataFrame:
                 game_id=gid,
                 start_period=0,
                 end_period=0,
-                headers=HEADERS,
+                headers=None,
                 timeout=REQUEST_TIMEOUT,
             )
             frames = pbp.get_data_frames()

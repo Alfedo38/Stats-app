@@ -16,6 +16,10 @@ export function selectedSecondary(market:string,choice:SecondaryChoice,scope:str
  const id=choice==='auto'?automatic:choice;
  return secondaryOptions(market).find(m=>m.id===id)??null;
 }
+export function secondaryAxis(market:string,secondary:string|null|undefined):'left'|'right'{
+ const pairs=[['ast','potential_ast'],['reb','rebound_chances'],['fg3m','fg3a'],['fgm','fga'],['ftm','fta']];
+ return pairs.some(pair=>pair.includes(market)&&pair.includes(secondary??''))?'left':'right';
+}
 export function secondaryValue(row:EvidenceRow,id:string){const metric=EVIDENCE_METRICS[id];return metric?evidenceReading(row,metric,'FULL').value:null;}
 function season(date:string){const y=Number(date.slice(0,4))-(Number(date.slice(5,7))<10?1:0);return `${y}-${String(y+1).slice(-2)}`;}
 function team(row:EvidenceRow){const value=String(row.team_abbreviation??row.team_abbr??row.team??'').trim().toUpperCase();return TEAMS.includes(value)?value:null;}

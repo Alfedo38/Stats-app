@@ -1,3 +1,5 @@
+import {gamePhase} from "@/lib/nbaGameFilters";
+import {twoSeasonRows} from "@/lib/nbaHistoryWindow";
 import { summarizeEvidence, EVIDENCE_METRICS } from "@/lib/marketEvidence";
 import {parseGameContext,type GameContext} from '@/lib/playerNavigation';
 import { requirePageUser } from '@/lib/auth/server';
@@ -250,7 +252,8 @@ export default async function PlayerPage(props: any) {
     const playerName = safePlayerName(player, rawStats);
     const { firstName, lastName } = splitName(player, playerName);
 
-    const cleanStats = rawStats
+    const cleanStats = twoSeasonRows(rawStats,eventContext?.date??argentinaDate())
+      .filter(row=>["Regular Season","Playoffs"].includes(gamePhase(row)??""))
       .filter((row:any)=>!eventContext||String(normalizeDate(row.game_date)||'')<nbaHistoryCutoff(eventContext))
       .map((s: any) => {
         const row = normPeriod(s);
@@ -305,6 +308,7 @@ export default async function PlayerPage(props: any) {
     const lastOpponent = getRowOpponent(cleanStats[0], teamAbbr);
 
     // ── KPIs con tendencia L5 vs L10 ─────────────────────────────────────────
+    const last20 = cleanStats.slice(0,20);
     const last5  = cleanStats.slice(0, 5);
     const last10 = cleanStats.slice(0, 10);
 
@@ -314,7 +318,7 @@ export default async function PlayerPage(props: any) {
       return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
     };
     const calcAvg = (key: string): number | "S/D" => {
-      const values = last5.map(row => kpiValue(key,row)).filter((value): value is number => value !== null);
+      const values = last20.map(row => kpiValue(key,row)).filter((value): value is number => value !== null);
       return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : "S/D";
     };
 
@@ -334,13 +338,13 @@ export default async function PlayerPage(props: any) {
       school: currentRosterPlayer?.school || bioDetails?.school || null,
     };
 
-    const kpiSample=(key:string)=>({label:"L5 · Partido completo",count:last5.filter(row=>kpiValue(key,row)!==null).length,total:last5.length});
+    const kpiSample=(key:string)=>({label:"L20 general · Partido completo",count:last20.filter(row=>kpiValue(key,row)!==null).length,total:last20.length});
     const completeTrend=(key:string,mul=1)=>last5.length===5&&last10.length===10&&last10.every(row=>kpiValue(key,row)!==null)?delta(key,mul):undefined;
     const kpis: PlayerKPI[] = [
-      { label: "Usage Rate",       value: usageDisplay, sample:kpiSample("usage_pct"), trend:completeTrend("usage_pct",100), trendLabel: "vs L10" },
-      { label: "Pot. Asistencias", value: formatAvgVal(calcAvg("potential_ast")), sample:kpiSample("potential_ast"), trend:completeTrend("potential_ast"), trendLabel: "vs L10" },
-      { label: "Chances Reb.",     value: formatAvgVal(calcAvg("rebound_chances")), sample:kpiSample("rebound_chances"), trend:completeTrend("rebound_chances"), trendLabel: "vs L10" },
-      { label: "Toques",           value: formatAvgVal(calcAvg("touches")), sample:kpiSample("touches"), trend:completeTrend("touches"), trendLabel: "vs L10" },
+      { label: "Usage Rate",       value: usageDisplay, sample:kpiSample("usage_pct"), trend:completeTrend("usage_pct",100), trendLabel: "L5 vs L10" },
+      { label: "Pot. Asistencias", value: formatAvgVal(calcAvg("potential_ast")), sample:kpiSample("potential_ast"), trend:completeTrend("potential_ast"), trendLabel: "L5 vs L10" },
+      { label: "Chances Reb.",     value: formatAvgVal(calcAvg("rebound_chances")), sample:kpiSample("rebound_chances"), trend:completeTrend("rebound_chances"), trendLabel: "L5 vs L10" },
+      { label: "Toques",           value: formatAvgVal(calcAvg("touches")), sample:kpiSample("touches"), trend:completeTrend("touches"), trendLabel: "L5 vs L10" },
     ];
 
     const clientStats = JSON.parse(JSON.stringify(clientPlain(cleanStats))) as any[];

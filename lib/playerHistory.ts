@@ -1,3 +1,4 @@
+import {historySeasons,twoSeasonRows} from "./nbaHistoryWindow";
 import { finiteStat, selectionOutcome, selectionSummary } from "./selectionStats";
 import { trackingValue } from "@/lib/trackingValues";
 // potential-history-v1
@@ -319,15 +320,16 @@ export async function getPlayerHistoricalExplorer(input: {
   }
 
   if(cutoff)rows=rows.filter(row=>{const date=normalizeDate(row.game_date);return date!==null&&date<cutoff;});
-  const allRows = (rows || []).map((r) => ({ ...r, _season_key: getSeasonKey(r), _minutes: extractMinutes(r) }));
+  const allRows = (rows || []).filter(r=>["Regular Season","Playoffs"].includes(gamePhase(r)??"")).map((r) => ({ ...r, _season_key: getSeasonKey(r), _minutes: extractMinutes(r) }));
   const seasons = Array.from(new Set(allRows.map((r) => r._season_key).filter(Boolean))).sort().reverse();
-  const last2Seasons = seasons.slice(0, 2);
-  const fromAll = allRows.length ? normalizeDate(allRows[allRows.length - 1].game_date) : null;
-  const toAll = allRows.length ? normalizeDate(allRows[0].game_date) : null;
+  const last2Seasons = historySeasons(cutoff);
 
   const baseRows = mode === "last2" && last2Seasons.length
-    ? allRows.filter((r) => last2Seasons.includes(r._season_key))
+    ? twoSeasonRows(allRows,cutoff)
     : allRows;
+
+  const fromAll = baseRows.length ? normalizeDate(baseRows[baseRows.length - 1].game_date) : null;
+  const toAll = baseRows.length ? normalizeDate(baseRows[0].game_date) : null;
 
   const minutesFiltered = Number.isFinite(minMinutes)
     ? baseRows.filter((r) => r._minutes !== null && Number(r._minutes) >= Number(minMinutes))
@@ -341,7 +343,7 @@ export async function getPlayerHistoricalExplorer(input: {
     ? venueFiltered.filter((r) => normalizeTeam(r.opponent_clean ?? r.opponent) === opponent)
     : venueFiltered;
 
-  const opponentAllRows = opponent ? allRows.filter((r) => normalizeTeam(r.opponent_clean ?? r.opponent) === opponent) : [];
+  const opponentAllRows = opponent ? venueFiltered.filter((r) => normalizeTeam(r.opponent_clean ?? r.opponent) === opponent) : [];
   const opponentWithMinutes = opponent && Number.isFinite(minMinutes)
     ? opponentAllRows.filter((r) => r._minutes !== null && Number(r._minutes) >= Number(minMinutes))
     : opponentAllRows;
@@ -378,8 +380,8 @@ export async function getPlayerHistoricalExplorer(input: {
     coverage: {
       from: fromAll,
       to: toAll,
-      games: allRows.length,
-      seasons,
+      games: baseRows.length,
+      seasons: mode==="last2"?seasons.filter(s=>last2Seasons.includes(s)):seasons,
       selectedSeasons: mode === "last2" ? last2Seasons : seasons,
     },
     summary: {

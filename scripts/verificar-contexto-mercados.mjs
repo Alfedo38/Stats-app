@@ -29,7 +29,7 @@ function nodes(t){return !t||typeof t!=='object'?[]:[t,...[t.props?.children].fl
 function find(t,type){return nodes(t).find(n=>n.type===type);}
 function text(t){return t==null||typeof t==='boolean'?'':typeof t!=='object'?String(t):[t.props?.children].flat(Infinity).map(text).join('');}
 const load=loader(),e=load('./lib/marketEvidence.ts'),m=e.EVIDENCE_METRICS;
-const row=(id,date,values)=>({game_id:String(id),game_date:date,...values});
+const row=(id,date,values)=>({game_id:String(id),game_date:date,season_type:"Regular Season",...values});
 const summary=(rows,id,scope='FULL')=>e.summarizeEvidence(rows,m[id],scope);
 await check('Puntos usa MIN, FGA, FTA y PTS',()=>assert.equal(e.evidenceMetricIds('pts').join(','),'minutes,fga,fta,pts'));
 await check('Triples usa 3PA, 3PM y acierto, también con alias',()=>{for(const key of['fg3m','fg3a','3PTM','3PA'])assert.equal(e.evidenceMetricIds(key).join(','),'minutes,fg3a,fg3m,fg3_rate');});

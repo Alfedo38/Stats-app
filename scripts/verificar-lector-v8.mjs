@@ -8,7 +8,7 @@ const require=createRequire(path.join(process.cwd(),'package.json')),ts=require(
 try{
  fs.writeFileSync(path.join(temporary,'package.json'),'{"type":"commonjs"}');const core=path.join(temporary,'ticketReader');fs.mkdirSync(core);
  for(const name of ['model','text','parser','analysis','diagnosticModel','analysisSnapshot','contextModel','ticketAssessment','jointReference','teamContext','quoteMatch','quoteDiagnostic'])fs.writeFileSync(path.join(core,name+'.js'),ts.transpileModule(fs.readFileSync(path.join(process.cwd(),'lib/ticketReader',name+'.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText);
- for(const name of ['nbaOdds','oddsPlayerNames'])fs.writeFileSync(path.join(temporary,name+'.js'),ts.transpileModule(fs.readFileSync(path.join(process.cwd(),'lib',name+'.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText);
+ for(const name of ['nbaOdds','oddsPlayerNames','playerSample'])fs.writeFileSync(path.join(temporary,name+'.js'),ts.transpileModule(fs.readFileSync(path.join(process.cwd(),'lib',name+'.ts'),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText);
  const {parseTicket,importTicket}=require(path.join(core,'parser.js')),{selectQuote}=require(path.join(core,'quoteMatch.js')),{sanitizeQuoteDiagnostic}=require(path.join(core,'quoteDiagnostic.js')),{buildAnalysisSnapshot,sanitizeAnalysis}=require(path.join(core,'analysisSnapshot.js'));
  const check=(name,fn)=>{fn();passed++;console.log('OK',name);};
  const date='2026-10-23';

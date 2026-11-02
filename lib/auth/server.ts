@@ -49,7 +49,8 @@ export function authFailure(error: unknown) {
   return privateJson({ error: 'No se pudo completar la operación. Revisá la conexión y la instalación del acceso privado.' }, 503);
 }
 
-export async function readBody(request: Request): Promise<Record<string, unknown>> {
+export async function readBody(request: Request, maxBytes=4096): Promise<Record<string, unknown>> {
+  if (!Number.isInteger(maxBytes)||maxBytes<1||maxBytes>32768) throw new AuthError('Límite de solicitud inválido.');
   if (!request.headers.get('content-type')?.toLowerCase().startsWith('application/json')) throw new AuthError('Se requiere JSON.', 415);
   if (!request.body) throw new AuthError('Solicitud vacía.');
   const reader = request.body.getReader();
@@ -60,7 +61,7 @@ export async function readBody(request: Request): Promise<Record<string, unknown
       const { done, value } = await reader.read();
       if (done) break;
       length += value.length;
-      if (length > 4096) { await reader.cancel(); throw new AuthError('Solicitud demasiado grande.', 413); }
+      if (length > maxBytes) { await reader.cancel(); throw new AuthError('Solicitud demasiado grande.', 413); }
       chunks.push(value);
     }
   } finally { reader.releaseLock(); }

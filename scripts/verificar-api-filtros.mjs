@@ -17,6 +17,7 @@ function load(file){
   if(name==='./nbaArchive'||name==='@/lib/nbaArchive')return {archiveEnabled:()=>false,archivedPlayer:async()=>[]};
   if(name==='server-only')return {};
   if(name==='./selectionStats')return load('lib/selectionStats.ts');
+  if(name==='./nbaHistoryWindow')return load('lib/nbaHistoryWindow.ts');
   if(name.startsWith('@/lib/'))return load(`lib/${name.slice(6)}.ts`);
   throw Error(`Import inesperado: ${name}`);
  };

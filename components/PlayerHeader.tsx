@@ -66,7 +66,7 @@ function BioPill({ icon, label, value, accent }: { icon: ReactNode; label: strin
     <div className="flex min-w-0 items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg)]/65 px-2.5 py-2">
       <div className="shrink-0" style={{ color: accent }}>{icon}</div>
       <div className="min-w-0">
-        <div className="text-[7px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">
+        <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--text-muted)]">
           {label}
         </div>
         <div className="truncate text-xs font-black uppercase tracking-tight text-[var(--text)]">{value}</div>
@@ -109,10 +109,10 @@ export default function PlayerHeader({
         </span>
       )}
 
-      <div className="relative z-10 p-4 md:p-5">
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-center">
+      <div className="relative z-10 p-3 md:p-4">
+        <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-center">
           <div className="min-w-0 flex items-start gap-4">
-            <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-[1.25rem] border border-[#10b981]/25 bg-black/30 shadow-2xl md:h-20 md:w-20">
+            <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-[1.25rem] border border-[#10b981]/25 bg-black/30 shadow-2xl md:h-14 md:w-14">
               <div className="absolute inset-0 opacity-70" style={{ background: `radial-gradient(circle at 50% 20%, ${teamColor}33, transparent 42%), linear-gradient(135deg, ${teamColor}12, transparent 55%)` }} />
               <div className="relative flex h-full w-full items-center justify-center text-2xl font-black italic tracking-tighter" style={{ color: teamColor }}>
                 {avatarInitials}
@@ -123,17 +123,17 @@ export default function PlayerHeader({
             </div>
 
             <div className="min-w-0 flex-1">
-              <p className="mb-1.5 flex items-center gap-2 text-[7px] font-black uppercase tracking-[0.3em]" style={{ color: teamColor }}>
+              <p className="mb-1.5 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em]" style={{ color: teamColor }}>
                 <span className="inline-block h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: teamColor }} />
                 MoskProps Player Analytics
               </p>
 
               <h1 className="font-black italic uppercase leading-none tracking-tighter">
-                <span className="text-3xl text-[var(--text)] md:text-5xl">{firstName}</span>
-                {lastName && <span className="ml-2 text-3xl md:text-5xl" style={{ color: teamColor }}>{lastName}</span>}
+                <span className="text-2xl text-[var(--text)] md:text-3xl">{firstName}</span>
+                {lastName && <span className="ml-2 text-2xl md:text-3xl" style={{ color: teamColor }}>{lastName}</span>}
               </h1>
 
-              <div className="mt-3 flex flex-wrap items-center gap-2">
+              <div className="mt-2 flex flex-wrap items-center gap-2">
                 {teamAbbr && (
                   <span className="rounded-full border px-2.5 py-1 text-[9px] font-black uppercase tracking-widest" style={{ color: teamColor, borderColor: `${teamColor}55`, background: `${teamColor}14` }}>
                     {teamAbbr}
@@ -155,7 +155,7 @@ export default function PlayerHeader({
 
           {nextGame && (
             <div className="rounded-2xl border border-[#10b981]/20 bg-black/25 p-3 backdrop-blur-sm">
-              <span className="block text-[8px] font-black uppercase tracking-[0.3em] text-[var(--text-muted)]">Próximo partido</span>
+              <span className="block text-[11px] font-black uppercase tracking-[0.3em] text-[var(--text-muted)]">Próximo partido</span>
               <div className="mt-2 flex items-center justify-between gap-3">
                 <div>
                   <span className="block text-xl font-black uppercase tracking-tighter text-[var(--text)]">
@@ -175,24 +175,24 @@ export default function PlayerHeader({
           )}
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+        <details className="mt-2 text-xs text-[var(--text-muted)]"><summary className="w-fit cursor-pointer font-bold">Perfil del jugador</summary>        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
           <BioPill icon={<Ruler size={12} />} label="Altura" value={bio?.height} accent="#22d3ee" />
           <BioPill icon={<Weight size={12} />} label="Peso" value={bio?.weight} accent="#fb923c" />
           <BioPill icon={<CalendarDays size={12} />} label="Edad" value={bio?.age ? `${bio.age} años` : null} accent="#facc15" />
           <BioPill icon={<Globe2 size={12} />} label="País" value={bio?.country} accent="#a78bfa" />
           <BioPill icon={<GraduationCap size={12} />} label="Origen" value={bio?.school} accent="#10b981" />
-        </div>
+        </div></details>
 
         {kpis.length > 0 && (
-          <div className="mt-4 grid grid-cols-2 gap-2 border-t border-[var(--border)]/40 pt-3 sm:grid-cols-4">
+          <div className="mt-2 grid grid-cols-2 gap-2 border-t border-[var(--border)]/40 pt-3 sm:grid-cols-4">
             {kpis.map((kpi) => (
-              <div key={kpi.label} className="rounded-xl border border-[var(--border)] bg-[var(--bg)]/65 px-3 py-2.5">
-                <p className="flex items-center gap-1 text-[8px] font-black uppercase tracking-[0.22em] text-[var(--text-muted)]">
+              <div key={kpi.label} className="rounded-xl border border-[var(--border)] bg-[var(--bg)]/65 px-3 py-2">
+                <p className="flex items-center gap-1 text-[11px] font-black uppercase tracking-[0.22em] text-[var(--text-muted)]">
                   {kpi.trend !== undefined && <span title={kpi.trendLabel||"Variación L5 frente a L10"}><TrendIndicator value={kpi.trend} /></span>}
                   {kpi.sample?.label ?? kpi.trendLabel ?? kpi.label}
                 </p>
                 <p className="mt-1 text-xl font-black leading-none tabular-nums text-[var(--text)]">{kpi.value}</p>
-                <p className="mt-1 text-[8px] font-bold uppercase tracking-widest text-[var(--text-muted)]">{kpi.label}{kpi.sample?` · ${kpi.sample.count}/${kpi.sample.total} PJ`:""}</p>
+                <p className="mt-1 text-[11px] font-bold uppercase tracking-widest text-[var(--text-muted)]">{kpi.label}{kpi.sample?` · ${kpi.sample.count}/${kpi.sample.total} PJ`:""}</p>
               </div>
             ))}
           </div>

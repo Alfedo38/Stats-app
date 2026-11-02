@@ -1,3 +1,4 @@
+import {cleanPageSample,sampleGameKey} from '../playerSample';
 import {sanitizeSelectionContext} from './contextModel';
 import {assessSelection,assessTicket} from './ticketAssessment';
 import {outcome, reviewLeg, seasonOf, summarize, ticketObservations} from './analysis';
@@ -28,7 +29,9 @@ function selection(value:unknown, id:string, settings:Settings):Leg {
  const s=object(value);
  if(!Array.isArray(s.teams)||s.teams.length>2||s.teams.some(t=>!team(t))||new Set(s.teams).size!==s.teams.length)throw Error('INVALID_ANALYSIS');
  if(s.eventDate!==settings.eventDate)throw Error('INVALID_ANALYSIS');
- return {id,book:choice(s.book,['stake','betano','bet365','unknown']),group:typeof s.group==='string'&&/^\d+(?:\.\d+)*$/.test(s.group)&&s.group.length<=20?s.group:'1',playerName:name(s.playerName),playerId:s.playerId===undefined||s.playerId===null?undefined:integer(s.playerId,2147483647)||undefined,playerTeam:team(s.playerTeam)||undefined,teamConfirmed:s.teamConfirmed===true,teamSource:['ticket','schedule','manual'].includes(String(s.teamSource))?s.teamSource as Leg['teamSource']:undefined,parseIssues:Array.isArray(s.parseIssues)?s.parseIssues.filter((i):i is string=>typeof i==='string'&&(PARSE_ISSUES as readonly string[]).includes(i)).slice(0,6):[],teams:s.teams as string[],matchup:(s.teams as string[]).join(' – '),market:s.market===null?null:choice(s.market,Object.keys(MARKETS)) as Leg['market'],operator:s.operator===null?null:choice(s.operator,['over','under','at_least','at_most']) as Leg['operator'],line:number(s.line,300,true),scope:choice(s.scope,Object.keys(SCOPES)) as Leg['scope'],eventDate:settings.eventDate,odds:price(s.odds),groupOdds:price(s.groupOdds),raw:'',confirmed:false};
+ const pageSample=cleanPageSample(s.pageSample);
+ if(pageSample&&(pageSample.playerId!==String(s.playerId)||pageSample.eventDate!==settings.eventDate||pageSample.scope!==s.scope))throw Error('INVALID_ANALYSIS');
+ return {id,book:choice(s.book,['stake','betano','bet365','unknown']),group:typeof s.group==='string'&&/^\d+(?:\.\d+)*$/.test(s.group)&&s.group.length<=20?s.group:'1',playerName:name(s.playerName),playerId:s.playerId===undefined||s.playerId===null?undefined:integer(s.playerId,2147483647)||undefined,playerTeam:team(s.playerTeam)||undefined,teamConfirmed:s.teamConfirmed===true,teamSource:['ticket','schedule','manual'].includes(String(s.teamSource))?s.teamSource as Leg['teamSource']:undefined,parseIssues:Array.isArray(s.parseIssues)?s.parseIssues.filter((i):i is string=>typeof i==='string'&&(PARSE_ISSUES as readonly string[]).includes(i)).slice(0,6):[],teams:s.teams as string[],matchup:(s.teams as string[]).join(' – '),market:s.market===null?null:choice(s.market,Object.keys(MARKETS)) as Leg['market'],operator:s.operator===null?null:choice(s.operator,['over','under','at_least','at_most']) as Leg['operator'],line:number(s.line,300,true),scope:choice(s.scope,Object.keys(SCOPES)) as Leg['scope'],eventDate:settings.eventDate,odds:price(s.odds),groupOdds:price(s.groupOdds),raw:'',confirmed:false,...(pageSample?{pageSample}:{})};
 }
 function incomplete(leg:Leg) {return !leg.playerName || !leg.market || !leg.operator || leg.line===null || leg.teams.length!==2;}
 function cleanGames(value:unknown,max:number,settings:Settings):Game[] {
@@ -66,6 +69,7 @@ function cleanQuote(value:unknown, leg:Leg,attempted:boolean) {
 function legSnapshot(value:unknown,position:number,settings:Settings,readerVersion:number) {
  const input=object(value);if(!validId(input.id))throw Error('INVALID_ANALYSIS');
  const leg=selection(input.selection,input.id,settings),identity=object(input.identity);
+ const effectiveSettings=leg.pageSample?{...settings,phase:leg.pageSample.phase,seasons:leg.pageSample.seasons,minMinutes:leg.pageSample.minMinutes,eventDate:leg.pageSample.cutoffDate}:settings;
  const identityStatus=choice(identity.status,['exact','suggested','ambiguous','not_found','invalid','not_checked']);
  const rawContext=identity.teamContext&&typeof identity.teamContext==='object'?object(identity.teamContext):null;
  const teamContext=rawContext?{status:choice(rawContext.status,['matched','conflict','ambiguous','not_found','unavailable','not_checked']),team:team(rawContext.team),teams:Array.isArray(rawContext.teams)?rawContext.teams.filter(t=>typeof t==='string'&&TEAMS.includes(t)).slice(0,2):[],gameId:typeof rawContext.gameId==='string'&&/^\d{1,15}$/.test(rawContext.gameId)?rawContext.gameId:null,referenceAt:isDate(rawContext.referenceAt)?rawContext.referenceAt:null,referenceSource:choice(rawContext.referenceSource,['roster','recent_archive','manual'])}:null;
@@ -80,13 +84,15 @@ function legSnapshot(value:unknown,position:number,settings:Settings,readerVersi
   const decode=(value:unknown)=>{if(!Array.isArray(value))throw Error('INVALID_ANALYSIS');return h.gameColumns===undefined?value:value.map(row=>{if(!Array.isArray(row)||row.length!==7)throw Error('INVALID_ANALYSIS');return {...Object.fromEntries(columns.map((k,index)=>[k,row[index]])),season:typeof row[1]==='string'?seasonOf(row[1]):null};});};
   if(h.cutoffDate!==settings.eventDate||typeof h.archiveId!=='string'||!/^[a-f0-9]{64}$/.test(h.archiveId))throw Error('INVALID_ANALYSIS');
   const coverage=choice(h.coverage,['ready','no_history','filtered_out','missing_period']);
-  const recentGames=cleanGames(decode(object(h.recent).games),10,settings),opponent=leg.teams.find(t=>t!==leg.playerTeam)!;
+  const recentGames=cleanGames(decode(object(h.recent).games),10,effectiveSettings),opponent=leg.teams.find(t=>t!==leg.playerTeam)!;
   const rawOpponent=object(h.versusOpponent),refs=rawOpponent.recentGameIds??[];
   if(!Array.isArray(refs)||refs.length>5||readerVersion<9&&refs.length||refs.some(id=>typeof id!=='string'||!recentGames.some(g=>g.id===id))||!Array.isArray(rawOpponent.games))throw Error('INVALID_ANALYSIS');
-  const opponentGames=cleanGames([...refs.map(id=>recentGames.find(g=>g.id===id)),...decode(rawOpponent.games)],5,settings);
+  const opponentGames=cleanGames([...refs.map(id=>recentGames.find(g=>g.id===id)),...decode(rawOpponent.games)],5,effectiveSettings);
   if(opponentGames.some(g=>g.opponent!==opponent))throw Error('INVALID_ANALYSIS');
   const all=new Map(recentGames.map(g=>[g.id,g]));
   for(const g of opponentGames){const old=all.get(g.id);if(old&&JSON.stringify(old)!==JSON.stringify(g))throw Error('INVALID_ANALYSIS');all.set(g.id,g);}
+  const sample=leg.pageSample;
+  if(sample&&[...all.values()].some(g=>sample.gameIds!==undefined&&!sample.gameIds.includes(sampleGameKey(g.id))||sample.opponent&&g.opponent!==sample.opponent))throw Error('INVALID_ANALYSIS');
   if(teamContext?.status==='matched'&&teamContext.gameId&&all.has(teamContext.gameId.replace(/^0+/,'')))throw Error('INVALID_ANALYSIS');
   const availableGames=integer(h.availableGames,50000),currentSeason=aggregate(h.currentSeason);
   if(availableGames<all.size||currentSeason.requested>availableGames || recentGames.length!==Math.min(10,availableGames) || coverage==='no_history'&&availableGames!==0 || coverage==='filtered_out'&&availableGames!==0 || coverage==='ready'&&!availableGames || coverage==='missing_period'&&[...all.values()].some(g=>g.value!==null))throw Error('INVALID_ANALYSIS');
@@ -107,7 +113,7 @@ function legSnapshot(value:unknown,position:number,settings:Settings,readerVersi
  if(input.context&&!context)codes.push('CONTEXT_INVALID');
  const selectedPrice=leg.odds??quote.price;
  const status=history?'analyzed':codes.some(c=>c==='NETWORK_ERROR'||c==='ANALYSIS_ERROR'||c.startsWith('ARCHIVE_')||c==='PERIODS_UNAVAILABLE')?'error':'review';
- return {id:leg.id,position,selection:{book:leg.book,group:leg.group,playerName:leg.playerName,playerId:leg.playerId??null,playerTeam:leg.playerTeam??null,teamConfirmed:!!leg.teamConfirmed,teamSource:leg.teamSource??null,parseIssues:leg.parseIssues??[],teams:leg.teams,market:leg.market,operator:leg.operator,line:leg.line,scope:leg.scope,eventDate:leg.eventDate,odds:leg.odds,groupOdds:leg.groupOdds},identity:{status:identityStatus,teamContext,inputName:name(identity.inputName),canonicalName:identityStatus==='exact'?leg.playerName:null,candidates},status,issues:[...new Set(codes.filter(c=>quote.lookupAttempted||!c.startsWith('QUOTE_')))],history,context,quote,breakEven:{individualPrice:selectedPrice,source:leg.odds!==null?'ticket':quote.status==='matched'?'market':null,decidedRate:selectedPrice?1/selectedPrice:null,assumption:'standard settlement; pushes excluded; no commission'}};
+ return {id:leg.id,position,selection:{book:leg.book,group:leg.group,playerName:leg.playerName,playerId:leg.playerId??null,playerTeam:leg.playerTeam??null,teamConfirmed:!!leg.teamConfirmed,teamSource:leg.teamSource??null,parseIssues:leg.parseIssues??[],teams:leg.teams,market:leg.market,operator:leg.operator,line:leg.line,scope:leg.scope,eventDate:leg.eventDate,odds:leg.odds,groupOdds:leg.groupOdds,...(leg.pageSample?{pageSample:leg.pageSample}:{})},identity:{status:identityStatus,teamContext,inputName:name(identity.inputName),canonicalName:identityStatus==='exact'?leg.playerName:null,candidates},status,issues:[...new Set(codes.filter(c=>quote.lookupAttempted||!c.startsWith('QUOTE_')))],history,context,quote,breakEven:{individualPrice:selectedPrice,source:leg.odds!==null?'ticket':quote.status==='matched'?'market':null,decidedRate:selectedPrice?1/selectedPrice:null,assumption:'standard settlement; pushes excluded; no commission'}};
 }
 
 /** A bounded observation of one click on Analyze. It contains no image or raw OCR. */

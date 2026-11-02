@@ -147,7 +147,7 @@ export default function PlayerHistoricalExplorer({
   const normalizedHomeAway = String(homeAway || "").toUpperCase() === "HOME" ? "HOME" : String(homeAway || "").toUpperCase() === "AWAY" ? "AWAY" : null;
   const supplied=initialData!==undefined||initialLoading!==undefined;
   const query=useAnalysisQuery<HistoryResponse>(!supplied&&market&&playerName?'/api/player-history':null,{
-    playerId,playerName,market,line:Number(lineValue),side,mode:'all',opponent:normalizedOpponent,homeAway:normalizedHomeAway,minMinutes,woTeammate,limit:1000,
+    playerId,playerName,market,line:Number(lineValue),side,mode:'last2',opponent:normalizedOpponent,homeAway:normalizedHomeAway,minMinutes,woTeammate,limit:1000,
   });
   const data=supplied?initialData??null:query.data;
   const loading=supplied?Boolean(initialLoading):query.loading;

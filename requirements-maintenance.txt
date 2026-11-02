@@ -1,0 +1,10 @@
+pandas>=2.2,<3
+numpy>=1.26,<3
+SQLAlchemy>=2.0,<3
+psycopg[binary]>=3.2,<4
+psycopg2-binary>=2.9,<3
+python-dotenv>=1,<2
+requests>=2.32,<3
+nba_api==1.11.6
+curl_cffi>=0.10,<1
+nbainjuries

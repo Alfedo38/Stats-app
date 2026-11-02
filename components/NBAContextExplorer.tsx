@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState, useRef, type ReactNode } from "react";
 import { Calculator, ChevronDown, ChevronLeft, ChevronRight, Crosshair, Shield, Target } from "lucide-react";
 import type { AnalysisSample } from "@/lib/nbaAnalysis";
 import { contextEvidence, contextEmptyText } from "@/lib/marketEvidence";
+import {historySeasons} from "@/lib/nbaHistoryWindow";
+import {contextSeason,contextGames,sampleGameKey} from '@/lib/playerSample';
 import { keyGame } from "@/lib/nbaAnalysis";
 import {analysisStyles} from "@/components/AnalysisAccordion";
 import NBAProInsights from "@/components/NBAProInsights";
@@ -142,7 +144,7 @@ function buildDefenderTotals(rows: Matchup[]): DefenderTotal[] {
       games: new Set<string>(), possessions: 0, seconds: 0, points: 0, fgm: 0, fga: 0,
       fg3m: 0, fg3a: 0, turnovers: 0, assists: 0,
     };
-    current.games.add(String(row.game_id));
+    current.games.add(sampleGameKey(row.game_id));
     current.possessions += n(row.partial_possessions);
     current.seconds += n(row.matchup_minutes_sort);
     current.points += n(row.player_points);
@@ -301,6 +303,7 @@ type NBAContextExplorerProps = {
   dvpKey?: string;
   nextGameDate?: string | null;
   sharedSample?: AnalysisSample | null;
+  view?: "all"|"opponent"|"shots";
 };
 
 export default function NBAContextExplorer({
@@ -311,28 +314,33 @@ export default function NBAContextExplorer({
   dvpKey,
   nextGameDate,
   sharedSample,
+  view="all",
 }: NBAContextExplorerProps) {
   const [shots, setShots] = useState<Shot[]>([]);
   const [matchups, setMatchups] = useState<Matchup[]>([]);
   const [gameLogs, setGameLogs] = useState<GameLog[]>([]);
   const [defenderFouls, setDefenderFouls] = useState<DefenderFoul[]>([]);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(view!=="all");
   const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const autoSeason = useRef(true);
   const [availableSeasons, setAvailableSeasons] = useState<string[]>([]);
-  const [selectedSeason, setSelectedSeason] = useState("2025-26");
+  const [selectedSeason, setSelectedSeason] = useState(()=>contextSeason(nextGameDate));
   const [seasonType, setSeasonType] = useState("ALL");
   useEffect(()=>{if(sharedSample?.phase)setSeasonType(sharedSample.phase);},[sharedSample?.phase]);
   const [opponent, setOpponent] = useState(() => String(opponentAbbr || "ALL").trim().toUpperCase() || "ALL");
   const [position, setPosition] = useState("ALL");
-  const [range, setRange] = useState<number>(5);
+  const [range, setRange] = useState<number>(view==="all"?5:0);
+  const [rivalOnly,setRivalOnly]=useState(false);
+  useEffect(()=>{const next=String(opponentAbbr||"ALL").trim().toUpperCase();setOpponent(NBA_TEAM_OPTIONS.includes(next as typeof NBA_TEAM_OPTIONS[number])?next:"ALL");setRivalOnly(false);},[opponentAbbr,playerId]);
+  useEffect(()=>{const allowed=historySeasons(nextGameDate);if(autoSeason.current||!allowed.includes(selectedSeason))setSelectedSeason(allowed[0]);},[nextGameDate,selectedSeason]);
   const [selectedGameId, setSelectedGameId] = useState("");
   const [selectedMarket, setSelectedMarket] = useState<MarketKey>("pts");
   const [marketLine, setMarketLine] = useState(0);
 
   useEffect(() => {
+    if(view!=="all")return;
     const saved = window.localStorage.getItem("nba-context-expanded");
     setExpanded(saved === null ? true : saved === "1");
   }, []);
@@ -350,10 +358,6 @@ export default function NBAContextExplorer({
         if (controller.signal.aborted) return;
         const seasons: string[] = Array.isArray(data.availableSeasons) ? data.availableSeasons.filter((value: string) => /^\d{4}-\d{2}$/.test(value)) : [];
         setAvailableSeasons(seasons);
-        if (autoSeason.current) {
-          autoSeason.current = false;
-          if (!data.games?.length && seasons.length && !seasons.includes(selectedSeason)) { setSelectedSeason(seasons[0]); return; }
-        }
         setShots(Array.isArray(data.shots) ? data.shots : []);
         setMatchups(Array.isArray(data.matchups) ? data.matchups : []);
         setGameLogs(Array.isArray(data.games) ? data.games : []);
@@ -375,35 +379,34 @@ export default function NBAContextExplorer({
 
   const gameMeta = useMemo(() => {
     const map = new Map<string, { id: string; date: string; seasonType: string; opponent: string; log?: GameLog }>();
-    for (const log of gameLogs) map.set(String(log.game_id), { id: String(log.game_id), date: dateOnly(log.game_date), seasonType: String(log.season_type || ""), opponent: String(log.opponent_abbr || parseOpponent(log.matchup, log.team_abbreviation)).toUpperCase(), log });
+    for (const log of gameLogs) map.set(sampleGameKey(log.game_id), { id: sampleGameKey(log.game_id), date: dateOnly(log.game_date), seasonType: String(log.season_type || ""), opponent: String(log.opponent_abbr || parseOpponent(log.matchup, log.team_abbreviation)).toUpperCase(), log });
     for (const shot of shots) {
-      const id = String(shot.game_id); const previous = map.get(id);
+      const id = sampleGameKey(shot.game_id); const previous = map.get(id);
       map.set(id, { id, date: dateOnly(shot.game_date) || previous?.date || "", seasonType: shot.season_type || previous?.seasonType || "", opponent: String(shot.opponent_abbr || previous?.opponent || "").toUpperCase(), log: previous?.log });
     }
     for (const row of matchups) {
-      const id = String(row.game_id); const previous = map.get(id);
+      const id = sampleGameKey(row.game_id); const previous = map.get(id);
       map.set(id, { id, date: dateOnly(row.game_date) || previous?.date || "", seasonType: row.season_type || previous?.seasonType || "", opponent: String(row.defensive_team_abbr || previous?.opponent || "").toUpperCase(), log: previous?.log });
     }
     return map;
   }, [gameLogs, matchups, shots]);
 
   const filteredGames = useMemo(() => {
-    const sharedIds = sharedSample ? new Set(sharedSample.rows.map(keyGame)) : null;
-    const list = [...gameMeta.values()].filter(game => !sharedIds || sharedIds.has(String(game.id).replace(/^0+/, ""))).filter((game) => (seasonType === "ALL" || game.seasonType === seasonType) && (opponent === "ALL" || game.opponent === opponent)).sort((a, b) => b.date.localeCompare(a.date));
-    return range > 0 ? list.slice(0, range) : list;
-  }, [gameMeta, opponent, range, seasonType, sharedSample]);
+    const sharedIds = sharedSample ? new Set(sharedSample.rows.map(keyGame).map(sampleGameKey)) : null;
+    return contextGames([...gameMeta.values()],{ids:sharedIds,phase:seasonType,opponent,rivalOnly,range});
+  }, [gameMeta, opponent, rivalOnly,range, seasonType, sharedSample]);
 
   useEffect(() => {
     if (!filteredGames.some((game) => game.id === selectedGameId)) setSelectedGameId(filteredGames[0]?.id || "");
   }, [filteredGames, selectedGameId]);
 
   const allowedIds = useMemo(() => new Set(filteredGames.map((game) => game.id)), [filteredGames]);
-  const rangeMatchups = useMemo(() => matchups.filter((row) => allowedIds.has(String(row.game_id)) && (position === "ALL" || positionGroup(row.defensive_position) === position)), [allowedIds, matchups, position]);
+  const rangeMatchups = useMemo(() => matchups.filter((row) => allowedIds.has(sampleGameKey(row.game_id)) && (position === "ALL" || positionGroup(row.defensive_position) === position)), [allowedIds, matchups, position]);
   const selectedGame = filteredGames.find((game) => game.id === selectedGameId);
   const selectedIndex = filteredGames.findIndex((game) => game.id === selectedGameId);
-  const selectedShots = shots.filter((shot) => String(shot.game_id) === selectedGameId);
+  const selectedShots = shots.filter((shot) => sampleGameKey(shot.game_id) === selectedGameId);
   const contextCoverage=contextEvidence(filteredGames,shots,rangeMatchups);
-  const selectedMatchups = rangeMatchups.filter((row) => String(row.game_id) === selectedGameId);
+  const selectedMatchups = rangeMatchups.filter((row) => sampleGameKey(row.game_id) === selectedGameId);
 
   const teamGroups = useMemo(() => {
     const map = new Map<string, Matchup[]>();
@@ -418,7 +421,7 @@ export default function NBAContextExplorer({
     if (opponent === "ALL" || !filteredGames.length) return null;
 
     const gameValues = filteredGames.map((game) => {
-      const gameShots = shots.filter((shot) => String(shot.game_id) === game.id);
+      const gameShots = shots.filter((shot) => sampleGameKey(shot.game_id) === game.id);
       const logFga = game.log?.fga;
       const logFgm = game.log?.fgm;
       return {
@@ -441,7 +444,10 @@ export default function NBAContextExplorer({
     const variance = mean(gameValues.map((game) => (game.fga - fgaMean) ** 2));
     const deviation = Math.sqrt(variance);
 
-    const defenders = buildDefenderTotals(rangeMatchups).filter((defender) => defender.possessions > 0);
+    const rivalMatchups=rangeMatchups.filter(row=>String(row.defensive_team_abbr).toUpperCase()===opponent);
+    const rivalGames=new Set(rivalMatchups.map(row=>sampleGameKey(row.game_id))).size;
+    const defenders = buildDefenderTotals(rivalMatchups).filter((defender) => defender.possessions > 0);
+    if(!defenders.length)return null;
     const totalPossessions = defenders.reduce((sum, defender) => sum + defender.possessions, 0);
     const matchupFga = defenders.reduce((sum, defender) => sum + defender.fga, 0);
     const baseAttemptRate = totalPossessions > 0 ? matchupFga / totalPossessions : 0;
@@ -477,12 +483,13 @@ export default function NBAContextExplorer({
       : normalPct;
     const foulFga = normalRate > 0 ? fgaMean * (foulRate / normalRate) : fgaMean;
     const margin = Math.max(1.5, deviation, Math.sqrt(fgaMean) * 0.65);
-    const confidence = filteredGames.length >= 5 && totalPossessions >= 100
+    const confidence = rivalGames >= 5 && totalPossessions >= 100
       ? "Alta"
-      : filteredGames.length >= 3 && totalPossessions >= 50 ? "Media" : "Baja";
+      : rivalGames >= 3 && totalPossessions >= 50 ? "Media" : "Baja";
 
     return {
       games: gameValues.length,
+      rivalGames,
       possessions: totalPossessions,
       fga: fgaMean,
       fgm: fgaMean * normalPct,
@@ -571,19 +578,19 @@ export default function NBAContextExplorer({
       <button type="button" onClick={toggleExpanded} aria-expanded={expanded} className="flex w-full items-center justify-between gap-4 p-4 text-left hover:bg-white/[0.025] md:p-5">
         <span className="min-w-0">
           <span className="flex items-center gap-2 text-cyan-300"><Crosshair size={17} /><span className="text-[10px] font-black uppercase tracking-[0.2em]">Contexto · {selectedSeason}</span></span>
-          <span className="mt-1 block text-lg font-black tracking-tight text-[var(--text)]">Tiros y defensa del rival</span>
+          <span className="mt-1 block text-lg font-black tracking-tight text-[var(--text)]">{view==="shots"?"Tiros y defensores":"Defensa y contexto del rival"}</span>
           <span className="mt-1 block text-xs text-[var(--text-muted)]">{expanded ? "Revisá zonas de tiro, defensores y rendimiento frente al rival." : "El análisis queda cerrado y no ocupa espacio."}</span>
         </span>
-        <span className="flex shrink-0 items-center gap-2"><span className="hidden rounded-full border border-cyan-400/20 bg-cyan-400/5 px-3 py-1.5 text-[9px] font-black uppercase text-cyan-200 sm:inline">Abrir contexto</span><ChevronDown size={20} className={`text-cyan-300 transition-transform ${expanded ? "rotate-180" : ""}`} /></span>
+        <span className="flex shrink-0 items-center gap-2"><span className="hidden rounded-full border border-cyan-400/20 bg-cyan-400/5 px-3 py-1.5 text-[9px] font-black uppercase text-cyan-200 sm:inline">{expanded?"Cerrar contexto":"Abrir contexto"}</span><ChevronDown size={20} className={`text-cyan-300 transition-transform ${expanded ? "rotate-180" : ""}`} /></span>
       </button>
 
       {expanded && <div className="border-t border-[var(--border)]">
         <div className="flex flex-wrap items-center gap-3 border-b border-[var(--border)] p-4">
           <label htmlFor={`pro-season-${playerId}`} className="text-xs font-bold text-[var(--text-muted)]">Temporada del análisis</label>
           <select id={`pro-season-${playerId}`} value={selectedSeason} onChange={event => { autoSeason.current = false; setSelectedSeason(event.target.value); }} className="rounded-lg border border-cyan-400/30 bg-[var(--bg)] px-3 py-2 text-xs font-bold text-[var(--text)]">
-            {Array.from(new Set([selectedSeason, ...availableSeasons])).sort().reverse().map(season => <option key={season} value={season}>{season}</option>)}
+            {Array.from(new Set([selectedSeason, ...availableSeasons.filter(s=>historySeasons(nextGameDate).includes(s))])).sort().reverse().map(season => <option key={season} value={season}>{season}</option>)}
           </select>
-          <span className="text-xs text-[var(--text-muted)]">Elegí una temporada con partidos cargados en la base.</span>
+          <span className="text-xs text-[var(--text-muted)]">{selectedSeason===contextSeason(nextGameDate)?"Temporada del partido seleccionado":"Referencia de otra temporada"}</span>
         </div>
         {loading && <div className="p-5"><div className="h-5 w-56 animate-pulse rounded bg-white/10" /><div className="mt-4 h-40 animate-pulse rounded-xl bg-white/[0.04]" /></div>}
         {error && <div className="m-4 rounded-xl border border-amber-500/30 bg-amber-500/5 p-5 text-sm text-amber-200">{error}</div>}
@@ -593,29 +600,33 @@ export default function NBAContextExplorer({
           <div className="border-b border-[var(--border)] p-4 md:p-5">
             <div className="grid gap-3 xl:grid-cols-[auto_auto_minmax(150px,1fr)_auto]">
               <div className="flex flex-wrap gap-1.5"><FilterButton active={seasonType === "ALL"} onClick={() => setSeasonType("ALL")}>Todos</FilterButton><FilterButton active={seasonType === "Regular Season"} onClick={() => setSeasonType("Regular Season")}>Regular</FilterButton><FilterButton active={seasonType === "Playoffs"} onClick={() => setSeasonType("Playoffs")}>Playoffs</FilterButton></div>
-              <div className="flex flex-wrap gap-1.5">{RANGE_OPTIONS.map((item) => <FilterButton key={item} active={range === item} onClick={() => setRange(item)}>{item ? `L${item}` : "Temporada"}</FilterButton>)}</div>
+              <div className="flex flex-wrap gap-1.5">{RANGE_OPTIONS.map((item) => <FilterButton key={item} active={range === item} onClick={() => setRange(item)}>{item ? `L${item}` : sharedSample?"Del gráfico":"Temporada"}</FilterButton>)}</div>
               <select value={opponent} onChange={(event) => setOpponent(event.target.value)} aria-label="Equipo rival" className="min-h-10 rounded-lg border border-cyan-400/30 bg-[var(--bg)] px-3 text-xs font-black text-[var(--text)]"><option value="ALL">Elegir equipo rival</option>{NBA_TEAM_OPTIONS.map((item) => <option key={item} value={item}>vs {item}</option>)}</select>
               <div className="flex gap-1.5">{POSITION_OPTIONS.map((item) => <FilterButton key={item} active={position === item} onClick={() => setPosition(item)}>{item === "ALL" ? "Todas pos." : item}</FilterButton>)}</div>
             </div>
           </div>
 
           <div className="space-y-3 p-4 md:p-5">
-            <p className="text-xs text-[var(--text-muted)]">Este bloque usa partidos de la muestra del gráfico que tengan contexto en {selectedSeason}. Los controles siguientes refinan esa intersección. Las asignaciones de defensores son de partido completo.</p>
+            <p className="text-xs text-[var(--text-muted)]">Muestra del gráfico con contexto en {selectedSeason}. Elegir un rival cambia la referencia; la casilla «Solo contra el rival» filtra los partidos.</p>
             {sharedSample && sharedSample.scope !== "FULL" ? <p className="text-xs text-amber-300">El gráfico está en un período parcial. Los defensores y el calendario de este bloque se ocultan para evitar mezclar totales; el resumen de rol superior usa el período elegido.</p> : <>
             <p className="mb-3 text-xs text-[var(--text-muted)]">{contextCoverage.total} PJ seleccionados · {contextCoverage.shots}/{contextCoverage.total} con tiros · {contextCoverage.matchups}/{contextCoverage.total} con asignaciones defensivas. Mapas y marcadores del partido completo · {selectedSeason}.{sharedSample?.scope&&sharedSample.scope!=="FULL"?` El gráfico principal usa ${sharedSample.scope}; este contexto no está separado por período.`:""}</p>
-            <NBAProInsights key={playerId} rows={gameLogs.filter(row => !sharedSample || sharedSample.rows.some(sample => keyGame(sample) === keyGame(row)))} shots={shots} playerId={playerId} opponent={opponent} seasonType={seasonType} range={range} nextGameDate={nextGameDate} />
+            <NBAProInsights view={view} rivalOnly={rivalOnly} onRivalOnlyChange={setRivalOnly} referenceSeason={selectedSeason} key={playerId} rows={gameLogs.filter(row => allowedIds.has(sampleGameKey(row.game_id)))} shots={shots} playerId={playerId} opponent={opponent} seasonType={seasonType} range={range} nextGameDate={nextGameDate} />
+            {view!=="shots"&&<>
             <CollapsibleSection title="FGA, FGM y escenario de faltas" meta={opponent === "ALL" ? "Elegí un equipo" : `vs ${opponent}`} icon={<Calculator size={16} />} defaultOpen={false}>
               {opponent === "ALL" ? <div className="rounded-xl border border-dashed border-[var(--border)] p-6 text-center text-xs text-[var(--text-muted)]">Seleccioná un equipo rival para calcular FGA, FGM y el escenario de faltas.</div> : projection ? <div className="space-y-4">
                 <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
                   {[{ label: "FGA esperados", value: projection.fga.toFixed(1) }, { label: "FGM esperados", value: projection.fgm.toFixed(1) }, { label: "TC proyectado", value: `${(projection.fgPct * 100).toFixed(1)}%` }, { label: "Rango FGA", value: `${projection.low}–${projection.high}` }].map((item) => <div key={item.label} className="rounded-xl border border-[var(--border)] bg-[var(--bg)] p-3"><div className="text-[9px] font-black uppercase text-[var(--text-muted)]">{item.label}</div><div className="mt-1 text-2xl font-black">{item.value}</div></div>)}
-                  <div className="rounded-xl border border-[var(--border)] bg-[var(--bg)] p-3"><div className="text-[9px] font-black uppercase text-[var(--text-muted)]">Tamaño de muestra</div><div className={`mt-1 text-2xl font-black ${projection.confidence === "Alta" ? "text-emerald-300" : projection.confidence === "Media" ? "text-amber-300" : "text-rose-300"}`}>{projection.games} PJ</div><div className="mt-1 text-[9px] text-[var(--text-muted)]">{projection.games} PJ · {projection.possessions.toFixed(0)} poses.</div></div>
+                  <div className="rounded-xl border border-[var(--border)] bg-[var(--bg)] p-3"><div className="text-[9px] font-black uppercase text-[var(--text-muted)]">Tamaño de muestra</div><div className={`mt-1 text-2xl font-black ${projection.confidence === "Alta" ? "text-emerald-300" : projection.confidence === "Media" ? "text-amber-300" : "text-rose-300"}`}>{projection.games} PJ</div><div className="mt-1 text-[9px] text-[var(--text-muted)]">{projection.games} PJ base · {projection.rivalGames} PJ vs {opponent} · {projection.possessions.toFixed(0)} poses.</div></div>
                 </div>
                 <div className="grid gap-2 md:grid-cols-2"><div className="rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-4"><div className="text-[9px] font-black uppercase text-emerald-300">Rotación normal</div><div className="mt-2 text-xl font-black">{projection.fga.toFixed(1)} FGA · {projection.fgm.toFixed(1)} FGM</div><div className="mt-1 text-xs text-[var(--text-muted)]">{(projection.fgPct * 100).toFixed(1)}% de campo estimado</div></div><div className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-4"><div className="text-[9px] font-black uppercase text-amber-300">Principal con faltas</div><div className="mt-2 text-xl font-black">{projection.foulFga.toFixed(1)} FGA · {projection.foulFgm.toFixed(1)} FGM</div><div className="mt-1 text-xs text-[var(--text-muted)]">Δ {(projection.foulFga - projection.fga >= 0 ? "+" : "")}{(projection.foulFga - projection.fga).toFixed(1)} FGA · más segunda rotación</div></div></div>
                 <div className="grid gap-2 md:grid-cols-3"><div className="rounded-lg bg-white/[0.035] p-3 text-xs"><span className="block text-[9px] font-black uppercase text-[var(--text-muted)]">Defensor principal</span><span className="mt-1 block font-bold">{projection.primary?.name || "Sin identificar"}</span></div><div className="rounded-lg bg-white/[0.035] p-3 text-xs"><span className="block text-[9px] font-black uppercase text-[var(--text-muted)]">Asignación estimada</span><span className="mt-1 block font-bold">{(projection.primaryShare * 100).toFixed(0)}%</span></div><div className="rounded-lg bg-white/[0.035] p-3 text-xs"><span className="block text-[9px] font-black uppercase text-[var(--text-muted)]">Faltas promedio</span><span className="mt-1 block font-bold">{projection.pfAverage === null ? "S/D" : projection.pfAverage.toFixed(1)} PF{projection.minutes === null ? "" : ` · ${projection.minutes.toFixed(1)} MIN`}</span></div></div>
                 <p className="text-[10px] leading-5 text-[var(--text-muted)]">Estimación basada en la muestra elegida y posesiones de matchup, suavizada para no sobrerreaccionar a pocos partidos. El escenario de faltas no es una predicción en vivo.</p>
-              </div> : <div className="rounded-xl border border-dashed border-[var(--border)] p-6 text-center text-xs text-[var(--text-muted)]">{opponent==="ALL"?"Elegí un rival para evaluar su contexto.":!contextCoverage.total?"No hay partidos seleccionados frente a este rival.":!contextCoverage.shots?contextEmptyText("shots",contextCoverage):!contextCoverage.matchups?contextEmptyText("matchups",contextCoverage):"La muestra disponible no alcanza para proyectar este rival."}</div>}
+              </div> : <div className="rounded-xl border border-dashed border-[var(--border)] p-6 text-center text-xs text-[var(--text-muted)]">{opponent==="ALL"?"Elegí un rival para evaluar su contexto.":!contextCoverage.total?"No hay partidos seleccionados frente a este rival.":!contextCoverage.shots?contextEmptyText("shots",contextCoverage):!rangeMatchups.some(row=>String(row.defensive_team_abbr).toUpperCase()===opponent)?`Sin asignaciones defensivas frente a ${opponent} en esta muestra. Probá otra temporada o ampliá la muestra del gráfico.`:"La muestra disponible no alcanza para proyectar este rival."}</div>}
             </CollapsibleSection>
 
+            </>}
+
+            {view!=="opponent"&&<>
             <CollapsibleSection title="Marca por equipo y posición" meta={`${filteredGames.length} partidos`} icon={<Shield size={16} />} defaultOpen={false}>
               <div className="space-y-2">{teamGroups.map(([team, rows]) => { const positions = ["G", "F", "C", "S/D"].map((group) => [group, rows.filter((row) => positionGroup(row.defensive_position) === group)] as const).filter(([, items]) => items.length); return <details key={team} open={opponent !== "ALL" || teamGroups.length === 1} className="group rounded-xl border border-[var(--border)] bg-[var(--bg)]"><summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3"><span className="font-black">vs {team}</span><span className="text-right text-[10px] font-bold uppercase text-[var(--text-muted)]">{new Set(rows.map((row) => row.game_id)).size} PJ · {buildDefenderTotals(rows).length} defensores</span></summary><div className="border-t border-[var(--border)] p-2">{positions.map(([group, items]) => <div key={group} className="mb-2 overflow-hidden rounded-lg border border-[var(--border)] last:mb-0"><div className="bg-white/[0.035] px-4 py-2 text-[10px] font-black uppercase tracking-widest text-emerald-300">Posición {group}</div><DefenderTable rows={items} compact /></div>)}</div></details>; })}{!teamGroups.length && <div className="rounded-xl border border-dashed border-[var(--border)] p-6 text-center text-xs text-[var(--text-muted)]">{contextEmptyText("matchups",contextCoverage)}</div>}</div>
             </CollapsibleSection>
@@ -625,10 +636,13 @@ export default function NBAContextExplorer({
               {selectedGame ? <div className="space-y-4"><div className="rounded-2xl border border-[var(--border)] bg-[var(--bg)] p-3 md:p-4">{!selectedShots.length&&<p className="mb-3 text-xs text-[var(--text-muted)]">{contextEmptyText("shots",contextEvidence(selectedGame?[selectedGame]:[],selectedShots,selectedMatchups))}</p>}<ShotCourt shots={selectedShots} /></div><div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg)]"><div className="border-b border-[var(--border)] px-4 py-3"><h4 className="text-xs font-black uppercase">Quién defendió a {playerName}</h4><p className="mt-1 text-[10px] text-[var(--text-muted)]">Ordenado por tiempo de asignación en ese partido.</p></div><DefenderTable rows={selectedMatchups} compact emptyMessage={contextEmptyText("matchups",contextEvidence(selectedGame?[selectedGame]:[],selectedShots,selectedMatchups))} /></div></div> : <div className="rounded-xl border border-dashed border-[var(--border)] p-8 text-center text-xs text-[var(--text-muted)]">{contextEmptyText("shots",contextCoverage)}</div>}
             </CollapsibleSection>
 
+            </>}
+            {view!=="shots"&&<>
             <CollapsibleSection title="Rival y defensa por posición" meta={opponent === "ALL" ? "Elegí rival arriba" : `${opponent} · ${playerPosition || "posición"}`} icon={<Shield size={16} />} defaultOpen={false}>
               {opponent !== "ALL" && playerPosition ? <DvpPanel key={`${dvpKey || playerId}:${opponent}:${playerPosition}`} opponentAbbr={opponent} position={playerPosition} /> : <div className="rounded-xl border border-dashed border-[var(--border)] p-6 text-center text-xs text-[var(--text-muted)]">Elegí uno de los 30 equipos en el selector superior para ver su DVP contra la posición de {playerName}.</div>}
             </CollapsibleSection>
 
+            </>}
             </>}
             <p className="rounded-xl border border-sky-400/20 bg-sky-400/5 px-4 py-3 text-[10px] leading-5 text-sky-100/70">Los puntos muestran tiros reales. Las asignaciones son totales del partido: la fuente no identifica con certeza al defensor de cada tiro individual.</p>
           </div>

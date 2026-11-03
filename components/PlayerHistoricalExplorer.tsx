@@ -52,7 +52,7 @@ const STAT_TO_MARKET: Record<string, string> = {
   reb: "REB",
   ast: "AST",
   fgm: "FGM",
-  fga: "FGA",
+  fga: "FGA", ftm:"FTM", fta:"FTA",
   fg3m: "3PTM",
   "3pt": "3PTM",
   "3ptm": "3PTM",

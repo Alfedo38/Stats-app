@@ -5,7 +5,7 @@ import vm from 'node:vm';
 import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url),ts=require('typescript'),React=require('react'),DOM=require('react-dom/server'),root=process.cwd(),checks=[];
 async function check(name,run){await run();checks.push(name);console.log('OK '+name);}
-const react={...React,useMemo:f=>f(),useCallback:f=>f,useEffect(){},useLayoutEffect(){},useRef:v=>({current:v}),useState:v=>[typeof v==='function'?v():v,()=>{}]};
+const react={...React,useContext:()=>false,useMemo:f=>f(),useCallback:f=>f,useEffect(){},useLayoutEffect(){},useRef:v=>({current:v}),useState:v=>[typeof v==='function'?v():v,()=>{}]};
 const charts=Object.fromEntries(['Bar','CartesianGrid','Cell','ComposedChart','LabelList','Line','ReferenceLine','Tooltip','XAxis','YAxis'].map(n=>[n,n]));
 function loader(overrides={}){const cache=new Map();function load(name){
  if(name in overrides)return overrides[name];if(name==='react')return react;if(name==='recharts')return charts;

@@ -98,6 +98,7 @@ export default async function MatchupPage({ params, searchParams }: { params: Pr
         key={`${away}-${home}:${filters.date}`}
         away={away} home={home} date={filters.date} season={filters.season}
         awayRoster={data.awayRoster} homeRoster={data.homeRoster} averages={data.players}
+        start={start||undefined} injuries={matchInjuries} reportAvailable={injuryReport.available}
       />
       <div className={styles.context}><strong>Parte médico del partido</strong><p>{injuryReport.available?`Reporte más reciente de la ventana: ${reportTimeLabel(injuryReport.latestReportAt)}. Cada estado conserva su captura.`:"Parte no disponible. No se confirma disponibilidad por falta de un registro."} {injuryReport.stale?"Reporte con más de 36 horas.":""}</p><Link href={`/injuries?date=${filters.date}`}>Ver parte y filtrar jugadores →</Link></div>
       <section className={styles.rosterContext}><h2>Jugadores de ambos equipos</h2><p>Planteles actuales {CURRENT_ROSTER_SEASON}, actualizados el {dateLabel(CURRENT_ROSTER_UPDATED_AT.slice(0, 10))}. Promedios de {filters.season}, incluyendo otros equipos en los que jugó cada jugador. Este plantel no reconstruye la alineación de partidos históricos ni confirma quién jugará.</p></section>

@@ -4,15 +4,23 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import type { PlayerAverage } from '@/lib/matchupData';
 import { getTeamColor } from '@/lib/teamColors';
-import { defensiveScenarioKey, rankedMatchupRoster, restoreDefensiveScenario, suggestDefensiveScenario, type DefensiveAssignment, type DefensiveScenario, type MatchupRosterPlayer } from '@/lib/defensiveMatchups';
+import { applyMatchupInjuries, defensiveScenarioKey, rankedMatchupRoster, restoreDefensiveScenario, suggestDefensiveScenario, type DefensiveAssignment, type DefensiveScenario, type MatchupRosterPlayer } from '@/lib/defensiveMatchups';
+import {INJURY_LABELS,type InjuryItem} from '@/lib/injuryReport';
+import {playerGameHref,matchupHref} from '@/lib/playerNavigation';
 import styles from './DefensiveMatchups.module.css';
 
-type Props = { away: string; home: string; date: string; season: string; awayRoster: MatchupRosterPlayer[]; homeRoster: MatchupRosterPlayer[]; averages: PlayerAverage[] };
+type Props = { away: string; home: string; date: string; season: string; start?:string; injuries?:InjuryItem[]; reportAvailable?:boolean; awayRoster: MatchupRosterPlayer[]; homeRoster: MatchupRosterPlayer[]; averages: PlayerAverage[] };
 type Direction = 'away' | 'home';
 const format = (value: number | null | undefined) => value == null ? '—' : value.toLocaleString('es-AR', { maximumFractionDigits: 1 });
 
-export default function DefensiveMatchups({ away, home, date, season, awayRoster, homeRoster, averages }: Props) {
-  const [scenario, setScenario] = useState<DefensiveScenario>(() => suggestDefensiveScenario(awayRoster, homeRoster, averages));
+export default function DefensiveMatchups({ away, home, date, season, start, injuries=[], reportAvailable=false, awayRoster, homeRoster, averages }: Props) {
+  const currentInjuries=injuries.filter(p=>p.date===date&&p.game?.away===away&&p.game?.home===home);
+  const injuryMap=new Map(currentInjuries.filter(p=>p.playerId!==null).map(p=>[p.playerId!,p]));
+  const outIds=currentInjuries.filter(p=>p.status==='OUT'&&!p.stale&&!p.conflict&&p.playerId!==null).map(p=>p.playerId!);
+  const reconcile=(value:DefensiveScenario)=>applyMatchupInjuries(value,awayRoster,homeRoster,averages,outIds);
+  const playerHref=(id:number)=>playerGameHref(id,{away,home,date,start,returnTo:matchupHref(away,home,date,start)});
+  const statusLabel=(id:number)=>{const item=injuryMap.get(id);return item?` · ${INJURY_LABELS[item.status]}${item.stale?' (reporte anterior)':''}${item.conflict?' (en conflicto)':''}`:'';};
+  const [scenario, setScenario] = useState<DefensiveScenario>(() => suggestDefensiveScenario(awayRoster, homeRoster, averages,outIds));
   const [hydrated, setHydrated] = useState(false);
   const [saved, setSaved] = useState(false);
   const storageKey = defensiveScenarioKey(away, home, date);
@@ -22,7 +30,7 @@ export default function DefensiveMatchups({ away, home, date, season, awayRoster
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(storageKey);
-      if (raw) setScenario(restoreDefensiveScenario(JSON.parse(raw), awayRoster, homeRoster, averages));
+      if (raw) setScenario(reconcile(restoreDefensiveScenario(JSON.parse(raw), awayRoster, homeRoster, averages)));
     } catch { /* Un navegador sin almacenamiento conserva el escenario en esta sesión. */ }
     setHydrated(true);
     // El padre remonta el panel cuando cambia el partido; cambiar filtros conserva las elecciones.
@@ -44,15 +52,16 @@ export default function DefensiveMatchups({ away, home, date, season, awayRoster
         ...(field === 'attackerId' ? { defenderId: null } : {}),
         origin: 'manual',
       });
-      return restoreDefensiveScenario({ ...current, [direction]: rows }, awayRoster, homeRoster, averages);
+      return reconcile(restoreDefensiveScenario({ ...current, [direction]: rows }, awayRoster, homeRoster, averages));
     });
   }
 
   function exclude(id: number, checked: boolean) {
-    setScenario(current => restoreDefensiveScenario({
+    setScenario(current => reconcile(restoreDefensiveScenario({
       ...current,
+      includedOut:checked?(current.includedOut??[]).filter(value=>value!==id):outIds.includes(id)?[...new Set([...(current.includedOut??[]),id])]:current.includedOut,
       excluded: checked ? [...current.excluded, id] : current.excluded.filter(value => value !== id),
-    }, awayRoster, homeRoster, averages));
+    }, awayRoster, homeRoster, averages)));
   }
 
   function side(direction: Direction) {
@@ -81,19 +90,19 @@ export default function DefensiveMatchups({ away, home, date, season, awayRoster
             <label className={styles.selectField}><span className={styles.srOnly}>{attackingTeam}, atacante de la fila {index + 1}</span>
               <select value={row.attackerId ?? ''} onChange={event => updateRow(direction, index, 'attackerId', event.target.value)}>
                 <option value="">Elegir atacante…</option>
-                {attackOptions.map(player => <option value={player.player_id} key={player.player_id} disabled={selected.has(player.player_id) && player.player_id !== row.attackerId}>{player.full_name}{player.position ? ` · ${player.position}` : ''}</option>)}
+                {attackOptions.map(player => <option value={player.player_id} key={player.player_id} disabled={selected.has(player.player_id) && player.player_id !== row.attackerId}>{player.full_name}{player.position ? ` · ${player.position}` : ''}{statusLabel(player.player_id)}</option>)}
               </select>
             </label>
             <span className={styles.arrow} aria-hidden="true">→</span>
             <label className={styles.selectField}><span className={styles.srOnly}>Defensor de {attacker?.full_name ?? `la fila ${index + 1}`} en {defendingTeam}</span>
               <select value={row.defenderId ?? ''} disabled={row.attackerId === null} onChange={event => updateRow(direction, index, 'defenderId', event.target.value)}>
                 <option value="">Elegir defensor…</option>
-                {defendOptions.map(player => <option value={player.player_id} key={player.player_id}>{player.full_name}{player.position ? ` · ${player.position}` : ''}</option>)}
+                {defendOptions.map(player => <option value={player.player_id} key={player.player_id}>{player.full_name}{player.position ? ` · ${player.position}` : ''}{statusLabel(player.player_id)}</option>)}
               </select>
             </label>
           </div>
           <div className={styles.rowMeta}>
-            <span>{attacker?.position || 'Posición sin datos'} · {stats?.min != null ? `${format(stats.min)} min de promedio` : 'Sin minutos en la muestra'}</span>
+            <span>{attacker?.position || 'Posición sin datos'} · {stats?.min != null ? `${format(stats.min)} min de promedio` : 'Sin minutos en la muestra'}{attacker?statusLabel(attacker.player_id):''}{defender&&injuryMap.has(defender.player_id)?` · Defensor${statusLabel(defender.player_id)}`:''}</span>
             <span className={row.origin === 'manual' ? styles.manual : ''}>{row.origin === 'suggested' ? 'Sugerido por posición' : row.origin === 'manual' ? 'Elección manual' : 'Asignación pendiente'}</span>
           </div>
           {attacker && <details className={styles.context}>
@@ -101,8 +110,8 @@ export default function DefensiveMatchups({ away, home, date, season, awayRoster
             <p className={styles.contextLabel}>Promedios del atacante · {season} · {stats?.gp ?? 0} partidos de la muestra</p>
             <dl className={styles.statGrid}>{([['min', 'MIN'], ['pts', 'PTS'], ['reb', 'REB'], ['ast', 'AST'], ['fg3m', '3PM'], ['pra', 'PRA']] as const).map(([key, label]) => <div key={key}><dt>{label}</dt><dd>{format(stats?.[key])}</dd></div>)}</dl>
             <div className={styles.contextFooter}>
-              <Link href={`/players/${attacker.player_id}`}>Ficha de {attacker.full_name} ↗</Link>
-              {defender && <Link href={`/players/${defender.player_id}`}>Ficha de {defender.full_name} ↗</Link>}
+              <Link href={playerHref(attacker.player_id)}>Ficha de {attacker.full_name} ↗</Link>
+              {defender && <Link href={playerHref(defender.player_id)}>Ficha de {defender.full_name} ↗</Link>}
             </div>
             {defender && <p className={styles.note}>{defender.full_name}: {defender.position || 'posición sin datos'} · {format(defenderStats?.min)} min de promedio. Las cifras de esta fila son promedios generales de la muestra; el rendimiento individual contra este defensor aún no está disponible.</p>}
           </details>}
@@ -123,13 +132,14 @@ export default function DefensiveMatchups({ away, home, date, season, awayRoster
       <legend className={styles.srOnly}>Escenario de cruces defensivos</legend>
       <div className={styles.tools}>
         <details className={styles.availability}><summary>Excluir jugadores del escenario <span>{scenario.excluded.length || ''}</span></summary>
-          <div className={styles.availabilityGrid}>{([{ team: away, roster: awayRoster }, { team: home, roster: homeRoster }]).map(({ team, roster }) => <div key={team}><strong>{team}</strong>{roster.map(player => <label key={player.player_id}><input type="checkbox" checked={scenario.excluded.includes(player.player_id)} onChange={event => exclude(player.player_id, event.target.checked)} /><span>{player.full_name}</span></label>)}</div>)}</div>
+          <div className={styles.availabilityGrid}>{([{ team: away, roster: awayRoster }, { team: home, roster: homeRoster }]).map(({ team, roster }) => <div key={team}><strong>{team}</strong>{roster.map(player => <label key={player.player_id}><input type="checkbox" checked={scenario.excluded.includes(player.player_id)} onChange={event => exclude(player.player_id, event.target.checked)} /><span>{player.full_name}{statusLabel(player.player_id)}</span></label>)}</div>)}</div>
           <p className={styles.note}>Las exclusiones solo afectan a este escenario. Si quitás un jugador asignado, el cruce queda pendiente hasta que elijas un reemplazo.</p>
         </details>
-        <button type="button" className={styles.suggest} onClick={() => setScenario(suggestDefensiveScenario(awayRoster, homeRoster, averages, scenario.excluded))}>Volver a sugerir cruces</button>
+        <button type="button" className={styles.suggest} onClick={() => setScenario(reconcile({...suggestDefensiveScenario(awayRoster, homeRoster, averages, scenario.excluded),includedOut:scenario.includedOut}))}>Volver a sugerir cruces</button>
       </div>
       {scenario.excluded.length > 0 && <div className={styles.exclusions} aria-label="Jugadores excluidos">{scenario.excluded.map(id => <button type="button" key={id} onClick={() => exclude(id, false)} aria-label={`Volver a incluir a ${allPlayers.find(player => player.player_id === id)?.full_name ?? 'jugador'}`}>{allPlayers.find(player => player.player_id === id)?.full_name ?? 'Jugador'} <span aria-hidden="true">×</span></button>)}</div>}
       <p className={styles.explanation}>Quintetos de trabajo elegidos por minutos históricos. Los cruces iniciales se sugieren por posición; podés editarlos sin modificar el otro lado. Las alineaciones y marcas reales se confirman en el partido.</p>
+      <p className={styles.explanation}>{reportAvailable?`${outIds.length} bajas OUT con reporte reciente excluidas al sugerir. Podés reincorporarlas en «Excluir jugadores» para explorar otro escenario. Los estados dudosos permanecen identificados.`:'Parte no disponible: no se confirma disponibilidad de ningún jugador.'}</p>
       <div className={styles.grid}>{side('away')}{side('home')}</div>
     </fieldset>
   </section>;

@@ -89,3 +89,25 @@ export async function getMatchupData(away: string, home: string, f: MatchupFilte
   ]);
   return { teams, players, awayRoster, homeRoster };
 }
+
+/** Resumen acotado del plantel actual; evita descargar todo el historial por jugador. */
+export async function getRosterPlayerAverages(team:string,season:string,date:string):Promise<PlayerAverage[]> {
+ const ids=getCurrentRosterTeam(team).map(p=>p.player_id);
+ if(!ids.length)return [];
+ return prisma.$queryRaw<PlayerAverage[]>(Prisma.sql`
+  WITH latest AS (
+   SELECT DISTINCT ON (player_id,game_id) player_id,game_id,game_date,team_abbreviation,min,pts,reb,ast,fg3m,fgm,fga,stl,blk,tov
+   FROM public.player_game_logs
+   WHERE player_id IN (${Prisma.join(ids)}) AND season_year=${season} AND game_date < ${date}::date
+    AND game_id IS NOT NULL AND min>0 AND season_type IN ('Regular Season','Playoffs')
+   ORDER BY player_id,game_id,id DESC
+  )
+  SELECT player_id,count(*)::int AS gp,min(game_date)::text AS first_date,max(game_date)::text AS last_date,
+   string_agg(DISTINCT team_abbreviation,', ' ORDER BY team_abbreviation) AS historical_teams,
+   avg(min)::float8 AS min,avg(pts)::float8 AS pts,avg(reb)::float8 AS reb,avg(ast)::float8 AS ast,
+   avg(fg3m)::float8 AS fg3m,avg(fgm)::float8 AS fgm,avg(fga)::float8 AS fga,avg(stl)::float8 AS stl,
+   avg(blk)::float8 AS blk,avg(tov)::float8 AS tov,avg(pts+reb+ast)::float8 AS pra,
+   avg(pts+reb)::float8 AS pr,avg(pts+ast)::float8 AS pa,avg(reb+ast)::float8 AS ra
+  FROM latest GROUP BY player_id
+ `);
+}

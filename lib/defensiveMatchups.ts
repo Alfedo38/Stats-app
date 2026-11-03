@@ -1,7 +1,16 @@
 export type MatchupRosterPlayer = { player_id: number; full_name: string; position: string | null };
 export type MatchupAverage = { player_id: number; min: number | null };
 export type DefensiveAssignment = { attackerId: number | null; defenderId: number | null; origin: 'suggested' | 'manual' | 'pending' };
-export type DefensiveScenario = { version: 1; excluded: number[]; away: DefensiveAssignment[]; home: DefensiveAssignment[] };
+export type DefensiveScenario = { version: 1; excluded: number[]; includedOut?: number[]; away: DefensiveAssignment[]; home: DefensiveAssignment[] };
+
+/** El parte pertenece al partido del panel. Una baja solo se reincorpora por elección explícita. */
+export function applyMatchupInjuries(value:DefensiveScenario,awayRoster:MatchupRosterPlayer[],homeRoster:MatchupRosterPlayer[],averages:MatchupAverage[],outIds:number[]) {
+ const allowed=new Set([...awayRoster,...homeRoster].map(p=>p.player_id));
+ const includedOut=[...new Set(value.includedOut??[])].filter(id=>allowed.has(id)&&outIds.includes(id));
+ const excluded=[...new Set([...value.excluded,...outIds.filter(id=>!includedOut.includes(id))])].filter(id=>allowed.has(id));
+ const restored=restoreDefensiveScenario({...value,excluded},awayRoster,homeRoster,averages);
+ return {...restored,includedOut};
+}
 
 export function rankedMatchupRoster(roster: MatchupRosterPlayer[], averages: MatchupAverage[], excluded: number[] = []) {
   const minutes = new Map(averages.map(player => [player.player_id, player.min]));
@@ -63,7 +72,8 @@ export function restoreDefensiveScenario(value: unknown, awayRoster: MatchupRost
       return { attackerId, defenderId, origin: attackerId === null || defenderId === null ? 'pending' : row.origin === 'suggested' ? 'suggested' : 'manual' };
     });
   };
-  return { version: 1, excluded, away: side(raw.away, awayRoster, homeRoster), home: side(raw.home, homeRoster, awayRoster) };
+  const includedOut=Array.isArray(raw.includedOut)?raw.includedOut.filter((id):id is number=>typeof id==='number'&&all.has(id)&&!absent.has(id)):[];
+  return { version: 1, excluded, ...(includedOut.length?{includedOut}:{}), away: side(raw.away, awayRoster, homeRoster), home: side(raw.home, homeRoster, awayRoster) };
 }
 
 export function defensiveScenarioKey(away: string, home: string, date: string) {

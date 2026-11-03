@@ -42,4 +42,9 @@ export function prepareInjuryItems(rows:Raw[],games:ReportGame[],roster:RosterPl
  return {items:[...latest.values()].sort((a,b)=>a.date.localeCompare(b.date)||a.team.localeCompare(b.team)||a.name.localeCompare(b.name,'es')),ignored};
 }
 export function filterInjuries(items:InjuryItem[],input:{query?:string;team?:string;status?:string;date?:string;game?:string;includeAvailable?:boolean}){const key=canonicalOddsPlayerName(input.query??'');return items.filter(p=>(!input.team||p.team===input.team)&&(!input.status||p.status===input.status)&&(!input.date||p.date===input.date)&&(!input.game||p.game?.id===input.game)&&(input.includeAvailable||input.status==='AVAILABLE'||p.status!=='AVAILABLE')&&(!key||canonicalOddsPlayerName(`${p.name} ${p.team}`).includes(key)));}
-export function selectPlayerInjury(report:InjuryReport,playerId:number,date:string,context:GameContext|null=null){const rows=report.items.filter(p=>p.playerId===playerId&&p.date===date&&(!context||p.game?.away===context.away&&p.game?.home===context.home));return rows.length===1?rows[0]:null;}
+export function injuryPlayerId(value:unknown):number|null {
+ if(typeof value!=='number'&&typeof value!=='string')return null;
+ if(typeof value==='string'&&!/^[1-9]\d{0,12}$/.test(value))return null;
+ const id=Number(value);return Number.isSafeInteger(id)&&id>0?id:null;
+}
+export function selectPlayerInjury(report:InjuryReport,playerId:number|string,date:string,context:GameContext|null=null){const id=injuryPlayerId(playerId);if(id===null)return null;const rows=report.items.filter(p=>p.playerId===id&&p.date===date&&(!context||p.game?.away===context.away&&p.game?.home===context.home));return rows.length===1?rows[0]:null;}

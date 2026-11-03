@@ -28,7 +28,7 @@ function TeamBlock({ abbr, score, isLive }: { abbr: string; score?: string; isLi
           {abbr}
         </span>
       </div>
-      {score !== undefined && (
+      {isLive && score !== undefined && (
         <span className={`text-xl font-black tabular-nums shrink-0 ${isLive ? "text-[var(--text)]" : "text-[var(--text-muted)]"}`}>
           {score || "-"}
         </span>
@@ -85,7 +85,7 @@ function GameCard({ game }: { game: any }) {
         }}
       >
         <span className="text-[8px] font-black uppercase tracking-[0.25em] text-[var(--text-muted)]">
-          {game.status?.type?.description ?? "Partido"}
+          {isLive?"En juego":isFinal?"Finalizado":"Programado"}
         </span>
         <div className="flex items-center gap-1.5">
           {isLive && (
@@ -101,7 +101,7 @@ function GameCard({ game }: { game: any }) {
                 : "bg-[var(--surface-soft)] text-[var(--text-muted)]"
             }`}
           >
-            {isLive ? detail : isFinal ? "Final" : formatArgTime(game.date)}
+            {isLive ? detail : isFinal ? "Final" : `${new Intl.DateTimeFormat("es-AR",{day:"2-digit",month:"2-digit",timeZone:"America/Argentina/Buenos_Aires"}).format(new Date(game.date))} · ${formatArgTime(game.date)}`}
           </span>
         </div>
       </div>

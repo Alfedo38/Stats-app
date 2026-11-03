@@ -33,7 +33,7 @@ export function safePlayerHref(value:unknown):string|null {
  if(typeof value!=='string'||value.length>1800||!/^\/players\/[1-9]\d{0,12}(?:\?|$)/.test(value)||/[\\\r\n]/.test(value))return null;
  const u=new URL(value,'https://local.invalid');if(u.origin!=='https://local.invalid'||!/^\/players\/[1-9]\d{0,12}$/.test(u.pathname))return null;
  const q=new URLSearchParams();putGameContext(q,parseGameContext(u.searchParams));
- for(const key of ['stat','line','n','scope','side','opponent','homeAway','min','wo','phase','absenceScope','absenceTeam','compare','defSeason','defWindow','defPosition','defBand']){const v=u.searchParams.get(key);if(v&&v.length<=100)q.set(key,v);}
+ for(const key of ['stat','line','n','scope','side','opponent','homeAway','min','wo','phase','absenceScope','absenceTeam','compare','defSeason','defWindow','defPosition','defBand','vista']){const v=u.searchParams.get(key);if(v&&v.length<=100)q.set(key,v);}
  for(const v of u.searchParams.getAll('absent').slice(0,8))if(v.length<=100)q.append('absent',v);
  return u.pathname+(q.size?'?'+q:'');
 }

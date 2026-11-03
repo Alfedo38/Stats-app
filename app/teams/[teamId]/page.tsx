@@ -1,5 +1,8 @@
 import { requirePageUser } from '@/lib/auth/server';
-import { getTeamPlayers } from '@/lib/api';
+import MatchupPlayerTable from '@/components/MatchupPlayerTable';
+import {getRosterPlayerAverages} from '@/lib/matchupData';
+import {getCurrentRosterTeam} from '@/lib/currentRosters';
+import {argentinaDate} from '@/lib/ticketReader/model';
 import Link from 'next/link';
 import { ArrowLeft, Users } from 'lucide-react';
 import { CURRENT_ROSTER_SEASON, CURRENT_ROSTER_UPDATED_AT } from '@/lib/currentRosters';
@@ -15,11 +18,9 @@ export default async function TeamRosterPage(props: any) {
     if (Array.isArray(rawId)) rawId = rawId[0];
     const teamId = typeof rawId === 'string' ? rawId.trim().toUpperCase() : "";
 
-    let players: any[] = [];
-    if (teamId) {
-      const res = await getTeamPlayers(teamId);
-      players = Array.isArray(res) ? res : [];
-    }
+    const roster=getCurrentRosterTeam(teamId);
+    const averages=await getRosterPlayerAverages(teamId,CURRENT_ROSTER_SEASON,argentinaDate());
+    const players=roster.map(p=>({...p,id:p.player_id}));
 
     const getInitials = (name: string) => {
       if (!name) return "X";
@@ -69,46 +70,13 @@ export default async function TeamRosterPage(props: any) {
             <div className="flex items-center gap-2 px-1">
               <Users size={14} className="text-[var(--text-muted)]" />
               <h2 className="text-[var(--text-muted)] font-bold text-[10px] uppercase tracking-[0.3em]">
-                Jugadores Activos ({players.length})
+                Plantel actual ({players.length})
               </h2>
             </div>
 
-            {players.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                {players.map((player: any) => {
-                  const nombre = player.full_name || 'Desconocido';
-                  const iniciales = getInitials(nombre);
+            <p className="text-sm text-[var(--text-muted)]">Plantel actual y promedios de {CURRENT_ROSTER_SEASON} · regular y playoffs. Pertenecer al plantel no confirma disponibilidad para el próximo partido.</p>
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4"><MatchupPlayerTable team={teamId} roster={roster} averages={averages} season={CURRENT_ROSTER_SEASON}/></div>
 
-                  return (
-                    <Link
-                      href={`/players/${player.id || ''}`}
-                      key={player.id || Math.random()}
-                      className="block no-underline"
-                    >
-                      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-4 hover:bg-[var(--surface-hover)] hover:border-[#10b981] transition-all group flex flex-col items-center justify-between min-h-[160px]">
-                        <div className="w-20 h-20 bg-[var(--surface-soft)] border border-[var(--border)] rounded-full flex items-center justify-center transition-transform group-hover:scale-105 group-hover:border-[var(--border-strong)] group-hover:bg-[var(--surface-hover)]">
-                          <span className="font-black text-2xl text-[var(--text-muted)] group-hover:text-[var(--text)] transition-colors">
-                            {iniciales}
-                          </span>
-                        </div>
-                        <div className="text-center w-full mt-4">
-                          <h3 className="font-black text-[13px] text-[var(--text)] uppercase tracking-tight leading-tight">
-                            {nombre}
-                          </h3>
-                          <p className="mt-1 text-[9px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
-                            {[player.position, player.jersey_number ? `#${player.jersey_number}` : null].filter(Boolean).join(' · ') || 'Plantel activo'}
-                          </p>
-                        </div>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-[var(--text-muted)] text-xs font-black uppercase tracking-widest text-center py-10">
-                No se encontraron jugadores para "{teamId}".
-              </p>
-            )}
           </section>
 
         </div>

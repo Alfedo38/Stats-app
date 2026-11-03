@@ -4,6 +4,7 @@ import { summarizeEvidence, EVIDENCE_METRICS } from "@/lib/marketEvidence";
 import {parseGameContext,type GameContext} from '@/lib/playerNavigation';
 import { requirePageUser } from '@/lib/auth/server';
 // app/players/[playerId]/page.tsx
+import PlayerPresentation from "@/components/PlayerPresentation";
 import PlayerHeader,      { type NextGame, type PlayerKPI } from "@/components/PlayerHeader";
 import {nbaHistoryCutoff} from "@/lib/injuryReport";
 import PlayerInjuryStatus from "@/components/PlayerInjuryStatus";
@@ -27,7 +28,7 @@ const NAV_STATS = [
   { id: "pts+reb",     label: "PTS+REB" }, { id: "reb+ast",     label: "REB+AST" },
   { id: "pts+reb+ast", label: "P+R+A"   }, { id: "fgm",         label: "FGM"     },
   { id: "fga",         label: "FGA"     }, { id: "fg3m",        label: "3PTM"    },
-  { id: "fg3a",        label: "3PTA"    }, { id: "blk",         label: "BLK"     },
+  { id: "fg3a",        label: "3PTA"    }, { id:"ftm", label:"FTM" }, { id:"fta", label:"FTA" }, { id: "blk",         label: "BLK"     },
   { id: "stl",         label: "STL"     }, { id: "stl+blk",     label: "STL+BLK" },
   { id: "tov",         label: "TO"      }, { id: "pf",          label: "PF"      },
 ];
@@ -361,6 +362,7 @@ export default async function PlayerPage(props: any) {
 
         <div className="p-4 md:p-6 2xl:p-8 max-w-[1700px] mx-auto space-y-4">
 
+          <PlayerPresentation initialCompact={searchParams?.vista==="compacta"}>
           {/* Header del jugador */}
           <div data-player-header>
           <PlayerHeader
@@ -375,7 +377,7 @@ export default async function PlayerPage(props: any) {
 
           </div>
 
-          <PlayerInjuryStatus playerId={playerId} team={normalizedTeamAbbr} date={eventContext?.date??argentinaDate()} context={eventContext}/>
+          <div data-inline-injury><PlayerInjuryStatus playerId={Number(playerId)} team={normalizedTeamAbbr} date={eventContext?.date??argentinaDate()} context={eventContext}/></div>
 
           {/* Grid sidebar + gráfico — maneja selectedGame en client */}
           <PlayerPageContent
@@ -397,6 +399,7 @@ export default async function PlayerPage(props: any) {
             nextGameDate={activeInjuryContextDate ?? undefined}
             activeInjuryContext={activeInjuryContext}
           />
+          </PlayerPresentation>
 
         </div>
       </main>

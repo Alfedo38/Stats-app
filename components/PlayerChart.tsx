@@ -20,6 +20,8 @@ import { trackingValue } from "@/lib/trackingValues";
 
 // potential-history-v1
 type PlayerChartProps = {
+  height?:number;
+  showSeasonBreaks?:boolean;
   data: any[];
   statKey?: string;
   lineValue: number;
@@ -179,6 +181,7 @@ function OverlayPointLabel(props: any) {
 
 export default function PlayerChart({
   data,
+  height=CHART_HEIGHT,showSeasonBreaks=false,
   statKey = "value",
   lineValue,
   overlayKey,
@@ -286,7 +289,7 @@ export default function PlayerChart({
             Sin datos para graficar
           </p>
           <p className="mt-2 text-xs font-bold text-[var(--text-muted)]">
-            El gráfico recibió data vacía.
+            No hay partidos disponibles para esta selección. Probá ampliar los filtros o elegir otra muestra.
           </p>
         </div>
       </div>
@@ -312,13 +315,13 @@ export default function PlayerChart({
     <div
       ref={wrapRef}
       className="w-full min-w-0 overflow-hidden relative"
-      style={{ height: CHART_HEIGHT, minHeight: CHART_HEIGHT }}
+      style={{ height, minHeight: height }}
     >
       <ComposedChart
         width={chartWidth}
-        height={CHART_HEIGHT}
+        height={height}
         data={chartData}
-        margin={{ top: 42, right: 34, left: -10, bottom: 62 }}
+        margin={{ top: 35, right: overlayAxis==="right"?64:56, left: -18, bottom: 20 }}
       >
         <defs>
           <linearGradient id="mp-bar-over" x1="0" y1="0" x2="0" y2="1">
@@ -349,7 +352,7 @@ export default function PlayerChart({
           textAnchor={chartData.length > 14 ? "end" : "middle"}
           height={chartData.length > 14 ? 74 : 46}
           tickFormatter={(value) => labelByXKey.get(String(value)) ?? ""}
-          tick={{ fill: "#67e8f9", fontSize: 10, fontWeight: 900 }}
+          tick={{ fill: "var(--text-muted)", fontSize: 11, fontWeight: 600 }}
           axisLine={{ stroke: "rgba(16,185,129,0.35)" }}
           tickLine={false}
         />
@@ -365,11 +368,12 @@ export default function PlayerChart({
 
         {hasOverlay&&overlayAxis==="right"&&<YAxis yAxisId="right" orientation="right" tick={{fill:overlayColor,fontSize:10,fontWeight:800}} axisLine={false} tickLine={false} allowDecimals={false} domain={[0,"dataMax + 2"]}/>}
         <Tooltip content={<CustomTooltip />} />
+        {showSeasonBreaks&&chartData.flatMap((row,index)=>{if(!index)return [];const year=(v:any)=>{const date=String(v.game_date).slice(0,10);return Number(date.slice(0,4))-(Number(date.slice(5,7))<10?1:0);};const y=year(row);return y!==year(chartData[index-1])?[<ReferenceLine key={row._xKey} yAxisId="left" x={row._xKey} stroke="var(--text-muted)" strokeDasharray="3 4" label={{value:`${y}-${String(y+1).slice(-2)}`,position:'insideTopRight',fill:'var(--text-muted)',fontSize:10}}/>]:[];})}
 
         <ReferenceLine
           yAxisId="left"
           y={lineValue}
-          stroke="#f8fafc"
+          stroke="var(--text)"
           strokeWidth={2.5}
           strokeDasharray="7 5"
           label={{

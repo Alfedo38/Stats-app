@@ -17,11 +17,13 @@ import {
 } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 
-const NAV_W = "md:w-[72px] md:hover:w-[236px]";
+
 
 export default function Sidebar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const [expanded,setExpanded]=useState(false);
+  const NAV_W=expanded?"md:w-[236px]":"md:w-[72px]";
 
   useEffect(() => {
     setIsOpen(false);
@@ -77,6 +79,7 @@ export default function Sidebar() {
       )}
 
       <aside
+        data-expanded={expanded}
         className={`group fixed top-0 left-0 h-screen bg-black/95 backdrop-blur-xl border-r border-[#10b981]/15 flex flex-col z-[200] transition-all duration-300 ease-out shadow-2xl shadow-black/30
           w-72 ${isOpen ? "translate-x-0" : "-translate-x-full"}
           md:translate-x-0 ${NAV_W}`}
@@ -86,7 +89,7 @@ export default function Sidebar() {
             <div className="h-11 w-11 shrink-0 rounded-2xl border border-[#10b981]/35 bg-[#10b981]/10 grid place-items-center shadow-[0_0_18px_rgba(16,185,129,0.12)]">
               <span className="text-xs font-black italic text-[#10b981]">MP</span>
             </div>
-            <div className="min-w-0 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200">
+            <div className="min-w-0 opacity-100 md:opacity-0 md:group-data-[expanded=true]:opacity-100 transition-opacity duration-200">
               <h1 className="whitespace-nowrap text-xl font-black italic uppercase tracking-tighter text-[var(--text)]">
                 Mosk<span className="text-[#10b981]">Props</span>
               </h1>
@@ -104,7 +107,7 @@ export default function Sidebar() {
         </div>
 
         <div className="p-2 border-b border-[#10b981]/10">
-          <div className="grid grid-cols-1 gap-1 md:grid-cols-1 md:group-hover:grid-cols-2 rounded-2xl border border-[var(--border)] bg-[var(--bg)]/70 p-1">
+          <div className="grid grid-cols-1 gap-1 md:grid-cols-1 md:group-data-[expanded=true]:grid-cols-2 rounded-2xl border border-[var(--border)] bg-[var(--bg)]/70 p-1">
             <Link
               href="/"
               title="NBA"
@@ -122,7 +125,7 @@ export default function Sidebar() {
               }`}
             >
               <span>W</span>
-              <span className="hidden md:group-hover:inline">NBA</span>
+              <span className="hidden md:group-data-[expanded=true]:inline">NBA</span>
               <span className="md:hidden">NBA</span>
             </Link>
           </div>
@@ -146,7 +149,7 @@ export default function Sidebar() {
                 <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-all ${active ? "bg-[#10b981]/10 text-[#10b981]" : "text-[var(--text-muted)]"}`}>
                   {item.icon}
                 </div>
-                <span className="whitespace-nowrap text-xs font-black uppercase tracking-widest opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200">
+                <span className="whitespace-nowrap text-xs font-black uppercase tracking-widest opacity-100 md:opacity-0 md:group-data-[expanded=true]:opacity-100 transition-opacity duration-200">
                   {item.name}
                 </span>
               </Link>
@@ -155,20 +158,14 @@ export default function Sidebar() {
         </nav>
 
         <div className="border-t border-[#10b981]/10 p-2 space-y-2 overflow-hidden">
-          <div className="hidden md:block">
-            <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-              <ThemeToggle />
-            </div>
-            <div className="group-hover:hidden h-11 rounded-2xl border border-[var(--border)] bg-[var(--bg)]/60 grid place-items-center text-[var(--text-muted)]">
-              <Moon size={16} />
-            </div>
-          </div>
+          <button type="button" aria-label={expanded?"Contraer menú lateral":"Expandir menú lateral"} aria-expanded={expanded} onClick={()=>setExpanded(v=>!v)} className="hidden md:flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-[var(--border)] text-[#10b981]"><Menu size={17}/>{expanded&&<span className="text-xs">Contraer menú</span>}</button>
+          <div className="hidden md:block"><ThemeToggle compact={!expanded}/></div>
 
           <div className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--bg)]/55 p-2">
             <div className="h-9 w-9 shrink-0 rounded-full border border-[#10b981]/25 bg-[#10b981]/10 grid place-items-center">
               <span className="text-[10px] font-black text-[#10b981]">PRO</span>
             </div>
-            <div className="min-w-0 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200">
+            <div className="min-w-0 opacity-100 md:opacity-0 md:group-data-[expanded=true]:opacity-100 transition-opacity duration-200">
               <p className="whitespace-nowrap text-[10px] font-black uppercase tracking-widest text-[var(--text)]">Acceso privado</p>
               <p className="whitespace-nowrap text-[9px] font-bold text-[var(--text-muted)]">v1.0 Alpha</p>
             </div>

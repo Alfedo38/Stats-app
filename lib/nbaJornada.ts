@@ -5,6 +5,7 @@ import {selectQuote} from './ticketReader/quoteMatch';
 import {isDate, TEAMS, emptyLeg, type Book} from './ticketReader/model';
 import {matchupHref, playerGameHref, selectionFromPage, type GameContext} from './playerNavigation';
 import {getMinutesValue} from './formatters';
+import {twoSeasonRows} from './nbaHistoryWindow';
 import {gamePhase} from './nbaGameFilters';
 
 export const JORNADA_MARKETS = {
@@ -40,7 +41,7 @@ type Row = Record<string,unknown>;
 function gameId(row:Row){const raw=String(row.game_id??'');return /^\d{1,15}$/.test(raw)?String(Number(raw)):null;}
 export function recentSample(rows:unknown,playerId:number,date:string,market:JornadaMarket){
   const fields:Record<string,string[]>={pra:['pts','reb','ast'],pr:['pts','reb'],pa:['pts','ast'],ra:['reb','ast']};
-  const valid=(Array.isArray(rows)?rows:[]).filter((row):row is Row=>!!row&&typeof row==='object'&&!Array.isArray(row))
+  const valid=twoSeasonRows((Array.isArray(rows)?rows:[]),date).filter((row):row is Row=>!!row&&typeof row==='object'&&!Array.isArray(row))
     .filter(r=>Number(r.player_id)===playerId&&isDate(String(r.game_date??'').slice(0,10))&&String(r.game_date).slice(0,10)<date&&gameId(r)!==null)
     .filter(r=>gamePhase(r)==='Regular Season'||gamePhase(r)==='Playoffs')
     .filter(r=>oddsScope(r.period_scope??'FULL')==='FULL')
@@ -57,9 +58,9 @@ export function summaryFor(player:JornadaPlayer,n:5|10,line:number|null,side:'ov
   return {stat:selectionSummary(player.values.slice(0,n),line??NaN,side),minutes:selectionSummary(player.minutes.slice(0,n),NaN,'over')};
 }
 export function contextFor(game:JornadaGame,date:string):GameContext{return {away:game.away,home:game.home,date,...(game.start?{start:game.start}:{}),returnTo:matchupHref(game.away,game.home,date,game.start??undefined)};}
-export function jornadaPlayerHref(player:JornadaPlayer,game:JornadaGame,date:string,market:JornadaMarket,line:number|null,side:'over'|'under'){
+export function jornadaPlayerHref(player:JornadaPlayer,game:JornadaGame,date:string,market:JornadaMarket,line:number|null,side:'over'|'under',sample:5|10=10){
   const href=playerGameHref(player.id,contextFor(game,date)),q=new URLSearchParams(href.split('?')[1]);
-  q.set('stat',market);q.set('scope','FULL');q.set('side',side);if(line!==null)q.set('line',String(line));
+  q.set('stat',market);q.set('scope','FULL');q.set('side',side);q.set('n',String(sample));if(line!==null)q.set('line',String(line));
   return href.split('?')[0]+'?'+q;
 }
 export function jornadaLeg(player:JornadaPlayer,game:JornadaGame,date:string,market:JornadaMarket,line:number,side:'over'|'under',book:string|null,now=new Date()){

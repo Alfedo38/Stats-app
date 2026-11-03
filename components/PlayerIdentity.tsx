@@ -2,11 +2,11 @@
 import {useEffect,useState} from 'react';
 export const PLAYER_PERIODS:Record<string,{short:string;label:string}>={FULL:{short:'PARTIDO',label:'Partido completo'},Q1:{short:'1Q',label:'Primer cuarto'},H1:{short:'1H',label:'Primera mitad'},H2_REG:{short:'2H',label:'Segunda mitad sin prórroga'}};
 type Props={playerName:string;statLabel:string;scope:string};
-export function ChartIdentity({playerName,statLabel,scope,count,line}:Props&{count:number;line:number}){
+export function ChartIdentity({playerName,statLabel,scope,count,line,loading=false,compact=false}:Props&{count:number;line:number;loading?:boolean;compact?:boolean}){
  const period=PLAYER_PERIODS[scope]??PLAYER_PERIODS.FULL;
  return <header className="mb-4 border-b border-[var(--border)] pb-3" data-chart-identity>
-  <h2 className="flex flex-wrap items-center gap-x-3 gap-y-1 text-lg font-black uppercase tracking-tight text-[var(--text)] md:text-xl"><span>{playerName}</span><span className="text-[#10b981]">{statLabel} · {period.short}</span></h2>
-  <p className="mt-1 text-xs text-[var(--text-muted)]">{period.label} · {count} partidos en el gráfico · Línea {Number.isFinite(line)?line.toLocaleString('es-AR'):'S/D'}</p>
+  <h2 className="flex flex-wrap items-center gap-x-3 gap-y-1 text-lg font-black uppercase tracking-tight text-[var(--text)] md:text-xl">{!compact&&<span>{playerName}</span>}<span className="text-[#10b981]">{statLabel} · {period.short}</span></h2>
+  <p className="mt-1 text-xs text-[var(--text-muted)]">{period.label} · {loading?"Actualizando muestra":`${count} partidos en el gráfico`} · Línea {Number.isFinite(line)?line.toLocaleString('es-AR'):'S/D'}</p>
  </header>;
 }
 export default function FloatingPlayerIdentity({playerName,statLabel,scope}:Props){

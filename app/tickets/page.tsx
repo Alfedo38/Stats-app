@@ -87,7 +87,7 @@ export default async function TicketsPage({ searchParams }: { searchParams: Prom
   }
   const href = (day: string) => `/tickets?date=${day}${book ? `&book=${book}` : ''}${history ? '&history=1' : ''}`;
   return <main className={styles.page}>
-    <header className={styles.header}><div><div className={styles.eyebrow}><TicketIcon size={14} /> NBA</div><h1>Tickets</h1><p>{failed ? 'No pudimos cargar esta jornada.' : `${gameCount} ${gameCount === 1 ? 'partido' : 'partidos'} · ${active.length} ${active.length === 1 ? 'ticket' : 'tickets'}`}</p></div><RefreshTickets /></header>
+    <header className={styles.header}><div><div className={styles.eyebrow}><TicketIcon size={14} /> NBA</div><h1>Tickets</h1><p>{failed ? 'No pudimos cargar esta jornada.' : `${gameCount} ${gameCount === 1 ? 'partido con tickets publicados' : 'partidos con tickets publicados'} · ${active.length} ${active.length === 1 ? 'ticket' : 'tickets'}`}</p></div><RefreshTickets /></header>
     <div className={styles.toolbar}>
       <div className={styles.dateNav}><Link href={href(shiftDate(date, -1))} aria-label="Jornada anterior"><ChevronLeft size={19} /></Link><span><CalendarDays size={15} />{new Intl.DateTimeFormat('es-AR', { day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${date}T12:00:00Z`))}</span><Link href={href(shiftDate(date, 1))} aria-label="Jornada siguiente"><ChevronRight size={19} /></Link></div>
       <form className={styles.filters} action="/tickets">
@@ -100,7 +100,7 @@ export default async function TicketsPage({ searchParams }: { searchParams: Prom
       const count = active.filter(t => t.result.status === status).length;
       return count ? <span key={status} data-status={status}><b>{count}</b> {({ WIN: 'ganados', LOSS: 'perdidos', PENDING: 'pendientes', REVIEW: 'en revisión', VOID: 'anulados' } as Record<string, string>)[status]}</span> : null;
     })}</div>}
-    {failed ? <div className={styles.empty}><TicketIcon size={25} /><h2>Tickets no disponibles en este momento</h2></div> : games.length === 0 ? <div className={styles.empty}><TicketIcon size={25} /><h2>Sin tickets publicados para esta jornada</h2></div> : <div className={styles.games}>{games.map(group => {
+    {failed ? <div className={styles.empty}><TicketIcon size={25} /><h2>Tickets no disponibles en este momento</h2></div> : games.length === 0 ? <div className={styles.empty}><TicketIcon size={25} /><h2>Sin tickets publicados para esta jornada</h2><p>Este contador incluye partidos con selecciones publicadas.</p><Link href={`/?date=${date}`}>Ver partidos programados →</Link></div> : <div className={styles.games}>{games.map(group => {
       const sample = group[0];
       const unavailable = Object.entries(BOOKS).filter(([id]) => (!book || book === id) && !group.some(t => t.book === id && latest.get(t.slot_key)?.version_id === t.version_id));
       return <section key={sample.game_key} className={styles.game}>

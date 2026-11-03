@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { BarChart3, BrainCircuit, X } from "lucide-react";
 import TeamMatesPanel, { type TeamMate } from "@/components/TeamMatesPanel";
+import {useCompactPlayer} from "@/components/PlayerPresentation";
 import PlayerChartContainer from "@/components/PlayerChartContainer";
 import NBAProReview from "@/components/NBAProReview";
 import type { AnalysisSample } from "@/lib/nbaAnalysis";
@@ -68,6 +69,7 @@ export default function PlayerPageContent({
   nextGameDate,
   activeInjuryContext,
 }: PlayerPageContentProps) {
+  const compact=useCompactPlayer();
   const [analysisSample, setAnalysisSample] = useState<AnalysisSample | null>(null);
   const handleAnalysisSample = useCallback((sample: AnalysisSample) => setAnalysisSample(sample), []);
   const currentSample=analysisSample?.playerId===String(currentPlayerId)?analysisSample:null;
@@ -85,6 +87,7 @@ export default function PlayerPageContent({
   const [contextVisited,setContextVisited]=useState(false);
   const [analysisMode, setAnalysisMode] = useState<"simple" | "pro">("simple");
 
+  const effectiveMode=compact?"pro":analysisMode;
   useEffect(() => {
     const saved = window.localStorage.getItem("moskprops:nba-analysis-mode");
     if (saved === "pro" || saved === "simple") setAnalysisMode(saved);
@@ -245,8 +248,8 @@ export default function PlayerPageContent({
         </div>
       )}
 
-      <main className="flex flex-col gap-4 min-w-0 overflow-hidden">
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-1.5">
+      <main data-player-content className="flex flex-col gap-4 min-w-0 overflow-hidden">
+        <section data-analysis-modes className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-1.5">
           <div className="grid grid-cols-2 gap-2" role="group" aria-label="Modo de análisis">
             <button
               type="button"
@@ -284,13 +287,14 @@ export default function PlayerPageContent({
           externalFilters={externalFilters}
           onRemoveExternalFilter={removeExternalFilter}
           activeInjuryContext={activeInjuryContext}
-          analysisMode={analysisMode}
+          analysisMode={effectiveMode}
+          compact={compact}
           detailTab={detailTab}
-          detailNavigation={<div className="flex flex-wrap gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1" role="tablist" aria-label="Secciones del análisis">{([{id:"summary",label:"Resumen"},{id:"volume",label:"Volumen"},{id:"opponent",label:"Rival"},{id:"shots",label:"Tiros"}] as const).map(item=><button key={item.id} type="button" role="tab" id={`analysis-tab-${item.id}`} aria-selected={detailTab===item.id} tabIndex={detailTab===item.id?0:-1} onKeyDown={event=>{const ids=["summary","volume","opponent","shots"] as const;const index=ids.indexOf(item.id);const next=event.key==="ArrowRight"?ids[(index+1)%4]:event.key==="ArrowLeft"?ids[(index+3)%4]:event.key==="Home"?ids[0]:event.key==="End"?ids[3]:null;if(next){event.preventDefault();setDetailTab(next);if(next==="opponent"||next==="shots")setContextVisited(true);document.getElementById(`analysis-tab-${next}`)?.focus();}}} aria-controls={`analysis-panel-${item.id}`} onClick={()=>{setDetailTab(item.id);if(item.id==="opponent"||item.id==="shots")setContextVisited(true);}} className={`min-h-10 flex-1 rounded-lg px-4 py-2 text-sm font-bold ${detailTab===item.id?"bg-[#10b981] text-black":"text-[var(--text-muted)] hover:text-[var(--text)]"}`}>{item.label}</button>)}</div>}
+          detailNavigation={<div data-compact-tabs className="flex flex-wrap gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1" role="tablist" aria-label="Secciones del análisis">{([{id:"summary",label:"Resumen"},{id:"volume",label:"Volumen"},{id:"opponent",label:"Rival"},{id:"shots",label:"Tiros"}] as const).map(item=><button key={item.id} type="button" role="tab" id={`analysis-tab-${item.id}`} aria-selected={detailTab===item.id} tabIndex={detailTab===item.id?0:-1} onKeyDown={event=>{const ids=["summary","volume","opponent","shots"] as const;const index=ids.indexOf(item.id);const next=event.key==="ArrowRight"?ids[(index+1)%4]:event.key==="ArrowLeft"?ids[(index+3)%4]:event.key==="Home"?ids[0]:event.key==="End"?ids[3]:null;if(next){event.preventDefault();setDetailTab(next);if(next==="opponent"||next==="shots")setContextVisited(true);document.getElementById(`analysis-tab-${next}`)?.focus();}}} aria-controls={`analysis-panel-${item.id}`} onClick={()=>{setDetailTab(item.id);if(item.id==="opponent"||item.id==="shots")setContextVisited(true);}} className={`min-h-10 flex-1 rounded-lg px-4 py-2 text-sm font-bold ${detailTab===item.id?"bg-[#10b981] text-black":"text-[var(--text-muted)] hover:text-[var(--text)]"}`}>{compact?({summary:"Rendimiento",volume:"Oportunidades",opponent:"Contra el rival",shots:"Tiros y marcas"} as const)[item.id]:item.label}</button>)}</div>}
           onAnalysisSampleChange={handleAnalysisSample}
         />
 
-        {analysisMode === "pro" && (
+        {effectiveMode === "pro" && (
           <>
           {detailTab==="volume"&&<section id="analysis-role-panel" aria-label="Rol y estimaciones"><NBAProReview sample={analysisSample?.playerId === String(currentPlayerId) ? analysisSample : null} /></section>}
           {contextVisited&&<div hidden={detailTab!=="opponent"&&detailTab!=="shots"} id={`analysis-panel-${detailTab==="shots"?"shots":"opponent"}`} role="tabpanel" aria-labelledby={`analysis-tab-${detailTab==="shots"?"shots":"opponent"}`}>

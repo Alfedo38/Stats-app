@@ -13,13 +13,13 @@ const CATEGORIES = [
   { key: "pra", label: "PRA",         icon: TrendingUp, color: "#8b5cf6", stat: (p: Player) => p.pts_avg + p.reb_avg + p.ast_avg },
 ];
 
-function PlayerRow({ player, statValue, rank, accentColor }: { player: Player; statValue: number; rank: number; accentColor: string }) {
+function PlayerRow({ player, statValue, rank, accentColor, market }: { player: Player; statValue: number; rank: number; accentColor: string; market:string }) {
   const teamColor = getTeamColor(player.team_abbr);
   const initials  = player.full_name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
 
   return (
     <Link
-      href={`/players/${player.id}`}
+      href={`/players/${player.id}?stat=${market}&n=5&scope=FULL`}
       className="flex items-center gap-3 p-2.5 rounded-2xl hover:bg-[var(--surface-soft)] transition-colors group"
     >
       {/* Rank */}
@@ -81,7 +81,7 @@ function CategoryCard({ cat, players }: { cat: typeof CATEGORIES[0]; players: Pl
           <p className="text-center py-4 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]">Sin datos</p>
         ) : (
           sorted.map((p, i) => (
-            <PlayerRow key={p.id} player={p} statValue={cat.stat(p)} rank={i + 1} accentColor={cat.color} />
+            <PlayerRow key={p.id} player={p} statValue={cat.stat(p)} rank={i + 1} accentColor={cat.color} market={cat.key} />
           ))
         )}
       </div>

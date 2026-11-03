@@ -92,7 +92,7 @@ export default function PlayerHeader({
   const finalPosition = position || bio?.position || "POS";
 
   return (
-    <div
+    <div data-player-hero
       className="relative overflow-hidden rounded-[1.6rem] border border-[#10b981]/20 bg-[var(--surface)] shadow-2xl"
       style={{ "--team-color": teamColor } as CSSProperties}
     >
@@ -123,7 +123,7 @@ export default function PlayerHeader({
             </div>
 
             <div className="min-w-0 flex-1">
-              <p className="mb-1.5 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em]" style={{ color: teamColor }}>
+              <p data-player-brand className="mb-1.5 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em]" style={{ color: teamColor }}>
                 <span className="inline-block h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: teamColor }} />
                 MoskProps Player Analytics
               </p>
@@ -154,7 +154,7 @@ export default function PlayerHeader({
           </div>
 
           {nextGame && (
-            <div className="rounded-2xl border border-[#10b981]/20 bg-black/25 p-3 backdrop-blur-sm">
+            <div data-next-game className="rounded-2xl border border-[#10b981]/20 bg-black/25 p-3 backdrop-blur-sm">
               <span className="block text-[11px] font-black uppercase tracking-[0.3em] text-[var(--text-muted)]">Próximo partido</span>
               <div className="mt-2 flex items-center justify-between gap-3">
                 <div>
@@ -184,7 +184,7 @@ export default function PlayerHeader({
         </div></details>
 
         {kpis.length > 0 && (
-          <div className="mt-2 grid grid-cols-2 gap-2 border-t border-[var(--border)]/40 pt-3 sm:grid-cols-4">
+          <div data-general-kpis className="mt-2 grid grid-cols-2 gap-2 border-t border-[var(--border)]/40 pt-3 sm:grid-cols-4">
             {kpis.map((kpi) => (
               <div key={kpi.label} className="rounded-xl border border-[var(--border)] bg-[var(--bg)]/65 px-3 py-2">
                 <p className="flex items-center gap-1 text-[11px] font-black uppercase tracking-[0.22em] text-[var(--text-muted)]">

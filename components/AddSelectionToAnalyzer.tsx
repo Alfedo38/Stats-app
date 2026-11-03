@@ -12,7 +12,7 @@ import {type PlayerEventState} from '@/hooks/usePlayerEvent';
 import ShareButton from './ShareButton';
 import PlayerEventControl from './PlayerEventControl';
 import type {PlayerGameChoices} from './AnalyzerGameChoice';
-type Props={storageKey:string;playerId:string|number;playerName:string;team?:string|null;stat:string;scope:Leg['scope'];side:'over'|'under';line:number;context:GameContext|null;quotes:PriceQuote[];book:string|null;pageSample?:PageSample;samplePending?:boolean;managedEvent?:PlayerEventState;onShare?:()=>Promise<boolean>};
+type Props={compact?:boolean;storageKey:string;playerId:string|number;playerName:string;team?:string|null;stat:string;scope:Leg['scope'];side:'over'|'under';line:number;context:GameContext|null;quotes:PriceQuote[];book:string|null;pageSample?:PageSample;samplePending?:boolean;managedEvent?:PlayerEventState;onShare?:()=>Promise<boolean>};
 export default function AddSelectionToAnalyzer(props:Props){
  const managed=props.managedEvent;
  const inferred=managed?managed.context:props.context??eventFromQuotes(props.quotes);
@@ -38,7 +38,7 @@ export default function AddSelectionToAnalyzer(props:Props){
  }
  if(!PAGE_MARKETS[props.stat])return null;
  return <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#10b981]/25 bg-[var(--surface)] px-3 py-3">
-  {managed?<PlayerEventControl event={managed}/>:inferred?<span className="text-[10px] font-bold text-[var(--text-muted)]">{inferred.away} – {inferred.home} · {inferred.date.split('-').reverse().join('/')}</span>:<>
+  {managed?props.compact?<details className="mr-auto text-xs"><summary className="cursor-pointer font-bold text-[var(--text-muted)]">{managed.context?`${managed.context.away}–${managed.context.home} · ${managed.context.date.split('-').reverse().join('/')}`:"Elegir partido y fecha"}</summary><div className="mt-2 flex flex-wrap gap-2"><PlayerEventControl event={managed}/></div></details>:<PlayerEventControl event={managed}/>:inferred?<span className="text-[10px] font-bold text-[var(--text-muted)]">{inferred.away} – {inferred.home} · {inferred.date.split('-').reverse().join('/')}</span>:<>
    <label className="text-[10px] text-[var(--text-muted)]">Fecha <input aria-label="Fecha para agregar selección" type="date" value={date} onChange={e=>{setDate(e.target.value);setChoice(null);}} className="ml-1 rounded-lg border border-[var(--border)] bg-[var(--bg)] px-2 py-1" /></label>
    {!!data?.games.length&&<select aria-label="Partido para agregar selección" value={game?.id??(choice?.key===key?choice.id:'')} onChange={e=>setChoice({key,id:e.target.value})} className="rounded-lg border border-[var(--border)] bg-[var(--bg)] px-2 py-1 text-[10px]"><option value="">Elegir partido</option>{data.games.map(g=><option key={g.id} value={g.id}>{g.away} – {g.home}</option>)}</select>}
    <span className="text-[10px] text-[var(--text-muted)]">{query.loading?'Buscando partido…':game?`${game.away} – ${game.home}`:'Partido por completar en el analizador'}</span>

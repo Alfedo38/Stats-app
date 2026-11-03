@@ -10,7 +10,7 @@ function getInitialTheme(): Theme {
   return window.localStorage.getItem("theme") === "dark" ? "dark" : "light";
 }
 
-export default function ThemeToggle() {
+export default function ThemeToggle({compact=false}:{compact?:boolean}) {
   const [theme, setTheme] = useState<Theme>("light");
   const [mounted, setMounted] = useState(false);
 
@@ -37,7 +37,7 @@ export default function ThemeToggle() {
       aria-label="Cambiar tema claro u oscuro"
     >
       {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
-      <span>{mounted && theme === "dark" ? "Tema claro" : "Tema oscuro"}</span>
+      {!compact&&<span>{mounted && theme === "dark" ? "Tema claro" : "Tema oscuro"}</span>}
     </button>
   );
 }

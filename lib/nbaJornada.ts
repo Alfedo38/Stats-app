@@ -1,11 +1,12 @@
-import {finiteStat, selectionSummary} from './selectionStats';
+import {finiteStat, selectionOutcome, selectionSummary} from './selectionStats';
 import {canonicalOddsPlayerName} from './oddsPlayerNames';
 import {oddsMarket, oddsScope, oddsBook, type PriceQuote} from './nbaOdds';
 import {selectQuote} from './ticketReader/quoteMatch';
 import {isDate, TEAMS, emptyLeg, type Book} from './ticketReader/model';
 import {matchupHref, playerGameHref, selectionFromPage, type GameContext} from './playerNavigation';
 import {getMinutesValue} from './formatters';
-import {twoSeasonRows} from './nbaHistoryWindow';
+import {historySeasons,twoSeasonRows} from './nbaHistoryWindow';
+import {getOpponent} from './playerUtils';
 import {gamePhase} from './nbaGameFilters';
 
 export const JORNADA_MARKETS = {
@@ -17,7 +18,7 @@ export type JornadaMarket = keyof typeof JORNADA_MARKETS;
 export type JornadaGame = {id:string; away:string; home:string; start:string|null; status:number|null};
 export type JornadaQuote = PriceQuote & {overCapturedAt:string|null;underCapturedAt:string|null};
 export type JornadaPlayer = {id:number; name:string; team:string; opponent:string; gameId:string; position:string|null;
-  values:(number|null)[]; minutes:(number|null)[]; dates:string[]; seasons:string[]; quotes:JornadaQuote[]};
+  values:(number|null)[]; minutes:(number|null)[]; dates:string[]; opponents?:(string|null)[]; rivalValues?:(number|null)[]; extended?:{season:string;seasonValues:(number|null)[];h2hValues:(number|null)[]}; seasons:string[]; quotes:JornadaQuote[]};
 export type JornadaData = {ok:true; date:string; market:JornadaMarket; generatedAt:string; rosterAt:string;
   archiveId:string|null; history:'ready'|'unavailable'; quotes:'ready'|'unavailable'|'limited';
   games:JornadaGame[]; players:JornadaPlayer[]; warnings:string[]};
@@ -39,7 +40,7 @@ export function normalizedGame(row:Record<string,unknown>,date:string):JornadaGa
 }
 type Row = Record<string,unknown>;
 function gameId(row:Row){const raw=String(row.game_id??'');return /^\d{1,15}$/.test(raw)?String(Number(raw)):null;}
-export function recentSample(rows:unknown,playerId:number,date:string,market:JornadaMarket){
+export function recentSample(rows:unknown,playerId:number,date:string,market:JornadaMarket,limit=10){
   const fields:Record<string,string[]>={pra:['pts','reb','ast'],pr:['pts','reb'],pa:['pts','ast'],ra:['reb','ast']};
   const valid=twoSeasonRows((Array.isArray(rows)?rows:[]),date).filter((row):row is Row=>!!row&&typeof row==='object'&&!Array.isArray(row))
     .filter(r=>Number(r.player_id)===playerId&&isDate(String(r.game_date??'').slice(0,10))&&String(r.game_date).slice(0,10)<date&&gameId(r)!==null)
@@ -49,10 +50,18 @@ export function recentSample(rows:unknown,playerId:number,date:string,market:Jor
     .sort((a,b)=>String(b.game_date).localeCompare(String(a.game_date))||Number(b.game_id)-Number(a.game_id));
   const unique=new Map<string,Row>();
   for(const row of valid)if(!unique.has(gameId(row)!))unique.set(gameId(row)!,row);
-  const chosen=[...unique.values()].slice(0,10);
+  const chosen=[...unique.values()].slice(0,limit);
   return {values:chosen.map(r=>{const parts=(fields[market]??[market]).map(k=>finiteStat(r[k]));return parts.every(v=>v!==null)?parts.reduce<number>((s,v)=>s+v!,0):null;}),
     minutes:chosen.map(r=>getMinutesValue(r)),dates:chosen.map(r=>String(r.game_date).slice(0,10)),
+    opponents:chosen.map(r=>{const t=getOpponent(r);return TEAMS.includes(t)&&t!==String(r.team_abbreviation??"").trim().toUpperCase()?t:null;}),
     seasons:[...new Set(chosen.map(r=>String(r.season_year??r.season??r.season_id??'')).filter(Boolean))]};
+}
+export function extendedSample(rows:unknown,playerId:number,date:string,market:JornadaMarket,opponent:string){
+  const season=historySeasons(date)[0];
+  const sample=recentSample(rows,playerId,date,market,Infinity);
+  const start=season.slice(0,4)+'-10-01';
+  return {season,seasonValues:sample.values.filter((_,i)=>sample.dates[i]>=start),
+    h2hValues:sample.values.filter((_,i)=>sample.opponents[i]===opponent)};
 }
 export function summaryFor(player:JornadaPlayer,n:5|10,line:number|null,side:'over'|'under'){
   return {stat:selectionSummary(player.values.slice(0,n),line??NaN,side),minutes:selectionSummary(player.minutes.slice(0,n),NaN,'over')};
@@ -64,7 +73,7 @@ export function jornadaPlayerHref(player:JornadaPlayer,game:JornadaGame,date:str
   return href.split('?')[0]+'?'+q;
 }
 export function jornadaLeg(player:JornadaPlayer,game:JornadaGame,date:string,market:JornadaMarket,line:number,side:'over'|'under',book:string|null,now=new Date()){
-  if(!Number.isFinite(line)||line<=0)throw Error('LINE_REQUIRED');
+  if(!validJornadaLine(line))throw Error('LINE_REQUIRED');
   const quotes=player.quotes.map(q=>({...q,updated_at:side==='over'?q.overCapturedAt:q.underCapturedAt}));
   return selectionFromPage({playerId:player.id,playerName:player.name,team:player.team,stat:market,scope:'FULL',side,line,context:contextFor(game,date),date,book,quotes},now);
 }
@@ -97,16 +106,36 @@ export function availableLines(player:JornadaPlayer,book:string,side:'over'|'und
   const field=side==='over'?'over_price':'under_price';
   return [...new Set(player.quotes.filter(q=>(book==='all'||oddsBook(q.book)===book)&&finiteStat(q[field])!==null&&Number(q[field])>1).map(q=>q.line!))].sort((a,b)=>a-b);
 }
-export function defaultLine(player:JornadaPlayer,book:string,side:'over'|'under'){
-  const lines=availableLines(player,book,side),field=side==='over'?'over_price':'under_price';
-  // A visible starting line, closest to an even price; it is not a recommendation.
-  return lines.sort((a,b)=>{
-    const score=(l:number)=>Math.min(...player.quotes.filter(q=>q.line===l&&(book==='all'||q.book===book)&&Number(q[field])>1).map(q=>Math.abs(1/Number(q[field])-.5)));
-    return score(a)-score(b)||a-b;
-  })[0]??null;
+export const JORNADA_MIN_LINE=0.5;
+export const JORNADA_MAX_LINE=299.5;
+export function validJornadaLine(line:number|null):line is number{
+  return line!==null&&line>=JORNADA_MIN_LINE&&line<=JORNADA_MAX_LINE&&Number.isInteger(line-0.5);
+}
+export function defaultLine(player:JornadaPlayer){
+  const average=selectionSummary(player.values.slice(0,10),NaN,'over').average;
+  // Nearest half-point on the 0.5, 1.5, … grid. At a tie, use the higher line.
+  return average===null?null:Math.min(JORNADA_MAX_LINE,Math.floor(average)+0.5);
 }
 export function quoteAt(player:JornadaPlayer,book:string,line:number|null,side:'over'|'under'){
   const field=side==='over'?'over_price':'under_price';
   const quote=player.quotes.find(q=>q.book===book&&q.line===line&&Number(q[field])>1);
   return quote?{price:Number(quote[field]),capturedAt:side==='over'?quote.overCapturedAt:quote.underCapturedAt}:null;
+}
+
+/** The published archive summary contains at most ten rows per player. */
+export function jornadaEvidence(player:JornadaPlayer,line:number|null,side:'over'|'under'){
+  const threshold=line??NaN, values=player.values.slice(0,10);
+  const recentRival=values.filter((_,i)=>player.opponents?.[i]===player.opponent);
+  const rivalSource=recentRival.length?'recent':player.rivalValues!==undefined?'rival':'unavailable';
+  const rival=recentRival.length?recentRival:player.rivalValues?.slice(0,5)??[];
+  const dots=values.map(value=>selectionOutcome(value,threshold,side));
+  let streak=0;
+  for(const outcome of dots){if(outcome!=='hit')break;streak++;}
+  return {l5:selectionSummary(values.slice(0,5),threshold,side),
+    l10:selectionSummary(values,threshold,side),rival:selectionSummary(rival,threshold,side),rivalSource,
+    dots,streak};
+}
+export function bestJornadaPrice(player:JornadaPlayer,line:number|null,side:'over'|'under',books=Object.keys(BOOK_LABELS)){
+  const prices=books.map(book=>quoteAt(player,book,line,side)?.price??null).filter((n):n is number=>n!==null);
+  return prices.length>1?Math.max(...prices):null;
 }

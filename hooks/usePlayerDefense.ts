@@ -5,9 +5,9 @@ import {defenseMarket,defensePosition,defenseSeason,filterDefense,type DefenseRe
 type Input={initial?:{season:string|null;window:'season'|'10'|'20'|null;position:DefenseGroup|null;band:DefenseBand};playerId:string;position?:string;opponent:string;market:string;asOfDate:string;phase:string;scope:string};
 export function usePlayerDefense(input:Input){
  const key=input.playerId+':'+input.asOfDate;
- const [choice,setChoice]=useState<{key:string;season:string;window:'season'|'10'|'20';position:DefenseGroup}|null>(()=>input.initial?{key,season:input.initial.season??defenseSeason(input.asOfDate),window:input.initial.window??'season',position:input.initial.position??defensePosition(input.position)??'ALL'}:null);
- const options=choice?.key===key?choice:{key,season:defenseSeason(input.asOfDate),window:'season' as const,position:defensePosition(input.position)??'ALL'};
- const market=defenseMarket(input.market),q=new URLSearchParams({market:market??'pts',asOfDate:input.asOfDate,phase:input.phase,season:options.season,window:options.window,position:options.position});
+ const [choice,setChoice]=useState<{key:string;season:string;window:'season'|'10'|'20';position:DefenseGroup;venue:'ALL'|'HOME'|'AWAY'}|null>(()=>input.initial?{key,season:input.initial.season??defenseSeason(input.asOfDate),window:input.initial.window??'season',venue:'ALL',position:input.initial.position??defensePosition(input.position)??'ALL'}:null);
+ const options=choice?.key===key?choice:{key,season:defenseSeason(input.asOfDate),window:'season' as const,venue:'ALL' as const,position:defensePosition(input.position)??'ALL'};
+ const market=defenseMarket(input.market),q=new URLSearchParams({market:market??'pts',asOfDate:input.asOfDate,phase:input.phase,season:options.season,window:options.window,position:options.position,venue:options.venue});
  if(input.opponent)q.set('opponent',input.opponent);
  const url=market?'/api/nba-defense?'+q:null;
  const query=useAnalysisQuery<DefenseReport>(url);

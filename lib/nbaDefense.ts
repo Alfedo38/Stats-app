@@ -8,7 +8,7 @@ export type DefenseGroup='ALL'|'G'|'F'|'C';
 export type DefenseBand='all'|'high'|'middle'|'low';
 export const DEFENSE_GROUPS:Record<DefenseGroup,string>={ALL:'Todos',G:'Bases y escoltas',F:'Aleros y ala-pívots',C:'Pívots'};
 export const DEFENSE_BANDS:Record<DefenseBand,string>={all:'Todas',high:'Permiten más · 1–10',middle:'Intermedias · 11–20',low:'Permiten menos · 21–30'};
-export type DefenseSettings={market:DefenseMarket;season:string;asOfDate:string;phase:'ALL'|'Regular Season'|'Playoffs';window:'season'|'10'|'20';opponent:string|null;position:DefenseGroup};
+export type DefenseSettings={market:DefenseMarket;season:string;asOfDate:string;phase:'ALL'|'Regular Season'|'Playoffs';window:'season'|'10'|'20';opponent:string|null;position:DefenseGroup;venue?:'ALL'|'HOME'|'AWAY'};
 type Row=Record<string,any>;
 export type DefenseRank={team:string;allowed:number|null;games:number;total:number;missing:number;leagueAverage:number|null;diffPct:number|null;rank:number|null;rankedTeams:number;first:string|null;last:string|null};
 export type DefenseRecent={id:string;playerId:number;name:string;team:string;position:DefenseGroup|null;date:string;minutes:number;value:number|null;baseline:number|null;venue:string|null};
@@ -33,7 +33,9 @@ export function defenseSettings(raw:Record<string,unknown>,defaultDate:string):D
  if(typeof season!=='string'||!/^20\d{2}-\d{2}$/.test(season)||String(Number(season.slice(0,4))+1).slice(-2)!==season.slice(-2)||!['ALL','Regular Season','Playoffs'].includes(String(phase))||!['season','10','20'].includes(String(window)))return null;
  const opponent=raw.opponent===undefined||raw.opponent===null||raw.opponent===''?null:String(raw.opponent).toUpperCase();
  if(opponent&&!TEAMS.includes(opponent))return null;
- return {market,position,season,phase:phase as DefenseSettings['phase'],window:window as DefenseSettings['window'],asOfDate,opponent};
+ const venue=raw.venue;
+ if(venue!==undefined&&venue!=='ALL'&&venue!=='HOME'&&venue!=='AWAY')return null;
+ return {market,position,season,phase:phase as DefenseSettings['phase'],window:window as DefenseSettings['window'],asOfDate,opponent,...(venue?{venue}:{})};
 }
 export function defenseValue(values:unknown,market:DefenseMarket):number|null{
  if(!values||typeof values!=='object'||Array.isArray(values))return null;
@@ -44,6 +46,7 @@ export function defenseValue(values:unknown,market:DefenseMarket):number|null{
 export function defenseRankings(raw:unknown,settings:DefenseSettings):Record<DefenseGroup,DefenseRank[]>{
  const source=Array.isArray(raw)?raw:[],unique=new Map<string,Row>(),conflicts=new Set<string>();
  for(const row of source){
+  if(settings.venue&&settings.venue!=='ALL'&&row?.venue!==settings.venue)continue;
   if(!row||typeof row!=='object'||!TEAMS.includes(row.team)||!isDate(row.date)||row.date>=settings.asOfDate||row.season!==settings.season||!['Regular Season','Playoffs'].includes(row.phase)||settings.phase!=='ALL'&&row.phase!==settings.phase||!/^\d{1,10}$/.test(String(row.id))||Number(row.id)<=0)continue;
   const k=row.team+':'+Number(row.id),normalized={...row,id:String(Number(row.id))},prior=unique.get(k);
   if(prior&&JSON.stringify(prior)!==JSON.stringify(normalized))conflicts.add(k);else unique.set(k,normalized);
@@ -75,6 +78,7 @@ export function recentDefenders(raw:unknown,settings:DefenseSettings):DefenseRec
  if(!Array.isArray(raw))return [];
  const unique=new Map<string,DefenseRecent>(),conflicts=new Set<string>();
  for(const row of raw){
+  if(settings.venue&&settings.venue!=='ALL'&&row?.venue!==(settings.venue==='HOME'?'AWAY':'HOME'))continue;
   if(!row||row.opponent!==settings.opponent||row.season!==settings.season||!isDate(row.date)||row.date>=settings.asOfDate||!['Regular Season','Playoffs'].includes(row.phase)||settings.phase!=='ALL'&&row.phase!==settings.phase||!TEAMS.includes(row.team)||!Number.isSafeInteger(row.playerId)||row.playerId<=0||!/^\d{1,10}$/.test(String(row.id)))continue;
   const position=defensePosition(row.position),minutes=finiteStat(row.minutes);if(minutes===null||minutes<15||settings.position!=='ALL'&&position!==settings.position)continue;
   const item:DefenseRecent={id:String(Number(row.id)),playerId:row.playerId,name:String(row.name).slice(0,100),team:row.team,position,date:row.date,minutes,value:defenseValue(row.values,settings.market),baseline:['pra','pr','pa','ra'].includes(settings.market)?finiteStat(row.baseline?.[settings.market]):defenseValue(row.baseline,settings.market),venue:row.venue==='HOME'||row.venue==='AWAY'?row.venue:null};

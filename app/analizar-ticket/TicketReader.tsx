@@ -216,6 +216,16 @@ function CombinedTicket({legs,entries,unsupported}:{legs:Leg[];entries:Record<st
  return <section className={s.combined}><h2>El ticket completo</h2>
   {reference.status==='impossible'?<p className={s.combinedProblem}>Hay condiciones del mismo jugador que no pueden acertarse juntas. Revisá las líneas y los lados elegidos.</p>:reference.rate!==null?<><strong className={s.combinedValue}>{fmt(reference.rate*100)} %</strong><p>Referencia histórica de acierto total{reference.groups.length>1?', suponiendo independencia entre partidos':''}.</p></>:<p>{reference.status==='insufficient'?'Faltan partidos históricos en común para calcular una referencia conjunta. Se requieren al menos cinco con todos los valores disponibles por partido del ticket.':'Completá las selecciones y revisá los mercados pendientes antes de calcular una referencia del ticket completo.'}</p>}
   {reference.groups.length>0&&<ul>{reference.groups.map(group=><li key={group.event}><strong>{group.teams.join(' – ')}</strong>: {group.hits} de {group.complete} partidos históricos con todas las selecciones acertadas · {group.legIds.length} selección(es){group.missing?` · ${group.missing} sin datos completos`:''}{group.pushes?` · ${group.pushes} con empate sin fallo`:''}</li>)}</ul>}
+  {reference.groups.some(group=>group.sample.length>0)&&<details className={s.resultDetail}>
+   <summary>Ver partidos históricos compartidos</summary>
+   {reference.groups.filter(group=>group.sample.length>0).map(group=><div key={group.event}>
+    <strong>{group.teams.join(' – ')}</strong>
+    <ul>{group.sample.map(row=>{
+     const historical=entries[group.legIds[0]]?.result?.games.find(g=>g.id.replace(/^0+/,'')===row.id);
+     return <li key={row.id}>{historical?.date??row.id} · {row.outcome==='hit'?'Todas acertaron':row.outcome==='miss'?'Al menos una falló':row.outcome==='push'?'Empate sin fallos':'Datos incompletos'}</li>;
+    })}</ul>
+   </div>)}
+  </details>}
   <small>Se comprueban las selecciones del mismo partido sobre sus partidos históricos en común. Un empate no cuenta como acierto total. Esta referencia describe la muestra; no es una probabilidad validada para el próximo partido.</small>
  </section>;
 }

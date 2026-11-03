@@ -90,6 +90,79 @@ const route=loader({'@/lib/auth/server':{withAuth:fn=>async r=>allowed?fn(r):{st
 const req=q=>({url:'http://local.invalid/api/nba-jornada?'+new URLSearchParams(q)});
 await check('La API requiere sesión y valida antes de consultar',async()=>{assert.equal((await route.GET(req({date,market:'pts'}))).status,200);assert.equal(calls,1);for(const q of [{date:'bad'},{date,market:'bad'},{date:'2025-10-30'}])assert.equal((await route.GET(req(q))).status,400);allowed=false;assert.equal((await route.GET(req({date}))).status,401);assert.equal(calls,1);});
 await check('La API usa caché privada del navegador, sin respuesta pública',async()=>{allowed=true;const r=await route.GET(req({date}));assert.equal(r.headers['Cache-Control'],'private, no-store');});
+await check('Evidencia L5/L10 y rival respeta Under, cero, empate y rival por partido',()=>{
+ const sample={values:[0,4,5,null,6,3],opponents:['CLE','BOS','CLE','CLE',null,'CLE'],opponent:'CLE'};
+ const e=j.jornadaEvidence(sample,5,'under');
+ assert.equal(e.l5.hits,2);assert.equal(e.l5.pushes,1);assert.equal(e.l10.hits,3);
+ assert.equal(e.rival.hits,2);assert.equal(e.rival.decided,2);assert.equal(e.rival.pushes,1);
+ assert.equal(e.rival.valid,3);assert.equal(e.streak,2);assert.equal(e.dots[3],'missing');
+ assert.equal(j.jornadaEvidence({...sample,opponents:undefined},5,'under').rival.valid,0);
+ assert.equal(j.jornadaEvidence(sample,null,'under').l10.rate,null);
+});
+await check('El rival histórico sale del registro y no del calendario actual',()=>{
+ const r={player_id:1,game_id:'0022600001',game_date:'2026-10-29',season_type:'Regular Season',min:30,team_abbreviation:'ATL',matchup:'ATL @ CLE',pts:0};
+ const result=j.recentSample([r,{...r,game_id:'0022600002',game_date:date,matchup:'ATL @ BOS'}],1,date,'pts');
+ assert.equal(result.opponents.length,1);assert.equal(result.opponents[0],'CLE');assert.equal(result.values[0],0);
+});
+await check('Mejor cuota compara dos o más casas en exactamente la misma línea y lado',()=>{
+ const p={quotes:[{book:'bet365',line:5.5,under_price:1.9,over_price:1.8},{book:'betano',line:5.5,under_price:2.05,over_price:2.4},{book:'stake',line:6.5,under_price:3.1}]};
+ assert.equal(j.bestJornadaPrice(p,5.5,'under'),2.05);
+ assert.equal(j.bestJornadaPrice(p,5.5,'over'),2.4);
+ assert.equal(j.bestJornadaPrice(p,6.5,'under'),null);
+ assert.equal(j.bestJornadaPrice(p,null,'under'),null);
+});
+await check('Línea inicial usa L10 válido, respeta cero y nunca se ajusta a la cuota',()=>{
+ assert.equal(j.defaultLine({values:[36,37,36,36,36,36,36,37,36,37,300],quotes:[{line:40.5}]}),36.5);
+ assert.equal(j.defaultLine({values:[36,36]}),36.5);
+ assert.equal(j.defaultLine({values:[0,null]}),0.5);
+ assert.equal(j.defaultLine({values:[null]}),null);
+ for(const x of [null,0,1,0.75,300,NaN])assert.equal(j.validJornadaLine(x),false);
+ for(const x of [0.5,1.5,2.5,299.5])assert.equal(j.validJornadaLine(x),true);
+ assert.throws(()=>j.jornadaLeg(p(),game,date,'pts',1,'over',null,now),/LINE_REQUIRED/);
+});
+await check('Partido muestra los dos equipos, excluye terceros y prioriza una muestra de al menos cinco',()=>{
+ const players=[
+  p({name:'Muestra corta',values:[25]}),
+  p({id:2,name:'Muestra amplia',team:'ATL',opponent:'CLE',values:[20,24,25,30,32,8,12,14,19,27]}),
+  p({id:3,name:'Fuera del partido',gameId:'0022600100'}),
+ ];
+ const html=renderUI({data:{...uiData,players},state:{4:game.id,10:'rate',11:{
+  [date+':pts:over:all:'+game.id+':1']:{line:19.5,book:null},
+  [date+':pts:over:all:'+game.id+':2']:{line:19.5,book:null},
+ }}});
+ assert.match(html,/aria-pressed="true">CLE @ ATL/);
+ assert.match(html,/Comparar equipos/);
+ assert.doesNotMatch(html,/Fuera del partido/);
+ assert.ok(html.indexOf('Muestra amplia')>=0&&html.indexOf('Muestra amplia')<html.indexOf('Muestra corta'));
+});
+await check('Cruces fuera de L10 se cuentan contra la línea elegida sin reemplazar cruces recientes',()=>{
+ const player=p({values:[25,12],opponents:['BOS','NYK'],rivalValues:[0,30,22,null,18]});
+ const result=j.jornadaEvidence(player,19.5,'over');
+ assert.equal(result.rivalSource,'rival');assert.equal(result.rival.hits,2);assert.equal(result.rival.decided,4);
+ assert.equal(j.jornadaEvidence(player,19.5,'under').rival.hits,2);
+ const recent=j.jornadaEvidence({...player,opponents:[player.opponent,'NYK']},19.5,'over');
+ assert.equal(recent.rivalSource,'recent');assert.equal(recent.rival.hits,1);assert.equal(recent.rival.decided,1);
+});
+await check('La secuencia pone el último partido a la derecha y separa los cinco más recientes',()=>{
+ const player=p({values:[30,30,30,30,30,0,0,0,30,30]});
+ const html=renderUI({data:{...uiData,players:[player]},state:{11:{[date+':pts:over:all:'+game.id+':1']:{line:19.5,book:null}}}});
+ assert.deepEqual([...html.matchAll(/data-outcome="([^"]+)" data-l5="([^"]+)"/g)].map(m=>m.slice(1)),[
+  ['hit','false'],['hit','false'],['miss','false'],['miss','false'],['miss','false'],
+  ...Array.from({length:5},()=>['hit','true']),
+ ]);
+});
+await check('Historial ampliado usa toda la temporada y cruces de ambas temporadas sin mirar el día del evento',()=>{
+ const make=(day,id,opp,pts)=>({player_id:1,game_id:String(id),game_date:day,season_type:'Regular Season',team_abbreviation:'ATL',opponent_abbr:opp,min:32,pts});
+ const rows=[
+  ...Array.from({length:14},(_,i)=>make('2026-10-'+String(11+i),226000001+i,i%2?'CLE':'BOS',i)),
+  make('2026-04-01',225000001,'CLE',28),make(date,226000050,'CLE',99),
+  make('2025-04-01',224000001,'CLE',99),{...make('2026-10-22',226000012,'CLE',11)},
+ ];
+ const out=j.extendedSample(rows,1,date,'pts','CLE');
+ assert.equal(out.season,'2026-27');assert.equal(out.seasonValues.length,14);assert.equal(out.h2hValues.length,8);
+ assert.equal(out.seasonValues.includes(0),true);assert.equal(out.h2hValues.includes(28),true);
+ assert.equal(out.h2hValues.includes(99),false);
+});
 const report={package:'nba-jornada-v1',ok:true,checks:checks.length,tests:checks,fixtures:true,network:false,database:false};
 const output=path.join(root,'maintenance-state/qa/jornada-v1.json');fs.mkdirSync(path.dirname(output),{recursive:true});fs.writeFileSync(output,JSON.stringify(report,null,2),{mode:0o600});
 console.log(`\nJornada NBA: ${checks.length} verificaciones correctas. Informe: ${path.relative(root,output)}. Sin red ni base de datos.`);

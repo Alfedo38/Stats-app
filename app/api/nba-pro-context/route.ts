@@ -64,7 +64,8 @@ export const GET=withAuth(async (req:NextRequest)=>{
       select game_id, to_char(game_date,'YYYY-MM-DD') as game_date, start_seconds::float8, end_seconds::float8,
         game_seconds::float8, lineup, pts::float8, reb::float8, ast::float8, fga::float8
       from public.nba_pro_player_stints where player_id=$1::int and season=$2
-        and ($3='ALL' or season_type=$3) and validated=true order by game_date desc,start_seconds`,player,season,phase);
+        and ($3='ALL' or season_type=$3) and validated=true order by game_date desc,game_id desc,start_seconds limit 2001`,player,season,phase);
+    if(stints.length>2000)return NextResponse.json({ok:false,error:"La muestra de rotaciones supera el límite."},{status:503});
     const ids=[...new Set<number>(stints.flatMap(row=>row.lineup as number[]))];
     const players=ids.length?await prisma.$queryRawUnsafe<{id:number;name:string}[]>(`select id::int, coalesce(full_name,'Jugador '||id::text) as name from public.players where id=any($1::int[])`,ids):[];
     return NextResponse.json({ok:true,available:true,stints,players});

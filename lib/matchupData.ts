@@ -9,6 +9,7 @@ export type TeamAverage = {
   blk: number | null; tov: number | null; fgm: number | null; fga: number | null;
   fg3m: number | null; fg3a: number | null; ftm: number | null; fta: number | null;
   fg_pct: number | null; fg3_pct: number | null; ft_pct: number | null;
+  estimated_possessions?: number | null; pace_games?: number;
   opp_pts: number | null; opp_reb: number | null; opp_ast: number | null; opp_fg3m: number | null;
 };
 export type PlayerAverage = {
@@ -58,6 +59,8 @@ export async function getMatchupData(away: string, home: string, f: MatchupFilte
         (100.0 * sum(t.fgm) / nullif(sum(t.fga), 0))::float8 AS fg_pct,
         (100.0 * sum(t.fg3m) / nullif(sum(t.fg3a), 0))::float8 AS fg3_pct,
         (100.0 * sum(t.ftm) / nullif(sum(t.fta), 0))::float8 AS ft_pct,
+        avg((t.fga + 0.44*t.fta - (to_jsonb(t)->>'oreb')::numeric + t.tov + o.fga + 0.44*o.fta - (to_jsonb(o)->>'oreb')::numeric + o.tov)/2.0)::float8 AS estimated_possessions,
+        count(t.fga + t.fta + (to_jsonb(t)->>'oreb')::numeric + t.tov + o.fga + o.fta + (to_jsonb(o)->>'oreb')::numeric + o.tov)::int AS pace_games,
         avg(o.pts)::float8 AS opp_pts, avg(o.reb)::float8 AS opp_reb,
         avg(o.ast)::float8 AS opp_ast, avg(o.fg3m)::float8 AS opp_fg3m
       FROM chosen t LEFT JOIN public.nba_team_game_logs o

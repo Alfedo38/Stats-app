@@ -12,6 +12,8 @@ import MatchupFilterBar from '@/components/MatchupFilterBar';
 import {matchupHref} from '@/lib/playerNavigation';
 import MatchupPlayerTable from '@/components/MatchupPlayerTable';
 import DefensiveMatchups from '@/components/DefensiveMatchups';
+import {historySeasons} from '@/lib/nbaHistoryWindow';
+import {archiveEnabled,archivePart} from '@/lib/nbaArchive';
 import styles from './Matchup.module.css';
 
 export const dynamic = 'force-dynamic';
@@ -64,6 +66,13 @@ export default async function MatchupPage({ params, searchParams }: { params: Pr
   const rawStart = Array.isArray(sp.start) ? sp.start[0] : sp.start;
   const start = rawStart && /^\d{4}-\d{2}-\d{2}T/.test(rawStart) && argentinaDate(rawStart) === filters.date ? rawStart : '';
   const [data,injuryReport] = await Promise.all([getMatchupData(away, home, filters),getInjuryReport(filters.date)]);
+  const archiveSummary=archiveEnabled()?await archivePart('summaries').catch(()=>null):null;
+  const restFor=(team:string)=>{
+    const prev=[...((archiveSummary?.teamDates?.[`${historySeasons(filters.date)[0]}/${team}`]??[]) as string[])].filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)&&d<filters.date).sort().at(-1);
+    if(!prev)return null;
+    const days=(Date.parse(filters.date)-Date.parse(prev))/86400000-1;
+    return Number.isInteger(days)&&days>=0?{days,prev}:null;
+  };
   const matchInjuries=injuryReport.items.filter(p=>p.date===filters.date&&p.game?.away===away&&p.game?.home===home);
   const awayData = data.teams.find(t => t.team_abbreviation === away);
   const homeData = data.teams.find(t => t.team_abbreviation === home);
@@ -90,6 +99,19 @@ export default async function MatchupPage({ params, searchParams }: { params: Pr
         const stats = data.teams.find(t => t.team_abbreviation === team);
         return <div key={team} className={styles.sampleCard}><strong>{team}</strong><span>{stats ? `${stats.gp} partidos · ${stats.wins} victorias / ${stats.gp - stats.wins} derrotas` : 'Sin partidos para estos filtros'}</span><small>{stats ? `${dateLabel(stats.first_date)} → ${dateLabel(stats.last_date)}` : 'Probá otra fase o condición.'}</small></div>;
       })}</div>
+      <section className={styles.panel}>
+        <div className={styles.panelTitle}><h2>Ritmo y descanso</h2><span>Contexto anterior al partido</span></div>
+        <div className={styles.sampleGrid}>{[away,home].map(team=>{
+          const stat=data.teams.find(t=>t.team_abbreviation===team),rest=restFor(team);
+          return <div key={team} className={styles.sampleCard}><strong>{team}</strong>
+            <span>{number(stat?.estimated_possessions??null)} posesiones estimadas por partido</span>
+            <small>{stat?.pace_games??0} partidos con datos completos para estimar ritmo.</small>
+            <span>{rest?rest.days===0?'Partidos en días consecutivos':rest.days+' días sin partido':'Descanso sin dato'}</span>
+            {rest&&<small>Último partido en el calendario archivado: {dateLabel(rest.prev)}.</small>}
+          </div>;
+        })}</div>
+        <p className="text-xs text-[var(--text-muted)]">Ritmo: promedio de la estimación de posesiones de ambos equipos en cada partido de la muestra, sin ajustar por prórroga. Descanso: calendario archivado, independientemente de los filtros de localía y fase.</p>
+      </section>
       <div className={styles.comparisonGrid}>
         <Comparison title="Ataque y producción" metrics={offense} away={away} home={home} awayData={awayData} homeData={homeData} />
         <Comparison title="Rival y defensa" metrics={defense} away={away} home={home} awayData={awayData} homeData={homeData} />

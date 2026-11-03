@@ -118,13 +118,32 @@ def summary_inputs(c):
 
 def summaries(directory,manifest,c=None,*,summary_data=None):
     # Se calcula una vez en el PC; evita escanear todos los tiros en cada visita web.
-    recent={};zones=defaultdict(lambda:defaultdict(lambda:{'games':set(),'made':0,'attempts':0}))
+    from .defense_snapshot import normalize
+    recent={};jornada_rivals={};jornada_history={};zones=defaultdict(lambda:defaultdict(lambda:{'games':set(),'made':0,'attempts':0}))
     league=defaultdict(set);dates=defaultdict(set);players={}
     for name,meta in list(manifest['parts'].items()):
         if not name.startswith(('facts/','shots/')):continue
         data=load_part(directory,meta)
         if name.startswith('facts/'):
             recent[name.split('/')[1]]=sorted(data,key=lambda r:str(r.get('game_date','')),reverse=True)[:10]
+            by_rival=defaultdict(list);compact=[]
+            seen=set();latest_year=None
+            for row in sorted(data,key=lambda r:(str(r.get('game_date','')),str(r.get('game_id',''))),reverse=True):
+                clean=normalize(row,{})
+                if not clean or clean['id'] in seen:continue
+                year=int(clean['season'][:4])
+                if latest_year is None:latest_year=year
+                if year<latest_year-1:break
+                seen.add(clean['id'])
+                item=dict(player_id=clean['playerId'],game_id=clean['id'],game_date=clean['date'],
+                          season=clean['season'],season_type=clean['phase'],team_abbreviation=clean['team'],
+                          opponent_abbr=clean['opponent'],min=clean['minutes'],
+                          **{k:clean['values'][k] for k in ('pts','reb','ast','fg3m','fg3a','fga','fta')})
+                compact.append(item)
+                group=by_rival[clean['opponent']]
+                if len(group)<10:group.append(item)
+            jornada_rivals[name.split('/')[1]]=dict(by_rival)
+            jornada_history[name.split('/')[1]]=compact
         for r in data:
             if name.startswith('facts/'):
                 pid=str(r['player_id']);players[pid]=str(r.get('player_name') or '')
@@ -150,6 +169,10 @@ def summaries(directory,manifest,c=None,*,summary_data=None):
     # DEFENSE_SNAPSHOT_V1: cálculo local; comparte publicación y verificación del índice.
     from .defense_snapshot import archive_parts as defense_parts
     defense_parts(directory,manifest,positions,load_part,save_part)
+    manifest['parts']['jornada_rivals_v1']=save_part(directory,'jornada_rivals_v1',jornada_rivals)
+    manifest['parts']['jornada_rivals_v1']['rows']=len(jornada_rivals)
+    manifest['parts']['jornada_history_v2']=save_part(directory,'jornada_history_v2',jornada_history)
+    manifest['parts']['jornada_history_v2']['rows']=len(jornada_history)
     payload={'recent':recent,'defense':defense,'teamDates':{k:sorted(v) for k,v in dates.items()},'players':players,'positions':positions,'fouls':fouls}
     manifest['parts']['summaries']=save_part(directory,'summaries',payload)
     # Los objetos de resumen son objetos JSON, no listas.

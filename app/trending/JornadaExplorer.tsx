@@ -3,7 +3,8 @@ import {useEffect,useMemo,useState} from 'react';
 import Link from 'next/link';
 import {Search,SlidersHorizontal,ArrowUpRight,Plus,Ticket,CalendarDays} from 'lucide-react';
 import {useAnalysisQuery} from '@/hooks/useAnalysisQuery';
-import {JORNADA_MARKETS,BOOK_LABELS,availableLines,defaultLine,quoteAt,summaryFor,jornadaPlayerHref,jornadaLeg,contextFor,plusDays,type JornadaData,type JornadaMarket,type JornadaPlayer} from '@/lib/nbaJornada';
+import {JORNADA_MARKETS,BOOK_LABELS,jornadaEvidence,bestJornadaPrice,availableLines,defaultLine,validJornadaLine,JORNADA_MIN_LINE,JORNADA_MAX_LINE,quoteAt,summaryFor,jornadaPlayerHref,jornadaLeg,contextFor,plusDays,type JornadaData,type JornadaMarket,type JornadaPlayer} from '@/lib/nbaJornada';
+import {selectionSummary} from '@/lib/selectionStats';
 import {appendDraft,readDraft} from '@/lib/ticketReader/draft';
 import {getTeamColor} from '@/lib/teamColors';
 import {defenseSeason,defensePosition,rankFor,rankBand,DEFENSE_BANDS,type DefenseBand,type DefenseReport} from '@/lib/nbaDefense';
@@ -11,7 +12,36 @@ import styles from './jornada.module.css';
 
 const number=(v:number|null,d=1)=>v===null?'S/D':v.toLocaleString('es-AR',{minimumFractionDigits:d,maximumFractionDigits:d});
 function shortDate(date:string){const [y,m,d]=date.split('-');return `${d}/${m}/${y}`;}
-function capture(raw:string|null){return raw?new Intl.DateTimeFormat('es-AR',{timeZone:'America/Argentina/Buenos_Aires',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(raw))+' AR':'Sin captura';}
+function explainSample(stat:ReturnType<typeof jornadaEvidence>['l5'],line:number|null,side:'over'|'under'){
+  if(!stat.valid)return 'Sin datos para este mercado.';
+  const average='Promedio: '+number(stat.average)+'.';
+  if(line===null)return average+' Elegí una línea para comparar.';
+  if(!stat.decided)return average+' Todos los resultados con dato igualaron la línea.';
+  return stat.hits+' de '+stat.decided+' '+(side==='over'?'superaron':'quedaron por debajo de')+' '+number(line)+'. '+average+
+    (stat.pushes?' Empates: '+stat.pushes+'.':'')+(stat.missing?' Sin dato: '+stat.missing+'.':'');
+}
+function sampleLabel(stat:ReturnType<typeof jornadaEvidence>['l5'],line:number|null){
+  if(line===null)return 'Sin línea';
+  if(!stat.decided)return stat.pushes?stat.pushes+' empate(s)':'S/D';
+  return stat.hits+'/'+stat.decided+(stat.pushes?' · '+stat.pushes+' empate(s)':'');
+}
+function LineInput({id,name,line,side,onChange}:{id:string;name:string;line:number|null;side:'over'|'under';onChange:(line:number|null)=>void}){
+  const [draft,setDraft]=useState<string|null>(null);
+  return <label className={styles.line}>{side==='over'?'Más de':'Menos de'}
+    <input type="number" min={JORNADA_MIN_LINE} max={JORNADA_MAX_LINE} step={1}
+      value={draft??line??''} placeholder="Línea" aria-label={`Línea de ${name}`} list={id}
+      title="Líneas desde 0,5 en pasos de 1. Referencia inicial: promedio L10."
+      onChange={e=>{const raw=e.target.value,value=Number(raw);
+        if(raw===''&&!e.target.validity.badInput){setDraft(null);onChange(null);}
+        else if(validJornadaLine(value)){setDraft(null);onChange(value);}
+        else setDraft(raw);
+      }}
+      aria-invalid={draft!==null}
+      onBlur={()=>setDraft(null)}
+      onKeyDown={e=>{if(e.key==='Enter'||e.key==='Escape')e.currentTarget.blur();}}
+    />
+  </label>;
+}
 type Choice={line:number|null;book:string|null};
 export default function JornadaExplorer({initialDate,storageKey}:{initialDate:string;storageKey:string}){
   const [date,setDate]=useState(initialDate),[market,setMarket]=useState<JornadaMarket>('pts');
@@ -32,8 +62,14 @@ export default function JornadaExplorer({initialDate,storageKey}:{initialDate:st
     update();window.addEventListener('storage',update);window.addEventListener('nba-ticket-draft',update);
     return()=>{window.removeEventListener('storage',update);window.removeEventListener('nba-ticket-draft',update);};
   },[storageKey]);
+  function selectGame(id:string){
+    setGameId(id);
+    setSort(id==='all'?'average':'rate');
+    setNotice('');
+  }
+  const selectedGame=data?.games.find(g=>g.id===gameId);
   function key(p:JornadaPlayer){return [date,market,side,book,p.gameId,p.id].join(':');}
-  function selection(p:JornadaPlayer){const choice=choices[key(p)];return {line:choice?choice.line:defaultLine(p,book,side),book:choice?.book??(book==='all'?null:book)};}
+  function selection(p:JornadaPlayer){const choice=choices[key(p)];return {line:choice?choice.line:defaultLine(p),book:choice?.book??(book==='all'?null:book)};}
   function choose(p:JornadaPlayer,change:Partial<Choice>){setNotice('');setChoices(old=>({...old,[key(p)]:{...selection(p),...change}}));}
   const visible=useMemo(()=>{
     const normalized=search.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
@@ -42,7 +78,14 @@ export default function JornadaExplorer({initialDate,storageKey}:{initialDate:st
       .filter(row=>row.stat.valid>=Math.min(minimum,sample)&&(!onlyQuotes||availableLines(row.p,book,side).length>0))
       .filter(row=>defenseBand==='all'||rankBand(rankFor(defense,row.p.opponent,defensePosition(row.p.position)))===defenseBand);
     const metric=(r:typeof rows[number])=>sort==='minutes'?r.minutes.average:sort==='rate'?r.line===null?null:r.stat.rate:r.stat.average;
-    return rows.sort((a,b)=>{const av=metric(a),bv=metric(b);return av===null&&bv!==null?1:bv===null&&av!==null?-1:(bv??0)-(av??0)||a.p.name.localeCompare(b.p.name,'es');});
+    return rows.sort((a,b)=>{
+      if(sort==='rate'){
+        // First show usable samples; one win in one game must not outrank sustained results.
+        const tier=(r:typeof a)=>r.stat.decided>=5?2:r.stat.decided>0?1:0;
+        const order=tier(b)-tier(a)||(b.stat.rate??-1)-(a.stat.rate??-1)||b.stat.decided-a.stat.decided;
+        if(order)return order;
+      }
+      const av=metric(a),bv=metric(b);return av===null&&bv!==null?1:bv===null&&av!==null?-1:(bv??0)-(av??0)||a.p.name.localeCompare(b.p.name,'es');});
   // Selection state is explicitly keyed by the event, market, side and house.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[data,search,gameId,book,side,sample,minimum,onlyQuotes,sort,choices,defense,defenseBand]);
@@ -61,10 +104,10 @@ export default function JornadaExplorer({initialDate,storageKey}:{initialDate:st
   return <section className={styles.explorer} aria-label="Explorador de la jornada">
     <div className={styles.topline}><p><CalendarDays size={15}/><strong>Jugadores de la jornada</strong><span>Partido completo</span></p><Link href="/analizar-ticket" className={styles.analyzer}><Ticket size={14}/> Analizador{draftCount>0?` (${draftCount})`:''}</Link></div>
     <div className={styles.filters}>
-      <label>Fecha · Argentina<input aria-label="Fecha de la jornada" type="date" min={initialDate} max={plusDays(initialDate,7)} value={date} onChange={e=>{if(e.target.value){setDate(e.target.value);setGameId('all');setNotice('');}}}/></label>
+      <label>Fecha · Argentina<input aria-label="Fecha de la jornada" type="date" min={initialDate} max={plusDays(initialDate,7)} value={date} onChange={e=>{if(e.target.value){setDate(e.target.value);selectGame('all');}}}/></label>
       <label>Mercado<select aria-label="Mercado" value={market} onChange={e=>{setMarket(e.target.value as JornadaMarket);setNotice('');}}>{Object.entries(JORNADA_MARKETS).map(([k,label])=><option key={k} value={k}>{label}</option>)}</select></label>
       <label className={styles.search}>Buscar jugador o equipo<span><Search size={15}/><input aria-label="Buscar jugador o equipo" placeholder="Nombre, equipo o rival…" maxLength={100} value={search} onChange={e=>setSearch(e.target.value)}/></span></label>
-      <label>Partido<select aria-label="Partido" value={gameId} onChange={e=>setGameId(e.target.value)}><option value="all">Todos los partidos</option>{data?.games.map(g=><option key={g.id} value={g.id}>{g.away} @ {g.home}</option>)}</select></label>
+      <label>Partido<select aria-label="Partido" value={gameId} onChange={e=>selectGame(e.target.value)}><option value="all">Todos los partidos</option>{data?.games.map(g=><option key={g.id} value={g.id}>{g.away} @ {g.home}</option>)}</select></label>
       <label>Casa<select aria-label="Casa" value={book} onChange={e=>setBook(e.target.value)}><option value="all">Todas las casas</option>{Object.entries(BOOK_LABELS).map(([k,label])=><option key={k} value={k}>{label}</option>)}</select></label>
       <label>Condición<select aria-label="Condición" value={side} onChange={e=>setSide(e.target.value as 'over'|'under')}><option value="over">Más de (Over)</option><option value="under">Menos de (Under)</option></select></label>
       <label>Aciertos y orden<select aria-label="Aciertos y orden" value={sample} onChange={e=>setSample(Number(e.target.value) as 5|10)}><option value={5}>Últimos 5 partidos</option><option value={10}>Últimos 10 partidos</option></select></label>
@@ -75,29 +118,58 @@ export default function JornadaExplorer({initialDate,storageKey}:{initialDate:st
     {query.loading?<div className={styles.empty} role="status">Cargando partidos, jugadores y estadísticas…</div>:query.error?<div className={styles.empty} role="alert"><p>{query.error}</p><button onClick={()=>setRetry(v=>v+1)}>Reintentar</button></div>:data?<>
       {data.warnings.map(w=><p key={w} className={styles.warning} role="status">{w}</p>)}
       {defenseBand!=="all"&&<p className={styles.warning} role="status">{defenseQuery.loading?"Cargando referencia defensiva…":!defense?"La referencia defensiva no está disponible.":`Filtro por posición · ${defense.settings.season} · temporada regular · mínimo 5 PJ por equipo; requiere 30 equipos con muestra.`} <button type="button" onClick={()=>setDefenseBand("all")}>Quitar filtro defensivo</button></p>}
-      <div className={styles.resultbar}><span>{visible.length} jugadores · {data.games.length} partidos</span><span>Plantel: {shortDate(data.rosterAt.slice(0,10))} · consulta {capture(data.generatedAt)}</span></div>
+      <div className={styles.resultbar}><span>{visible.length} jugadores · {data.games.length} partidos</span><span>Plantel: {shortDate(data.rosterAt.slice(0,10))}</span></div>
       {!data.games.length?<div className={styles.empty}>No hay partidos en el calendario para el {shortDate(date)}.</div>:<>
-        <div className={styles.games}>{data.games.map(g=><Link key={g.id} href={contextFor(g,date).returnTo}>{g.away} @ {g.home}<span>{g.status===3?'Finalizado':g.status===2?'En juego':g.start?new Intl.DateTimeFormat('es-AR',{timeZone:'America/Argentina/Buenos_Aires',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(g.start))+' AR':'Horario S/D'}<ArrowUpRight size={12}/></span></Link>)}</div>
-        {!visible.length?<div className={styles.empty}>No hay jugadores que coincidan con estos filtros.<button onClick={()=>{setSearch('');setGameId('all');setOnlyQuotes(false);setMinimum(0);setDefenseBand('all');}}>Limpiar filtros</button></div>:<div className={styles.results}>
+        <div className={styles.games} role="group" aria-label="Filtrar jugadores por partido">
+          <button type="button" aria-pressed={gameId==='all'} onClick={()=>selectGame('all')}>Todos los partidos</button>
+          {data.games.map(g=><button type="button" key={g.id} aria-pressed={gameId===g.id} onClick={()=>selectGame(g.id)}>{g.away} @ {g.home}<span>{g.status===3?'Finalizado':g.status===2?'En juego':g.start?new Intl.DateTimeFormat('es-AR',{timeZone:'America/Argentina/Buenos_Aires',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(g.start))+' AR':'Horario S/D'}</span></button>)}
+        </div>
+        {selectedGame&&<div className={styles.matchFocus}>
+          <div><strong>{selectedGame.away} @ {selectedGame.home} · Jugadores de ambos equipos</strong>
+          {sort==='rate'&&<p>Acierto histórico L{sample} contra la línea de cada jugador. Primero, muestras de 5 o más partidos decididos.</p>}</div>
+          <Link href={contextFor(selectedGame,date).returnTo}>Comparar equipos <ArrowUpRight size={12}/></Link>
+        </div>}
+        {!visible.length?<div className={styles.empty}>No hay jugadores que coincidan con estos filtros.<button onClick={()=>{setSearch('');selectGame('all');setOnlyQuotes(false);setMinimum(0);setDefenseBand('all');}}>Limpiar filtros</button></div>:<div className={styles.results}>
           {visible.slice(0,visibleLimit).map(({p,line,book:selectedBook,stat,minutes})=>{
-            const game=data.games.find(g=>g.id===p.gameId)!,href=jornadaPlayerHref(p,game,date,market,line,side,sample),l5=summaryFor(p,5,line,side).stat,l10=summaryFor(p,10,line,side).stat;
+            const game=data.games.find(g=>g.id===p.gameId)!,href=jornadaPlayerHref(p,game,date,market,line,side,sample);
+            const {l5,l10,rival,rivalSource,dots,streak}=jornadaEvidence(p,line,side),best=book==='all'?bestJornadaPrice(p,line,side):null;
             const lines=availableLines(p,book,side),selectedQuote=selectedBook?quoteAt(p,selectedBook,line,side):null;
             const defenseRow=rankFor(defense,p.opponent,defensePosition(p.position));
             return <article key={p.gameId+':'+p.id} className={styles.row}>
               <Link className={styles.player} href={href}><span className={styles.avatar} style={{background:getTeamColor(p.team)+'18',color:getTeamColor(p.team),borderColor:getTeamColor(p.team)+'40'}}>{p.name.split(' ').map(v=>v[0]).slice(0,2).join('')}</span><span><strong>{p.name}</strong><small>{p.team} {p.team===game.away?'@':'vs.'} {p.opponent} · {p.position||'Posición S/D'}</small><small>{p.dates.length?`${shortDate(p.dates[p.dates.length-1])} – ${shortDate(p.dates[0])}`:'Sin partidos con datos'}</small><small title="1º es el que más permite a la posición; suma de sus jugadores. Referencia de temporada regular, partido completo.">Defensa {p.opponent}: {defenseRow?.rank?`${defenseRow.rank}º/${defenseRow.rankedTeams}`:"S/D"} · {defenseRow?.games??0} PJ · {referenceSeason}</small></span></Link>
-              <div className={styles.metric}><span>L5 · {l5.valid}/5</span><strong>{number(l5.average)}</strong></div>
-              <div className={styles.metric}><span>L10 · {l10.valid}/10</span><strong>{number(l10.average)}</strong></div>
-              <div className={styles.metric}><span>MIN L{sample} · {minutes.valid}/{sample}</span><strong>{number(minutes.average)}</strong></div>
-              <label className={styles.line}>{side==='over'?'Más de':'Menos de'}<input type="number" min="0.5" max="300" step="0.5" value={line??''} placeholder="Línea" aria-label={`Línea de ${p.name}`} list={`lines-${p.gameId}-${p.id}`} onChange={e=>{const raw=e.target.value;choose(p,{line:raw===''||!Number.isFinite(Number(raw))?null:Number(raw),book:book==='all'?null:book});}}/><datalist id={`lines-${p.gameId}-${p.id}`}>{lines.map(l=><option key={l} value={l}/>)}</datalist></label>
+              <div className={styles.metric}><span>L5 · {l5.valid}/5 con dato</span><strong>{sampleLabel(l5,line)}</strong><small>Prom. {number(l5.average)}</small></div>
+              <div className={styles.metric}><span>L10 · {l10.valid}/10 con dato</span><strong>{sampleLabel(l10,line)}</strong><small>Prom. {number(l10.average)}</small></div>
+              <div className={styles.metric}><span>Contra {p.opponent} · {rivalSource==='recent'?'en L10':'últimos 5 cruces'}</span><strong>{rival.total?sampleLabel(rival,line):'—'}</strong><small>{rivalSource==='unavailable'?'Historial de cruces aún no disponible':!rival.total?'Sin cruces en el historial disponible':!rival.valid?'Cruces sin dato para este mercado':rival.valid+' PJ con dato'} · MIN L{sample}: {number(minutes.average)}</small></div>
+              <LineInput key={key(p)} id={`lines-${p.gameId}-${p.id}`} name={p.name} line={line} side={side} onChange={value=>choose(p,{line:value,book:book==='all'?null:book})}/>
+              <datalist id={`lines-${p.gameId}-${p.id}`}>{lines.filter(validJornadaLine).map(l=><option key={l} value={l}/>)}</datalist>
               <div className={styles.metric}><span>Aciertos L{sample}</span><strong className={stat.decided>=5&&line!==null?styles.rate:undefined}>{line===null?'—':stat.rate===null?'S/D':number(stat.rate,0)+'%'}</strong><small>{line===null?'Elegí una línea':stat.valid===0?'Sin muestra para evaluar':`${stat.hits}/${stat.decided} decididos${stat.pushes?` · ${stat.pushes} empate${stat.pushes>1?'s':''}`:''}${stat.valid<sample?' · incompleto':''}`}</small></div>
-              <div className={styles.prices}><span>Cuota individual · {side==='over'?'Over':'Under'}</span><div>{Object.entries(BOOK_LABELS).filter(([b])=>book==='all'||b===book).map(([b,label])=>{const q=quoteAt(p,b,line,side);return <button key={b} className={selectedBook===b?styles.priceSelected:undefined} disabled={!q} aria-label={`${label} para ${p.name}`} aria-pressed={selectedBook===b} title={q?'Cuota individual para esta selección':'Sin precio para esta línea'} onClick={()=>choose(p,{book:b})}><small>{label}</small><strong>{q?number(q.price,2):'—'}</strong></button>;})}</div><small>{selectedQuote?'Cuota seleccionada para el analizador':'Elegí la casa para copiar su precio'}</small></div>
-              <div className={styles.actions}><Link href={href}>Ver ficha <ArrowUpRight size={13}/></Link><button disabled={busy||line===null||line<=0||line>300} onClick={()=>add(p)}><Plus size={13}/> Al analizador</button></div>
+              <div className={styles.prices}><span>Cuota individual · {side==='over'?'Over':'Under'}</span><div>{Object.entries(BOOK_LABELS).filter(([b])=>book==='all'||b===book).map(([b,label])=>{const q=quoteAt(p,b,line,side);return <button key={b} className={selectedBook===b?styles.priceSelected:undefined} disabled={!q} aria-label={`${label} para ${p.name}${q&&q.price===best?', mejor cuota disponible':''}`} aria-pressed={selectedBook===b} data-best={q!==null&&q.price===best} title={q?(q.price===best?'Mejor cuota disponible para esta línea y lado':'Cuota individual para esta selección'):'Sin precio para esta línea'} onClick={()=>choose(p,{book:b})}><small>{{bet365:'365',betano:'Bto',stake:'Ste'}[b]??label}</small><strong>{q?number(q.price,2):'—'}</strong></button>;})}</div><small>{selectedQuote?'Cuota seleccionada para el analizador':best!==null?'Verde: mejor cuota para esta línea':line!==null&&!Object.keys(BOOK_LABELS).some(b=>quoteAt(p,b,line,side))?'Sin cuota para esta línea':'Elegí una casa para copiar su precio'}</small></div>
+              <div className={styles.actions}><Link href={href}>Ver ficha <ArrowUpRight size={13}/></Link><button disabled={busy||!validJornadaLine(line)} onClick={()=>add(p)}><Plus size={13}/> Al analizador</button></div>
+              {line!==null&&dots.length>0&&<div className={styles.sequence} aria-label="Últimos resultados, más reciente a la derecha"><span>L10 · anterior → reciente</span>{dots.map((_,index)=>{const i=dots.length-1-index,outcome=dots[i];return <span key={i} data-outcome={outcome} data-l5={i<5} title={(p.dates[i]??'')+' · '+(p.values[i]??'S/D')} aria-label={outcome==='hit'?'Acierto':outcome==='miss'?'Fallo':outcome==='push'?'Empate':'Sin dato'}>{outcome==='hit'?'✓':outcome==='miss'?'×':outcome==='push'?'=':'·'}</span>;})}<small>Últimos 5 resaltados</small>{streak>1&&<small>{streak} aciertos seguidos</small>}</div>}
+              <details className={styles.playerAnalysis}>
+                <summary>Ver análisis<span className={styles.analysisPlayer}> · {p.name}</span></summary>
+                <div className={styles.analysisBody}>
+                  <h3>{JORNADA_MARKETS[market]} · {line===null?'Sin línea':(side==='over'?'Más de ':'Menos de ')+number(line)}</h3>
+                  <p><strong>Últimos 5:</strong> {explainSample(l5,line,side)}</p>
+                  <p><strong>Últimos 10:</strong> {explainSample(l10,line,side)}</p>
+                  <p><strong>Minutos:</strong> {minutes.average===null?'Sin datos':number(minutes.average)+' de promedio en '+minutes.valid+' partidos del L'+sample}.</p>
+                  <p><strong>Contra {p.opponent}:</strong> {rivalSource==='unavailable'?'Historial adicional no disponible.':rival.total?(rivalSource==='recent'?'Cruces dentro de L10. ':'Hasta cinco cruces anteriores. ')+explainSample(rival,line,side):'Sin cruces en el historial disponible.'}</p>
+                  {p.extended?<><p><strong>Temporada {p.extended.season}:</strong> {explainSample(selectionSummary(p.extended.seasonValues,line??NaN,side),line,side)}</p>
+                  <p><strong>Cara a cara vs. {p.opponent} · dos temporadas:</strong> {explainSample(selectionSummary(p.extended.h2hValues,line??NaN,side),line,side)}</p></>:<p>Temporada y cara a cara ampliado: disponibles cuando se publique el nuevo índice NBA.</p>}
+                  {defenseRow?.rank&&<p><strong>Defensa de {p.opponent}:</strong> {defenseRow.rank}º de {defenseRow.rankedTeams} por posición, con {defenseRow.games} partidos en la referencia {referenceSeason}. El 1º es el que más permite.</p>}
+                  {p.values.length>0&&<ol className={styles.analysisGames} aria-label="Hasta cinco partidos recientes, del más reciente al más antiguo">{p.values.slice(0,5).map((value,i)=>{
+                    const outcome=dots[i];
+                    return <li key={i}><span>{p.dates[i]?shortDate(p.dates[i]):'Sin fecha'} · {p.opponents?.[i]??'Rival S/D'}</span><strong>{number(value,market==='pts'&&value!==null&&Number.isInteger(value)?0:1)}</strong><span data-outcome={outcome}>{value===null?'Sin dato':line===null?'Sin línea':outcome==='hit'?'Acierto':outcome==='miss'?'No acertó':'Empate'}</span></li>;
+                  })}</ol>}
+                  <small>Referencia histórica; no es una predicción del próximo partido.</small>
+                </div>
+              </details>
             </article>;
           })}
         </div>}
         {visible.length>visibleLimit&&<button type="button" className={styles.morePlayers} onClick={()=>setVisibleLimit(n=>n+40)}>Mostrar 40 más · {Math.min(visibleLimit,visible.length)} de {visible.length}</button>}
       </>}
-      <details className={styles.method}><summary>Muestra y lectura de los datos</summary><p>L5 y L10 usan los registros recientes del archivo verificado anteriores a la fecha elegida. Solo temporada regular y playoffs; se limitan a esta temporada y la anterior y pueden incluir equipos históricos. El equipo y rival de la jornada se toman del plantel de referencia y del calendario. En la ficha podés profundizar con todos los filtros.</p><p>Se indica la cantidad válida sobre 5 o 10, aunque el resumen tenga menos registros. Los datos ausentes quedan S/D y un cero confirmado se conserva. Los porcentajes cuentan aciertos sobre resultados decididos: un resultado igual a la línea es empate y se muestra aparte. Describen esta muestra; no son una probabilidad calculada del próximo encuentro.</p><p>Las cuotas son las últimas capturas publicadas para la misma fecha, rival, mercado, período, lado y línea. Pueden haber cambiado en la casa. Al cambiar línea se retira la casa seleccionada; elegila otra vez para llevar el precio. Una línea inicial visible se elige por cercanía a una cuota pareja y puede editarse. No implica recomendación. Agregar al analizador guarda un borrador que tenés que revisar y analizar.</p>{data.archiveId&&<p>Versión histórica: <code>{data.archiveId}</code></p>}</details>
+      <details className={styles.method}><summary>Muestra y lectura de los datos</summary><p>L5 y L10 usan los registros recientes del archivo verificado anteriores a la fecha elegida. Solo temporada regular y playoffs; se limitan a esta temporada y la anterior y pueden incluir equipos históricos. El equipo y rival de la jornada se toman del plantel de referencia y del calendario. Contra el rival muestra los cruces dentro de L10 si existen. Si no, busca hasta los últimos cinco contra ese equipo en la temporada actual y la anterior, antes de la fecha elegida. En la ficha podés profundizar con todos los filtros.</p><p>Se indica la cantidad válida sobre 5 o 10, aunque el resumen tenga menos registros. Los datos ausentes quedan S/D y un cero confirmado se conserva. Los porcentajes cuentan aciertos sobre resultados decididos: un resultado igual a la línea es empate y se muestra aparte. Describen esta muestra; no son una probabilidad calculada del próximo encuentro.</p><p>Las cuotas son las últimas capturas publicadas para la misma fecha, rival, mercado, período, lado y línea. Pueden haber cambiado en la casa. Al cambiar línea se retira la casa seleccionada; elegila otra vez para llevar el precio. La línea inicial es la media línea más cercana al promedio de los últimos 10 partidos disponibles del jugador; si queda justo entre dos, se toma la superior. Sin muestra queda vacía. Las flechas ajustan de a 1 desde 0,5. La línea no cambia si falta la cuota. No implica recomendación. Agregar al analizador guarda un borrador que tenés que revisar y analizar.</p>{data.archiveId&&<p>Versión histórica: <code>{data.archiveId}</code></p>}</details>
     </>:null}
   </section>;
 }

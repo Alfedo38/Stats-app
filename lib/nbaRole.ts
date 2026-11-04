@@ -56,7 +56,7 @@ function seasonKey(row: RoleRow): string {
   const month = Number(date.slice(5, 7));
   return year > 1900 && month >= 1 && month <= 12 ? String(month >= 7 ? year : year - 1) : '';
 }
-export function prepareRoleSeason(rows: RoleRow[], seasonType = 'all') {
+export function prepareRoleSeason(rows: RoleRow[], seasonType = 'all', combineSeasons=false) {
   const ordered = rows.filter(row => {
     const split = String(row.split_code ?? '').trim().toUpperCase();
     return (!split || ['FULL', 'FULL_GAME', 'GAME'].includes(split)) && (roleValue(row, ROLE_METRICS[0]) ?? 0) > 0 && Number.isFinite(Date.parse(String(row.game_date ?? '')));
@@ -69,7 +69,7 @@ export function prepareRoleSeason(rows: RoleRow[], seasonType = 'all') {
   });
   const season = unique.length ? seasonKey(unique[0]) : '';
   const games = unique.filter(row => {
-    if (!season || seasonKey(row) !== season) return false;
+    if (!season || (!combineSeasons && seasonKey(row) !== season)) return false;
     const type = String(row.season_type ?? '').toLowerCase();
     return seasonType === 'all' || (seasonType === 'playoffs' ? type.includes('playoff') : type.includes('regular'));
   });

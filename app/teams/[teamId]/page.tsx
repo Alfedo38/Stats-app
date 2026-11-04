@@ -1,3 +1,4 @@
+import {LEAGUE_TEAMS} from '@/lib/teams';
 import { requirePageUser } from '@/lib/auth/server';
 import MatchupPlayerTable from '@/components/MatchupPlayerTable';
 import {getRosterPlayerAverages} from '@/lib/matchupData';
@@ -58,7 +59,7 @@ export default async function TeamRosterPage(props: any) {
 
             <div className="z-10">
               <p className="text-[#10b981] font-bold text-[10px] uppercase tracking-[0.3em]">Plantel oficial · {CURRENT_ROSTER_SEASON}</p>
-              <h1 className="text-5xl font-black uppercase tracking-tighter">{teamId}</h1>
+              <h1 className="text-2xl sm:text-4xl font-black tracking-tight">{LEAGUE_TEAMS.find(t=>t.id===teamId)?.name??teamId}</h1>
               <p className="mt-2 text-[9px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
                 Actualizado {CURRENT_ROSTER_UPDATED_AT.split('-').reverse().join('/')}
               </p>

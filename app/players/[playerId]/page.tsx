@@ -362,7 +362,7 @@ export default async function PlayerPage(props: any) {
 
         <div className="p-4 md:p-6 2xl:p-8 max-w-[1700px] mx-auto space-y-4">
 
-          <PlayerPresentation initialCompact={searchParams?.vista==="compacta"}>
+          <PlayerPresentation initialCompact={searchParams?.vista!=="clasica"}>
           {/* Header del jugador */}
           <div data-player-header>
           <PlayerHeader

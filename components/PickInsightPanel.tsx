@@ -63,7 +63,7 @@ function getLean(hitRate: number, avgValue: number, lineValue: number, side: "ov
   const favorableAverage=side==='under'?avgValue<lineValue:avgValue>lineValue;
   if (hitRate >= 65 && favorableAverage) {
     return {
-      label: side==='under'?"Lean Under":"Lean Over",
+      label: "Mayoría de aciertos históricos",
       verdict: side,
       icon: side==='under'?TrendingDown:TrendingUp,
       heroClass: "bg-[#10b981]/10 border-[#10b981]/40",
@@ -73,7 +73,7 @@ function getLean(hitRate: number, avgValue: number, lineValue: number, side: "ov
   }
   if (hitRate <= 35 && !favorableAverage) {
     return {
-      label: side==='under'?"Revisar Under":"Revisar Over",
+      label: "Historial dividido",
       verdict: "nobet",
       icon: TrendingDown,
       heroClass: "bg-red-500/10 border-red-500/40",
@@ -82,7 +82,7 @@ function getLean(hitRate: number, avgValue: number, lineValue: number, side: "ov
     };
   }
   return {
-    label: "No Bet / Revisar",
+    label: "Menos aciertos que fallos",
     verdict: "nobet",
     icon: ShieldQuestion,
     heroClass: "bg-yellow-500/10 border-yellow-500/40",

@@ -1,5 +1,5 @@
 export type OddsScope='FULL'|'Q1'|'H1'|'H2_REG';
-export type PriceQuote={player_name:string;prop_type:string;line:number|null;matchup:string|null;over_price:number|null;under_price:number|null;updated_at:string|null;book?:string|null;source?:string|null;scope?:string|null;event_key?:string|null;event_date?:string|null};
+export type PriceQuote={player_name:string;prop_type:string;line:number|null;matchup:string|null;over_price:number|null;under_price:number|null;updated_at:string|null;overCapturedAt?:string|null;underCapturedAt?:string|null;book?:string|null;source?:string|null;scope?:string|null;event_key?:string|null;event_date?:string|null};
 export const PRICE_BOOKS=[{key:'bet365',label:'365'},{key:'betano',label:'Bto'},{key:'stake',label:'Ste'}] as const;
 const norm=(v:unknown)=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 export function oddsBook(v:unknown):string|null{const s=norm(v).replace(/[^a-z0-9]/g,'');return s==='365'||s.startsWith('bet365')?'bet365':s==='bto'||s.startsWith('betano')?'betano':s==='ste'||s.startsWith('stake')?'stake':null;}
@@ -41,7 +41,7 @@ export function comparableQuotes(rows:PriceQuote[],market:string,scope:OddsScope
 function quoteTime(value:unknown){if(value==null||value==='')return '';const date=value instanceof Date?value:new Date(String(value));return Number.isFinite(date.getTime())?date.toISOString():String(value);}
 export function priceAt(rows:PriceQuote[],book:string,line:number,side:'over'|'under'){
  const quotes=rows.filter(q=>oddsBook(q.book??(q.source==='legacy'?'stake':null))===book&&oddsNumber(q.line)!==null&&Math.abs(Number(q.line)-line)<1e-8).sort((a,b)=>quoteTime(b.updated_at).localeCompare(quoteTime(a.updated_at)));
- const quote=quotes[0];if(!quote)return null;const price=decimalPrice(side==='over'?quote.over_price:quote.under_price);return price===null?null:{price,updatedAt:quoteTime(quote.updated_at)||null};
+ const quote=quotes[0];if(!quote)return null;const price=decimalPrice(side==='over'?quote.over_price:quote.under_price);const capturedAt=side==="over"?quote.overCapturedAt:quote.underCapturedAt;return price===null?null:{price,updatedAt:quoteTime(capturedAt===undefined?quote.updated_at:capturedAt)||null};
 }
 export function groupUniversalQuotes(rows:Record<string,any>[]):PriceQuote[]{
  const grouped=new Map<string,PriceQuote>(),states=new Map<string,{time:string;price:number|null}>();
@@ -52,11 +52,11 @@ export function groupUniversalQuotes(rows:Record<string,any>[]):PriceQuote[]{
   const date=String(row.event_date??row.game_date??row.start_time??'').slice(0,10)||null;
   const eventKey=`${event}|${date??''}`;
   const key=`${book}|${eventKey}|${scope}|${market}|${line}`;
-  const quote=grouped.get(key)??{player_name:row.jugador??row.player_norm??'',prop_type:market,line,matchup:row.partido||row.game_norm||null,over_price:null,under_price:null,updated_at:quoteTime(row.scraped_at_utc)||null,book,scope,event_key:eventKey,event_date:date,source:'universal'};
+  const quote:PriceQuote=grouped.get(key)??{player_name:row.jugador??row.player_norm??'',prop_type:market,line,matchup:row.partido||row.game_norm||null,over_price:null,under_price:null,updated_at:quoteTime(row.scraped_at_utc)||null,book,scope,event_key:eventKey,event_date:date,source:'universal'};
   const field=String(row.side).toLowerCase()==='over'?'over_price':'under_price';
   const sideKey=`${key}|${field}`,flags=[row.active,row.is_active].filter(v=>v!==undefined&&v!==null);
   const enabled=flags.every(v=>v===true||v===1||['true','t','1'].includes(String(v).toLowerCase())),nextPrice=enabled?price:null,time=quoteTime(row.scraped_at_utc),previous=states.get(sideKey);
-  if(!previous){quote[field]=nextPrice;states.set(sideKey,{time,price:nextPrice});}
+  if(!previous){quote[field]=nextPrice;quote[field==="over_price"?"overCapturedAt":"underCapturedAt"]=time||null;states.set(sideKey,{time,price:nextPrice});}
   else if(previous.time===time&&previous.price!==nextPrice)quote[field]=null;
   grouped.set(key,quote);
  }

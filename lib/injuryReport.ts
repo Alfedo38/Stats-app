@@ -6,7 +6,7 @@ import {isDate} from './ticketReader/model';
 import {matchupHref,playerGameHref,type GameContext} from './playerNavigation';
 export const INJURY_STATUSES=['PROBABLE','QUESTIONABLE','DOUBTFUL','OUT','AVAILABLE','UNKNOWN'] as const;
 export type InjuryStatus=typeof INJURY_STATUSES[number];
-export const INJURY_LABELS:Record<InjuryStatus,string>={PROBABLE:'Probable',QUESTIONABLE:'Questionable',DOUBTFUL:'Doubtful',OUT:'OUT',AVAILABLE:'Disponible',UNKNOWN:'Por confirmar'};
+export const INJURY_LABELS:Record<InjuryStatus,string>={PROBABLE:'Probable',QUESTIONABLE:'En duda',DOUBTFUL:'Muy dudoso',OUT:'Fuera',AVAILABLE:'Disponible',UNKNOWN:'Por confirmar'};
 export type ReportGame={id:string;date:string;away:string;home:string;start:string|null};
 export type InjuryItem={id:string;playerId:number|null;name:string;team:string;date:string;reportGameDate:string;matchup:string;status:InjuryStatus;reason:string|null;reportAt:string|null;source:string;game:ReportGame|null;conflict:boolean;stale:boolean};
 export type InjuryReport={ok:true;available:boolean;calendarAvailable:boolean;date:string;nextDate:string;latestReportAt:string|null;queriedAt:string;stale:boolean;items:InjuryItem[];warnings:string[]};

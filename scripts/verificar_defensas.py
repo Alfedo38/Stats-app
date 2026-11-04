@@ -20,6 +20,17 @@ def roster(t=0, day=10, **changes):
     gid='00226'+str((day-10)*15+t//2+1).zfill(5)
     return [dict(player_id=1000+t*10+p,player_name=f'Jugador {t}-{p}',team_abbreviation=teams[t],game_id=gid,game_date=f'2026-10-{day:02}',season_id='22026',season_type='Regular Season',matchup=f'{teams[t]} '+('vs. ' if t%2==0 else '@ ')+teams[rival],min='30:00',pts=10+t+day-10,reb=4,ast=3,fgm=4,fga=10,fg3m=1,fg3a=3,ftm=1,fta=2,oreb=1,dreb=3,stl=0,blk=0,tov=1,pf=2,**changes) for p in range(8)]
 facts=[r for day in range(10,25) for t in range(30) for r in roster(t,day)]
+def prior_shot_and_usage():
+    rows=[r for day in range(10,17) for r in roster(0,day,usage_pct=.20 if day<15 else .95)]
+    pid=rows[0]['player_id']
+    shots={(str(int(r['game_id'])),pid):[6,0,0,0] if r['game_date']<'2026-10-15' else [0,0,0,99] for r in rows if r['player_id']==pid}
+    _,by_opponent,_=build(rows,positions,shots)
+    sample=[r for r in by_opponent[('2026-27',teams[1])] if r['playerId']==pid]
+    eq(sample[4]['priorZones'],None)
+    eq(sample[5]['priorZones'],[30,0,0,0,5])
+    eq(sample[5]['baseline']['usage'],20)
+    eq(sample[5]['usageGames'],5)
+check('Perfiles de uso y tiro usan solo partidos anteriores y exigen cobertura',prior_shot_and_usage)
 games,players,diagnostics=build(facts,positions)
 check('30 equipos y 15 partidos completos por equipo',lambda:eq(len(games['2026-27']),450))
 check('Ceros confirmados se conservan; vacío y booleano no son cero',lambda:[eq(number(v),expected) for v,expected in [(None,None),('',None),(False,None),({},None),('nan',None),(-1,None),(0,0),('0',0)]])

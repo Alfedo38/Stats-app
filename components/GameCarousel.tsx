@@ -4,7 +4,8 @@ import { useRef } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Radio } from "lucide-react";
 import { getTeamColor } from "@/lib/teamColors";
-import { buildMatchupHref, canonicalTeam } from "@/lib/matchupFilters";
+import {jornadaDateAllowed,type JornadaGame} from "@/lib/nbaJornada";
+import { argentinaDate, canonicalTeam } from "@/lib/matchupFilters";
 
 function formatArgTime(dateStr: string): string {
   return new Date(dateStr)
@@ -37,33 +38,35 @@ function TeamBlock({ abbr, score, isLive }: { abbr: string; score?: string; isLi
   );
 }
 
-function GameCard({ game }: { game: any }) {
+function GameCard({ game, event, showPlayerLinks }: { game: any; event: JornadaGame & {date:string};showPlayerLinks:boolean }) {
   const comp  = game.competitions?.[0];
   const home  = comp?.competitors?.find((c: any) => c.homeAway === "home");
   const away  = comp?.competitors?.find((c: any) => c.homeAway === "away");
-  const state = game.status?.type?.state;
+  const state = event.status===3?"post":event.status===2?"in":event.status===1?"pre":undefined;
   const isLive = state === "in";
   const isFinal = state === "post";
 
   if (!home || !away) return null;
 
-  const href = buildMatchupHref(game);
-  if (!href) return null;
+  const context=new URLSearchParams({date:event.date});
+  if(event.start)context.set("start",event.start);
+  const href = `/partidos/${event.away}-${event.home}?${context}`;
+  const playersHref=`/trending?${new URLSearchParams({date:event.date,game:event.id})}`;
   const homeAbbr = canonicalTeam(home.team?.abbreviation);
   const awayAbbr = canonicalTeam(away.team?.abbreviation);
   const homeColor = getTeamColor(homeAbbr);
   const awayColor = getTeamColor(awayAbbr);
 
   // Odds from nested structure if ESPN provides it
-  const odds   = comp?.odds?.[0];
+  const odds = !isFinal ? comp?.odds?.[0] : undefined;
   const spread = odds?.spread != null ? (Number(odds.spread) > 0 ? `+${odds.spread}` : `${odds.spread}`) : null;
   const total  = odds?.overUnder != null ? `O/U ${odds.overUnder}` : null;
 
   // Quarter/period detail
-  const detail = game.status?.type?.shortDetail ?? "";
+  const detail = game.status?.type?.state==="in"?game.status.type.shortDetail??"En juego":"En juego";
 
   return (
-    <Link href={href} aria-label={`Comparar ${awayAbbr} contra ${homeAbbr}`} className="min-w-[260px] sm:min-w-[290px] snap-center bg-[var(--surface)] border border-[var(--border)] rounded-3xl overflow-hidden shadow-xl flex flex-col hover:border-[var(--border-strong)] transition-colors group relative">
+    <article className="min-w-[260px] sm:min-w-[290px] snap-center bg-[var(--surface)] border border-[var(--border)] rounded-3xl overflow-hidden shadow-xl flex flex-col hover:border-[var(--border-strong)] transition-colors group relative">
 
       {/* Fondo decorativo: nombre del partido como watermark */}
       <span
@@ -85,7 +88,7 @@ function GameCard({ game }: { game: any }) {
         }}
       >
         <span className="text-[8px] font-black uppercase tracking-[0.25em] text-[var(--text-muted)]">
-          {isLive?"En juego":isFinal?"Finalizado":"Programado"}
+          {isLive?"En juego":isFinal?"Finalizado":state==="pre"?"Programado":"Estado sin confirmar"}
         </span>
         <div className="flex items-center gap-1.5">
           {isLive && (
@@ -101,20 +104,20 @@ function GameCard({ game }: { game: any }) {
                 : "bg-[var(--surface-soft)] text-[var(--text-muted)]"
             }`}
           >
-            {isLive ? detail : isFinal ? "Final" : `${new Intl.DateTimeFormat("es-AR",{day:"2-digit",month:"2-digit",timeZone:"America/Argentina/Buenos_Aires"}).format(new Date(game.date))} · ${formatArgTime(game.date)}`}
+            {isLive ? detail : isFinal ? "Final" : !event.start ? "Horario S/D" : `${new Intl.DateTimeFormat("es-AR",{day:"2-digit",month:"2-digit",timeZone:"America/Argentina/Buenos_Aires"}).format(new Date(game.date))} · ${formatArgTime(game.date)}`}
           </span>
         </div>
       </div>
 
       {/* Teams + scores */}
       <div className="px-4 py-4 flex flex-col gap-3 flex-1 relative z-10">
-        <TeamBlock abbr={awayAbbr} score={away.score} isLive={isLive || isFinal} />
+        <TeamBlock abbr={awayAbbr} score={game.status?.type?.state===state?away.score:undefined} isLive={isLive || isFinal} />
         <div className="flex items-center gap-2">
           <div className="flex-1 h-px" style={{ background: `linear-gradient(to right, ${awayColor}40, ${homeColor}40)` }} />
           <span className="text-[8px] font-black text-[var(--text-muted)] uppercase tracking-widest shrink-0">vs</span>
           <div className="flex-1 h-px" style={{ background: `linear-gradient(to right, ${homeColor}40, transparent)` }} />
         </div>
-        <TeamBlock abbr={homeAbbr} score={home.score} isLive={isLive || isFinal} />
+        <TeamBlock abbr={homeAbbr} score={game.status?.type?.state===state?home.score:undefined} isLive={isLive || isFinal} />
       </div>
 
       {/* Odds footer */}
@@ -133,12 +136,21 @@ function GameCard({ game }: { game: any }) {
           )}
         </div>
       )}
-      <div className="px-4 py-2 text-[9px] font-black uppercase tracking-widest text-[#10b981] border-t border-[var(--border)]">Comparar equipos →</div>
-    </Link>
+      <div className="relative z-10 flex flex-wrap items-center gap-2 border-t border-[var(--border)] p-3 text-xs font-bold">{showPlayerLinks&&<Link href={playersHref} className="rounded-lg bg-[#10b981] px-3 py-2 text-[#062019]">Ver jugadores →</Link>}<Link href={href} className="rounded-lg px-2 py-2 text-[var(--text-muted)] hover:text-[var(--text)]">Comparar equipos</Link></div>
+    </article>
   );
 }
 
-export default function GameCarousel({ games, updatedAt }: { games: any[]; updatedAt?: string }) {
+export default function GameCarousel({ games, schedule, date, updatedAt, showPlayerLinks=jornadaDateAllowed(date) }: { games: any[]; schedule: JornadaGame[]|null; date:string; updatedAt?: string;showPlayerLinks?:boolean }) {
+  const teamFor=(game:any,side:string)=>canonicalTeam(game.competitions?.[0]?.competitors?.find((c:any)=>c.homeAway===side)?.team?.abbreviation);
+  const official=schedule??[];
+  const rows=official.map(event=>{
+    const matching=games.filter(game=>argentinaDate(game.date)===date&&teamFor(game,"away")===event.away&&teamFor(game,"home")===event.home);
+    const feed=matching.length===1?matching[0]:null;
+    const game={...(feed??{}),date:event.start,competitions:feed?.competitions??[{competitors:[{homeAway:"away",team:{abbreviation:event.away}},{homeAway:"home",team:{abbreviation:event.home}}]}]};
+    return {event:{...event,date},game};
+  });
+  const finals=official.filter(game=>game.status===3).length;
   const ref = useRef<HTMLDivElement>(null);
 
   const scroll = (dir: "left" | "right") => {
@@ -155,13 +167,15 @@ export default function GameCarousel({ games, updatedAt }: { games: any[]; updat
             <Radio size={13} className="text-red-400" />
             Cartelera · Hora ARG
           </h3>
+          {official.length>0&&<p className="mt-1 text-xs text-[var(--text-muted)]">{finals===official.length?"Todos los partidos finalizaron":`${official.length} partidos · ${finals} finalizados`}</p>}
           {updatedAt && <p className="mt-1 text-[8px] font-bold text-[var(--text-muted)]">Actualizado {updatedAt}</p>}
         </div>
-        {games.length > 1 && (
+        {rows.length > 1 && (
           <div className="flex gap-1.5">
             {(["left","right"] as const).map(d => (
               <button
                 key={d}
+                aria-label={d==="left"?"Partidos anteriores":"Más partidos"}
                 type="button"
                 onClick={() => scroll(d)}
                 className="p-1.5 bg-[var(--surface)] border border-[var(--border)] hover:bg-[var(--surface-soft)] rounded-lg text-[var(--text-muted)] hover:text-[var(--text)] transition-all"
@@ -177,12 +191,12 @@ export default function GameCarousel({ games, updatedAt }: { games: any[]; updat
         ref={ref}
         className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] snap-x snap-mandatory"
       >
-        {games.length > 0 ? (
-          games.map((g: any) => <GameCard key={g.id} game={g} />)
+        {rows.length > 0 ? (
+          rows.map(({event,game}) => <GameCard key={event.id} event={event} game={game} showPlayerLinks={showPlayerLinks} />)
         ) : (
           <div className="w-full bg-[var(--surface)] border border-dashed border-[var(--border)] p-10 rounded-3xl text-center">
             <p className="text-[var(--text-muted)] text-[10px] font-black uppercase tracking-widest">
-              Sin partidos en el radar
+              {schedule===null?"Calendario no disponible · volvé a intentar":"No hay partidos en el calendario para esta fecha"}
             </p>
           </div>
         )}

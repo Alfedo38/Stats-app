@@ -80,6 +80,7 @@ export default async function MatchupPage({ params, searchParams }: { params: Pr
   return <main className={styles.page}>
     <div className={styles.wrap}>
       <Link className={styles.back} href={`/?date=${filters.date}`}>← Volver a los partidos</Link>
+      <a href="#jugadores-del-partido" className={styles.back}>Ver jugadores de ambos equipos ↓</a>
       <header className={styles.hero}>
         <div className={styles.kicker}>Comparativa del enfrentamiento</div>
         <div className={styles.teamsHero}>
@@ -123,7 +124,7 @@ export default async function MatchupPage({ params, searchParams }: { params: Pr
         start={start||undefined} injuries={matchInjuries} reportAvailable={injuryReport.available}
       />
       <div className={styles.context}><strong>Parte médico del partido</strong><p>{injuryReport.available?`Reporte más reciente de la ventana: ${reportTimeLabel(injuryReport.latestReportAt)}. Cada estado conserva su captura.`:"Parte no disponible. No se confirma disponibilidad por falta de un registro."} {injuryReport.stale?"Reporte con más de 36 horas.":""}</p><Link href={`/injuries?date=${filters.date}`}>Ver parte y filtrar jugadores →</Link></div>
-      <section className={styles.rosterContext}><h2>Jugadores de ambos equipos</h2><p>Planteles actuales {CURRENT_ROSTER_SEASON}, actualizados el {dateLabel(CURRENT_ROSTER_UPDATED_AT.slice(0, 10))}. Promedios de {filters.season}, incluyendo otros equipos en los que jugó cada jugador. Este plantel no reconstruye la alineación de partidos históricos ni confirma quién jugará.</p></section>
+      <section className={styles.rosterContext}><h2 id="jugadores-del-partido">Jugadores de ambos equipos</h2><p>Planteles actuales {CURRENT_ROSTER_SEASON}, actualizados el {dateLabel(CURRENT_ROSTER_UPDATED_AT.slice(0, 10))}. Promedios de {filters.season}, incluyendo otros equipos en los que jugó cada jugador. Este plantel no reconstruye la alineación de partidos históricos ni confirma quién jugará.</p></section>
       <div className={styles.rosterGrid}>{[away, home].map(team => <section key={team} className={styles.panel}>
         <div className={styles.panelTitle}><h2>{teamName(team)}</h2><span>{team} · Plantel actual</span></div>
         <MatchupPlayerTable injuries={matchInjuries} gameContext={{away,home,date:filters.date,start:start||undefined,returnTo:matchupHref(away,home,filters.date,start||undefined,new URLSearchParams(Object.entries(sp).filter((entry):entry is [string,string]=>typeof entry[1]==='string')))}} team={team} roster={team === away ? data.awayRoster : data.homeRoster} averages={data.players} season={filters.season} />

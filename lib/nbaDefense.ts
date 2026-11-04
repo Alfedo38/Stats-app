@@ -1,3 +1,4 @@
+import {usableShotProfile,type ShotProfile,type PlayerComparableProfile} from './nbaComparableProfile';
 import {finiteStat} from './selectionStats';
 import {isDate,TEAMS} from './ticketReader/model';
 import {getOpponent} from './playerUtils';
@@ -11,8 +12,8 @@ export const DEFENSE_BANDS:Record<DefenseBand,string>={all:'Todas',high:'Permite
 export type DefenseSettings={market:DefenseMarket;season:string;asOfDate:string;phase:'ALL'|'Regular Season'|'Playoffs';window:'season'|'10'|'20';opponent:string|null;position:DefenseGroup;venue?:'ALL'|'HOME'|'AWAY'};
 type Row=Record<string,any>;
 export type DefenseRank={team:string;allowed:number|null;games:number;total:number;missing:number;leagueAverage:number|null;diffPct:number|null;rank:number|null;rankedTeams:number;first:string|null;last:string|null};
-export type DefenseRecent={id:string;playerId:number;name:string;team:string;position:DefenseGroup|null;date:string;minutes:number;value:number|null;baseline:number|null;venue:string|null};
-export type DefenseReport={ok:true;available:boolean;reason?:string;archiveId:string|null;settings:DefenseSettings;seasons:string[];through:string|null;source:string;positionSource:string;minGames:number;rankings:Record<DefenseGroup,DefenseRank[]>;recent:DefenseRecent[];recentAvailable:boolean};
+export type DefenseRecent={phase?:string;priorMinutes?:number|null;priorUsage?:number|null;priorGames?:number;usageGames?:number;priorShot?:ShotProfile|null;id:string;playerId:number;name:string;team:string;position:DefenseGroup|null;date:string;minutes:number;value:number|null;baseline:number|null;venue:string|null};
+export type DefenseReport={profiles?:Record<string,PlayerComparableProfile>;ok:true;available:boolean;reason?:string;archiveId:string|null;settings:DefenseSettings;seasons:string[];through:string|null;source:string;positionSource:string;minGames:number;rankings:Record<DefenseGroup,DefenseRank[]>;recent:DefenseRecent[];recentAvailable:boolean};
 
 export function defenseMarket(value:unknown):DefenseMarket|null{
  const text=String(value??'').toLowerCase(),alias:Record<string,string>={'3pt':'fg3m','3pm':'fg3m','3pa':'fg3a','3pta':'fg3a'};
@@ -81,7 +82,7 @@ export function recentDefenders(raw:unknown,settings:DefenseSettings):DefenseRec
   if(settings.venue&&settings.venue!=='ALL'&&row?.venue!==(settings.venue==='HOME'?'AWAY':'HOME'))continue;
   if(!row||row.opponent!==settings.opponent||row.season!==settings.season||!isDate(row.date)||row.date>=settings.asOfDate||!['Regular Season','Playoffs'].includes(row.phase)||settings.phase!=='ALL'&&row.phase!==settings.phase||!TEAMS.includes(row.team)||!Number.isSafeInteger(row.playerId)||row.playerId<=0||!/^\d{1,10}$/.test(String(row.id)))continue;
   const position=defensePosition(row.position),minutes=finiteStat(row.minutes);if(minutes===null||minutes<15||settings.position!=='ALL'&&position!==settings.position)continue;
-  const item:DefenseRecent={id:String(Number(row.id)),playerId:row.playerId,name:String(row.name).slice(0,100),team:row.team,position,date:row.date,minutes,value:defenseValue(row.values,settings.market),baseline:['pra','pr','pa','ra'].includes(settings.market)?finiteStat(row.baseline?.[settings.market]):defenseValue(row.baseline,settings.market),venue:row.venue==='HOME'||row.venue==='AWAY'?row.venue:null};
+  const item:DefenseRecent={phase:row.phase,priorMinutes:finiteStat(row.baseline?.minutes),priorUsage:finiteStat(row.baseline?.usage),priorGames:typeof row.priorGames==='number'&&Number.isSafeInteger(row.priorGames)?row.priorGames:0,usageGames:typeof row.usageGames==='number'&&Number.isSafeInteger(row.usageGames)?row.usageGames:0,priorShot:Array.isArray(row.priorZones)?usableShotProfile(row.priorZones.slice(0,4),row.priorZones[4]):null,id:String(Number(row.id)),playerId:row.playerId,name:String(row.name).slice(0,100),team:row.team,position,date:row.date,minutes,value:defenseValue(row.values,settings.market),baseline:['pra','pr','pa','ra'].includes(settings.market)?finiteStat(row.baseline?.[settings.market]):defenseValue(row.baseline,settings.market),venue:row.venue==='HOME'||row.venue==='AWAY'?row.venue:null};
   const key=item.id+':'+item.playerId,prior=unique.get(key);if(prior&&JSON.stringify(prior)!==JSON.stringify(item))conflicts.add(key);else unique.set(key,item);
  }
  return [...unique.entries()].filter(([key])=>!conflicts.has(key)).map(([,v])=>v).sort((a,b)=>b.date.localeCompare(a.date)||Number(b.id)-Number(a.id)||b.minutes-a.minutes).slice(0,30);

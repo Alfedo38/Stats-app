@@ -46,7 +46,7 @@ import PlayerAbsenceFilter from "@/components/PlayerAbsenceFilter";
 import {absenceScope as parseAbsenceScope,absenceTeam as parseAbsenceTeam,absenceEmptyMessage,type AbsenceScope} from "@/lib/playerAbsenceContext";
 import {parsePhase,phaseRows,absenceRows,cleanAbsences,PHASE_OPTIONS,type NBASeasonPhase} from "@/lib/nbaGameFilters";
 import PlayerOddsComparison from "@/components/PlayerOddsComparison";
-import {decimalPrice,quoteMatches,type PriceQuote} from "@/lib/nbaOdds";
+import {decimalPrice,oddsBook,quoteMatches,type PriceQuote} from "@/lib/nbaOdds";
 import ShareButton from "@/components/ShareButton";
 import { usePlayerUrlState } from "@/hooks/usePlayerUrlState";
 import {
@@ -481,7 +481,7 @@ export default function PlayerChartContainer({
   const gameContext=pageEvent.context;
   const eventDate=gameContext?.date??(isDate(pageEvent.date)?pageEvent.date:asOfDate??argentinaDate());
   const historyCutoff=gameContext?nbaHistoryCutoff(gameContext):pageEvent.mode==='day'||isDate(asOfDate)?pageEvent.date:null;
-  const [selectedBook,setSelectedBook]=useState<string|null>(null);
+  const [selectedBook,setSelectedBook]=useState<string|null>(()=>oddsBook(searchParams.get("book")));
   const [oddsRetry,setOddsRetry]=useState(0);
 
   // ── Core state — synced to URL ─────────────────────────────────────────────
@@ -616,12 +616,15 @@ export default function PlayerChartContainer({
         detail: {
           playerId: String(playerId || ""),
           opponent: effectiveOpponent || null,
+          eventOpponent: pageEvent.opponent || null,
+          historyOpponent: chartOpponent || null,
+          cutoffDate: historyCutoff ?? eventDate,
           hasOpponentFilter: Boolean(chartOpponent),
           eventDate,context:gameContext,
         },
       }),
     );
-  }, [playerId, chartOpponent, defenseOpponent,eventDate,gameContext]);
+  }, [playerId, chartOpponent, defenseOpponent,eventDate,gameContext,pageEvent.opponent,historyCutoff]);
 
   const resetMainFilters = useCallback(() => {
     setActiveFilters([]);
@@ -732,11 +735,13 @@ export default function PlayerChartContainer({
 
   const activeScopeOption = SPLIT_SCOPE_BY_ID[activeScope];
   const isFullScope = activeScope === "FULL";
-  const effectiveSecondaryChoice=validSecondaryChoice(activeStat,secondaryChoice);
+  const effectiveSecondaryChoice=validSecondaryChoice(activeStat,compact&&secondaryChoice==="auto"?"none":secondaryChoice);
+  const changeSecondary=(value:SecondaryChoice)=>setSecondaryChoice(value==="auto"&&compact?validSecondaryChoice(activeStat,(selectedSecondary(activeStat,"auto",activeScope)?.id??"none") as SecondaryChoice):value);
   const opportunityOverlay = useMemo(
     () => selectedSecondary(activeStat, effectiveSecondaryChoice, activeScope),
     [activeStat, effectiveSecondaryChoice, activeScope],
   );
+  const separateComparison=compact&&!!opportunityOverlay&&secondaryAxis(activeStat,opportunityOverlay.id)==="right";
   const historicalMarket = useMemo(
     () => getStakePropType(activeStat),
     [activeStat],
@@ -1048,7 +1053,7 @@ export default function PlayerChartContainer({
 
   const trendLabel =
     sampleLoading ? "Cargando muestra" : selection.rate===null ? "Sin muestra para evaluar" : hitRateNumber >= 60
-      ? "Tendencia fuerte"
+      ? "Mayoría de aciertos históricos"
       : hitRateNumber >= 50
         ? "Tendencia media"
         : "Tendencia baja";
@@ -1191,7 +1196,7 @@ export default function PlayerChartContainer({
     <div className="space-y-3">
       {!compact&&<FloatingPlayerIdentity playerName={playerName || "Jugador"} statLabel={activeStatLabel} scope={activeScope} />}
       {!compact&&gameContext&&<p className="text-xs font-bold text-[var(--text-muted)]">Partido: {gameContext.away} – {gameContext.home} · {gameContext.date.split('-').reverse().join('/')} · Estadísticas anteriores a esa fecha.</p>}
-      {compact?<PlayerSelectionBar market={activeStat} markets={visibleNavStats} scope={activeScope} lastN={lastN} side={chartSide} line={Number(lineValue)} step={lineInputStep} onMarket={setActiveStat} onScope={value=>setActiveScope(value as SplitScope)} onWindow={setLastN} onSide={setChartSide} onLine={setLineValue} odds={<PlayerOddsComparison selectedBook={selectedBook} onSelectBook={setSelectedBook} rows={currentPrices} line={Number(lineValue)} side={chartSide} loading={oddsLoading} error={oddsError} eventReady={!!gameContext} eventRows={eventOdds} market={activeStat} scope={activeScope} onSelectLine={value=>{setLineValue(value);setSelectedBook(null);}} onRetry={()=>setOddsRetry(n=>n+1)}/>}/>:<>
+      {compact?<PlayerSelectionBar market={activeStat} markets={visibleNavStats} scope={activeScope} lastN={lastN} side={chartSide} line={Number(lineValue)} step={lineInputStep} onMarket={setActiveStat} onScope={value=>setActiveScope(value as SplitScope)} onWindow={setLastN} onSide={setChartSide} onLine={setLineValue} odds={<PlayerOddsComparison movement={gameContext&&playerName?{player:playerName,date:gameContext.date,away:gameContext.away,home:gameContext.home}:undefined} selectedBook={selectedBook} onSelectBook={setSelectedBook} rows={currentPrices} line={Number(lineValue)} side={chartSide} loading={oddsLoading} error={oddsError} eventReady={!!gameContext} eventRows={eventOdds} market={activeStat} scope={activeScope} onSelectLine={value=>{setLineValue(value);setSelectedBook(null);}} onRetry={()=>setOddsRetry(n=>n+1)}/>}/>:<>
       {/* MENÚ DE ESTADÍSTICAS */}
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-2">
         <div className="flex flex-wrap items-center gap-1.5 max-w-full">
@@ -1256,7 +1261,7 @@ export default function PlayerChartContainer({
         </div>
 
         <div className="order-3 w-full min-w-0 sm:w-[190px] lg:order-none lg:shrink-0">
-          <PlayerOddsComparison selectedBook={selectedBook} onSelectBook={setSelectedBook} rows={currentPrices} line={Number(lineValue)} side={chartSide} loading={oddsLoading} error={oddsError} eventReady={!!gameContext} eventRows={eventOdds} market={activeStat} scope={activeScope} onSelectLine={value=>{setLineValue(value);setSelectedBook(null);}} onRetry={()=>setOddsRetry(n=>n+1)}/>
+          <PlayerOddsComparison movement={gameContext&&playerName?{player:playerName,date:gameContext.date,away:gameContext.away,home:gameContext.home}:undefined} selectedBook={selectedBook} onSelectBook={setSelectedBook} rows={currentPrices} line={Number(lineValue)} side={chartSide} loading={oddsLoading} error={oddsError} eventReady={!!gameContext} eventRows={eventOdds} market={activeStat} scope={activeScope} onSelectLine={value=>{setLineValue(value);setSelectedBook(null);}} onRetry={()=>setOddsRetry(n=>n+1)}/>
         </div>
 
         <div className="flex flex-wrap items-center gap-3 md:gap-5 w-full md:w-auto justify-between md:justify-end">
@@ -1339,7 +1344,7 @@ export default function PlayerChartContainer({
       {/* SHARE BUTTON */}
 
       {!analyzerStorageKey&&<div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#10b981]/25 p-3"><PlayerEventControl event={pageEvent}/><span className="ml-auto"><ShareButton onShare={shareCurrentAnalysisUrl}/></span></div>}
-      {analyzerStorageKey&&<AddSelectionToAnalyzer compact={compact} storageKey={analyzerStorageKey} playerId={playerId||''} playerName={playerName||''} stat={activeStat} scope={activeScope} side={chartSide} line={Number(lineValue)} context={gameContext} team={pageEvent.team??playerTeam} pageSample={pageSample} samplePending={sampleLoading||!!sampleError} managedEvent={pageEvent} onShare={shareCurrentAnalysisUrl} quotes={currentPrices} book={selectedBook} />}
+      {!compact&&analyzerStorageKey&&<AddSelectionToAnalyzer compact={compact} storageKey={analyzerStorageKey} playerId={playerId||''} playerName={playerName||''} stat={activeStat} scope={activeScope} side={chartSide} line={Number(lineValue)} context={gameContext} team={pageEvent.team??playerTeam} pageSample={pageSample} samplePending={sampleLoading||!!sampleError} managedEvent={pageEvent} onShare={shareCurrentAnalysisUrl} quotes={currentPrices} book={selectedBook} />}
 
 
       {/* FILTROS ACTIVOS — internos (sliders) + externos (W/O) en un solo lugar */}
@@ -1366,6 +1371,7 @@ export default function PlayerChartContainer({
             <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#10b981] to-transparent" />
 
             <ChartIdentity playerName={playerName || "Jugador"} statLabel={compact?playerMarketLabel(activeStat):activeStatLabel} scope={activeScope} count={chartStats.length} line={Number(lineValue)} loading={sampleLoading} compact={compact} />
+            {compact&&<PlayerSampleSummary values={metricStats.map(row=>row.value)} line={Number(lineValue)} side={chartSide} lastN={lastN} loading={sampleLoading} error={sampleError}/>}
             <div data-chart-sample-row className="mb-3 flex flex-wrap items-center justify-between gap-2"><p data-chart-sample className="text-xs text-[var(--text-muted)]">{pageSample?.labels.join(" · ")||PHASE_OPTIONS.find(option=>option.value===seasonPhase)?.label}</p><button type="button" onClick={resetMainFilters} title="Restablecer 20 partidos, dos temporadas, todos los rivales, local y visitante" className="rounded-lg border border-[#10b981]/30 px-3 py-2 text-xs font-bold text-[#10b981]">{compact?"Restablecer · L20":"Muestra base · L20"}</button></div>
 
             {(!compact||!isFullScope||activeFilters.length+externalFilters.length>0)&&<div className="mb-3 flex flex-wrap items-center gap-2">
@@ -1383,32 +1389,43 @@ export default function PlayerChartContainer({
             </div>}
 
 
-            {isFullScope&&<PlayerSecondaryControl compact={compact} market={activeStat} marketLabel={activeStatLabel} choice={effectiveSecondaryChoice} onChange={setSecondaryChoice} rows={chartStats} disabled={sampleLoading||!!sampleError}/>}
+            {isFullScope&&<PlayerSecondaryControl compact={compact} market={activeStat} marketLabel={activeStatLabel} choice={effectiveSecondaryChoice} onChange={changeSecondary} rows={chartStats} disabled={sampleLoading||!!sampleError}/>}
             {!isFullScope && periodLoading && <p className="mb-3 text-xs text-cyan-300">Cargando datos de períodos…</p>}
             {!isFullScope && periodError && <p className="mb-3 text-xs text-amber-300">No se pudieron cargar los datos del período.</p>}
             <div className={compact?"min-h-[350px] w-full relative":"min-h-[470px] w-full relative"}>
-              {sampleLoading?<div className="flex min-h-[420px] items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--bg)]" role="status"><Loader2 size={18} className="mr-2 animate-spin text-[#10b981]"/>Actualizando la muestra…</div>:sampleError?<div className="flex min-h-[420px] items-center justify-center p-5 text-sm text-amber-300" role="alert">No pudimos consultar esta muestra. Revisá los filtros o reintentá.</div>:              <PlayerChart
+              {sampleLoading?<div className="flex min-h-[240px] items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--bg)]" role="status"><Loader2 size={18} className="mr-2 animate-spin text-[#10b981]"/>Actualizando la muestra…</div>:sampleError?<div className="flex min-h-[240px] items-center justify-center p-5 text-sm text-amber-300" role="alert">No pudimos consultar esta muestra. Revisá los filtros o reintentá.</div>:              <PlayerChart
                 data={chartStats}
                 statKey="value"
                 lineValue={lineValue}
                 side={chartSide}
-                overlayKey={opportunityOverlay?.id}
+                overlayKey={separateComparison?undefined:opportunityOverlay?.id}
                 overlayLabel={opportunityOverlay?.label}
                 overlayColor={opportunityOverlay?.color}
                 overlayValueReader={opportunityOverlay?(row)=>secondaryValue(row,opportunityOverlay.id):undefined}
                 height={compact?350:undefined}
                 showSeasonBreaks={compact}
-                overlayAxis={isFullScope?secondaryAxis(activeStat,opportunityOverlay?.id):"left"}
+                overlayAxis={isFullScope&&!separateComparison?secondaryAxis(activeStat,opportunityOverlay?.id):"left"}
               />}
             </div>
-            {compact&&<><div data-graph-legend aria-label="Leyenda del gráfico"><span><b style={{background:'#10b981'}}/>Cumplió la selección</span><span><b style={{background:'#ef4444'}}/>No la cumplió</span><span><b style={{background:'#f59e0b'}}/>Empate</span></div><PlayerSampleSummary values={metricStats.map(row=>row.value)} line={Number(lineValue)} side={chartSide} lastN={lastN} loading={sampleLoading} error={sampleError}/></>}
+            {separateComparison&&opportunityOverlay&&!sampleLoading&&!sampleError&&chartStats.some(row=>secondaryValue(row,opportunityOverlay.id)!==null)&&<section className="mt-3 border-t border-[var(--border)] pt-3" aria-label={opportunityOverlay.label}>
+              <h3 className="text-sm font-bold">{opportunityOverlay.label}</h3>
+              <p className="text-xs text-[var(--text-muted)]">Mismos partidos · escala propia</p>
+              <PlayerChart comparisonOnly data={chartStats.map(row=>({...row,comparison:secondaryValue(row,opportunityOverlay.id)}))} statKey="comparison" lineValue={0} height={215} showSeasonBreaks/>
+            </section>}
+            {compact&&<><div data-graph-legend aria-label="Leyenda del gráfico"><span><b style={{background:'#10b981'}}/>Cumplió la selección</span><span><b style={{background:'#ef4444'}}/>No la cumplió</span><span><b style={{background:'#f59e0b'}}/>Empate</span></div></>}
           </div>
+          {compact&&analyzerStorageKey&&<AddSelectionToAnalyzer compact={compact} storageKey={analyzerStorageKey} playerId={playerId||''} playerName={playerName||''} stat={activeStat} scope={activeScope} side={chartSide} line={Number(lineValue)} context={gameContext} team={pageEvent.team??playerTeam} pageSample={pageSample} samplePending={sampleLoading||!!sampleError} managedEvent={pageEvent} onShare={shareCurrentAnalysisUrl} quotes={currentPrices} book={selectedBook} />}
         </div>
         {/* FILTROS GLOBALES — panel lateral limpio */}
         <div className="min-[1100px]:sticky min-[1100px]:top-4 rounded-[1.5rem] border border-[#10b981]/20 bg-[var(--surface)] p-3 shadow-xl shadow-[#10b981]/5 overflow-hidden">
           <div className="flex flex-col gap-3">
             {compact&&<p className="px-1 text-sm font-bold">Para este partido{gameContext?` · ${gameContext.away}–${gameContext.home}`:""}</p>}
-            <DefenseContextCard state={defense} opponent={defenseOpponent} scope={activeScope} side={chartSide}/>
+            <div className="grid gap-1 px-1 text-xs text-[var(--text-muted)]">
+              <span>Rival del partido: <strong>{pageEvent.opponent||'Sin confirmar'}</strong></span>
+              <span>Historial filtrado: <strong>{chartOpponent||'Todos los rivales'}</strong></span>
+              {chartOpponent&&chartOpponent!==pageEvent.opponent&&<span>La defensa de este panel usa el rival del historial.</span>}
+            </div>
+            <DefenseContextCard profile={activeStat==="pts"&&isFullScope&&selection.valid>=5&&minutesValues.length>=5&&selection.average!==null?{playerId:Number(playerId),points:selection.average,minutes:Number(avgMinutes),sample:selection.valid}:undefined} state={defense} opponent={defenseOpponent} scope={activeScope} side={chartSide}/>
             <details className="rounded-xl border border-[var(--border)] p-3"><summary className="cursor-pointer text-sm font-bold text-[var(--text)]">Filtrar histórico</summary><div className="mt-3 flex flex-col gap-3">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[11px] font-black uppercase tracking-widest text-cyan-300">Fase</span>

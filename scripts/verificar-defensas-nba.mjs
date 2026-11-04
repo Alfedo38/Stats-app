@@ -34,6 +34,29 @@ const date='2026-10-30',base=d.defenseSettings({market:'pts',position:'G',oppone
 const settings=change=>({...base,...change});
 const report=change=>({ok:true,available:true,archiveId:'a'.repeat(64),settings:base,seasons:['2026-27','2025-26'],through:'2026-10-24',source:'Archivo NBA',positionSource:'Catálogo de referencia',minGames:5,rankings:d.defenseRankings(fixture.games,base),recent:d.recentDefenders(fixture.players,base),recentAvailable:true,...change});
 const ranks=report().rankings,top=ranks.G.find(r=>r.rank===1),bottom=ranks.G.find(r=>r.rank===30);
+await check('Movimiento exige la misma línea y omite precios contradictorios',()=>{
+ const m=loader()('./lib/nbaOddsMovement');
+ const q=m.parseMovement(new URLSearchParams({date:'2026-11-03',game:'CLE-TOR',player:'Jugador QA',book:'stake',market:'PTS',scope:'FULL',side:'over',line:'20.5'}));
+ assert.ok(q);
+ const row={book:'stake',game_norm:'TOR @ CLE',player_name:'Jugador QA',player_norm:'jugador qa',stat_key:'PTS',period_scope:'FULL',side:'over',line:20.5,price:1.9};
+ const result=m.movementPoints([
+  {...row,at:new Date('2026-11-03T10:00:00.123Z')},
+  {...row,at:'2026-11-03T10:00:00.123Z'},
+  {...row,at:'2026-11-03T10:01:00Z',price:2},
+  {...row,at:'2026-11-03T10:01:00Z',price:3},
+  {...row,at:'2026-11-03T10:02:00Z',line:21.5,price:3},
+  {...row,at:'2026-11-03T10:03:00Z',side:'under',price:3},
+  {...row,at:'2026-11-03T10:04:00Z',price:2.1}
+ ],q,Date.parse('2026-11-03T11:00:00Z'));
+ assert.deepEqual(JSON.parse(JSON.stringify(result)),{points:[{at:'2026-11-03T10:00:00.123Z',price:1.9},{at:'2026-11-03T10:04:00.000Z',price:2.1}],limited:false,conflicts:1});
+});
+await check('Perfil propio excluye otros períodos, fases y la fecha de corte',()=>{
+ const m=loader()('./lib/nbaComparableProfile');
+ const facts=Array.from({length:7},(_,i)=>({game_id:'002260000'+i,game_date:'2026-10-'+(20+i),min:'30:00',pts:i<5?22:99,usage_pct:i<5?.2:.9,period_scope:i===5?'Q1':'FULL'}));
+ const shots=facts.flatMap(r=>Array.from({length:6},(_,i)=>({game_id:r.game_id,game_event_id:i,shot_attempted_flag:1,shot_zone_basic:i<3?'Restricted Area':'Above the Break 3'})));
+ const result=m.playerComparableProfile(facts,shots,'2026-27','Regular Season','2026-10-26');
+ assert.equal(result.games,5);assert.equal(result.points,22);assert.equal(result.usage,20);assert.equal(result.shot.attempts,30);
+});
 await check('Parámetros rechazan equipos, mercados, temporadas y fechas inválidas',()=>{for(const raw of [{market:'constructor'},{market:'__proto__'},{opponent:'xxx'},{position:'x'},{asOfDate:'2026-02-30'},{season:'2026-99'},{phase:'Preseason'},{window:'999'}])assert.equal(d.defenseSettings({...base,...raw},date),null);});
 await check('Fecha en enero usa la temporada anterior y aliases distinguen 3PA de 3PM',()=>{assert.equal(d.defenseSeason('2026-01-03'),'2025-26');assert.equal(d.defenseMarket('3PT'),'fg3m');assert.equal(d.defenseMarket('3PA'),'fg3a');assert.equal(d.defensePosition('F-G'),'F');assert.equal(d.defensePosition('Guard-Forward'),'G');assert.equal(d.defensePosition('Forward-Center'),'F');assert.equal(d.defensePosition('Guard-unknown'),null);assert.equal(d.defensePosition('desconocida'),null);});
 await check('Los cuatro grupos tienen 30 equipos con muestra visible',()=>{for(const group of ['ALL','G','F','C']){assert.equal(ranks[group].length,30);assert.ok(ranks[group].every(r=>r.games===15&&r.total===15&&r.rankedTeams===30));}});

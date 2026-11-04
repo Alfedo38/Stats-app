@@ -15,13 +15,16 @@ export function getJornada(date:string,market:JornadaMarket):Promise<JornadaData
   if(cache.size>24)cache.delete(cache.keys().next().value!);
   value.catch(()=>{if(cache.get(key)===entry)cache.delete(key);});return value;
 }
-async function loadJornada(date:string,market:JornadaMarket):Promise<JornadaData>{
+export async function getJornadaSchedule(date:string){
   let schedule:Record<string,unknown>[];
   try{schedule=await prisma.$queryRawUnsafe<Record<string,unknown>[]>(
     'SELECT nba_game_id,away,home,start_utc,status_id,postponed FROM public.nba_daily_schedule WHERE event_date=$1::date AND postponed=false ORDER BY start_utc,nba_game_id LIMIT 41',date);
   }catch{throw new JornadaError('SCHEDULE_UNAVAILABLE',503,'No pudimos consultar el calendario. Reintentá en un momento.');}
   if(schedule.length>40)throw new JornadaError('SCHEDULE_LIMIT',503,'El calendario necesita revisión. No se mezclaron partidos.');
-  const games=[...new Map(schedule.map(row=>normalizedGame(row,date)).filter(g=>g!==null).map(g=>[g.id,g])).values()];
+  return [...new Map(schedule.map(row=>normalizedGame(row,date)).filter(g=>g!==null).map(g=>[g.id,g])).values()];
+}
+async function loadJornada(date:string,market:JornadaMarket):Promise<JornadaData>{
+  const games=await getJornadaSchedule(date);
   const data:JornadaData={ok:true,date,market,generatedAt:new Date().toISOString(),rosterAt:CURRENT_ROSTER_UPDATED_AT,archiveId:null,history:'ready',quotes:'ready',games,players:[],warnings:[]};
   if(!games.length)return data;
   if(!rosterFitsDate(date,CURRENT_ROSTER_UPDATED_AT)){

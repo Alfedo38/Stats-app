@@ -21,6 +21,7 @@ import { trackingValue } from "@/lib/trackingValues";
 // potential-history-v1
 type PlayerChartProps = {
   height?:number;
+  comparisonOnly?:boolean;
   showSeasonBreaks?:boolean;
   data: any[];
   statKey?: string;
@@ -98,7 +99,7 @@ function CustomTooltip({ active, payload }: any) {
   const line = Number(row.lineValue);
   const side = row._chartSide === "under" ? "under" : "over";
   const state = getBarState(value, line, side);
-  const color = state === "over" ? OVER_COLOR : state === "under" ? UNDER_COLOR : PUSH_COLOR;
+  const color = row._comparisonOnly?"#22d3ee":state === "over" ? OVER_COLOR : state === "under" ? UNDER_COLOR : PUSH_COLOR;
 
   return (
     <div className="rounded-2xl border border-[#10b981]/25 bg-black/95 p-3 shadow-2xl shadow-[#10b981]/10 backdrop-blur-xl">
@@ -118,12 +119,12 @@ function CustomTooltip({ active, payload }: any) {
           {value !== null ? formatNumber(value, 1) : "S/D"}
         </div>
         <div className="mb-1 rounded-lg border px-2 py-1 text-[9px] font-black uppercase tracking-widest" style={{ borderColor: `${color}66`, color }}>
-          {state === "over" ? "Hit" : state === "under" ? "Miss" : state === "push" ? "Push" : "S/D"}
+          {row._comparisonOnly?"Valor":state === "over" ? "Cumplió" : state === "under" ? "No cumplió" : state === "push" ? "Empate" : "S/D"}
         </div>
       </div>
 
       <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] font-bold text-[var(--text-muted)]">
-        <div className="rounded-lg bg-white/[0.03] px-2 py-1">Línea: <span className="text-white">{Number.isFinite(line) ? line : "S/D"}</span></div>
+        {!row._comparisonOnly&&<div className="rounded-lg bg-white/[0.03] px-2 py-1">Línea: <span className="text-white">{Number.isFinite(line) ? line : "S/D"}</span></div>}
         <div className="rounded-lg bg-white/[0.03] px-2 py-1">MIN: <span className="text-white">{getMinutes(row)}</span></div>
       </div>
 
@@ -181,7 +182,7 @@ function OverlayPointLabel(props: any) {
 
 export default function PlayerChart({
   data,
-  height=CHART_HEIGHT,showSeasonBreaks=false,
+  height=CHART_HEIGHT,showSeasonBreaks=false,comparisonOnly=false,
   statKey = "value",
   lineValue,
   overlayKey,
@@ -215,13 +216,13 @@ export default function PlayerChart({
       ro.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, []);
+  }, [data]);
 
   const chartData = useMemo(() => {
     return Array.isArray(data)
       ? data
           .map((row) => {
-            const rawValue = finiteStat(row?.[statKey] ?? row?.value);
+            const rawValue = finiteStat(comparisonOnly?row?.[statKey]:row?.[statKey] ?? row?.value);
             const rawOverlay = overlayKey ? overlayValueReader?overlayValueReader(row):trackingValue(row?.[overlayKey]) : null;
             const value = rawValue;
             const result = getGameResult(row);
@@ -232,6 +233,7 @@ export default function PlayerChart({
               value,
               lineValue,
               _chartSide: side,
+              _comparisonOnly:comparisonOnly,
               _xLabel: `${opp}${result ? ` · ${result}` : ""}`,
               _barState: getBarState(value, lineValue, side),
               _overlayValue: rawOverlay,
@@ -265,7 +267,7 @@ export default function PlayerChart({
             };
           })
       : [];
-  }, [data, statKey, lineValue, overlayKey, overlayLabel, overlayRatioLabel, overlayValueReader, side]);
+  }, [data, statKey, lineValue, comparisonOnly, overlayKey, overlayLabel, overlayRatioLabel, overlayValueReader, side]);
 
   const labelByXKey = useMemo(() => {
     const map = new Map<string, string>();
@@ -370,7 +372,7 @@ export default function PlayerChart({
         <Tooltip content={<CustomTooltip />} />
         {showSeasonBreaks&&chartData.flatMap((row,index)=>{if(!index)return [];const year=(v:any)=>{const date=String(v.game_date).slice(0,10);return Number(date.slice(0,4))-(Number(date.slice(5,7))<10?1:0);};const y=year(row);return y!==year(chartData[index-1])?[<ReferenceLine key={row._xKey} yAxisId="left" x={row._xKey} stroke="var(--text-muted)" strokeDasharray="3 4" label={{value:`${y}-${String(y+1).slice(-2)}`,position:'insideTopRight',fill:'var(--text-muted)',fontSize:10}}/>]:[];})}
 
-        <ReferenceLine
+        {!comparisonOnly&&<ReferenceLine
           yAxisId="left"
           y={lineValue}
           stroke="var(--text)"
@@ -383,7 +385,7 @@ export default function PlayerChart({
             fontSize: 11,
             fontWeight: 900,
           }}
-        />
+        />}
 
         <Bar
           yAxisId="left"
@@ -397,8 +399,8 @@ export default function PlayerChart({
           {chartData.map((row, index) => (
             <Cell
               key={`bar-${row.game_id || row.game_date || index}`}
-              fill={row._barState === "over" ? "url(#mp-bar-over)" : row._barState === "under" ? "url(#mp-bar-under)" : "url(#mp-bar-push)"}
-              stroke={row._barState === "over" ? "#6ee7b7" : row._barState === "under" ? "#fca5a5" : "#fde68a"}
+              fill={comparisonOnly?"#0e7490":row._barState === "over" ? "url(#mp-bar-over)" : row._barState === "under" ? "url(#mp-bar-under)" : "url(#mp-bar-push)"}
+              stroke={comparisonOnly?"#22d3ee":row._barState === "over" ? "#6ee7b7" : row._barState === "under" ? "#fca5a5" : "#fde68a"}
               strokeWidth={1}
             />
           ))}

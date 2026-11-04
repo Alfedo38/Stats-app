@@ -22,7 +22,8 @@ type Entry=AnalysisEntry;
 const fmt=(n:number|null,d=1)=>n===null?'—':n.toLocaleString('es-AR',{maximumFractionDigits:d});
 const label=(l:Leg)=>`${l.operator?OPERATORS[l.operator]:'Condición pendiente'} ${fmt(l.line)} ${l.market?MARKETS[l.market]:'mercado pendiente'}`;
 function blank(date:string):TicketDocument{return {version:1,title:'Mi ticket NBA',eventDate:date,totalOdds:null,legs:[],warnings:[]};}
-function missing(l:Leg){return l.playerName.trim().length<3||!l.market||!l.operator||l.line===null||!Number.isFinite(l.line)||l.line<0||l.line>300||l.teams.length!==2||l.teams.some(t=>!TEAMS.includes(t))||l.teams[0]===l.teams[1];}
+function missingCore(l:Leg){return l.playerName.trim().length<3||!l.market||!l.operator||l.line===null||!Number.isFinite(l.line)||l.line<0||l.line>300;}
+function missing(l:Leg){return missingCore(l)||l.teams.length!==2||l.teams.some(t=>!TEAMS.includes(t))||l.teams[0]===l.teams[1];}
 function publicError(code:unknown,status?:number){return status===401?'Tu sesión venció. Volvé a iniciar sesión.':code==='INPUT_INVALID'?'Revisá los datos de la selección.':code==='ARCHIVE_CHANGED'?'El histórico se actualizó durante la consulta. Volvé a pulsar Analizar.':code==='PERIODS_UNAVAILABLE'?'No pudimos consultar ese período. Intentá nuevamente más tarde.':'No pudimos consultar las estadísticas. Intentá nuevamente más tarde.';}
 
 export default function TicketReader({storageKey,isAdmin=false}:{storageKey:string;isAdmin?:boolean}){
@@ -60,11 +61,11 @@ export default function TicketReader({storageKey,isAdmin=false}:{storageKey:stri
  function closeUpload(){modal.current?.close();setUpload(false);}
  function edit(id:string,patch:Partial<Leg>){if(['playerId','playerName','teams','scope','market'].some(key=>key in patch))patch={...patch,pageSample:undefined};stop();setLastSnapshot(null);const affectsPrice=['playerName','playerId','teams','market','operator','line','scope','book'].some(key=>key in patch);if(patch.odds!==undefined)patch={...patch,origin:undefined,quoteCapturedAt:undefined};else if(affectsPrice&&doc.legs.find(l=>l.id===id)?.origin==='player-page')patch={...patch,odds:null,quoteCapturedAt:undefined};setError('');setNotice('');setDoc(d=>({...d,legs:d.legs.map(l=>l.id===id?{...l,...patch,...(patch.teams||patch.teamConfirmed?{teamSource:patch.teamSource??'manual' as const}:{}),confirmed:false}:l)}));setEntries(e=>{const next={...e};delete next[id];return next;});}
  function choose(l:Leg,p:PlayerOption){edit(l.id,{playerName:p.name,playerId:p.id,playerTeam:undefined,teamConfirmed:false,...(l.teamSource==='schedule'?{teams:[],matchup:''}:{} )});setEntries(e=>({...e,[l.id]:{identity:{status:'exact',originalName:l.playerName,player:p,candidates:[],message:''}}}));}
- async function inspect(d:TicketDocument,c:AbortController,turn:number,archiveId?:string){
+ async function inspect(d:TicketDocument,c:AbortController,turn:number,archiveId?:string,preserve=false){
   const reviews:(IdentityReview&{id:string})[]=[];
   for(let i=0;i<d.legs.length;i+=8){const data=await call({action:'resolve',eventDate:d.eventDate,archiveId,items:d.legs.slice(i,i+8).map(l=>({id:l.id,name:l.playerName,teams:l.teams.filter(t=>TEAMS.includes(t))}))},c.signal);if(c.signal.aborted||turn!==generation.current)return null;reviews.push(...data.reviews);}
   const map=new Map(reviews.map(r=>[r.id,r]));const next={...d,legs:d.legs.map(l=>{const r=map.get(l.id);if(r?.status!=='exact'||!r.player)return {...l,playerId:undefined,confirmed:false};const context=r.teamContext,infer=context?.status==='matched'&&l.teams.length<2;return {...l,playerId:r.player.id,playerName:r.player.name,teams:infer?[...context!.teams]:l.teams,matchup:infer?context!.teams.join(' – '):l.matchup,teamSource:infer?'schedule' as const:l.teamSource,playerTeam:context?.status==='matched'&&!l.teamConfirmed?context.team??undefined:l.playerTeam,confirmed:false};})};
-  setDoc(next);setEntries(Object.fromEntries(reviews.map(r=>[r.id,{identity:r,candidates:r.candidates}])));setEditing(v=>[...new Set([...v,...next.legs.filter(l=>missing(l)||['invalid','not_found'].includes(map.get(l.id)?.status||'')).map(l=>l.id)])]);return {document:next,map};
+  const resolved=Object.fromEntries(reviews.map(r=>[r.id,{identity:r,candidates:r.candidates}]));setDoc(prev=>preserve?{...prev,legs:prev.legs.map(l=>next.legs.find(x=>x.id===l.id)??l)}:next);setEntries(prev=>preserve?{...prev,...resolved}:resolved);setEditing(v=>[...new Set([...v,...next.legs.filter(l=>missing(l)||['invalid','not_found'].includes(map.get(l.id)?.status||'')).map(l=>l.id)])]);return {document:next,map};
  }
  async function accept(d:TicketDocument,source:'image'|'text'|'manual'|'json',details:Record<string,unknown>={},active?:{c:AbortController;turn:number}){
   const c=active?.c??new AbortController();if(!active)stop();const turn=active?.turn??++generation.current;controller.current=c;trace.current=crypto.randomUUID();
@@ -94,23 +95,29 @@ export default function TicketReader({storageKey,isAdmin=false}:{storageKey:stri
  function drop(e:DragEvent){e.preventDefault();if(!busy)void files(Array.from(e.dataTransfer.files));}
  function add(){stop();setLastSnapshot(null);closeUpload();const l=emptyLeg(date||argentinaDate(),book);if(doc.legs.length)l.book=doc.legs[doc.legs.length-1].book;setDoc(d=>({...d,eventDate:l.eventDate,legs:[...d.legs,l].slice(0,40)}));setEditing(v=>[...v,l.id]);setError('');reporter.current.record(trace.current,'read','ok','READ_OK',{source:'manual',legCount:1});}
  async function search(l:Leg){const turn=generation.current;try{const data=await call({action:'players',name:l.playerName,teams:l.teams.filter(t=>TEAMS.includes(t))});if(turn===generation.current)setEntries(e=>({...e,[l.id]:{candidates:data.candidates,error:data.candidates.length?'Elegí al jugador.':'No encontramos ese jugador. Revisá el nombre.'}}));}catch{if(turn===generation.current)setEntries(e=>({...e,[l.id]:{error:'No pudimos buscar al jugador. Intentá nuevamente.'}}));}}
- async function analyze(){
+ const incomplete=doc.legs.filter(missing).length;
+ const ready=doc.legs.length-incomplete;
+ const resolvable=doc.legs.some(l=>!missingCore(l)&&l.teams.length<2)||ready>0;
+ const failedEntry=(entry?:Entry)=>!!entry?.error&&!entry.needsTeam&&!entry.needsPlayer;
+ async function analyze(retryId?:string){
+  if(!resolvable||!isDate(doc.eventDate))return;
+  if(retryId&&!failedEntry(entries[retryId]))return;
   stop();setLastSnapshot(null);const c=new AbortController(),turn=++generation.current;controller.current=c;
   setBusy(true);setProgress('Comprobando selecciones…');setError('');setNotice('');
   const meta={readerVersion:9 as const,id:crypto.randomUUID(),traceId:trace.current,startedAt:new Date().toISOString(),code:undefined as string|undefined,pinnedArchiveId:undefined as string|undefined};
   const settings:Settings={eventDate:doc.eventDate,phase:'ALL',seasons:'last2',minMinutes:null};
   let finalDocument=doc,archiveChanged=false;
-  const captured:Record<string,Entry>=Object.fromEntries(doc.legs.map(l=>[l.id,{identity:entries[l.id]?.identity}]));
+  const captured:Record<string,Entry>=retryId?{...entries}:Object.fromEntries(doc.legs.map(l=>[l.id,{identity:entries[l.id]?.identity}]));
   const active=()=>!c.signal.aborted&&turn===generation.current;
   const failureCode=(e:unknown)=>{const code=(e as {code?:unknown})?.code;return code==='INPUT_INVALID'?'INPUT_INCOMPLETE':typeof code==='string'&&/^(ARCHIVE_[A-Z_]+|PERIODS_UNAVAILABLE|INPUT_INCOMPLETE|NETWORK_ERROR|ANALYSIS_ERROR)$/.test(code)?code:'NETWORK_ERROR';};
   try{
    if(!connected.current||!archiveVersion.current){const data=await call({action:'health'},c.signal);connected.current=true;archiveVersion.current=data.connection.archive.id;}
    meta.pinnedArchiveId=archiveVersion.current!;
-   const checked=await inspect(doc,c,turn,meta.pinnedArchiveId);if(!checked||!active())return;
-   finalDocument=checked.document;
-   for(const l of finalDocument.legs){const identity=checked.map.get(l.id);captured[l.id]={identity:identity?{...identity,originalName:captured[l.id]?.identity?.originalName??identity.originalName}:undefined};}
-   const selected=finalDocument.legs.filter(l=>!missing(l)&&checked.map.get(l.id)?.status==='exact'&&(checked.map.get(l.id)?.teamContext?.status!=='conflict'||l.teamConfirmed));
-   const pending=finalDocument.legs.filter(l=>!selected.includes(l));
+   const checked=await inspect(retryId?{...doc,legs:doc.legs.filter(l=>l.id===retryId)}:doc,c,turn,meta.pinnedArchiveId,!!retryId);if(!checked||!active())return;
+   finalDocument=retryId?{...doc,legs:doc.legs.map(l=>checked.document.legs.find(x=>x.id===l.id)??l)}:checked.document;
+   for(const l of checked.document.legs){const identity=checked.map.get(l.id);captured[l.id]={identity:identity?{...identity,originalName:captured[l.id]?.identity?.originalName??identity.originalName}:undefined};}
+   const selected=checked.document.legs.filter(l=>!missing(l)&&checked.map.get(l.id)?.status==='exact'&&(checked.map.get(l.id)?.teamContext?.status!=='conflict'||l.teamConfirmed));
+   const pending=checked.document.legs.filter(l=>!selected.includes(l));
    setEditing(v=>[...new Set([...v,...pending.filter(l=>missing(l)||checked.map.get(l.id)?.teamContext?.status==='conflict').map(l=>l.id)])]);
    if(!selected.length){setError('Completá los datos o elegí los jugadores señalados para analizar el ticket.');return;}
    let done=0;const queue=[...selected];
@@ -140,7 +147,11 @@ export default function TicketReader({storageKey,isAdmin=false}:{storageKey:stri
     }
    };
    await Promise.all([run(),run(),run()]);
-   if(active()&&!archiveChanged)setNotice(pending.length?'Analizamos las selecciones completas. Revisá las que quedaron pendientes.':'Análisis terminado.');
+   if(active()&&!archiveChanged){
+    const analyzed=finalDocument.legs.filter(l=>captured[l.id]?.result).length;
+    const failed=finalDocument.legs.filter(l=>failedEntry(captured[l.id])).length;
+    setNotice(`${analyzed} analizadas · ${finalDocument.legs.length-analyzed-failed} por revisar · ${failed} fallaron`);
+   }
   }catch(e){meta.code=failureCode(e);archiveChanged=meta.code==='ARCHIVE_CHANGED';if(active())setError((e as Error).message||'No pudimos consultar las estadísticas. Intentá nuevamente.');}
   finally{
    if(turn===generation.current){
@@ -158,7 +169,7 @@ export default function TicketReader({storageKey,isAdmin=false}:{storageKey:stri
  const unsupported=doc.warnings.filter(w=>w.startsWith('Mercado sin análisis:')),observations=ticketObservations(doc.legs);
  return <main className={s.reader} onPaste={paste} onDragOver={e=>e.preventDefault()} onDrop={drop}>
   <header className={s.simpleHeader}><div><h1>Analizá tu ticket</h1><p>Subí una captura, pegá tu ticket con Ctrl+V o cargá las selecciones a mano.</p></div>{isAdmin&&<Link href="/admin/lector-tickets" className={s.adminLink}>Informes de pruebas</Link>}</header>
-  <section className={s.simpleLoad}><div className={s.simpleActions}><button disabled={busy} onClick={openUpload}><Upload size={18}/>Subir ticket</button><button disabled={busy||doc.legs.length>=40} onClick={add}><Plus size={18}/>Agregar manualmente</button><button className={s.primary} disabled={busy||!doc.legs.length||!isDate(doc.eventDate)} onClick={()=>void analyze()}><ArrowRight size={18}/>Analizar</button></div>{!doc.legs.length&&<p className={s.uploadHint}>También podés arrastrar tus capturas hasta acá.</p>}</section>
+  <section className={s.simpleLoad}><div className={s.simpleActions}><button disabled={busy} onClick={openUpload}><Upload size={18}/>Subir ticket</button><button disabled={busy||doc.legs.length>=40} onClick={add}><Plus size={18}/>Agregar manualmente</button><button className={s.primary} disabled={busy||!resolvable||!isDate(doc.eventDate)} onClick={()=>void analyze()}><ArrowRight size={18}/>Analizar</button></div>{!doc.legs.length?<p className={s.uploadHint}>También podés arrastrar tus capturas hasta acá.</p>:<p className={s.uploadHint} role="status">{ready} completas de {doc.legs.length}{incomplete?` · ${incomplete} por revisar. Buscaremos el partido si falta; las que sigan incompletas quedan fuera.`:". Verificaremos jugador y partido antes de analizar."}</p>}</section>
   {busy&&<div className={s.status} role="status"><span className={s.spinner}/>{progress||'Procesando…'}<button onClick={stop}>Cancelar</button></div>}
   {draftProblem&&<div className={s.notice} role="status">{draftProblem}<button disabled={busy} onClick={()=>{if(window.confirm('¿Recargar el borrador guardado y reemplazar las ediciones actuales?')){stop();loadSavedDraft();}}}>Recargar borrador</button></div>}
   {returnTo&&<Link href={returnTo} className={s.adminLink}>← Volver a la ficha</Link>}
@@ -172,6 +183,14 @@ export default function TicketReader({storageKey,isAdmin=false}:{storageKey:stri
     <p className={s.teamHint}>{l.pageSample?`Muestra de la ficha · ${l.pageSample.seasons==="last2"?"esta temporada y la pasada":"histórico amplio guardado en una versión anterior"} · ${l.pageSample.labels.join(" · ")}`:"Histórico: regular + playoffs · esta temporada y la pasada"}</p>
     {entries[l.id]?.identity?.teamContext&&<p className={s.teamHint} data-state={entries[l.id].identity!.teamContext!.status}>{entries[l.id].identity!.teamContext!.message}</p>}
     {entries[l.id]?.identity?.teamContext?.status==='conflict'&&<button className={s.matchFix} disabled={busy} onClick={()=>{const context=entries[l.id]?.identity?.teamContext;if(context?.teams.length===2)edit(l.id,{teams:[...context.teams],matchup:context.teams.join(' – '),playerTeam:context.team??undefined,teamConfirmed:false,teamSource:'schedule'});}}>Usar partido verificado: {entries[l.id]!.identity!.teamContext!.teams.join(' – ')}</button>}
+    {failedEntry(entries[l.id])&&<button type="button" className={s.matchFix} disabled={busy} onClick={()=>void analyze(l.id)}>Reintentar esta selección</button>}
+    {missing(l)&&<p className={s.uploadHint}>Por revisar: {[
+      l.playerName.trim().length<3?'jugador':null,
+      !l.market?'mercado':null,
+      !l.operator?'condición':null,
+      l.line===null||!Number.isFinite(l.line)||l.line<0||l.line>300?'línea':null,
+      l.teams.length!==2||l.teams.some(t=>!TEAMS.includes(t))||l.teams[0]===l.teams[1]?'partido':null
+    ].filter(Boolean).join(' · ')}.</p>}
     {editing.includes(l.id)&&<fieldset disabled={busy} className={s.simpleEditor}><div className={s.playerField}><label>Jugador<input value={l.playerName} maxLength={100} onChange={e=>edit(l.id,{playerName:e.target.value,playerId:undefined,playerTeam:undefined,teamConfirmed:false})}/></label><button onClick={()=>void search(l)}>Buscar jugador</button></div><AnalyzerGameChoice leg={l} date={doc.eventDate} disabled={busy} onChange={patch=>edit(l.id,patch)}/><div className={s.editGrid}>
      <label>Equipo 1<select value={l.teams[0]||''} onChange={e=>edit(l.id,{teams:[e.target.value,l.teams[1]||''],playerTeam:undefined,teamConfirmed:false})}><option value="">Elegir</option>{TEAMS.map(t=><option key={t}>{t}</option>)}</select></label><label>Equipo 2<select value={l.teams[1]||''} onChange={e=>edit(l.id,{teams:[l.teams[0]||'',e.target.value],playerTeam:undefined,teamConfirmed:false})}><option value="">Elegir</option>{TEAMS.map(t=><option key={t}>{t}</option>)}</select></label>
      <label>Mercado<select value={l.market||''} onChange={e=>edit(l.id,{market:e.target.value as Leg['market']||null})}><option value="">Elegir</option>{Object.entries(MARKETS).map(([v,n])=><option key={v} value={v}>{n}</option>)}</select></label><label>Condición<select value={l.operator||''} onChange={e=>edit(l.id,{operator:e.target.value as Leg['operator']||null})}><option value="">Elegir</option>{Object.entries(OPERATORS).map(([v,n])=><option key={v} value={v}>{n}</option>)}</select></label><label>Línea<input type="number" min={0} max={300} step="0.5" value={l.line??''} onChange={e=>edit(l.id,{line:decimal(e.target.value)})}/></label><label>Período<select value={l.scope} onChange={e=>edit(l.id,{scope:e.target.value as Leg['scope']})}>{Object.entries(SCOPES).map(([v,n])=><option key={v} value={v}>{n}</option>)}</select></label>
@@ -216,6 +235,10 @@ function CombinedTicket({legs,entries,unsupported}:{legs:Leg[];entries:Record<st
  return <section className={s.combined}><h2>El ticket completo</h2>
   {reference.status==='impossible'?<p className={s.combinedProblem}>Hay condiciones del mismo jugador que no pueden acertarse juntas. Revisá las líneas y los lados elegidos.</p>:reference.rate!==null?<><strong className={s.combinedValue}>{fmt(reference.rate*100)} %</strong><p>Referencia histórica de acierto total{reference.groups.length>1?', suponiendo independencia entre partidos':''}.</p></>:<p>{reference.status==='insufficient'?'Faltan partidos históricos en común para calcular una referencia conjunta. Se requieren al menos cinco con todos los valores disponibles por partido del ticket.':'Completá las selecciones y revisá los mercados pendientes antes de calcular una referencia del ticket completo.'}</p>}
   {reference.groups.length>0&&<ul>{reference.groups.map(group=><li key={group.event}><strong>{group.teams.join(' – ')}</strong>: {group.hits} de {group.complete} partidos históricos con todas las selecciones acertadas · {group.legIds.length} selección(es){group.missing?` · ${group.missing} sin datos completos`:''}{group.pushes?` · ${group.pushes} con empate sin fallo`:''}</li>)}</ul>}
+  {reference.groups.some(group=>group.comparisons?.length)&&<details className={s.resultDetail}><summary>Qué pasó cuando se cumplió la primera selección</summary><ul>{reference.groups.flatMap(group=>group.comparisons??[]).map(pair=>{
+    const label=(id:string)=>{const l=legs.find(x=>x.id===id);return l?`${l.playerName} · ${l.market} · ${l.operator?OPERATORS[l.operator]:''} ${l.line}`:'Selección';};
+    return <li key={pair.first+':'+pair.second}><strong>{label(pair.first)} → {label(pair.second)}</strong><p>La segunda se cumplió en {pair.secondHits} de {pair.complete} cruces; en los {pair.firstHits} donde se cumplió la primera, también se cumplió en {pair.bothHits}.{pair.complete<5||pair.firstHits<5?' Muestra chica.':''}</p></li>;
+  })}</ul></details>}
   {reference.groups.some(group=>group.sample.length>0)&&<details className={s.resultDetail}>
    <summary>Ver partidos históricos compartidos</summary>
    {reference.groups.filter(group=>group.sample.length>0).map(group=><div key={group.event}>

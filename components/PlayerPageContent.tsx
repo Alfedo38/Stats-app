@@ -76,6 +76,8 @@ export default function PlayerPageContent({
   const rosterStat=currentSample?.market||initialStat;
   const [selectedGame, setSelectedGame] = useState<GameSlot | null>(null);
   const [externalFilters, setExternalFilters] = useState<ActiveFilter[]>([]);
+  const [contextCutoff,setContextCutoff]=useState<string|null>(null);
+  const [resolvedEventOpponent,setResolvedEventOpponent]=useState<string|null>(null);
   const [resolvedEventDate,setResolvedEventDate]=useState<string|null>(null);
   const [dvpOpponentFromFilters, setDvpOpponentFromFilters] = useState<string | null>(null);
   const [clientTeammates, setClientTeammates] = useState<TeamMate[]>(teammates || []);
@@ -99,7 +101,7 @@ export default function PlayerPageContent({
   }, []);
 
   useEffect(() => {
-    setDvpOpponentFromFilters(null);setResolvedEventDate(null);setDetailTab("summary");setContextVisited(false);
+    setDvpOpponentFromFilters(null);setResolvedEventDate(null);setResolvedEventOpponent(null);setContextCutoff(null);setDetailTab("summary");setContextVisited(false);
     setClientTeammates(teammates||[]);
     setTeammatesResolvedFor('');
     setRosterOpen(false);
@@ -188,6 +190,8 @@ export default function PlayerPageContent({
       if (detail?.playerId && String(detail.playerId) !== String(currentPlayerId)) return;
       const next = String(detail?.opponent || "").trim().toUpperCase();
       setDvpOpponentFromFilters(next || null);
+      setContextCutoff(typeof detail.cutoffDate==="string"?detail.cutoffDate:null);
+      setResolvedEventOpponent(typeof detail.eventOpponent==="string"?detail.eventOpponent:null);
       setResolvedEventDate(typeof detail.eventDate==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(detail.eventDate)?detail.eventDate:null);
     };
 
@@ -303,10 +307,11 @@ export default function PlayerPageContent({
             key={currentPlayerId}
             playerId={currentPlayerId}
             playerName={playerName}
-            opponentAbbr={dvpOpponent}
+            opponentAbbr={resolvedEventDate!==null?resolvedEventOpponent:nextOpponent}
             playerPosition={position}
             dvpKey={dvpKey}
             nextGameDate={resolvedEventDate??nextGameDate}
+            cutoffDate={contextCutoff}
             sharedSample={analysisSample?.playerId === String(currentPlayerId) ? analysisSample : null}
           />
           </div>}

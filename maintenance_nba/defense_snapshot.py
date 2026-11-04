@@ -105,15 +105,27 @@ def normalize(row, positions):
     return dict(id=gid, playerId=int(pid), name=str(row.get('player_name') or 'Jugador'), date=str(day), season=season, phase=season_type,
                 team=team, opponent=opponent, venue=venue, position=group, minutes=round(played, 3), values=values)
 
-def build(rows, positions):
+def usage_pct(row):
+    value = number(row.get('usage_pct', row.get('usg_pct')))
+    if value is None or value > 100:
+        return None
+    return value * 100 if value <= 1 else value
+
+def shot_zone(row):
+    return {'Restricted Area': 0, 'In The Paint (Non-RA)': 1, 'Mid-Range': 2,
+            'Left Corner 3': 3, 'Right Corner 3': 3, 'Above the Break 3': 3}.get(row.get('shot_zone_basic'))
+
+def build(rows, positions, shot_games=None):
     unique, conflicts = {}, set()
     diagnostics = {'invalidRows': 0, 'conflictingPlayerGames': 0, 'incompleteTeamGames': 0, 'unknownPositions': 0}
+    shot_games = shot_games or {}
     for row in rows:
         r = normalize(row, positions)
         if r is None:
             diagnostics['invalidRows'] += 1
             continue
         key = (r['id'], r['playerId'])
+        r['usage'] = usage_pct(row)
         if key in unique and unique[key] != r:
             conflicts.add(key)
         else:
@@ -126,7 +138,8 @@ def build(rows, positions):
             identities[r['id']].add((r['date'], r['season'], r['phase'], tuple(sorted((r['team'], r['opponent'])))))
     games, players, baseline, pending = defaultdict(list), defaultdict(list), {}, {}
     combos = {'pra': ('pts', 'reb', 'ast'), 'pr': ('pts', 'reb'), 'pa': ('pts', 'ast'), 'ra': ('reb', 'ast')}
-    all_metrics = METRICS + tuple(combos)
+    all_metrics = METRICS + tuple(combos) + ('usage', 'minutes')
+    prior_zones = defaultdict(lambda: [0, 0, 0, 0, 0])
     # El promedio de cada jugador se calcula antes de incorporar ese partido.
     ordered = sorted((r for k, r in unique.items() if k not in conflicts), key=lambda r: (r['date'], int(r['id']), r['playerId']))
     for r in ordered:
@@ -136,18 +149,26 @@ def build(rows, positions):
         prior = baseline.setdefault(k, {m: [0.0, 0] for m in all_metrics})
         previous = pending.get(k)
         if previous and previous['date'] != r['date']:
-            for values in previous['rows']:
+            for values, zones in previous['rows']:
+                if zones and sum(zones):
+                    for index, count in enumerate(zones):
+                        prior_zones[k][index] += count
+                    prior_zones[k][4] += 1
                 for m in all_metrics:
                     if values[m] is not None:
                         prior[m][0] += values[m]
                         prior[m][1] += 1
             pending.pop(k)
         r['baseline'] = {m: prior[m][0] / prior[m][1] if prior[m][1] else None for m in all_metrics}
-        values = dict(r['values'])
+        z = prior_zones[k]
+        r['priorZones'] = list(z) if z[4] >= 5 and sum(z[:4]) >= 30 else None
+        r['priorGames'] = prior['minutes'][1]
+        r['usageGames'] = prior['usage'][1]
+        values = dict(r['values'], usage=r.pop('usage'), minutes=r['minutes'])
         for m, fields in combos.items():
             parts = [values[f] for f in fields]
             values[m] = sum(parts) if all(v is not None for v in parts) else None
-        pending.setdefault(k, {'date': r['date'], 'rows': []})['rows'].append(values)
+        pending.setdefault(k, {'date': r['date'], 'rows': []})['rows'].append((values, shot_games.get((r['id'],r['playerId']))))
         players[(r['season'], r['opponent'])].append(r)
     for (season, gid, _), roster in sorted(groups.items()):
         if len(identities[gid]) != 1:
@@ -178,7 +199,22 @@ def archive_parts(directory, manifest, positions, load_part, save_part):
         for name, meta in sorted(list(manifest['parts'].items())):
             if name.startswith('facts/'):
                 yield from load_part(directory, meta)
-    games, players, diagnostics = build(facts(), positions)
+    shots = {}
+    for name, meta in manifest['parts'].items():
+        if not name.startswith('shots/'):
+            continue
+        parts = name.split('/')
+        if len(parts) != 3 or not parts[1].isdigit():
+            continue
+        pid = int(parts[1])
+        seen = set()
+        for row in load_part(directory, meta):
+            gid, zone, event = game_id(row.get('game_id')), shot_zone(row), row.get('game_event_id')
+            if not gid or zone is None or event is None or row.get('shot_attempted_flag') != 1 or (gid,event) in seen:
+                continue
+            seen.add((gid,event))
+            shots.setdefault((gid,pid),[0,0,0,0])[zone] += 1
+    games, players, diagnostics = build(facts(), positions, shots)
     source = 'Archivo NBA verificado · boxscores de partido completo'
     for name in list(manifest['parts']):
         if name.startswith(('defense/', 'defense-players/')):

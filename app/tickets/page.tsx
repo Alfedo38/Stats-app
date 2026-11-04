@@ -66,6 +66,9 @@ export default async function TicketsPage({ searchParams }: { searchParams: Prom
   const date = requested && validTicketDate(requested) ? requested : await getDefaultTicketDate();
   const selectedBook = first(params.book) || '';
   const book = Object.keys(BOOKS).includes(selectedBook) ? selectedBook : '';
+  const statuses = {WIN:'Ganados',LOSS:'Perdidos',PENDING:'Pendientes',REVIEW:'En revisión',VOID:'Anulados'};
+  const requestedStatus=first(params.status)||'';
+  const status=Object.hasOwn(statuses,requestedStatus)?requestedStatus:'';
   const history = first(params.history) === '1';
   let tickets: Ticket[] = []; let failed = false;
   try { tickets = await getTickets(date, book || undefined, history); } catch { failed = true; }
@@ -75,8 +78,12 @@ export default async function TicketsPage({ searchParams }: { searchParams: Prom
   const active = current.filter(hasPicks);
   const gameCount = new Set(active.map(t => t.game_key)).size;
   const visible = tickets.filter(t => hasPicks(t) && (history || latest.get(t.slot_key)?.version_id === t.version_id));
+  const gameChoices=[...new Map(visible.map(t=>[t.game_key,t.proposal.matchup])).entries()].sort((a,b)=>a[1].localeCompare(b[1]));
+  const requestedGame=first(params.game)||'';
+  const game=gameChoices.some(([id])=>id===requestedGame)?requestedGame:'';
+  const filtered=visible.filter(t=>(!game||t.game_key===game)&&(!status||t.result.status===status));
   const groups = new Map<string, Ticket[]>();
-  for (const ticket of visible) {
+  for (const ticket of filtered) {
     const group = groups.get(ticket.game_key) || []; group.push(ticket); groups.set(ticket.game_key, group);
   }
   const games = [...groups.values()].sort((a, b) => a[0].proposal.start_utc.localeCompare(b[0].proposal.start_utc));
@@ -93,6 +100,8 @@ export default async function TicketsPage({ searchParams }: { searchParams: Prom
       <form className={styles.filters} action="/tickets">
         <label><span className={styles.srOnly}>Fecha</span><input name="date" type="date" defaultValue={date} required /></label>
         <label><span className={styles.srOnly}>Casa</span><select name="book" defaultValue={book}><option value="">Todas las casas</option>{Object.entries(BOOKS).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
+        <label><span className={styles.srOnly}>Partido</span><select name="game" defaultValue={game}><option value="">Todos los partidos</option>{gameChoices.map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label>
+        <label><span className={styles.srOnly}>Resultado</span><select name="status" defaultValue={status}><option value="">Todos los resultados</option>{Object.entries(statuses).map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label>
         <label className={styles.check}><input name="history" type="checkbox" value="1" defaultChecked={history} />Historial</label><button type="submit">Ver</button>
       </form>
     </div>
@@ -100,9 +109,10 @@ export default async function TicketsPage({ searchParams }: { searchParams: Prom
       const count = active.filter(t => t.result.status === status).length;
       return count ? <span key={status} data-status={status}><b>{count}</b> {({ WIN: 'ganados', LOSS: 'perdidos', PENDING: 'pendientes', REVIEW: 'en revisión', VOID: 'anulados' } as Record<string, string>)[status]}</span> : null;
     })}</div>}
-    {failed ? <div className={styles.empty}><TicketIcon size={25} /><h2>Tickets no disponibles en este momento</h2></div> : games.length === 0 ? <div className={styles.empty}><TicketIcon size={25} /><h2>Sin tickets publicados para esta jornada</h2><p>Este contador incluye partidos con selecciones publicadas.</p><Link href={`/?date=${date}`}>Ver partidos programados →</Link></div> : <div className={styles.games}>{games.map(group => {
+    {(game||status)&&!failed&&<p className={styles.filteredCount}>{filtered.length} de {visible.length} tickets con estos filtros · <Link href={href(date)}>Limpiar filtros</Link></p>}
+    {failed ? <div className={styles.empty}><TicketIcon size={25} /><h2>Tickets no disponibles en este momento</h2></div> : games.length === 0 ? <div className={styles.empty}><TicketIcon size={25} /><h2>{visible.length?"Ningún ticket coincide con estos filtros":"Sin tickets publicados para esta jornada"}</h2><p>Este contador incluye partidos con selecciones publicadas.</p><Link href={`/?date=${date}`}>Ver partidos programados →</Link></div> : <div className={styles.games}>{games.map(group => {
       const sample = group[0];
-      const unavailable = Object.entries(BOOKS).filter(([id]) => (!book || book === id) && !group.some(t => t.book === id && latest.get(t.slot_key)?.version_id === t.version_id));
+      const unavailable = status?[]:Object.entries(BOOKS).filter(([id]) => (!book || book === id) && !group.some(t => t.book === id && latest.get(t.slot_key)?.version_id === t.version_id));
       return <section key={sample.game_key} className={styles.game}>
         <header className={styles.gameHeading}><h2>{sample.proposal.matchup}</h2><time dateTime={sample.proposal.start_utc}>{time(sample.proposal.start_utc)}</time></header>
         {Object.entries(BOOKS).map(([id, label]) => {
@@ -117,6 +127,6 @@ export default async function TicketsPage({ searchParams }: { searchParams: Prom
         {unavailable.length > 0 && <p className={styles.unavailableBooks}>{unavailable.map(([id, label]) => `${label}: ${unavailableReason(current.filter(t => t.game_key === sample.game_key && t.book === id))}`).join(' · ')}</p>}
       </section>;
     })}</div>}
-    {!failed && withoutTickets.size > 0 && <details className={styles.availability}><summary>{withoutTickets.size} {withoutTickets.size === 1 ? 'partido sin tickets' : 'partidos sin tickets'}<ChevronDown size={14} /></summary><ul>{[...withoutTickets.values()].map(group => <li key={group[0].game_key}><b>{group[0].proposal.matchup}</b><span>{Object.entries(BOOKS).filter(([id]) => group.some(t => t.book === id)).map(([id, label]) => `${label}: ${unavailableReason(group.filter(t => t.book === id))}`).join(' · ')}</span></li>)}</ul></details>}
+    {!failed && !game && !status && withoutTickets.size > 0 && <details className={styles.availability}><summary>{withoutTickets.size} {withoutTickets.size === 1 ? 'partido sin tickets' : 'partidos sin tickets'}<ChevronDown size={14} /></summary><ul>{[...withoutTickets.values()].map(group => <li key={group[0].game_key}><b>{group[0].proposal.matchup}</b><span>{Object.entries(BOOKS).filter(([id]) => group.some(t => t.book === id)).map(([id, label]) => `${label}: ${unavailableReason(group.filter(t => t.book === id))}`).join(' · ')}</span></li>)}</ul></details>}
   </main>;
 }

@@ -2,7 +2,7 @@ import {outcome} from './analysis';
 import {TEAMS,type Game,type Leg} from './model';
 type History={games:Game[];coverage:string;asOf:string;archiveId:string};
 type Observation={id:string;outcome:'hit'|'miss'|'push'|'missing'};
-export type JointGroup={event:string;teams:string[];legIds:string[];sample:Observation[];hits:number;misses:number;pushes:number;missing:number;complete:number;rate:number|null;status:'ready'|'insufficient'};
+export type JointGroup={event:string;teams:string[];legIds:string[];sample:Observation[];comparisons?:{first:string;second:string;complete:number;firstHits:number;secondHits:number;bothHits:number}[];hits:number;misses:number;pushes:number;missing:number;complete:number;rate:number|null;status:'ready'|'insufficient'};
 const MIN_SAMPLE=5;
 function bounds(leg:Leg){
  const n=leg.line!;
@@ -42,15 +42,22 @@ export function combinedHistory(legs:Leg[],histories:Record<string,History|undef
    return new Map([...byId.values()].sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id)).slice(0,10).map(g=>[g.id,g]));
   });
   const common=[...samples[0].values()].filter(g=>samples.every(s=>s.has(g.id)));
+  const outcomes:(ReturnType<typeof outcome>[])[]=[];
   const sample:Observation[]=common.map(g=>{
    const rows=samples.map(s=>s.get(g.id)!);
    if(rows.some(r=>r.date!==g.date)){issues.push('HISTORY_DATE_CONFLICT');return {id:g.id,outcome:'missing'};}
    const states=rows.map((r,i)=>outcome(r.value,items[i].line!,items[i].operator!));
+   outcomes.push(states);
    return {id:g.id,outcome:states.includes('missing')?'missing':states.includes('miss')?'miss':states.includes('push')?'push':'hit'};
   });
   const hits=sample.filter(g=>g.outcome==='hit').length,misses=sample.filter(g=>g.outcome==='miss').length,pushes=sample.filter(g=>g.outcome==='push').length,missing=sample.filter(g=>g.outcome==='missing').length,complete=hits+misses+pushes;
   const ready=complete>=MIN_SAMPLE;
-  groups.push({event,teams:[...items[0].teams].sort(),legIds:items.map(l=>l.id),sample,hits,misses,pushes,missing,complete,rate:ready?hits/complete:null,status:ready?'ready':'insufficient'});
+  const comparisons=[];
+  for(let i=0;i<items.length&&comparisons.length<12;i++)for(let j=i+1;j<items.length&&comparisons.length<12;j++){
+   const comparable=outcomes.filter(states=>states[i]!=="missing"&&states[j]!=="missing");
+   comparisons.push({first:items[i].id,second:items[j].id,complete:comparable.length,firstHits:comparable.filter(states=>states[i]==="hit").length,secondHits:comparable.filter(states=>states[j]==="hit").length,bothHits:comparable.filter(states=>states[i]==="hit"&&states[j]==="hit").length});
+  }
+  groups.push({comparisons,event,teams:[...items[0].teams].sort(),legIds:items.map(l=>l.id),sample,hits,misses,pushes,missing,complete,rate:ready?hits/complete:null,status:ready?'ready':'insufficient'});
  }
  if(issues.length)return {...base,status:'unavailable',rate:null};
  if(groups.some(g=>g.status!=='ready'))return {...base,status:'insufficient',rate:null};

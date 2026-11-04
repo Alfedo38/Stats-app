@@ -63,11 +63,33 @@ await check('Over/Under permanece en los controles principales',()=>{const h=cha
 const Header=load('./components/PlayerHeader').default;
 await check('Cabecera conserva identidad, KPI y perfil accesible sin expandir biografía',()=>{const html=DOM.renderToStaticMarkup(React.createElement(Header,{playerName:'Jugador QA',teamAbbr:'CLE',bio:{height:'2 m',country:'Argentina'},kpis:[{label:'AST',value:'6',sample:{label:'L30',count:28,total:30}}]}));assert.match(html.replace(/<[^>]*>/g,' ').replace(/\s+/g,' '),/Jugador QA/);assert.match(html,/<details/);assert.doesNotMatch(html,/<details[^>]*open/);assert.match(html,/Perfil del jugador/);assert.match(html,/28\/30/);});
 const remote={ok:true,availableSeasons:['2026-27','2025-26'],shots:contextRows.map(g=>({game_id:g.id,game_date:g.date,season_type:g.seasonType,opponent_abbr:g.opponent,shot_zone_basic:'Restricted Area',shot_made_flag:1})),matchups:[],games:contextRows.map(g=>({game_id:g.id,game_date:g.date,season_type:g.seasonType,opponent_abbr:g.opponent,pts:20,min:30,team_abbreviation:'LAL'}))};
-function contextHarness(){const requests=[];const h=stateful({__globals:{window:{localStorage:{getItem:()=>null,setItem(){}}},fetch:async url=>{requests.push(url);return {ok:true,json:async()=>remote};}}});const props={playerId:'1',playerName:'Jugador QA',opponentAbbr:'TOR',nextGameDate:day,view:'opponent',sharedSample:{rows:remote.games,scope:'FULL',phase:'ALL'}};return {...h,requests,render:(patch={})=>h.render('./components/NBAContextExplorer',{...props,...patch})};}
-await check('Contexto arranca en 2026-27 y recibe rival tardío de la ficha',async()=>{const h=contextHarness();h.render();await h.flush();let tree=h.render();let pro=find(tree,h.l('./components/NBAProInsights').default);assert.equal(pro.props.opponent,'TOR');assert.equal(pro.props.rows.length,4);h.render({opponentAbbr:'CLE'});await h.flush();tree=h.render({opponentAbbr:'CLE'});pro=find(tree,h.l('./components/NBAProInsights').default);assert.equal(pro.props.opponent,'CLE');assert.ok(h.requests.every(url=>url.includes('season=2026-27')));});
-await check('Casilla controla filas, cobertura y canchas; apagarla recupera la muestra',async()=>{const h=contextHarness();h.render();await h.flush();let tree=h.render(),pro=find(tree,h.l('./components/NBAProInsights').default);pro.props.onRivalOnlyChange(true);tree=h.render();pro=find(tree,h.l('./components/NBAProInsights').default);assert.equal(pro.props.rows.length,0);pro.props.onRivalOnlyChange(false);tree=h.render();assert.equal(find(tree,h.l('./components/NBAProInsights').default).props.rows.length,4);});
+function contextHarness(){const requests=[];const h=stateful({__globals:{window:{localStorage:{getItem:()=>null,setItem(){}}},fetch:async url=>{requests.push(url);return {ok:true,json:async()=>url.includes("season=2025-26")?{...remote,games:[{...remote.games[0],game_id:"901",game_date:"2026-04-01",season:"2025-26"}],shots:[]}:remote};}}});const props={playerId:'1',playerName:'Jugador QA',opponentAbbr:'TOR',nextGameDate:day,view:'opponent',sharedSample:{rows:remote.games,scope:'FULL',phase:'ALL'}};return {...h,requests,render:(patch={})=>h.render('./components/NBAContextExplorer',{...props,...patch})};}
+await check('Contexto combina temporadas y mantiene rival manual al cambiar el partido',async()=>{
+ const h=contextHarness();h.render();await h.flush();
+ let tree=h.render(),pro=find(tree,h.l('./components/NBAProInsights').default);
+ assert.equal(pro.props.opponent,'TOR');assert.equal(pro.props.rows.length,0);
+ assert.ok(h.requests.some(url=>url.includes('season=2026-27')));
+ assert.ok(h.requests.some(url=>url.includes('season=2025-26')));
+ tree=h.render({opponentAbbr:'CLE'});pro=find(tree,h.l('./components/NBAProInsights').default);
+ assert.equal(pro.props.opponent,'CLE');
+ nodes(tree).find(n=>n.props?.['aria-label']==='Equipo rival').props.onChange({target:{value:'BOS'}});
+ tree=h.render({opponentAbbr:'MIA'});assert.equal(find(tree,h.l('./components/NBAProInsights').default).props.opponent,'BOS');
+ nodes(tree).find(n=>n.type==='select'&&n.props.id==='pro-season-1').props.onChange({target:{value:'2025-26'}});
+ h.render();await h.flush();
+ assert.equal(find(h.render(),h.l('./components/NBAProInsights').default).props.rows.length,1);
+});
+await check('Tiros y marcas arrancan limitados al rival y permiten recuperar el historial general',async()=>{
+ const h=contextHarness();const props={opponentAbbr:'BOS',view:'shots'};h.render(props);await h.flush();
+ let tree=h.render(props),pro=find(tree,h.l('./components/NBAProInsights').default);
+ assert.equal(pro.props.rivalOnly,true);assert.equal(pro.props.rows.length,5);
+ tree=h.render({...props,opponentAbbr:'TOR'});pro=find(tree,h.l('./components/NBAProInsights').default);
+ assert.equal(pro.props.rows.length,0);assert.ok(words(tree).includes('No hay partidos contra TOR'));
+ pro.props.onRivalOnlyChange(false);
+ assert.equal(find(h.render({...props,opponentAbbr:'TOR'}),h.l('./components/NBAProInsights').default).props.rows.length,5);
+ assert.equal(find(h.render(),h.l('./components/NBAProInsights').default).props.rivalOnly,false);
+});
 await check('Tiros conserva canchas y marcadores; Rival conserva defensa y escenarios',async()=>{const h=contextHarness();h.render();await h.flush();const labels=tree=>nodes(tree).map(n=>n.props?.title??'').join(' ');const rival=labels(h.render()),shots=labels(h.render({view:'shots'}));assert.ok(rival.includes('FGA, FGM'));assert.ok(!rival.includes('Dos canchas'));assert.ok(shots.includes('Dos canchas'));assert.ok(!shots.includes('FGA, FGM'));});
-await check('Proyección no atribuye defensores de BOS a la referencia TOR',async()=>{const h=contextHarness();h.render();await h.flush();assert.ok(words(h.render()).includes('Sin asignaciones defensivas frente a TOR'));});
+await check('Proyección no atribuye defensores de BOS a la referencia TOR',async()=>{const h=contextHarness();h.render();await h.flush();assert.ok(words(h.render()).includes('No hay partidos contra TOR'));});
 // Body limits exercise the real streaming reader, never a public network request.
 const auth=loader({'@/lib/prisma':{__esModule:true,default:{}},'@/lib/auth/session':{},'next/server':{NextResponse:{}}})('./lib/auth/server');
 await check('Solicitud con 1000 IDs admite 32 KiB; el límite general sigue siendo 4 KiB',async()=>{const payload=JSON.stringify({leg:leg({pageSample:criteria({gameIds:Array.from({length:1000},(_,i)=>String(22600000+i))})})});assert.ok(Buffer.byteLength(payload)>4096);const request=()=>new Request('https://local.invalid',{method:'POST',headers:{'Content-Type':'application/json'},body:payload});await assert.rejects(()=>auth.readBody(request()));assert.ok((await auth.readBody(request(),32768)).leg);await assert.rejects(()=>auth.readBody(new Request('https://local.invalid',{method:'POST',headers:{'Content-Type':'application/json'},body:'x'.repeat(32769)}),32768));});

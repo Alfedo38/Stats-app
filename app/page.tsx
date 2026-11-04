@@ -3,6 +3,8 @@ import { requirePageUser } from '@/lib/auth/server';
 import Link from "next/link";
 import { Ticket, CalendarDays, ChevronLeft, ChevronRight, Users, TrendingUp, Zap, ShieldCheck } from "lucide-react";
 import { getTodayScoreboard, getTopPerformers } from "@/lib/api";
+import {getJornadaSchedule} from "@/lib/nbaJornadaData";
+import {validDate} from "@/lib/matchupFilters";
 import GameCarousel      from "@/components/GameCarousel";
 import TopPerformersGrid from "@/components/TopPerformersGrid";
 import SearchBar         from "@/components/SearchBar";
@@ -32,8 +34,8 @@ const QUICK_LINKS = [
     icon:    TrendingUp,
     color:   "#3b82f6",
     title:   "On Fire",
-    desc:    "Top performers de los últimos 5 partidos por PTS, REB y AST.",
-    cta:     "Ver ranking",
+    desc:    "Jugadores por partido, estadísticas recientes y cuotas por línea.",
+    cta:     "Explorar jornada",
   },
   {
     href:    "/teams",
@@ -79,12 +81,13 @@ export default async function Home(props: { searchParams?: Promise<{ date?: stri
   await requirePageUser();
   const searchParams = await Promise.resolve(props.searchParams || {});
   const today = argentinaToday();
-  const requestedDate = /^\d{4}-\d{2}-\d{2}$/.test(String(searchParams?.date || "")) ? String(searchParams?.date) : today;
+  const requestedDate = validDate(searchParams.date) || today;
   const previousDate = shiftDate(requestedDate, -1);
   const nextDate = shiftDate(requestedDate, 1);
   const updatedAt = new Intl.DateTimeFormat("es-AR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Argentina/Buenos_Aires" }).format(new Date());
-  const [games, performers] = await Promise.all([
+  const [games, schedule, performers] = await Promise.all([
     getTodayScoreboard(requestedDate),
+    getJornadaSchedule(requestedDate).catch(()=>null),
     getTopPerformers(),
   ]);
 
@@ -143,7 +146,7 @@ export default async function Home(props: { searchParams?: Promise<{ date?: stri
               Siguiente <ChevronRight size={14} />
             </Link>
           </div>
-          <GameCarousel games={games} updatedAt={updatedAt} />
+          <GameCarousel games={games} schedule={schedule} date={requestedDate} updatedAt={updatedAt} />
         </section>
 
         <RecentPlayers />

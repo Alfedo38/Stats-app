@@ -33,7 +33,7 @@ const now=new Date('2026-10-30T17:00:00Z'),date='2026-10-30',game={id:'002260009
 const fact=(id,change={})=>({player_id:1,game_id:String(22600000+id),game_date:`2026-10-${String(30-id).padStart(2,'0')}`,season_type:'Regular Season',season_id:'2026-27',min:30,pts:20,reb:7,ast:4,fg3m:2,fg3a:8,fta:6,...change});
 const raw=(change={})=>({book:'stake',jugador:'Jugador QA',player_norm:'jugador qa',stat_key:'PTS',side:'over',model_line:19.5,odds_decimal:1.9,game_norm:'CLE-ATL',event_date:date,period_scope:'FULL',scraped_at_utc:'2026-10-30T14:00:00Z',...change});
 const p=(change={})=>({id:1,name:'Jugador QA',team:'ATL',opponent:'CLE',gameId:game.id,position:'G',...j.recentSample(Array.from({length:10},(_,i)=>fact(i+1)),1,date,'pts'),quotes:j.jornadaQuotes([raw()], 'Jugador QA',game,date,'pts',now),...change});
-await check('Hoy se interpreta en Argentina aunque UTC ya sea otro día',()=>{assert.equal(j.argDate(new Date('2026-10-31T01:00:00Z')),date);assert.equal(j.jornadaDateAllowed(date,now),true);assert.equal(j.jornadaDateAllowed('2026-11-06',now),true);for(const d of ['2026-10-29','2026-11-07','2026-02-30','bad'])assert.equal(j.jornadaDateAllowed(d,now),false);});
+await check('Hoy se interpreta en Argentina aunque UTC ya sea otro día',()=>{assert.equal(j.argDate(new Date('2026-10-31T01:00:00Z')),date);assert.equal(j.jornadaDateAllowed(date,now),true);assert.equal(j.jornadaDateAllowed('2026-11-06',now),true);assert.equal(j.jornadaDateAllowed('2026-10-29',now),true);for(const d of ['2026-09-29','2026-11-07','2026-02-30','bad'])assert.equal(j.jornadaDateAllowed(d,now),false);});
 await check('Mercados permitidos distinguen triples anotados e intentados y FTA',()=>{for(const m of ['pts','fg3m','fg3a','fta','fga'])assert.equal(j.marketIsValid(m),true);for(const m of ['__proto__','constructor','bad',null])assert.equal(j.marketIsValid(m),false);});
 await check('Calendario conserva visitante, local y horario argentino',()=>{const g=j.normalizedGame({nba_game_id:game.id,away:'CLE',home:'ATL',start_utc:game.start,status_id:1},date);assert.equal(g.start,game.start);assert.equal(g.away,'CLE');assert.equal(g.home,'ATL');assert.equal(j.normalizedGame({nba_game_id:'1',away:'CLE',home:'CLE'},date),null);assert.equal(j.normalizedGame({nba_game_id:'1',away:'CLE',home:'XXX'},date),null);assert.equal(j.normalizedGame({nba_game_id:'1',away:'CLE',home:'ATL',postponed:true},date),null);});
 await check('Una hora de otra fecha o sin zona queda S/D',()=>{for(const start of ['2026-10-30T01:00:00Z','2026-10-30T22:00:00','bad'])assert.equal(j.normalizedGame({nba_game_id:'1',away:'CLE',home:'ATL',start_utc:start},date).start,null);});
@@ -69,11 +69,26 @@ function renderUI({data=uiData,loading=false,error=null,state={}}={}){
  const component=loader({'react':{...react,useState:initial=>{index++;return [index in state?state[index]:typeof initial==='function'?initial():initial,()=>{}];}},'next/link':({children,href,...props})=>jsx('a',{...props,href,children}),'@/hooks/useAnalysisQuery':{useAnalysisQuery:()=>({data,loading,error})}})('./app/trending/JornadaExplorer.tsx').default;
  return reactDOM.renderToStaticMarkup(jsx(component,{initialDate:date,storageKey:'qa-user'}));
 }
-await check('Pantalla real conserva identidad, muestra y los accesos a ficha/analizador',()=>{const html=renderUI();assert.match(html,/Jugador QA/);assert.match(html,/L5 · 5\/5/);assert.match(html,/L10 · 10\/10/);assert.match(html,/Al analizador/);assert.match(html,/game=CLE-ATL/);assert.match(html,/aria-label="Mercado"/);});
-await check('Render sin muestra no muestra un porcentaje ni minutos inventados',()=>{const html=renderUI({data:{...uiData,players:[p({values:[],minutes:[],dates:[]})]}});assert.match(html,/L10 · 0\/10/);assert.match(html,/S\/D/);assert.doesNotMatch(html,/>0%<|Lean Under/);});
-await check('Filtro Under renderiza el lado y su acierto propio',()=>{const html=renderUI({data:{...uiData,players:[p({values:[10,20,30]})]},state:{6:'under',11:{[date+':pts:under:all:'+game.id+':1']:{line:19.5,book:null}}}});assert.match(html,/Menos de/);assert.match(html,/33%/);assert.match(html,/1\/3 decididos/);});
+await check('Pantalla real conserva identidad, muestra y los accesos a ficha/analizador',()=>{const html=renderUI();assert.match(html,/Jugador QA/);assert.match(html,/Últimos 5:/);assert.match(html,/Últimos 10 · Puntos/);assert.match(html,/superaron 20,5/);assert.match(html,/<strong>20<\/strong>/);assert.match(html,/Al analizador/);assert.match(html,/game=CLE-ATL/);assert.match(html,/aria-label="Mercado"/);});
+await check('Render sin muestra no muestra un porcentaje ni minutos inventados',()=>{const html=renderUI({data:{...uiData,players:[p({values:[],minutes:[],dates:[]})]}});assert.match(html,/Sin muestra para evaluar/);assert.match(html,/S\/D/);assert.doesNotMatch(html,/>0%<|Lean Under/);});
+await check('Filtro Under renderiza el lado y su acierto propio',()=>{const html=renderUI({data:{...uiData,players:[p({values:[10,20,30]})]},state:{6:'under',11:{[date+':pts:under:all:'+game.id+':1']:{line:19.5,book:null}}}});assert.match(html,/Menos de/);assert.match(html,/1 de 3 quedaron por debajo de 19,5/);});
 await check('Un día sin partidos y un error de carga tienen mensajes distintos',()=>{assert.match(renderUI({data:{...uiData,games:[],players:[]}}),/No hay partidos en el calendario/);assert.match(renderUI({data:null,error:'Calendario de prueba no disponible'}),/Reintentar/);assert.doesNotMatch(renderUI({data:null,error:'Calendario de prueba no disponible'}),/Jugador QA/);});
 await check('Cambiar de consulta muestra carga sin arrastrar resultados anteriores',()=>{const html=renderUI({data:null,loading:true});assert.match(html,/Cargando partidos/);assert.doesNotMatch(html,/Jugador QA|Al analizador/);});
+
+await check('Inicio conserva un partido finalizado aunque no llegue el marcador externo',()=>{
+ const Carousel=loader({'next/link':({children,href,...props})=>jsx('a',{...props,href,children})})('./components/GameCarousel.tsx').default;
+ const render=(schedule,games=[])=>reactDOM.renderToStaticMarkup(jsx(Carousel,{schedule,games,date,showPlayerLinks:true}));
+ const html=render([{...game,status:3}]);
+ assert.match(html,/Todos los partidos finalizaron/);assert.match(html,/Finalizado/);
+ assert.match(html,new RegExp('trending\\?date='+date+'&amp;game='+game.id));
+ assert.match(render(null),/Calendario no disponible/);
+ assert.match(render([]),/No hay partidos en el calendario/);
+});
+await check('Un partido seleccionado muestra su nombre en el recuento y conserva la comparativa',()=>{
+ const html=renderUI({state:{4:game.id}});
+ assert.match(html,/1 jugador(?:es)? · CLE @ ATL/);
+ assert.match(html,/Comparar equipos/);
+});
 
 // Exercise the real data adapter with in-memory sports fixtures, no network or credentials.
 let dbReads=0,archiveReads=0,failPrices=false,failSchedule=false,failArchive=false,stale=false;
@@ -166,3 +181,16 @@ await check('Historial ampliado usa toda la temporada y cruces de ambas temporad
 const report={package:'nba-jornada-v1',ok:true,checks:checks.length,tests:checks,fixtures:true,network:false,database:false};
 const output=path.join(root,'maintenance-state/qa/jornada-v1.json');fs.mkdirSync(path.dirname(output),{recursive:true});fs.writeFileSync(output,JSON.stringify(report,null,2),{mode:0o600});
 console.log(`\nJornada NBA: ${checks.length} verificaciones correctas. Informe: ${path.relative(root,output)}. Sin red ni base de datos.`);
+
+await check('Comparar cuotas respeta casa, lado y línea real y conserva la casa al abrir ficha',()=>{
+ const player=p({quotes:[
+  {book:'bet365',line:19.5,over_price:1.9,under_price:null},
+  {book:'stake',line:21.5,over_price:2,under_price:1.85},
+  {book:'stake',line:23.5,over_price:2.5,under_price:1.55}
+ ]});
+ assert.equal(j.publishedJornadaLine(player,'bet365','under'),null);
+ assert.equal(j.publishedJornadaLine(player,'stake','under',19.5),21.5);
+ assert.equal(j.publishedJornadaLine(player,'stake','under',23.5),23.5);
+ assert.match(j.jornadaPlayerHref(player,game,date,'pts',21.5,'under',10,'stake'),/book=stake/);
+ assert.doesNotMatch(j.jornadaPlayerHref(player,game,date,'pts',19.5,'under',10,'stake'),/book=/);
+});

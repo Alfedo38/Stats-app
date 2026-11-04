@@ -29,7 +29,7 @@ export function argDate(now=new Date()){
   return ['year','month','day'].map(k=>parts.find(x=>x.type===k)!.value).join('-');
 }
 export function plusDays(date:string,n:number){return new Date(Date.parse(date+'T12:00:00Z')+n*86400000).toISOString().slice(0,10);}
-export function jornadaDateAllowed(date:unknown,now=new Date()):date is string{return isDate(date)&&date>=argDate(now)&&date<=plusDays(argDate(now),7);}
+export function jornadaDateAllowed(date:unknown,now=new Date()):date is string{return isDate(date)&&date>=plusDays(argDate(now),-30)&&date<=plusDays(argDate(now),7);}
 export function normalizedGame(row:Record<string,unknown>,date:string):JornadaGame|null {
   const id=String(row.nba_game_id??''),away=String(row.away??''),home=String(row.home??'');
   if(!/^\d{1,15}$/.test(id)||!TEAMS.includes(away)||!TEAMS.includes(home)||away===home||row.postponed===true)return null;
@@ -67,9 +67,9 @@ export function summaryFor(player:JornadaPlayer,n:5|10,line:number|null,side:'ov
   return {stat:selectionSummary(player.values.slice(0,n),line??NaN,side),minutes:selectionSummary(player.minutes.slice(0,n),NaN,'over')};
 }
 export function contextFor(game:JornadaGame,date:string):GameContext{return {away:game.away,home:game.home,date,...(game.start?{start:game.start}:{}),returnTo:matchupHref(game.away,game.home,date,game.start??undefined)};}
-export function jornadaPlayerHref(player:JornadaPlayer,game:JornadaGame,date:string,market:JornadaMarket,line:number|null,side:'over'|'under',sample:5|10=10){
+export function jornadaPlayerHref(player:JornadaPlayer,game:JornadaGame,date:string,market:JornadaMarket,line:number|null,side:'over'|'under',sample:5|10=10,book?:string|null){
   const href=playerGameHref(player.id,contextFor(game,date)),q=new URLSearchParams(href.split('?')[1]);
-  q.set('stat',market);q.set('scope','FULL');q.set('side',side);q.set('n',String(sample));if(line!==null)q.set('line',String(line));
+  q.set('stat',market);q.set('scope','FULL');q.set('side',side);q.set('n',String(sample));if(book&&quoteAt(player,book,line,side))q.set('book',book);if(line!==null)q.set('line',String(line));
   return href.split('?')[0]+'?'+q;
 }
 export function jornadaLeg(player:JornadaPlayer,game:JornadaGame,date:string,market:JornadaMarket,line:number,side:'over'|'under',book:string|null,now=new Date()){
@@ -115,6 +115,12 @@ export function defaultLine(player:JornadaPlayer){
   const average=selectionSummary(player.values.slice(0,10),NaN,'over').average;
   // Nearest half-point on the 0.5, 1.5, … grid. At a tie, use the higher line.
   return average===null?null:Math.min(JORNADA_MAX_LINE,Math.floor(average)+0.5);
+}
+export function publishedJornadaLine(player:JornadaPlayer,book:string,side:'over'|'under',requested?:number|null){
+  const lines=availableLines(player,book,side).filter(validJornadaLine);
+  if(requested!=null&&lines.includes(requested))return requested;
+  const reference=defaultLine(player);
+  return lines.sort((a,b)=>reference===null?a-b:Math.abs(a-reference)-Math.abs(b-reference)||a-b)[0]??null;
 }
 export function quoteAt(player:JornadaPlayer,book:string,line:number|null,side:'over'|'under'){
   const field=side==='over'?'over_price':'under_price';

@@ -3,7 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { gunzipSync } from 'node:zlib';
 
 type Part={path:string;sha256:string;rows:number;bytes:number};
-type Manifest={format:number;id:string;counts:Record<string,number>;parts:Record<string,Part>};
+type Manifest={format:number;id:string;updated_at?:string;counts:Record<string,number>;parts:Record<string,Part>};
 export const archiveEnabled=()=>process.env.NBA_ARCHIVE_READ==='1';
 let current:{until:number;value:Manifest}|undefined;
 const cache=new Map<string,Promise<any>>();

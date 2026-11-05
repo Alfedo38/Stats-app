@@ -3,7 +3,8 @@ import { requirePageUser } from '@/lib/auth/server';
 import Link from "next/link";
 import { Ticket, CalendarDays, ChevronLeft, ChevronRight, Users, TrendingUp, Zap, ShieldCheck } from "lucide-react";
 import { getTodayScoreboard, getTopPerformers } from "@/lib/api";
-import {getJornadaSchedule} from "@/lib/nbaJornadaData";
+import {getNbaSlateSchedule} from "@/lib/nbaJornadaData";
+import {archiveEnabled,archiveManifest} from '@/lib/nbaArchive';
 import {validDate} from "@/lib/matchupFilters";
 import GameCarousel      from "@/components/GameCarousel";
 import TopPerformersGrid from "@/components/TopPerformersGrid";
@@ -84,11 +85,11 @@ export default async function Home(props: { searchParams?: Promise<{ date?: stri
   const requestedDate = validDate(searchParams.date) || today;
   const previousDate = shiftDate(requestedDate, -1);
   const nextDate = shiftDate(requestedDate, 1);
-  const updatedAt = new Intl.DateTimeFormat("es-AR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Argentina/Buenos_Aires" }).format(new Date());
-  const [games, schedule, performers] = await Promise.all([
+  const [games, schedule, performers, manifest] = await Promise.all([
     getTodayScoreboard(requestedDate),
-    getJornadaSchedule(requestedDate).catch(()=>null),
+    getNbaSlateSchedule(requestedDate).catch(()=>null),
     getTopPerformers(),
+    archiveEnabled()?archiveManifest().catch(()=>null):null,
   ]);
 
   return (
@@ -146,13 +147,14 @@ export default async function Home(props: { searchParams?: Promise<{ date?: stri
               Siguiente <ChevronRight size={14} />
             </Link>
           </div>
-          <GameCarousel games={games} schedule={schedule} date={requestedDate} updatedAt={updatedAt} />
+          {manifest?.updated_at&&Number.isFinite(Date.parse(manifest.updated_at))&&<p className="px-1 text-xs text-[var(--text-muted)]">Archivo histórico generado: {new Date(manifest.updated_at).toLocaleString("es-AR",{timeZone:"America/Argentina/Buenos_Aires"})} AR</p>}
+          <GameCarousel games={games} schedule={schedule?.games??null} date={requestedDate} nbaSlate partial={schedule?.partial} />
         </section>
 
         <RecentPlayers />
 
         {/* ── Top performers ────────────────────────────────────────────────── */}
-        <TopPerformersGrid performers={performers as any} />
+        <details className="space-y-3 rounded-2xl border border-[var(--border)] p-3"><summary className="cursor-pointer text-sm font-bold">Rachas de liga · últimos 5 partidos</summary><TopPerformersGrid performers={performers as any} /></details>
 
         {/* ── Quick access grid ─────────────────────────────────────────────── */}
         <section className="space-y-3">

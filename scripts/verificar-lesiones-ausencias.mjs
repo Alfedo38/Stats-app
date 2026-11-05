@@ -21,7 +21,7 @@ function loader(overrides={}){
   if(cache.has(file))return cache.get(file).exports;
   const module={exports:{}};cache.set(file,module);
   const output=ts.transpileModule(fs.readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;
-  vm.runInNewContext(output,{module,exports:module.exports,require:n=>n in overrides?overrides[n]:n.startsWith('.')?load(path.resolve(path.dirname(file),n)):load(n),console,Date,Number,Map,Set,URL,crypto,URLSearchParams,AbortController,Object,Intl,fetch:()=>{throw Error('Red desactivada');},...overrides.__globals},{filename:path.relative(root,file)});
+  vm.runInNewContext(output,{module,exports:module.exports,require:n=>n in overrides?overrides[n]:n.startsWith('.')?load(path.resolve(path.dirname(file),n)):load(n),console,Date,Number,Map,Set,URL,crypto,URLSearchParams,AbortController,Object,Intl,process:{env:{NODE_ENV:"test"}},fetch:()=>{throw Error('Red desactivada');},...overrides.__globals},{filename:path.relative(root,file)});
   return module.exports;
  }return load;
 }
@@ -64,6 +64,35 @@ await check('Validación conserva mercado compuesto y período',()=>{assert.equa
 await check('Rechaza parámetros inválidos antes de consultar',()=>{for(const change of [{playerId:true},{playerId:0},{line:null},{line:false},{line:301},{asOfDate:'2026-02-30'},{scope:'Q4'},{side:'bad'},{lastN:4000},{market:'constructor'},{thresholds:[{metric:'constructor',value:1}]},{minMinutes:-1}])assert.equal(c.comparisonSettings(settings(change)),null);});
 await check('Históricos exige equipo para evitar mezclar traspasos',()=>{assert.equal(c.comparisonSettings(settings({mode:'historical',team:''})),null);assert.equal(c.comparisonSettings(settings({mode:'historical',team:'CHA'})).team,'CHA');});
 await check('Con y Sin usan evidencia distinta y separan desconocidos',()=>{const r=compare();assert.equal(r.withPlayer.games,2);assert.equal(r.withoutPlayer.games,2);assert.equal(r.window.conflicts,1);assert.equal(r.window.unknown,5);});
+const rot=load('./lib/nbaRotations.ts');
+const rotation=(id,team='MIN',starter=true,first=360000)=>({gameId:String(id).padStart(10,'0'),date:'2026-10-20',team,starter,played:true,boxMs:first+720000,playedMs:first+720000,periods:4,spans:[[1,0,first],[2,0,720000]]});
+await check('Las rotaciones se agregan a los mismos grupos sin cambiar aciertos ni mezclar equipos',()=>{
+ const base=compare(),con=base.withPlayer.gameIds[0],sin=base.withoutPlayer.gameIds[0];
+ const rows=rot.verifiedRotationRows([rotation(con),rotation(sin,'MIN',false,180000),rotation(base.withoutPlayer.gameIds[1],'LAL')]);
+ const role=c.comparisonRotation(rows,base);
+ assert.equal(role.withPlayer.requested,2);assert.equal(role.withPlayer.covered,1);assert.equal(role.withPlayer.starts,1);assert.equal(role.withPlayer.q1Minutes,6);
+ assert.equal(role.withoutPlayer.requested,2);assert.equal(role.withoutPlayer.covered,1);assert.equal(role.withoutPlayer.starts,0);assert.equal(role.withoutPlayer.q1Minutes,3);
+ assert.equal(base.withoutPlayer.selection.average,30);
+});
+await check('La API de rotaciones excluye otros partidos y exige sesión y límites',async()=>{
+ let authorized=true,loads=0;
+ const a=rotation('0022600100'),b=rotation('0022600101');
+ const l=loader({'@/lib/auth/server':{withAuth:fn=>r=>authorized?fn(r):{status:401},readBody:r=>r.json()},'@/lib/nbaRotationData':{playerRotations:async()=>{loads++;return {source:'archive',available:true,rows:[a,b]};}},'next/server':{NextResponse:{json:(data,options)=>({data,status:options.status??200,headers:options.headers})}}});
+ const route=l('./app/api/nba-rotaciones/route.ts');
+ const call=(playerId,gameIds)=>route.POST({json:async()=>({playerId,gameIds})});
+ authorized=false;assert.equal((await call(1,[a.gameId])).status,401);authorized=true;
+ assert.equal((await call([1],[a.gameId])).status,400);
+ assert.equal((await call(1,Array(31).fill(a.gameId))).status,400);assert.equal(loads,0);
+ const good=await call(1,[a.gameId,Number(a.gameId)]);
+ assert.equal(good.data.games.length,1);assert.equal(good.data.games[0].gameId,a.gameId);
+ assert.equal(good.data.coverage.requested,1);assert.equal(good.headers['Cache-Control'],'private, no-store');
+});
+await check('Datos no conciliados o tramos solapados se rechazan en el lector',()=>{
+ const a=rotation('0022600100');
+ assert.throws(()=>rot.verifiedRotationRows([{...a,boxMs:0}]),/ROTATION_GAME/);
+ assert.throws(()=>rot.verifiedRotationRows([{...a,spans:[[1,0,360000],[1,300000,380000]]}]),/ROTATION_SPAN/);
+ assert.throws(()=>rot.verifiedRotationRows([a,a]),/ROTATION_GAME/);
+});
 await check('Dudoso, probable y vacío no confirman una ausencia',()=>{const r=compare({},target,[],[absence(1,{absent_status:'QUESTIONABLE'}),absence(2,{absent_status:'PROBABLE'}),absence(3,{absent_status:null})]);assert.equal(r.withoutPlayer.games,0);assert.equal(r.window.unknown,10);});
 await check('No se toma el complemento de ausencias como presencia',()=>{const r=compare({},target,[],[absence(1)]);assert.equal(r.withPlayer.games,0);assert.equal(r.withoutPlayer.games,1);assert.equal(r.window.unknown,9);});
 await check('Minutos positivos y ausencia contradictoria se excluyen',()=>{const r=compare({},[fact(1)],[mate(1)],[absence(1)]);assert.equal(r.window.conflicts,1);assert.equal(r.withPlayer.games+r.withoutPlayer.games,0);});
@@ -101,7 +130,7 @@ await check('Calendario caído conserva el parte sin inventar encuentros',async(
 await check('Límite de reporte impide mostrar datos truncados',async()=>{tooMany=true;assert.equal((await reportServer.getInjuryReport('2026-10-27')).available,false);tooMany=false;});
 await check('Consulta vacía conserva available verdadero',async()=>{empty=true;const r=await reportServer.getInjuryReport('2026-10-26');assert.equal(r.available,true);assert.equal(r.items.length,0);empty=false;});
 let reads=0,archiveEnabled=true,periodFailure=false,ambiguous=false,catalogOverflow=false,absenceOverflow=false;const pinned=[];
-const adapter=loader({'server-only':{},'./prisma':{$queryRawUnsafe:async(sql,...args)=>{calls.push([sql,...args]);assert.ok(!/\b(?:INSERT|UPDATE|DELETE|TRUNCATE)\b/i.test(sql));if(sql.includes('SELECT DISTINCT trim'))return catalogOverflow?Array(257).fill({name:'Compañero QA'}):[{name:'Compañero QA'}];if(sql.includes('player_period_splits_front')){if(periodFailure)throw Error('private-period');return[];}return absenceOverflow?Array(5001).fill({row:absence(2)}):absences.map(row=>({row}));}},'./currentRosters':{CURRENT_ROSTER_UPDATED_AT:'2026-10-26',getCurrentRosterPlayer:id=>roster.find(p=>p.player_id===id),getCurrentRosterTeam:t=>roster.filter(p=>p.team_abbreviation===t)},'./nbaArchive':{archiveEnabled:()=>archiveEnabled,archiveManifest:async()=>({id:'a'.repeat(64)}),archivePart:async(name,m)=>{pinned.push(m.id);if(name==='summaries')return {players:ambiguous?{'2':'Compañero QA','20':'Compañero QA'}:{'2':'Compañero QA'}};reads++;return name==='facts/1'?target:mates;}}})('./lib/absenceComparisonData.ts');
+const adapter=loader({'server-only':{},'./prisma':{$queryRawUnsafe:async(sql,...args)=>{calls.push([sql,...args]);assert.ok(!/\b(?:INSERT|UPDATE|DELETE|TRUNCATE)\b/i.test(sql));if(sql.includes('SELECT DISTINCT trim'))return catalogOverflow?Array(257).fill({name:'Compañero QA'}):[{name:'Compañero QA'}];if(sql.includes('player_period_splits_front')){if(periodFailure)throw Error('private-period');return[];}return absenceOverflow?Array(5001).fill({row:absence(2)}):absences.map(row=>({row}));}},'./currentRosters':{CURRENT_ROSTER_UPDATED_AT:'2026-10-26',getCurrentRosterPlayer:id=>roster.find(p=>p.player_id===id),getCurrentRosterTeam:t=>roster.filter(p=>p.team_abbreviation===t)},'./nbaArchive':{archiveEnabled:()=>archiveEnabled,archiveManifest:async()=>({id:'a'.repeat(64),parts:{}}),archivePart:async(name,m)=>{pinned.push(m.id);if(name==='summaries')return {players:ambiguous?{'2':'Compañero QA','20':'Compañero QA'}:{'2':'Compañero QA'}};reads++;return name==='facts/1'?target:mates;}}})('./lib/absenceComparisonData.ts');
 await check('Comparación usa una sola versión del archivo para ambos jugadores',async()=>{const r=await adapter.absenceComparisonData(settings());assert.equal(r.withPlayer.games,2);assert.equal(r.archiveId,'a'.repeat(64));assert.equal(reads,2);assert.ok(pinned.every(p=>p===r.archiveId));});
 await check('Repetir comparación no vuelve a descargar',async()=>{await adapter.absenceComparisonData(settings());assert.equal(reads,2);});
 await check('Compañero ajeno y equipo incorrecto se rechazan antes de descargar',async()=>{await assert.rejects(adapter.absenceComparisonData(settings({team:'CHA'})),e=>e.status===400);await assert.rejects(adapter.absenceComparisonData(settings({teammateName:'Otro QA'})),e=>e.status===400);assert.equal(reads,2);});

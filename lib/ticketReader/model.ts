@@ -18,7 +18,7 @@ export type Game = {id:string;date:string;season:string;phase:string;opponent:st
 export type Settings = {eventDate:string; phase:'ALL'|'Regular Season'|'Playoffs'; seasons:'last2'|'current'|'all'; minMinutes:number|null};
 export type QuoteDiagnostic = {reason:string;counts?:{player:number;date:number;event:number;market:number;scope:number;line:number;timed:number};publication?:{available:boolean;bookRows:number;dateRows:number;undatedRows:number;latestCapturedAt:string|null}};
 export type QuoteInfo = {status:'matched'|'not_found'|'unavailable'|'inactive'|'conflict';message:string;price?:number;book?:Book;capturedAt?:string;eventDate?:string;line?:number;side?:string;diagnostic?:QuoteDiagnostic};
-export type Result = {player:PlayerOption; games:Game[]; warnings:string[]; asOf:string; source:string; archiveId:string; quote:QuoteInfo; coverage:'ready'|'no_history'|'filtered_out'|'missing_period';teamContext?:TeamContext;context?:SelectionContext};
+export type Result = {player:PlayerOption; games:Game[]; warnings:string[]; asOf:string; historyCutoff?:string; source:string; archiveId:string; quote:QuoteInfo; coverage:'ready'|'no_history'|'filtered_out'|'missing_period';teamContext?:TeamContext;context?:SelectionContext};
 export type ConnectionInfo = {archive:{ok:true;id:string;facts:number;sampleRows:number};periods:{ok:boolean;hasRows:boolean};quotes:{ok:boolean;hasRows:boolean}};
 export function normalize(value:unknown){return String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();}
 export function decimal(raw:unknown):number|null {

@@ -2,6 +2,10 @@ import {LEAGUE_TEAMS} from '@/lib/teams';
 import { requirePageUser } from '@/lib/auth/server';
 import MatchupPlayerTable from '@/components/MatchupPlayerTable';
 import {getRosterPlayerAverages} from '@/lib/matchupData';
+import {getPlayerEvent} from '@/lib/playerEventData';
+import {getInjuryReport} from '@/lib/injuryReportData';
+import {reportTimeLabel} from '@/lib/injuryReport';
+import {matchupHref} from '@/lib/playerNavigation';
 import {getCurrentRosterTeam} from '@/lib/currentRosters';
 import {argentinaDate} from '@/lib/ticketReader/model';
 import Link from 'next/link';
@@ -20,7 +24,11 @@ export default async function TeamRosterPage(props: any) {
     const teamId = typeof rawId === 'string' ? rawId.trim().toUpperCase() : "";
 
     const roster=getCurrentRosterTeam(teamId);
-    const averages=await getRosterPlayerAverages(teamId,CURRENT_ROSTER_SEASON,argentinaDate());
+    const today=argentinaDate();
+    const [averages,upcoming]=await Promise.all([getRosterPlayerAverages(teamId,CURRENT_ROSTER_SEASON,today),roster[0]?getPlayerEvent(roster[0].player_id,today,'upcoming'):null]);
+    const game=upcoming?.games[0],report=game?await getInjuryReport(game.date).catch(()=>null):null;
+    const items=game?report?.items.filter(p=>p.team===teamId&&p.game?.id.replace(/^0+/,"")===game.id)??[]:[];
+    const reportAt=items.map(p=>p.reportAt).filter((t):t is string=>!!t).sort().at(-1)??null;
     const players=roster.map(p=>({...p,id:p.player_id}));
 
     const getInitials = (name: string) => {
@@ -61,11 +69,12 @@ export default async function TeamRosterPage(props: any) {
               <p className="text-[#10b981] font-bold text-[10px] uppercase tracking-[0.3em]">Plantel oficial · {CURRENT_ROSTER_SEASON}</p>
               <h1 className="text-2xl sm:text-4xl font-black tracking-tight">{LEAGUE_TEAMS.find(t=>t.id===teamId)?.name??teamId}</h1>
               <p className="mt-2 text-[9px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
-                Actualizado {CURRENT_ROSTER_UPDATED_AT.split('-').reverse().join('/')}
+                Referencia del plantel: {CURRENT_ROSTER_UPDATED_AT.split('-').reverse().join('/')}
               </p>
             </div>
           </div>
 
+          <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4" aria-label="Próximo partido"><h2 className="font-bold">Próximo partido</h2>{game?<><p className="mt-1 text-sm">{game.away} @ {game.home} · {game.date.split('-').reverse().join('/')}</p><p className="mt-1 text-xs text-[var(--text-muted)]">{reportAt?`Parte del equipo: ${reportTimeLabel(reportAt)} · ${items.filter(p=>p.status==='OUT').length} OUT`:'Sin estados del equipo verificados para este partido.'}</p><div className="mt-2 flex flex-wrap gap-4 text-sm font-bold"><Link href={matchupHref(game.away,game.home,game.date,game.start??undefined)}>Ver previa →</Link><Link href={`/trending?date=${game.date}&game=${game.id.padStart(10,"0")}&mode=prices`}>Ver líneas →</Link><Link href={`/injuries?date=${game.date}&team=${teamId}`}>Ver parte →</Link></div></>:<p className="text-sm text-[var(--text-muted)]">No se pudo confirmar un próximo partido en el calendario disponible.</p>}</section>
           {/* Jugadores */}
           <section className="space-y-4">
             <div className="flex items-center gap-2 px-1">
@@ -75,7 +84,7 @@ export default async function TeamRosterPage(props: any) {
               </h2>
             </div>
 
-            <p className="text-sm text-[var(--text-muted)]">Plantel actual y promedios de {CURRENT_ROSTER_SEASON} · regular y playoffs. Pertenecer al plantel no confirma disponibilidad para el próximo partido.</p>
+            <p className="text-sm text-[var(--text-muted)]">Plantel actual y promedios con este equipo en {CURRENT_ROSTER_SEASON} · regular y playoffs. Pertenecer al plantel no confirma disponibilidad para el próximo partido.</p>
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4"><MatchupPlayerTable team={teamId} roster={roster} averages={averages} season={CURRENT_ROSTER_SEASON}/></div>
 
           </section>

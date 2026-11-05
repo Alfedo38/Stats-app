@@ -15,7 +15,7 @@ export const JORNADA_MARKETS = {
   fga:'Tiros de campo intentados', fg3a:'Triples intentados', fta:'Tiros libres intentados',
 } as const;
 export type JornadaMarket = keyof typeof JORNADA_MARKETS;
-export type JornadaGame = {id:string; away:string; home:string; start:string|null; status:number|null};
+export type JornadaGame = {id:string; away:string; home:string; start:string|null; status:number|null; eventDate?:string};
 export type JornadaQuote = PriceQuote & {overCapturedAt:string|null;underCapturedAt:string|null};
 export type JornadaPlayer = {id:number; name:string; team:string; opponent:string; gameId:string; position:string|null;
   values:(number|null)[]; minutes:(number|null)[]; dates:string[]; opponents?:(string|null)[]; rivalValues?:(number|null)[]; extended?:{season:string;seasonValues:(number|null)[];h2hValues:(number|null)[]}; seasons:string[]; quotes:JornadaQuote[]};
@@ -67,8 +67,9 @@ export function summaryFor(player:JornadaPlayer,n:5|10,line:number|null,side:'ov
   return {stat:selectionSummary(player.values.slice(0,n),line??NaN,side),minutes:selectionSummary(player.minutes.slice(0,n),NaN,'over')};
 }
 export function contextFor(game:JornadaGame,date:string):GameContext{return {away:game.away,home:game.home,date,...(game.start?{start:game.start}:{}),returnTo:matchupHref(game.away,game.home,date,game.start??undefined)};}
-export function jornadaPlayerHref(player:JornadaPlayer,game:JornadaGame,date:string,market:JornadaMarket,line:number|null,side:'over'|'under',sample:5|10=10,book?:string|null){
+export function jornadaPlayerHref(player:JornadaPlayer,game:JornadaGame,date:string,market:JornadaMarket,line:number|null,side:'over'|'under',sample:5|10=10,book?:string|null,returnTo?:string){
   const href=playerGameHref(player.id,contextFor(game,date)),q=new URLSearchParams(href.split('?')[1]);
+  if(returnTo)q.set('from',returnTo);
   q.set('stat',market);q.set('scope','FULL');q.set('side',side);q.set('n',String(sample));if(book&&quoteAt(player,book,line,side))q.set('book',book);if(line!==null)q.set('line',String(line));
   return href.split('?')[0]+'?'+q;
 }

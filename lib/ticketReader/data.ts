@@ -10,6 +10,7 @@ import {prepareGames} from './analysis';
 import {cleanPageSample,pageSampleRows} from '../playerSample';
 import {rosterFitsDate,resolveTeamContext} from './teamContext';
 import {ticketSchedule} from './calendar';
+import {nbaHistoryCutoff} from '@/lib/injuryReport';
 import {readSelectionContext} from './contextData';
 
 async function directory(manifest?:ReaderManifest):Promise<PlayerOption[]>{
@@ -56,13 +57,16 @@ export async function readAnalysis(leg:Leg,settings:Settings,archiveId?:string){
  if(!leg.teamConfirmed&&team===player.team&&rosterFresh&&player.team&&historicalTeam&&TEAMS.includes(historicalTeam)&&historicalTeam!==player.team&&latestDate>=String(CURRENT_ROSTER_UPDATED_AT).slice(0,10))return {ok:false,needsTeam:true,player,error:`El plantel indica ${player.team}, pero el histórico más reciente indica ${historicalTeam}. Confirmá el equipo del jugador antes de analizar.`};
  if(!team||!leg.teams.includes(team))return {ok:false,needsTeam:true,player,error:`El equipo disponible para ${player.name}${team?` (${team})`:''} no permite identificar el rival de este ticket. Confirmá el equipo del jugador o corregí el partido.`};
  const fromRoster=rosterFresh&&player.team===team&&!newerHistory;
- const teamContext=resolveTeamContext(team,leg.teams,settings.eventDate,leg.teamConfirmed?settings.eventDate:fromRoster?String(CURRENT_ROSTER_UPDATED_AT):latestDate,await ticketSchedule(settings.eventDate),true,leg.teamConfirmed?'manual':fromRoster?'roster':'recent_archive');
+ const schedule=await ticketSchedule(settings.eventDate);
+ const teamContext=resolveTeamContext(team,leg.teams,settings.eventDate,leg.teamConfirmed?settings.eventDate:fromRoster?String(CURRENT_ROSTER_UPDATED_AT):latestDate,schedule,true,leg.teamConfirmed?'manual':fromRoster?'roster':'recent_archive');
  if(teamContext.status==='conflict')return {ok:false,needsTeam:true,player,teamContext,error:teamContext.message};
  let splits:Record<string,unknown>[]=[];
  if(leg.scope!=='FULL')try{splits=await prisma.$queryRawUnsafe('SELECT * FROM public.player_period_splits_front_v2_cache WHERE player_id = $1::bigint AND game_date < $2::date ORDER BY game_date DESC LIMIT 3000',player.id,settings.eventDate);}catch{throw new ReaderError('PERIODS_UNAVAILABLE','El histórico está conectado, pero no se pudieron consultar los parciales. Revisá la conexión de la base de datos.');}
  const analysisSettings=sample?{...settings,phase:sample.phase,seasons:sample.seasons,minMinutes:sample.minMinutes}:settings;
  const targetId=teamContext.status==='matched'?teamContext.gameId?.replace(/^0+/,''):null;
- const games=prepareGames(sample?pageSampleRows(facts,sample):facts,splits,leg,sample?{...analysisSettings,eventDate:sample.cutoffDate}:analysisSettings).filter(g=>!targetId||g.id.replace(/^0+/,'')!==targetId).slice(0,sample?1000:undefined);const warnings:string[]=[];
+ const matchedGame=targetId?schedule.games.find(g=>g.id.replace(/^0+/,'')===targetId):null;
+ const cutoff=sample?.cutoffDate??nbaHistoryCutoff({start:matchedGame?.start,date:settings.eventDate});
+ const games=prepareGames(sample?pageSampleRows(facts,sample):facts,splits,leg,{...analysisSettings,eventDate:cutoff}).filter(g=>!targetId||g.id.replace(/^0+/,'')!==targetId).slice(0,sample?1000:undefined);const warnings:string[]=[];
  if(sample)warnings.push('Muestra de la ficha: '+(sample.labels.join(' · ')||'Sin filtros adicionales')+'. Los valores se consultaron de nuevo en el archivo verificado.');
  if(leg.teamConfirmed)warnings.push(`Equipo para este partido confirmado por vos: ${team}.`);
  else warnings.push(rosterFresh&&player.team===team?`Equipo de referencia: ${team}. Plantel actualizado: ${String(CURRENT_ROSTER_UPDATED_AT).slice(0,10)}. Revisalo si hubo un traspaso.`:`Equipo tomado del último partido histórico anterior a esta fecha: ${team}. Revisalo si hubo un traspaso.`);
@@ -74,10 +78,10 @@ export async function readAnalysis(leg:Leg,settings:Settings,archiveId?:string){
  const missing=games.slice(0,10).filter(g=>g.value===null).length;if(missing)warnings.push(`${missing} de los últimos ${Math.min(games.length,10)} partidos no tienen este mercado/período. No se cuentan como cero.`);
  if(leg.scope!=='FULL')warnings.push('Se usan exclusivamente datos del período elegido; los minutos mostrados corresponden al partido completo.');
  const resolved={...leg,playerId:player.id,playerName:player.name,playerTeam:team,eventDate:settings.eventDate};
- const [quote,enrichment]=await Promise.all([lookupQuote(resolved),readSelectionContext(manifest,resolved,analysisSettings,teamContext).catch(()=>undefined)]);
+ const [quote,enrichment]=await Promise.all([lookupQuote(resolved),readSelectionContext(manifest,resolved,analysisSettings,teamContext,undefined,cutoff).catch(()=>undefined)]);
  if(!enrichment)warnings.push('No pudimos completar el contexto defensivo y médico. El historial se conserva.');
  if(leg.playerName!==player.name)warnings.push(`Nombre leído: ${leg.playerName}. Identidad verificada: ${player.name}.`);
- return {ok:true,result:{player:{...player,team},games,warnings,asOf:settings.eventDate,source:'Archivo NBA verificado',archiveId:manifest.id,coverage,quote,teamContext,...(enrichment?{context:enrichment}:{})},resolvedLeg:{playerId:player.id,playerName:player.name,playerTeam:team,teamConfirmed:!!leg.teamConfirmed}};
+ return {ok:true,result:{player:{...player,team},games,warnings,asOf:settings.eventDate,historyCutoff:cutoff,source:'Archivo NBA verificado',archiveId:manifest.id,coverage,quote,teamContext,...(enrichment?{context:enrichment}:{})},resolvedLeg:{playerId:player.id,playerName:player.name,playerTeam:team,teamConfirmed:!!leg.teamConfirmed}};
 }
 
 export async function readerConnection(){

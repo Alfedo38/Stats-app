@@ -1,4 +1,5 @@
 "use client";
+import RotationPilot from "@/components/RotationPilot";
 import PlayerSelectionBar from "@/components/PlayerSelectionBar";
 import PlayerSampleSummary from "@/components/PlayerSampleSummary";
 import PlayerLineExplorer from "@/components/PlayerLineExplorer";
@@ -477,6 +478,18 @@ export default function PlayerChartContainer({
 }: PlayerChartContainerProps) {
   const searchParams = useSearchParams();
   const linkedContext=useMemo(()=>parseGameContext(searchParams),[searchParams]);
+  const [rotationOpen,setRotationOpen]=useState(false);
+  const historyFilters=useRef<HTMLDetailsElement>(null);
+  useEffect(()=>{
+    const openFilters=(event:Event)=>{
+      const detail=(event as CustomEvent).detail;
+      if(String(detail?.playerId)!==String(playerId)||!historyFilters.current)return;
+      historyFilters.current.open=true;
+      historyFilters.current.scrollIntoView({block:'nearest'});
+    };
+    window.addEventListener('nba-compare-teammate',openFilters);
+    return ()=>window.removeEventListener('nba-compare-teammate',openFilters);
+  },[playerId]);
   const pageEvent=usePlayerEvent({playerId,team:playerTeam,initialContext:linkedContext,referenceDate:asOfDate});
   const gameContext=pageEvent.context;
   const eventDate=gameContext?.date??(isDate(pageEvent.date)?pageEvent.date:asOfDate??argentinaDate());
@@ -1372,7 +1385,7 @@ export default function PlayerChartContainer({
 
             <ChartIdentity playerName={playerName || "Jugador"} statLabel={compact?playerMarketLabel(activeStat):activeStatLabel} scope={activeScope} count={chartStats.length} line={Number(lineValue)} loading={sampleLoading} compact={compact} />
             {compact&&<PlayerSampleSummary values={metricStats.map(row=>row.value)} line={Number(lineValue)} side={chartSide} lastN={lastN} loading={sampleLoading} error={sampleError}/>}
-            <div data-chart-sample-row className="mb-3 flex flex-wrap items-center justify-between gap-2"><p data-chart-sample className="text-xs text-[var(--text-muted)]">{pageSample?.labels.join(" · ")||PHASE_OPTIONS.find(option=>option.value===seasonPhase)?.label}</p><button type="button" onClick={resetMainFilters} title="Restablecer 20 partidos, dos temporadas, todos los rivales, local y visitante" className="rounded-lg border border-[#10b981]/30 px-3 py-2 text-xs font-bold text-[#10b981]">{compact?"Restablecer · L20":"Muestra base · L20"}</button></div>
+            <div data-chart-sample-row className="mb-3 flex flex-wrap items-center justify-between gap-2"><p data-chart-sample className="text-xs text-[var(--text-muted)]">{pageSample?.labels.join(" · ")||PHASE_OPTIONS.find(option=>option.value===seasonPhase)?.label}</p><button type="button" onClick={resetMainFilters} title="Restablecer 20 partidos, dos temporadas, todos los rivales, local y visitante" className="rounded-lg border border-[#10b981]/30 px-3 py-2 text-xs font-bold text-[#10b981]">{compact?"Restablecer · L20":"Muestra base · L20"}</button>{compact&&defenseOpponent&&<button type="button" aria-pressed={chartOpponent===defenseOpponent} className="rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-bold" onClick={()=>setChartOpponent(chartOpponent===defenseOpponent?"":defenseOpponent)}>vs {defenseOpponent}</button>}</div>
 
             {(!compact||!isFullScope||activeFilters.length+externalFilters.length>0)&&<div className="mb-3 flex flex-wrap items-center gap-2">
               {!isFullScope && (
@@ -1414,6 +1427,10 @@ export default function PlayerChartContainer({
             </section>}
             {compact&&<><div data-graph-legend aria-label="Leyenda del gráfico"><span><b style={{background:'#10b981'}}/>Cumplió la selección</span><span><b style={{background:'#ef4444'}}/>No la cumplió</span><span><b style={{background:'#f59e0b'}}/>Empate</span></div></>}
           </div>
+          {playerId&&<details className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3" onToggle={e=>setRotationOpen(e.currentTarget.open)}>
+            <summary className="cursor-pointer text-sm font-bold">Rotaciones verificadas · partidos del gráfico</summary>
+            <div className="mt-2"><RotationPilot playerId={String(playerId)} gameIds={chartStats.map(row=>row.game_id??row.id)} open={rotationOpen&&!sampleLoading&&!sampleError}/></div>
+          </details>}
           {compact&&analyzerStorageKey&&<AddSelectionToAnalyzer compact={compact} storageKey={analyzerStorageKey} playerId={playerId||''} playerName={playerName||''} stat={activeStat} scope={activeScope} side={chartSide} line={Number(lineValue)} context={gameContext} team={pageEvent.team??playerTeam} pageSample={pageSample} samplePending={sampleLoading||!!sampleError} managedEvent={pageEvent} onShare={shareCurrentAnalysisUrl} quotes={currentPrices} book={selectedBook} />}
         </div>
         {/* FILTROS GLOBALES — panel lateral limpio */}
@@ -1426,7 +1443,7 @@ export default function PlayerChartContainer({
               {chartOpponent&&chartOpponent!==pageEvent.opponent&&<span>La defensa de este panel usa el rival del historial.</span>}
             </div>
             <DefenseContextCard profile={activeStat==="pts"&&isFullScope&&selection.valid>=5&&minutesValues.length>=5&&selection.average!==null?{playerId:Number(playerId),points:selection.average,minutes:Number(avgMinutes),sample:selection.valid}:undefined} state={defense} opponent={defenseOpponent} scope={activeScope} side={chartSide}/>
-            <details className="rounded-xl border border-[var(--border)] p-3"><summary className="cursor-pointer text-sm font-bold text-[var(--text)]">Filtrar histórico</summary><div className="mt-3 flex flex-col gap-3">
+            <details ref={historyFilters} className="rounded-xl border border-[var(--border)] p-3"><summary className="cursor-pointer text-sm font-bold text-[var(--text)]">Filtrar histórico</summary><div className="mt-3 flex flex-col gap-3">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[11px] font-black uppercase tracking-widest text-cyan-300">Fase</span>
               <button

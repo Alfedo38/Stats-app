@@ -38,7 +38,7 @@ function TeamBlock({ abbr, score, isLive }: { abbr: string; score?: string; isLi
   );
 }
 
-function GameCard({ game, event, showPlayerLinks }: { game: any; event: JornadaGame & {date:string};showPlayerLinks:boolean }) {
+function GameCard({ game, event, showPlayerLinks, slateDate }: { game: any; event: JornadaGame & {date:string};showPlayerLinks:boolean;slateDate?:string }) {
   const comp  = game.competitions?.[0];
   const home  = comp?.competitors?.find((c: any) => c.homeAway === "home");
   const away  = comp?.competitors?.find((c: any) => c.homeAway === "away");
@@ -51,7 +51,7 @@ function GameCard({ game, event, showPlayerLinks }: { game: any; event: JornadaG
   const context=new URLSearchParams({date:event.date});
   if(event.start)context.set("start",event.start);
   const href = `/partidos/${event.away}-${event.home}?${context}`;
-  const playersHref=`/trending?${new URLSearchParams({date:event.date,game:event.id})}`;
+  const playersHref=`/trending?${new URLSearchParams({date:slateDate??event.date,game:event.id,...(slateDate?{slate:"nba"}:{})})}`;
   const homeAbbr = canonicalTeam(home.team?.abbreviation);
   const awayAbbr = canonicalTeam(away.team?.abbreviation);
   const homeColor = getTeamColor(homeAbbr);
@@ -59,7 +59,7 @@ function GameCard({ game, event, showPlayerLinks }: { game: any; event: JornadaG
 
   // Odds from nested structure if ESPN provides it
   const odds = !isFinal ? comp?.odds?.[0] : undefined;
-  const spread = odds?.spread != null ? (Number(odds.spread) > 0 ? `+${odds.spread}` : `${odds.spread}`) : null;
+  const spread = typeof odds?.details==="string"&&/^[A-Z]{2,3}\s*[+-]\d/.test(odds.details)?odds.details:null;
   const total  = odds?.overUnder != null ? `O/U ${odds.overUnder}` : null;
 
   // Quarter/period detail
@@ -141,14 +141,15 @@ function GameCard({ game, event, showPlayerLinks }: { game: any; event: JornadaG
   );
 }
 
-export default function GameCarousel({ games, schedule, date, updatedAt, showPlayerLinks=jornadaDateAllowed(date) }: { games: any[]; schedule: JornadaGame[]|null; date:string; updatedAt?: string;showPlayerLinks?:boolean }) {
+export default function GameCarousel({ games, schedule, date, updatedAt, showPlayerLinks=jornadaDateAllowed(date),nbaSlate=false,partial=false }: { games: any[]; schedule: JornadaGame[]|null; date:string; updatedAt?: string;showPlayerLinks?:boolean;nbaSlate?:boolean;partial?:boolean }) {
   const teamFor=(game:any,side:string)=>canonicalTeam(game.competitions?.[0]?.competitors?.find((c:any)=>c.homeAway===side)?.team?.abbreviation);
   const official=schedule??[];
   const rows=official.map(event=>{
-    const matching=games.filter(game=>argentinaDate(game.date)===date&&teamFor(game,"away")===event.away&&teamFor(game,"home")===event.home);
+    const eventDate=event.eventDate??date;
+    const matching=games.filter(game=>argentinaDate(game.date)===eventDate&&teamFor(game,"away")===event.away&&teamFor(game,"home")===event.home);
     const feed=matching.length===1?matching[0]:null;
     const game={...(feed??{}),date:event.start,competitions:feed?.competitions??[{competitors:[{homeAway:"away",team:{abbreviation:event.away}},{homeAway:"home",team:{abbreviation:event.home}}]}]};
-    return {event:{...event,date},game};
+    return {event:{...event,date:eventDate},game};
   });
   const finals=official.filter(game=>game.status===3).length;
   const ref = useRef<HTMLDivElement>(null);
@@ -165,10 +166,11 @@ export default function GameCarousel({ games, schedule, date, updatedAt, showPla
         <div>
           <h3 className="text-[9px] font-black uppercase tracking-[0.3em] text-[var(--text-muted)] flex items-center gap-2">
             <Radio size={13} className="text-red-400" />
-            Cartelera · Hora ARG
+            {nbaSlate?"Jornada NBA · Hora ARG":"Cartelera · Hora ARG"}
           </h3>
           {official.length>0&&<p className="mt-1 text-xs text-[var(--text-muted)]">{finals===official.length?"Todos los partidos finalizaron":`${official.length} partidos · ${finals} finalizados`}</p>}
-          {updatedAt && <p className="mt-1 text-[8px] font-bold text-[var(--text-muted)]">Actualizado {updatedAt}</p>}
+          {nbaSlate&&<p className="mt-1 text-xs text-[var(--text-muted)]">{rows.filter(r=>r.event.date!==date).length} en la madrugada siguiente{partial?" · madrugada sin verificar":""}</p>}
+          {!nbaSlate&&updatedAt && <p className="mt-1 text-xs text-[var(--text-muted)]">Actualizado {updatedAt}</p>}
         </div>
         {rows.length > 1 && (
           <div className="flex gap-1.5">
@@ -192,7 +194,7 @@ export default function GameCarousel({ games, schedule, date, updatedAt, showPla
         className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] snap-x snap-mandatory"
       >
         {rows.length > 0 ? (
-          rows.map(({event,game}) => <GameCard key={event.id} event={event} game={game} showPlayerLinks={showPlayerLinks} />)
+          rows.map(({event,game}) => <GameCard key={event.id} event={event} game={game} showPlayerLinks={showPlayerLinks} slateDate={nbaSlate?date:undefined} />)
         ) : (
           <div className="w-full bg-[var(--surface)] border border-dashed border-[var(--border)] p-10 rounded-3xl text-center">
             <p className="text-[var(--text-muted)] text-[10px] font-black uppercase tracking-widest">

@@ -9,3 +9,10 @@
 
 .presentation[data-player-view=compact] :global([data-chart-card]){background:linear-gradient(155deg,var(--surface) 48%,var(--surface-soft));border-color:#10b98150}.sampleSummary{grid-template-columns:minmax(190px,2fr) repeat(3,minmax(0,1fr));gap:12px;background:var(--brand-soft);border:1px solid #10b98140;border-radius:14px;margin:8px 0 12px;padding:12px}.sampleSummary strong{font-size:19px}.sampleSummary strong small{display:block;margin-top:4px;color:var(--text-muted);font-size:11px}.sampleSummary p{margin:0}.selectionBar{position:relative;top:auto}
 @media(max-width:780px){.sampleSummary{grid-template-columns:repeat(3,minmax(0,1fr))}.sampleSummary>div:first-child{grid-column:1/-1;border:0}.sampleSummary strong{font-size:17px}}
+
+.sampleShortcuts {display:flex; flex-wrap:wrap; gap:3px; align-items:center; margin-top:4px;}
+.sampleShortcuts button {border:1px solid var(--border); border-radius:7px; padding:5px; font-size:.7rem; font-weight:700; color:var(--text-muted);}
+.sampleShortcuts button[aria-pressed=true] {color:var(--text); background:var(--brand-soft); border-color:var(--border-strong);}
+.selectionBar .sampleShortcuts {gap:2px;}
+.selectionBar .sampleShortcuts button {padding:4px;min-height:27px;}
+@media(min-width:1151px){.selectionBar{align-items:start;gap:9px;padding:8px 12px;}}

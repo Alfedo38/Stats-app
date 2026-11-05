@@ -15,6 +15,17 @@ export function matchupHref(away:string,home:string,date:string,start?:string,fi
  for(const key of ['season','phase','last','homeAway']){const v=filters?.get(key);if(v&&v.length<=32&&/^[\w .-]+$/.test(v))q.set(key,v);}
  return `/partidos/${away}-${home}?${q}`;
 }
+export function safeJornadaReturn(value:unknown):string|null {
+ if(typeof value!=='string'||value.length>650||!value.startsWith('/trending?')||/[\\\r\n]/.test(value))return null;
+ const u=new URL(value,'https://local.invalid'),p=u.searchParams,q=new URLSearchParams();
+ if(u.pathname!=='/trending'||u.origin!=='https://local.invalid'||!isDate(p.get('date')))return null;
+ q.set('date',p.get('date')!);
+ for(const [key,pattern] of Object.entries({game:/^\d{1,15}$/,slate:/^nba$/,market:/^[a-z0-9_]{1,12}$/,side:/^(over|under)$/,book:/^(all|betano|bet365|stake)$/,n:/^(5|10)$/,mode:/^prices$/,minimum:/^(5|10)$/,only:/^1$/,sort:/^(rate|average|minutes)$/})){
+  const v=p.get(key);if(v&&pattern.test(v))q.set(key,v);
+ }
+ const search=p.get('search')?.trim();if(search&&search.length<=100)q.set('search',search);
+ return '/trending?'+q;
+}
 export function parseGameContext(params:Pick<URLSearchParams,'get'>):GameContext|null {
  const pair=gamePair(params.get('game')),date=params.get('date');if(!pair.length||!isDate(date))return null;
  const start=validStart(params.get('start'),date);let filters:URLSearchParams|undefined;
@@ -22,7 +33,7 @@ export function parseGameContext(params:Pick<URLSearchParams,'get'>):GameContext
  if(from&&from.length<=1200&&!/[\\\r\n]/.test(from)&&from.startsWith(`/partidos/${pair.join('-')}?`)){
   const u=new URL(from,'https://local.invalid');if(u.origin==='https://local.invalid'&&u.pathname===`/partidos/${pair.join('-')}`&&u.searchParams.get('date')===date)filters=u.searchParams;
  }
- return {away:pair[0],home:pair[1],date,start,returnTo:matchupHref(pair[0],pair[1],date,start,filters)};
+ return {away:pair[0],home:pair[1],date,start,returnTo:safeJornadaReturn(from)??matchupHref(pair[0],pair[1],date,start,filters)};
 }
 export function putGameContext(params:URLSearchParams,context:GameContext|null){if(!context)return;params.set('game',`${context.away}-${context.home}`);params.set('date',context.date);if(context.start)params.set('start',context.start);params.set('from',context.returnTo);}
 export function playerGameHref(playerId:number|string,context:GameContext|null,team?:string|null){

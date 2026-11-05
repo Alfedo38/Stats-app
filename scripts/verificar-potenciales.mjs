@@ -31,7 +31,8 @@ const selection = evaluate('lib/selectionStats.ts');
 const formatters = evaluate('lib/formatters.ts');
 const react = { useEffect() {}, useMemo: f => f(), useRef: () => ({ current: null }), useState: x => [x, () => {}] };
 const recharts = Object.fromEntries(['Bar','CartesianGrid','Cell','ComposedChart','LabelList','Line','ReferenceLine','Tooltip','XAxis','YAxis'].map(x => [x, x]));
-const chart = evaluate('components/PlayerChart.tsx', { react, recharts, '@/lib/selectionStats': selection, '@/lib/trackingValues': tracking, '@/lib/formatters': formatters }, '\nmodule.exports.testTooltip=CustomTooltip;module.exports.testOverlayLabel=OverlayPointLabel;');
+const playerUtils = evaluate('lib/playerUtils.ts', {'@/lib/formatters':formatters});
+const chart = evaluate('components/PlayerChart.tsx', { react, recharts, '@/lib/selectionStats': selection, '@/lib/trackingValues': tracking, '@/lib/playerUtils':playerUtils, '@/lib/formatters': formatters }, '\nmodule.exports.testTooltip=CustomTooltip;module.exports.testOverlayLabel=OverlayPointLabel;');
 function find(tree, name) {
   if (!tree || typeof tree !== 'object') return null;
   if (tree.type === name) return tree;
@@ -80,5 +81,11 @@ check('La API y el histórico conservan tracking vacío', () => {
   const history = fs.readFileSync(path.join(root, 'lib/playerHistory.ts'), 'utf8');
   assert.ok(api.includes('potential_ast: trackingValue('));
   assert.ok(history.includes('potential_ast: trackingValue(row.potential_ast)'));
+});
+check('El gráfico distingue visitante de resultado y no reproduce una H ambigua', () => {
+ const away={...base,opponent:'UTA',home_away:'AWAY',game_result:'H',potential_ast:12};
+ const home={...base,game_id:'2',game_date:'2026-10-22',home_away:'HOME',game_result:'W',potential_ast:8};
+ const data=find(render([away,home]),'ComposedChart').props.data;
+ assert.match(data[0]._xLabel,/@ UTA$/);assert.match(data[1]._xLabel,/vs TOR · G$/);
 });
 console.log(`Potenciales: ${count} verificaciones correctas. Sin acceso a red ni base de datos.`);

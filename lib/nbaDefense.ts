@@ -9,9 +9,9 @@ export type DefenseGroup='ALL'|'G'|'F'|'C';
 export type DefenseBand='all'|'high'|'middle'|'low';
 export const DEFENSE_GROUPS:Record<DefenseGroup,string>={ALL:'Todos',G:'Bases y escoltas',F:'Aleros y ala-pívots',C:'Pívots'};
 export const DEFENSE_BANDS:Record<DefenseBand,string>={all:'Todas',high:'Permiten más · 1–10',middle:'Intermedias · 11–20',low:'Permiten menos · 21–30'};
-export type DefenseSettings={market:DefenseMarket;season:string;asOfDate:string;phase:'ALL'|'Regular Season'|'Playoffs';window:'season'|'10'|'20';opponent:string|null;position:DefenseGroup;venue?:'ALL'|'HOME'|'AWAY'};
+export type DefenseSettings={market:DefenseMarket;season:string;asOfDate:string;phase:'ALL'|'Regular Season'|'Playoffs';window:'season'|'10'|'20';opponent:string|null;position:DefenseGroup;venue?:'ALL'|'HOME'|'AWAY';previousSeason?:string};
 type Row=Record<string,any>;
-export type DefenseRank={team:string;allowed:number|null;games:number;total:number;missing:number;leagueAverage:number|null;diffPct:number|null;rank:number|null;rankedTeams:number;first:string|null;last:string|null};
+export type DefenseRank={team:string;allowed:number|null;games:number;total:number;missing:number;leagueAverage:number|null;diffPct:number|null;rank:number|null;rankedTeams:number;seasonGames?:Record<string,number>;first:string|null;last:string|null};
 export type DefenseRecent={phase?:string;priorMinutes?:number|null;priorUsage?:number|null;priorGames?:number;usageGames?:number;priorShot?:ShotProfile|null;id:string;playerId:number;name:string;team:string;position:DefenseGroup|null;date:string;minutes:number;value:number|null;baseline:number|null;venue:string|null};
 export type DefenseReport={profiles?:Record<string,PlayerComparableProfile>;ok:true;available:boolean;reason?:string;archiveId:string|null;settings:DefenseSettings;seasons:string[];through:string|null;source:string;positionSource:string;minGames:number;rankings:Record<DefenseGroup,DefenseRank[]>;recent:DefenseRecent[];recentAvailable:boolean};
 
@@ -26,6 +26,12 @@ export function defensePosition(value:unknown):DefenseGroup|null{
  const parts=p.split(/[-/]/).map(v=>v.trim()).map(v=>Object.hasOwn(words,v)?words[v]:['G','F','C'].includes(v)?v as DefenseGroup:null);
  return parts.length<=2&&parts.every(Boolean)?parts[0]:null;
 }
+// Las etiquetas mixtas entre familias no determinan el rol de ese partido.
+export function defenseReferencePosition(value:unknown):DefenseGroup|null{
+ const parts=String(value??'').trim().split(/[-/]/).map(defensePosition);
+ return parts.length<=2&&parts[0]&&parts.every(p=>p===parts[0])?parts[0]:null;
+}
+export const DEFAULT_DEFENSE_PHASE='Regular Season' as const;
 export function defenseSeason(date:string){const year=Number(date.slice(0,4))-(Number(date.slice(5,7))<10?1:0);return `${year}-${String(year+1).slice(-2)}`;}
 export function defenseSettings(raw:Record<string,unknown>,defaultDate:string):DefenseSettings|null{
  const market=defenseMarket(raw.market??'pts'),asOfDate=raw.asOfDate??defaultDate,position=defensePosition(raw.position??'ALL');
@@ -34,9 +40,12 @@ export function defenseSettings(raw:Record<string,unknown>,defaultDate:string):D
  if(typeof season!=='string'||!/^20\d{2}-\d{2}$/.test(season)||String(Number(season.slice(0,4))+1).slice(-2)!==season.slice(-2)||!['ALL','Regular Season','Playoffs'].includes(String(phase))||!['season','10','20'].includes(String(window)))return null;
  const opponent=raw.opponent===undefined||raw.opponent===null||raw.opponent===''?null:String(raw.opponent).toUpperCase();
  if(opponent&&!TEAMS.includes(opponent))return null;
+ if(raw.reference!==undefined&&raw.reference!=='season'&&raw.reference!=='two')return null;
  const venue=raw.venue;
  if(venue!==undefined&&venue!=='ALL'&&venue!=='HOME'&&venue!=='AWAY')return null;
- return {market,position,season,phase:phase as DefenseSettings['phase'],window:window as DefenseSettings['window'],asOfDate,opponent,...(venue?{venue}:{})};
+ const previous=Number(season.slice(0,4))-1;
+ const previousSeason=raw.reference==='two'?`${previous}-${String(previous+1).slice(-2)}`:undefined;
+ return {market,position,season,...(previousSeason?{previousSeason}:{}),phase:phase as DefenseSettings['phase'],window:window as DefenseSettings['window'],asOfDate,opponent,...(venue?{venue}:{})};
 }
 export function defenseValue(values:unknown,market:DefenseMarket):number|null{
  if(!values||typeof values!=='object'||Array.isArray(values))return null;
@@ -48,7 +57,7 @@ export function defenseRankings(raw:unknown,settings:DefenseSettings):Record<Def
  const source=Array.isArray(raw)?raw:[],unique=new Map<string,Row>(),conflicts=new Set<string>();
  for(const row of source){
   if(settings.venue&&settings.venue!=='ALL'&&row?.venue!==settings.venue)continue;
-  if(!row||typeof row!=='object'||!TEAMS.includes(row.team)||!isDate(row.date)||row.date>=settings.asOfDate||row.season!==settings.season||!['Regular Season','Playoffs'].includes(row.phase)||settings.phase!=='ALL'&&row.phase!==settings.phase||!/^\d{1,10}$/.test(String(row.id))||Number(row.id)<=0)continue;
+  if(!row||typeof row!=='object'||!TEAMS.includes(row.team)||!isDate(row.date)||row.date>=settings.asOfDate||(row.season!==settings.season&&row.season!==settings.previousSeason)||!['Regular Season','Playoffs'].includes(row.phase)||settings.phase!=='ALL'&&row.phase!==settings.phase||!/^\d{1,10}$/.test(String(row.id))||Number(row.id)<=0)continue;
   const k=row.team+':'+Number(row.id),normalized={...row,id:String(Number(row.id))},prior=unique.get(k);
   if(prior&&JSON.stringify(prior)!==JSON.stringify(normalized))conflicts.add(k);else unique.set(k,normalized);
  }
@@ -57,9 +66,10 @@ export function defenseRankings(raw:unknown,settings:DefenseSettings):Record<Def
   let leagueSum=0,leagueCount=0;
   const rows=TEAMS.map(team=>{
    const games=[...unique.entries()].filter(([key,r])=>!conflicts.has(key)&&r.team===team).map(([,r])=>r).sort((a,b)=>b.date.localeCompare(a.date)||Number(b.id)-Number(a.id));
-   const chosen=settings.window==='season'?games:games.slice(0,Number(settings.window)),valid=chosen.map(r=>defenseValue(r.groups?.[group],settings.market)).filter((v):v is number=>v!==null);
+   const chosen=settings.window==='season'?games:games.slice(0,Number(settings.window));
+   const seasonGames:Record<string,number>={},valid=chosen.flatMap(r=>{const v=defenseValue(r.groups?.[group],settings.market);if(v===null)return [];seasonGames[r.season]=(seasonGames[r.season]??0)+1;return [v];});
    leagueSum+=valid.reduce((s,n)=>s+n,0);leagueCount+=valid.length;
-   return {team,allowed:valid.length?valid.reduce((s,n)=>s+n,0)/valid.length:null,games:valid.length,total:chosen.length,missing:chosen.length-valid.length,leagueAverage:null,diffPct:null,rank:null,rankedTeams:0,first:chosen.at(-1)?.date??null,last:chosen[0]?.date??null} as DefenseRank;
+   return {team,allowed:valid.length?valid.reduce((s,n)=>s+n,0)/valid.length:null,games:valid.length,total:chosen.length,missing:chosen.length-valid.length,leagueAverage:null,diffPct:null,rank:null,rankedTeams:0,...(settings.previousSeason?{seasonGames}:{}),first:chosen.at(-1)?.date??null,last:chosen[0]?.date??null} as DefenseRank;
   });
   const league=leagueCount?leagueSum/leagueCount:null,eligible=rows.filter(r=>r.games>=5&&r.allowed!==null).sort((a,b)=>b.allowed!-a.allowed!||a.team.localeCompare(b.team));
   for(const row of rows){row.leagueAverage=league;row.diffPct=row.allowed!==null&&league!==null&&league>0?(row.allowed/league-1)*100:null;row.rankedTeams=eligible.length;if(row.games>=5&&row.allowed!==null)row.rank=1+eligible.filter(r=>r.allowed!>row.allowed!+1e-8).length;}
@@ -80,7 +90,7 @@ export function recentDefenders(raw:unknown,settings:DefenseSettings):DefenseRec
  const unique=new Map<string,DefenseRecent>(),conflicts=new Set<string>();
  for(const row of raw){
   if(settings.venue&&settings.venue!=='ALL'&&row?.venue!==(settings.venue==='HOME'?'AWAY':'HOME'))continue;
-  if(!row||row.opponent!==settings.opponent||row.season!==settings.season||!isDate(row.date)||row.date>=settings.asOfDate||!['Regular Season','Playoffs'].includes(row.phase)||settings.phase!=='ALL'&&row.phase!==settings.phase||!TEAMS.includes(row.team)||!Number.isSafeInteger(row.playerId)||row.playerId<=0||!/^\d{1,10}$/.test(String(row.id)))continue;
+  if(!row||row.opponent!==settings.opponent||(row.season!==settings.season&&row.season!==settings.previousSeason)||!isDate(row.date)||row.date>=settings.asOfDate||!['Regular Season','Playoffs'].includes(row.phase)||settings.phase!=='ALL'&&row.phase!==settings.phase||!TEAMS.includes(row.team)||!Number.isSafeInteger(row.playerId)||row.playerId<=0||!/^\d{1,10}$/.test(String(row.id)))continue;
   const position=defensePosition(row.position),minutes=finiteStat(row.minutes);if(minutes===null||minutes<15||settings.position!=='ALL'&&position!==settings.position)continue;
   const item:DefenseRecent={phase:row.phase,priorMinutes:finiteStat(row.baseline?.minutes),priorUsage:finiteStat(row.baseline?.usage),priorGames:typeof row.priorGames==='number'&&Number.isSafeInteger(row.priorGames)?row.priorGames:0,usageGames:typeof row.usageGames==='number'&&Number.isSafeInteger(row.usageGames)?row.usageGames:0,priorShot:Array.isArray(row.priorZones)?usableShotProfile(row.priorZones.slice(0,4),row.priorZones[4]):null,id:String(Number(row.id)),playerId:row.playerId,name:String(row.name).slice(0,100),team:row.team,position,date:row.date,minutes,value:defenseValue(row.values,settings.market),baseline:['pra','pr','pa','ra'].includes(settings.market)?finiteStat(row.baseline?.[settings.market]):defenseValue(row.baseline,settings.market),venue:row.venue==='HOME'||row.venue==='AWAY'?row.venue:null};
   const key=item.id+':'+item.playerId,prior=unique.get(key);if(prior&&JSON.stringify(prior)!==JSON.stringify(item))conflicts.add(key);else unique.set(key,item);

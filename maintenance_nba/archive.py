@@ -224,6 +224,8 @@ def _export_with_rebounds(upload=False):
     from .rebound_history import enrich_archive as enrich_rebounds
     enrich_rebounds(directory,manifest,load_part,save_part)
     summaries(directory,manifest,summary_data=summary_data)
+    from .rotation_pilot import archive_parts as rotation_parts
+    rotation_parts(STATE,directory,manifest,save_part,load_part)
     manifest['updated_at']=datetime.now(timezone.utc).isoformat()
     manifest['counts']={kind:sum(m['rows'] for n,m in manifest['parts'].items() if n.startswith(kind+'/')) for kind in SOURCES}
     manifest['id']=sha(canonical({k:v for k,v in manifest.items() if k not in ('id','updated_at')}))

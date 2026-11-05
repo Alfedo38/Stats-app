@@ -15,6 +15,7 @@ async function readReport(date:string):Promise<InjuryReport>{
  const games:ReportGame[]=[];
  if(schedule.status==='fulfilled'&&schedule.value.length<=80){report.calendarAvailable=true;for(const row of schedule.value){const id=String(row.nba_game_id??''),day=injuryDate(row.event_date),away=injuryTeam(row.away),home=injuryTeam(row.home);if(/^\d{1,15}$/.test(id)&&day&&away&&home&&away!==home)games.push({id,date:day,away,home,start:injuryTimestamp(row.start_utc)});}}
  else report.warnings.push('No pudimos comprobar el calendario. Los estados conservan la fecha del parte; no se asigna un partido automáticamente.');
+ report.games=games;
  if(raw.status!=='fulfilled'||raw.value.length>2000){report.warnings.push('No se pudo leer el parte médico guardado. Esto no significa que los jugadores estén disponibles.');return report;}
  report.available=true;const result=prepareInjuryItems(raw.value,games,getAllCurrentRosterPlayers(),date,nextDate,now);report.items=result.items;
  report.latestReportAt=report.items.map(p=>p.reportAt).filter((v):v is string=>v!==null).sort().at(-1)??null;report.stale=report.latestReportAt!==null&&now.getTime()-Date.parse(report.latestReportAt)>36*3600000;

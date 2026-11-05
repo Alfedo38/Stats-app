@@ -16,6 +16,7 @@ import {
 } from "recharts";
 
 import { finiteStat, selectionOutcome } from "@/lib/selectionStats";
+import {getOpponent as canonicalOpponent, getGameLocation} from "@/lib/playerUtils";
 import { trackingValue } from "@/lib/trackingValues";
 
 // potential-history-v1
@@ -71,9 +72,15 @@ function getGameResult(row: any) {
   const s = String(raw).trim().toUpperCase();
   if (s === "W" || s === "WIN") return "W";
   if (s === "L" || s === "LOSS") return "L";
-  return s.slice(0, 1);
+  return null;
 }
 
+function opponentLabel(row:any){
+  const opp=canonicalOpponent(row),raw=String(row.home_away_clean??row.home_away??'').toUpperCase();
+  const matchup=String(row.matchup_clean??row.matchup??'');
+  const location=/^(HOME|AWAY)$/.test(raw)||/@|\bvs\b/i.test(matchup)?getGameLocation(row):null;
+  return [location,opp==='---'?getOpponent(row):opp].filter(Boolean).join(' ');
+}
 function getMinutes(row: any) {
   const value = getMinutesValue(row);
   return formatMinutes(value);
@@ -105,7 +112,7 @@ function CustomTooltip({ active, payload }: any) {
     <div className="rounded-2xl border border-[#10b981]/25 bg-black/95 p-3 shadow-2xl shadow-[#10b981]/10 backdrop-blur-xl">
       <div className="flex items-center justify-between gap-3">
         <div className="text-[10px] font-black uppercase tracking-widest text-cyan-300">
-          {formatDate(row.game_date)} · vs {getOpponent(row)}
+          {formatDate(row.game_date)} · {opponentLabel(row)}
         </div>
         {getGameResult(row) && (
           <span className={`rounded-lg border px-2 py-0.5 text-[9px] font-black ${getGameResult(row) === "W" ? "border-[#10b981]/40 text-[#10b981] bg-[#10b981]/10" : "border-red-500/40 text-red-400 bg-red-500/10"}`}>
@@ -251,10 +258,10 @@ export default function PlayerChart({
             const repeatedOpponentView = uniqueOpponents.size <= 1;
             const result = getGameResult(row);
             const dateLabel = formatDate(row.game_date);
-            const opponentLabel = getOpponent(row);
+            const opponent = opponentLabel(row);
             const compactLabel = repeatedOpponentView
               ? dateLabel
-              : `${dateLabel} · ${opponentLabel}${result ? ` ${result}` : ""}`;
+              : `${dateLabel} · ${opponent}${result ? ` · ${result === "W" ? "G" : "P"}` : ""}`;
 
             return {
               ...row,

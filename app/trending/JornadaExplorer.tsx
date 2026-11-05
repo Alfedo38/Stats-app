@@ -3,11 +3,12 @@ import {useEffect,useMemo,useState} from 'react';
 import Link from 'next/link';
 import {Search,SlidersHorizontal,ArrowUpRight,Plus,Ticket,CalendarDays} from 'lucide-react';
 import {useAnalysisQuery} from '@/hooks/useAnalysisQuery';
-import {JORNADA_MARKETS,BOOK_LABELS,jornadaEvidence,bestJornadaPrice,availableLines,publishedJornadaLine,defaultLine,validJornadaLine,JORNADA_MIN_LINE,JORNADA_MAX_LINE,quoteAt,summaryFor,jornadaPlayerHref,jornadaLeg,contextFor,plusDays,type JornadaData,type JornadaMarket,type JornadaPlayer} from '@/lib/nbaJornada';
+import {JORNADA_MARKETS,BOOK_LABELS,marketIsValid,jornadaEvidence,bestJornadaPrice,availableLines,publishedJornadaLine,defaultLine,validJornadaLine,JORNADA_MIN_LINE,JORNADA_MAX_LINE,quoteAt,summaryFor,jornadaPlayerHref,jornadaLeg,contextFor,plusDays,type JornadaData,type JornadaMarket,type JornadaPlayer} from '@/lib/nbaJornada';
+import {nbaSlateDate} from '@/lib/nbaSlate';
 import {selectionSummary} from '@/lib/selectionStats';
 import {appendDraft,readDraft} from '@/lib/ticketReader/draft';
 import {getTeamColor} from '@/lib/teamColors';
-import {defenseSeason,defensePosition,rankFor,rankBand,DEFENSE_BANDS,type DefenseBand,type DefenseReport} from '@/lib/nbaDefense';
+import {defenseSeason,defenseReferencePosition,rankFor,rankBand,DEFENSE_BANDS,type DefenseBand,type DefenseReport} from '@/lib/nbaDefense';
 import styles from './jornada.module.css';
 
 const number=(v:number|null,d=1)=>v===null?'S/D':v.toLocaleString('es-AR',{minimumFractionDigits:d,maximumFractionDigits:d});
@@ -43,21 +44,24 @@ function LineInput({id,name,line,side,onChange}:{id:string;name:string;line:numb
   </label>;
 }
 type Choice={line:number|null;book:string|null};
-export default function JornadaExplorer({initialDate,initialGame="all",today=initialDate,storageKey}:{initialDate:string;initialGame?:string;today?:string;storageKey:string}){
-  const [date,setDate]=useState(initialDate),[market,setMarket]=useState<JornadaMarket>('pts');
-  const [search,setSearch]=useState(''),[gameId,setGameId]=useState(initialGame),[book,setBook]=useState('all'),[side,setSide]=useState<'over'|'under'>('over');
-  const [sample,setSample]=useState<5|10>(10),[minimum,setMinimum]=useState(0),[onlyQuotes,setOnlyQuotes]=useState(false),[sort,setSort]=useState(initialGame==='all'?'average':'rate');
+export default function JornadaExplorer({initialDate,initialGame="all",today=initialDate,storageKey,nbaSlate=false,initialFilters={}}:{initialDate:string;initialGame?:string;today?:string;storageKey:string;nbaSlate?:boolean;initialFilters?:Record<string,string>}){
+  const [date,setDate]=useState(initialDate),[market,setMarket]=useState<JornadaMarket>(marketIsValid(initialFilters.market)?initialFilters.market:'pts');
+  const [search,setSearch]=useState(initialFilters.search??''),[gameId,setGameId]=useState(initialGame),[book,setBook]=useState(initialFilters.book??'all'),[side,setSide]=useState<'over'|'under'>(initialFilters.side==='under'?'under':'over');
+  const [sample,setSample]=useState<5|10>(initialFilters.n==='5'?5:10),[minimum,setMinimum]=useState(Number(initialFilters.minimum??0)),[onlyQuotes,setOnlyQuotes]=useState(initialFilters.only==='1'),[sort,setSort]=useState(initialFilters.sort??(initialGame==='all'?'average':'rate'));
   const [choices,setChoices]=useState<Record<string,Choice>>({}),[notice,setNotice]=useState(''),[draftCount,setDraftCount]=useState(0),[busy,setBusy]=useState(false),[retry,setRetry]=useState(0);
   const [defenseBand,setDefenseBand]=useState<DefenseBand>('all');
   const [defenseSeasonChoice,setDefenseSeasonChoice]=useState<{date:string;season:string}|null>(null);
   const [visibleLimit,setVisibleLimit]=useState(40);
-  const [published,setPublished]=useState(false);
+  const [published,setPublished]=useState(initialFilters.mode==='prices');
+  const [dense,setDense]=useState(true);
   useEffect(()=>setVisibleLimit(40),[date,market,search,gameId,book,side,sample,minimum,onlyQuotes,sort,published]);
 
-  const referenceSeason=defenseSeasonChoice?.date===date?defenseSeasonChoice.season:defenseSeason(date);
-  const defenseQuery=useAnalysisQuery<DefenseReport>(`/api/nba-defense?market=${market}&asOfDate=${date}&season=${referenceSeason}&phase=Regular%20Season`);
+  const query=useAnalysisQuery<JornadaData>(`/api/nba-jornada?date=${date}&market=${market}&refresh=${retry}${nbaSlate?'&slate=nba':''}`),data=query.data;
+  const selectedGame=data?.games.find(g=>g.id===gameId);
+  const defenseDate=selectedGame?nbaSlateDate(selectedGame.start,selectedGame.eventDate??date):date;
+  const referenceSeason=defenseSeasonChoice?.date===date?defenseSeasonChoice.season:defenseSeason(defenseDate);
+  const defenseQuery=useAnalysisQuery<DefenseReport>(`/api/nba-defense?market=${market}&asOfDate=${defenseDate}&season=${referenceSeason}&phase=Regular%20Season`);
   const defense=defenseQuery.data?.available?defenseQuery.data:null;
-  const query=useAnalysisQuery<JornadaData>(`/api/nba-jornada?date=${date}&market=${market}&refresh=${retry}`),data=query.data;
   useEffect(()=>{
     const update=()=>{try{setDraftCount(readDraft(localStorage,storageKey)?.document.legs.length??0);}catch{setDraftCount(0);}};
     update();window.addEventListener('storage',update);window.addEventListener('nba-ticket-draft',update);
@@ -68,17 +72,19 @@ export default function JornadaExplorer({initialDate,initialGame="all",today=ini
     setSort(id==='all'?'average':'rate');
     setNotice('');
   }
-  const selectedGame=data?.games.find(g=>g.id===gameId);
+  const normalized=search.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+  function matchesSearch(p:JornadaPlayer){return (gameId==='all'||p.gameId===gameId)&&`${p.name} ${p.team} ${p.opponent}`.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(normalized);}
+  const searchedCount=(data?.players??[]).filter(matchesSearch).length;
+  function returnHref(){return '/trending?'+new URLSearchParams({date,game:gameId,market,side,book,n:String(sample),sort,...(search.trim()?{search:search.trim()}:{}),...(published?{mode:'prices'}:{}),...(onlyQuotes?{only:'1'}:{}),...(minimum?{minimum:String(minimum)}:{}),...(nbaSlate?{slate:'nba'}:{})});}
   function key(p:JornadaPlayer){return [date,market,side,book,p.gameId,p.id,...(published?['published']:[])].join(':');}
   function selection(p:JornadaPlayer){const choice=choices[key(p)];const line=published?publishedJornadaLine(p,book,side,choice?.line):choice?choice.line:defaultLine(p);
     return {line,book:choice?.book??(book==='all'?(published?Object.keys(BOOK_LABELS).filter(b=>quoteAt(p,b,line,side)).sort((a,b)=>quoteAt(p,b,line,side)!.price-quoteAt(p,a,line,side)!.price)[0]??null:null):book)};}
   function choose(p:JornadaPlayer,change:Partial<Choice>){setNotice('');setChoices(old=>({...old,[key(p)]:{...selection(p),...change}}));}
   const visible=useMemo(()=>{
-    const normalized=search.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
-    const rows=(data?.players??[]).filter(p=>(gameId==='all'||p.gameId===gameId)&&`${p.name} ${p.team} ${p.opponent}`.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(normalized))
+    const rows=(data?.players??[]).filter(matchesSearch)
       .map(p=>{const s=selection(p),stats=summaryFor(p,sample,s.line,side);return {p,...s,...stats};})
       .filter(row=>row.stat.valid>=Math.min(minimum,sample)&&(!(onlyQuotes||published)||(book==='all'?Object.keys(BOOK_LABELS):[book]).some(b=>quoteAt(row.p,b,row.line,side)!==null)))
-      .filter(row=>defenseBand==='all'||rankBand(rankFor(defense,row.p.opponent,defensePosition(row.p.position)))===defenseBand);
+      .filter(row=>defenseBand==='all'||rankBand(rankFor(defense,row.p.opponent,defenseReferencePosition(row.p.position)??'ALL'))===defenseBand);
     const metric=(r:typeof rows[number])=>sort==='minutes'?r.minutes.average:sort==='rate'?r.line===null?null:r.stat.rate:r.stat.average;
     return rows.sort((a,b)=>{
       if(sort==='rate'){
@@ -95,7 +101,7 @@ export default function JornadaExplorer({initialDate,initialGame="all",today=ini
     const game=data?.games.find(g=>g.id===p.gameId),s=selection(p);if(!game||s.line===null)return;
     setBusy(true);setNotice('');
     try{
-      const leg=jornadaLeg(p,game,date,market,s.line,side,s.book),href=jornadaPlayerHref(p,game,date,market,s.line,side,sample,s.book);
+      const eventDate=game.eventDate??date,leg=jornadaLeg(p,game,eventDate,market,s.line,side,s.book),href=jornadaPlayerHref(p,game,eventDate,market,s.line,side,sample,s.book,returnHref());
       const run=()=>appendDraft(localStorage,storageKey,leg,href);
       const saved=navigator.locks?await navigator.locks.request('nba-ticket-draft:'+storageKey,run):run();
       setDraftCount(saved.draft.document.legs.length);window.dispatchEvent(new Event('nba-ticket-draft'));
@@ -107,7 +113,7 @@ export default function JornadaExplorer({initialDate,initialGame="all",today=ini
     <div className={styles.quickFilters} role="group" aria-label="Modo de jornada"><button type="button" aria-pressed={!published} onClick={()=>setPublished(false)}>Explorar historial</button><button type="button" aria-pressed={published} onClick={()=>setPublished(true)}>Comparar cuotas</button></div>
     <div className={styles.topline}><p><CalendarDays size={15}/><strong>Jugadores de la jornada</strong><span>Partido completo</span></p><Link href="/analizar-ticket" className={styles.analyzer}><Ticket size={14}/> Analizador{draftCount>0?` (${draftCount})`:''}</Link></div>
     <div className={styles.filters}>
-      <label>Fecha · Argentina<input aria-label="Fecha de la jornada" type="date" min={plusDays(today,-30)} max={plusDays(today,7)} value={date} onChange={e=>{if(e.target.value){setDate(e.target.value);selectGame('all');}}}/></label>
+      <label>{nbaSlate?"Fecha de jornada NBA":"Fecha · Argentina"}<input aria-label="Fecha de la jornada" type="date" min={plusDays(today,-30)} max={plusDays(today,7)} value={date} onChange={e=>{if(e.target.value){setDate(e.target.value);selectGame('all');}}}/></label>
       <label>Mercado<select aria-label="Mercado" value={market} onChange={e=>{setMarket(e.target.value as JornadaMarket);setNotice('');}}>{Object.entries(JORNADA_MARKETS).map(([k,label])=><option key={k} value={k}>{label}</option>)}</select></label>
       <label className={styles.search}>Buscar jugador o equipo<span><Search size={15}/><input aria-label="Buscar jugador o equipo" placeholder="Nombre, equipo o rival…" maxLength={100} value={search} onChange={e=>setSearch(e.target.value)}/></span></label>
       <label>Partido<select aria-label="Partido" value={gameId} onChange={e=>selectGame(e.target.value)}><option value="all">Todos los partidos</option>{data?.games.map(g=><option key={g.id} value={g.id}>{g.away} @ {g.home}</option>)}</select></label>
@@ -116,30 +122,32 @@ export default function JornadaExplorer({initialDate,initialGame="all",today=ini
       <label>Aciertos y orden<select aria-label="Aciertos y orden" value={sample} onChange={e=>setSample(Number(e.target.value) as 5|10)}><option value={5}>Últimos 5 partidos</option><option value={10}>Últimos 10 partidos</option></select></label>
       <details className={styles.more}><summary><SlidersHorizontal size={14}/> Más filtros</summary><div><label>Mínimo con datos<select aria-label="Mínimo con datos" value={minimum} onChange={e=>setMinimum(Number(e.target.value))}><option value={0}>Sin mínimo</option><option value={5}>5 partidos</option><option value={10}>Muestra completa</option></select></label><label>Ordenar por<select aria-label="Ordenar por" value={sort} onChange={e=>setSort(e.target.value)}><option value="average">Promedio del mercado</option><option value="minutes">Minutos promedio</option><option value="rate">Acierto histórico de la línea</option></select></label><label>Temporada de defensa<select aria-label="Temporada defensiva Jornada" value={referenceSeason} onChange={e=>setDefenseSeasonChoice({date,season:e.target.value})}>{[...new Set([referenceSeason,...(defenseQuery.data?.seasons??[])])].sort().reverse().map(season=><option value={season} key={season}>{season}</option>)}</select></label><label>Defensa por posición<select aria-label="Defensa de la jornada" value={defenseBand} onChange={e=>setDefenseBand(e.target.value as DefenseBand)}>{Object.entries(DEFENSE_BANDS).map(([key,label])=><option value={key} key={key}>{label}</option>)}</select></label><label className={styles.check}><input type="checkbox" checked={onlyQuotes} onChange={e=>setOnlyQuotes(e.target.checked)}/> Solo con cuotas publicadas</label></div></details>
     </div>
-    <div className={styles.quickFilters} role="group" aria-label="Filtros rápidos de jugadores"><button type="button" aria-pressed={onlyQuotes} onClick={()=>setOnlyQuotes(v=>!v)}>Con cuotas disponibles</button><button type="button" aria-pressed={minimum>=5} onClick={()=>setMinimum(v=>v>=5?0:5)}>Al menos 5 partidos</button><span>Muestra histórica: esta temporada y la anterior</span></div>
+    <div className={styles.quickFilters} role="group" aria-label="Filtros rápidos de jugadores"><button type="button" aria-pressed={onlyQuotes} onClick={()=>setOnlyQuotes(v=>!v)}>Con cuotas disponibles</button><button type="button" aria-pressed={minimum>=5} onClick={()=>setMinimum(v=>v>=5?0:5)}>Al menos 5 partidos</button><button type="button" aria-pressed={dense} onClick={()=>setDense(v=>!v)}>Vista compacta</button><span>Muestra histórica: esta temporada y la anterior</span></div>
     <p role="status" className={styles.notice}>{notice}</p>
     {query.loading?<div className={styles.empty} role="status">Cargando partidos, jugadores y estadísticas…</div>:query.error?<div className={styles.empty} role="alert"><p>{query.error}</p><button onClick={()=>setRetry(v=>v+1)}>Reintentar</button></div>:data?<>
       {data.warnings.map(w=><p key={w} className={styles.warning} role="status">{w}</p>)}
       {defenseBand!=="all"&&<p className={styles.warning} role="status">{defenseQuery.loading?"Cargando referencia defensiva…":!defense?"La referencia defensiva no está disponible.":`Filtro por posición · ${defense.settings.season} · temporada regular · mínimo 5 PJ por equipo; requiere 30 equipos con muestra.`} <button type="button" onClick={()=>setDefenseBand("all")}>Quitar filtro defensivo</button></p>}
+      {data.games.length>0&&data.quotes==='ready'&&<p className={styles.resultbar}>{Object.entries(BOOK_LABELS).map(([key,label])=>{const found=data.players.filter(p=>(!selectedGame||p.gameId===selectedGame.id)&&availableLines(p,key,side).length).length;return <span key={key}>{label}: {found} con línea · {side==='over'?'Over':'Under'}</span>;})}</p>}
       <div className={styles.resultbar}><span>{visible.length} {visible.length===1?'jugador':'jugadores'} · {selectedGame?`${selectedGame.away} @ ${selectedGame.home}`:`${data.games.length} ${data.games.length===1?'partido':'partidos'}`}</span><span>Plantel: {shortDate(data.rosterAt.slice(0,10))}</span></div>
       {!data.games.length?<div className={styles.empty}>No hay partidos en el calendario para el {shortDate(date)}.</div>:<>
         <div className={styles.games} role="group" aria-label="Filtrar jugadores por partido">
           <button type="button" aria-pressed={gameId==='all'} onClick={()=>selectGame('all')}>Todos los partidos</button>
-          {data.games.map(g=><button type="button" key={g.id} aria-pressed={gameId===g.id} onClick={()=>selectGame(g.id)}>{g.away} @ {g.home}<span>{g.status===3?'Finalizado':g.status===2?'En juego':g.start?new Intl.DateTimeFormat('es-AR',{timeZone:'America/Argentina/Buenos_Aires',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(g.start))+' AR':'Horario S/D'}</span></button>)}
+          {data.games.map(g=><button type="button" key={g.id} aria-pressed={gameId===g.id} onClick={()=>selectGame(g.id)}>{g.away} @ {g.home}<span>{g.eventDate&&g.eventDate!==date?"Madrugada · ":""}{g.status===3?'Finalizado':g.status===2?'En juego':g.start?new Intl.DateTimeFormat('es-AR',{timeZone:'America/Argentina/Buenos_Aires',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(g.start))+' AR':'Horario S/D'}</span></button>)}
         </div>
         {selectedGame&&<div className={styles.matchFocus}>
           <div><strong>{selectedGame.away} @ {selectedGame.home} · Jugadores de ambos equipos</strong>
           {sort==='rate'&&<p>Acierto histórico L{sample} contra la línea de cada jugador. Primero, muestras de 5 o más partidos decididos.</p>}</div>
-          <Link href={contextFor(selectedGame,date).returnTo}>Comparar equipos <ArrowUpRight size={12}/></Link>
+          <Link href={contextFor(selectedGame,selectedGame.eventDate??date).returnTo}>Comparar equipos <ArrowUpRight size={12}/></Link>
         </div>}
-        {!visible.length?<div className={styles.empty}>No hay jugadores que coincidan con estos filtros.<button onClick={()=>{setSearch('');selectGame('all');setOnlyQuotes(false);setMinimum(0);setDefenseBand('all');}}>Limpiar filtros</button></div>:<div className={styles.results}>
+        {!visible.length?<div className={styles.empty}>{searchedCount>0&&(published||onlyQuotes)?`${searchedCount} ${searchedCount===1?'jugador encontrado':'jugadores encontrados'} · sin resultados con estos filtros de cuota. ${data.quotes==='ready'?'Probá otra casa, lado o mercado.':'No pudimos verificar todos los precios.'}`:'No hay jugadores que coincidan con estos filtros.'}{(published||onlyQuotes)&&<button type="button" onClick={()=>{setPublished(false);setOnlyQuotes(false);}}>Ver historial sin cuotas</button>}<button onClick={()=>{setSearch('');selectGame('all');setOnlyQuotes(false);setMinimum(0);setDefenseBand('all');}}>Limpiar filtros</button></div>:<div className={styles.results} data-dense={dense}>
+          {dense&&<div aria-hidden="true" className={styles.columnNames}><span>Jugador / rival</span><span>Línea</span><span>Evidencia reciente</span><span>Precios</span><span>Acciones</span></div>}
           {visible.slice(0,visibleLimit).map(({p,line,book:selectedBook,stat,minutes})=>{
-            const game=data.games.find(g=>g.id===p.gameId)!,href=jornadaPlayerHref(p,game,date,market,line,side,sample,selectedBook);
+            const game=data.games.find(g=>g.id===p.gameId)!,href=jornadaPlayerHref(p,game,game.eventDate??date,market,line,side,sample,selectedBook,returnHref());
             const {l5,l10,rival,rivalSource,dots,streak}=jornadaEvidence(p,line,side),best=book==='all'?bestJornadaPrice(p,line,side):null;
             const lines=availableLines(p,book,side),selectedQuote=selectedBook?quoteAt(p,selectedBook,line,side):null;
-            const defenseRow=rankFor(defense,p.opponent,defensePosition(p.position));
+            const defenseRow=rankFor(defense,p.opponent,defenseReferencePosition(p.position)??'ALL');
             return <article key={p.gameId+':'+p.id} className={styles.row}>
-              <Link className={styles.player} href={href}><span className={styles.avatar} style={{background:getTeamColor(p.team)+'18',color:getTeamColor(p.team),borderColor:getTeamColor(p.team)+'40'}}>{p.name.split(' ').map(v=>v[0]).slice(0,2).join('')}</span><span><strong>{p.name}</strong><small>{p.team} {p.team===game.away?'@':'vs.'} {p.opponent} · {p.position||'Posición S/D'}</small><small>{p.dates.length?`${shortDate(p.dates[p.dates.length-1])} – ${shortDate(p.dates[0])}`:'Sin partidos con datos'}</small><small title="1º es el que más permite a la posición; suma de sus jugadores. Referencia de temporada regular, partido completo.">Defensa {p.opponent}: {defenseRow?.rank?`${defenseRow.rank}º/${defenseRow.rankedTeams}`:"S/D"} · {defenseRow?.games??0} PJ · {referenceSeason}</small></span></Link>
+              <Link className={styles.player} href={href}><span className={styles.avatar} style={{background:getTeamColor(p.team)+'18',color:getTeamColor(p.team),borderColor:getTeamColor(p.team)+'40'}}>{p.name.split(' ').map(v=>v[0]).slice(0,2).join('')}</span><span><strong>{p.name}</strong><small>{p.team} {p.team===game.away?'@':'vs.'} {p.opponent} · {p.position||'Posición S/D'}</small><small>{p.dates.length?`${shortDate(p.dates[p.dates.length-1])} – ${shortDate(p.dates[0])}`:'Sin partidos con datos'}</small><small title="1º es el que más permite a la posición; suma de sus jugadores. Referencia de temporada regular, partido completo.">Defensa {p.opponent}: {defenseRow?.rank?`${defenseRow.rank}º/${defenseRow.rankedTeams}`:"S/D"} · {defenseRow?.games??0} PJ · {referenceSeason}{!defenseReferencePosition(p.position)?" · total equipo":""}</small></span></Link>
               {published?<label className={styles.line}>Línea publicada<select className="rounded border border-[var(--border)] bg-[var(--bg)] p-2" value={line??''} onChange={event=>choose(p,{line:Number(event.target.value),book:null})}>{lines.filter(validJornadaLine).map(l=><option key={l} value={l}>{number(l)}</option>)}</select></label>:<LineInput key={key(p)} id={`lines-${p.gameId}-${p.id}`} name={p.name} line={line} side={side} onChange={value=>choose(p,{line:value,book:book==='all'?null:book})}/> }
               <datalist id={`lines-${p.gameId}-${p.id}`}>{lines.filter(validJornadaLine).map(l=><option key={l} value={l}/>)}</datalist>
               <div className={styles.evidence}><span>Últimos {sample} · {JORNADA_MARKETS[market]}</span><strong>{!stat.valid?'Sin muestra para evaluar':line===null?'Elegí una línea':!stat.decided?'Solo empates en esta muestra':`${stat.hits} de ${stat.decided} ${side==='over'?'superaron':'quedaron por debajo de'} ${number(line)}`}</strong><small>{line!==null&&(published?"Línea publicada · ":choices[key(p)]?"Línea ajustada · ":"Línea inicial de L10 · ")}Promedio {number(stat.average)}{stat.pushes?` · ${stat.pushes} empate(s)`:''}{stat.valid<sample?` · ${stat.valid} con dato`:''}</small></div>

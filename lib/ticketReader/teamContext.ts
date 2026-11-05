@@ -1,6 +1,6 @@
 import {isDate, TEAMS, type TeamContext} from './model';
 import {seasonOf} from './analysis';
-export type ScheduledGame={id:string;home:string;away:string};
+export type ScheduledGame={id:string;home:string;away:string;start?:string};
 export type ScheduleContext={available:boolean;games:ScheduledGame[]};
 export function rosterFitsDate(eventDate:string,rosterAt:string){
  const at=rosterAt.slice(0,10);

@@ -18,16 +18,27 @@ async function load(settings:DefenseSettings,details:boolean,profilePlayer:numbe
  if(!manifest.parts[name])return {...empty,seasons,archiveId:manifest.id,reason:seasons.length?'Todavía no hay resumen defensivo para esta temporada.':'Falta publicar el resumen de defensas con el mantenimiento actualizado.'};
  const snapshot=await archivePart(name,manifest);
  if(snapshot?.format!==1||snapshot?.scope!=='FULL'||snapshot.season!==settings.season||!Array.isArray(snapshot.games)||snapshot.games.length>15000)throw Error('DEFENSE_FORMAT');
- const rankings=defenseRankings(snapshot.games,settings),dates=rankings.ALL.map(r=>r.last).filter((d):d is string=>d!==null).sort();
+ let games=snapshot.games;
+ if(settings.previousSeason){
+  const priorName='defense/'+settings.previousSeason;
+  if(!manifest.parts[priorName])return {...empty,seasons,archiveId:manifest.id,reason:'No hay dos temporadas defensivas publicadas para esta referencia.'};
+  const prior=await archivePart(priorName,manifest);
+  if(prior?.format!==1||prior?.scope!=='FULL'||prior.season!==settings.previousSeason||!Array.isArray(prior.games)||prior.games.length>15000)throw Error('DEFENSE_FORMAT');
+  games=[...prior.games,...games];
+ }
+ const rankings=defenseRankings(games,settings),dates=rankings.ALL.map(r=>r.last).filter((d):d is string=>d!==null).sort();
  let recent:DefenseReport['recent']=[],recentAvailable=false;
  if(details&&settings.opponent){
   const recentName=`defense-players/${settings.season}/${settings.opponent}`;
   if(manifest.parts[recentName]){
-   try{const rows=await archivePart(recentName,manifest);if(!Array.isArray(rows)||rows.length>30000)throw Error('DEFENSE_RECENT_LIMIT');recent=recentDefenders(rows,settings);recentAvailable=true;}catch{/* El ranking válido se conserva; la tabla indica que no pudo cargarse. */}
+   try{const rows=await archivePart(recentName,manifest);if(!Array.isArray(rows)||rows.length>30000)throw Error('DEFENSE_RECENT_LIMIT');const prev=settings.previousSeason?`defense-players/${settings.previousSeason}/${settings.opponent}`:null;
+    const extra=prev&&manifest.parts[prev]?await archivePart(prev,manifest):[];
+    if(!Array.isArray(extra)||extra.length>30000)throw Error('DEFENSE_RECENT_LIMIT');
+    recent=recentDefenders([...rows,...extra],settings);recentAvailable=true;}catch{/* El ranking válido se conserva; la tabla indica que no pudo cargarse. */}
   }
  }
  let profiles:DefenseReport['profiles'];
- if(details&&profilePlayer&&settings.opponent&&settings.market==='pts'){
+ if(details&&profilePlayer&&settings.opponent&&settings.market==='pts'&&!settings.previousSeason){
   try{
    const factsKey=`facts/${profilePlayer}`,shotKey=`shots/${profilePlayer}/${settings.season}`;
    const [facts,shots]=await Promise.all([manifest.parts[factsKey]?archivePart(factsKey,manifest):[],manifest.parts[shotKey]?archivePart(shotKey,manifest):[]]);

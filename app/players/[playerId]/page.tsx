@@ -356,7 +356,7 @@ export default async function PlayerPage(props: any) {
       <main className="min-h-screen bg-[var(--bg)] text-[var(--text)] font-sans pb-20">
         <nav data-player-nav className="border-b border-[var(--border)] bg-[var(--surface)]/95 backdrop-blur-md sticky top-0 z-50 px-6 py-4">
           <Link href={eventContext?.returnTo??"/"} className="text-[var(--text-muted)] hover:text-[#10b981] transition-colors flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
-            <ArrowLeft size={14} /> {eventContext?"Volver al partido":"Volver al Inicio"}
+            <ArrowLeft size={14} /> {eventContext?.returnTo.startsWith("/trending?")?"Volver a On Fire":eventContext?"Volver al partido":"Volver al Inicio"}
           </Link>
         </nav>
 

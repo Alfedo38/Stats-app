@@ -1,3 +1,4 @@
+import {summarizeRotation,type RotationGame} from "./nbaRotations";
 import {finiteStat,selectionSummary} from './selectionStats';
 import {getMinutesValue} from './formatters';
 import {getOpponent,getGameLocation} from './playerUtils';
@@ -48,4 +49,8 @@ export function compareAbsences(facts:Row[],teammateFacts:Row[],absenceRows:Row[
  function summarize(rows:Row[]){const dates=rows.map(r=>injuryDate(r.game_date)).filter((d):d is string=>d!==null).sort();return {games:rows.length,firstDate:dates[0]??null,lastDate:dates.at(-1)??null,gameIds:rows.map(id),selection:selectionSummary(rows.map(r=>evidenceValue(r,s.market,s.scope)),s.line,s.side),metrics:metricList(s.market).map(metric=>{const m=summarizeEvidence(rows,metric,s.scope);return {id:metric.id,label:metric.label,kind:metric.kind??'number',average:m.average,count:m.count,total:m.total,invalid:m.invalid};})};}
  const withPlayer=summarize(withRows),withoutPlayer=summarize(withoutRows),dates=selected.map(r=>injuryDate(r.full.game_date)!).sort();return {settings:s,seasons,window:{games:selected.length,firstDate:dates[0]??null,lastDate:dates.at(-1)??null,unknown,conflicts,invalidIdentities:invalid.size},withPlayer,withoutPlayer,difference:{average:withPlayer.selection.average!==null&&withoutPlayer.selection.average!==null?withoutPlayer.selection.average-withPlayer.selection.average:null,hitRatePoints:withPlayer.selection.rate!==null&&withoutPlayer.selection.rate!==null?withoutPlayer.selection.rate-withPlayer.selection.rate:null},smallSample:withPlayer.selection.decided<5||withoutPlayer.selection.decided<5};
 }
-export type AbsenceComparison=ReturnType<typeof compareAbsences> & {ok:true;archiveId:string;teammateId:number;teammateName:string;periodsAvailable:boolean;rosterAt:string};
+export function comparisonRotation(rows:RotationGame[],base:ReturnType<typeof compareAbsences>){
+ return {withPlayer:summarizeRotation(rows,base.withPlayer.gameIds,base.settings.team),
+  withoutPlayer:summarizeRotation(rows,base.withoutPlayer.gameIds,base.settings.team)};
+}
+export type AbsenceComparison=ReturnType<typeof compareAbsences> & {ok:true;archiveId:string;teammateId:number;teammateName:string;periodsAvailable:boolean;rosterAt:string;rotation?:ReturnType<typeof comparisonRotation>};

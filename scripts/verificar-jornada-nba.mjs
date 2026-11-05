@@ -194,3 +194,42 @@ await check('Comparar cuotas respeta casa, lado y línea real y conserva la casa
  assert.match(j.jornadaPlayerHref(player,game,date,'pts',21.5,'under',10,'stake'),/book=stake/);
  assert.doesNotMatch(j.jornadaPlayerHref(player,game,date,'pts',19.5,'under',10,'stake'),/book=/);
 });
+
+await check('Madrugada pertenece a la jornada NBA previa, sin cambiar fecha argentina de cuota',()=>{
+ const slate=load('./lib/nbaSlate.ts'),day='2026-11-04',next='2026-11-05';
+ const night={id:'001',away:'PHI',home:'DET',start:'2026-11-05T00:00:00.000Z',status:1};
+ const late={id:'002',away:'LAL',home:'SAC',start:'2026-11-05T03:00:00.000Z',status:1};
+ const following={...late,id:'003',start:'2026-11-06T02:00:00.000Z'};
+ const result=slate.mergeNbaSlate(day,[{date:day,games:[night]},{date:next,games:[late,following]}]);
+ assert.equal(result.length,2);assert.equal(result[1].eventDate,next);assert.equal(slate.nbaSlateDate(late.start,next),day);
+ const quote=j.jornadaQuotes([raw({event_date:next,game_norm:'LAL-SAC'})],'Jugador QA',late,next, 'pts',new Date('2026-11-04T17:00:00Z'));
+ assert.equal(quote[0]?.event_date,next);
+ assert.equal(j.jornadaQuotes([raw({event_date:day,game_norm:'LAL-SAC'})],'Jugador QA',late,next,'pts',new Date('2026-11-04T17:00:00Z')).length,0);
+});
+await check('Volver a On Fire conserva filtros y rechaza redirecciones externas',()=>{
+ const nav=load('./lib/playerNavigation.ts');
+ const q=new URLSearchParams({game:'CLE-ATL',date,from:'/trending?date=2026-10-30&market=ast&mode=prices&side=under&book=stake&n=5&search=Jugador&extra=no'});
+ const back=nav.parseGameContext(q).returnTo;
+ assert.match(back,/^\/trending\?/);assert.match(back,/market=ast/);assert.match(back,/mode=prices/);assert.match(back,/side=under/);assert.doesNotMatch(back,/extra=/);
+ q.set('from','//evil.invalid');assert.match(nav.parseGameContext(q).returnTo,/^\/partidos\//);
+});
+await check('Defensa ambigua no usa primera letra y la referencia combinada respeta el corte',()=>{
+ const d=load('./lib/nbaDefense.ts');
+ assert.equal(d.defenseReferencePosition('F-G'),null);
+ assert.equal(d.defenseReferencePosition('PG-SG'),'G');
+ const query=d.defenseSettings({asOfDate:date,season:'2026-27',reference:'two'},date);
+ assert.equal(query.previousSeason,'2025-26');
+ const row=(id,season,day,value)=>({team:'CLE',id,season,date:day,phase:'Regular Season',groups:{ALL:{pts:value}}});
+ const output=d.defenseRankings([row('1','2025-26','2026-02-01',100),row('2','2026-27','2026-10-27',120),row('3','2026-27',date,300)],query).ALL.find(r=>r.team==='CLE');
+ assert.equal(output.games,2);assert.equal(output.allowed,110);
+});
+await check('51 potenciales queda en revisión, sin reemplazar un cero confirmado',()=>{
+ const e=load('./lib/marketEvidence.ts'),m=e.EVIDENCE_METRICS;
+ const flagged={game_id:'1',game_date:'2026-04-01',ast:11,potential_ast:51};
+ const verified={game_id:'2',game_date:'2026-04-02',ast:3,potential_ast:10};
+ assert.equal(e.evidenceReading(flagged,m.potential_ast).review,true);
+ assert.equal(e.evidenceReading(flagged,m.ast_conversion).value,null);
+ assert.equal(e.summarizeEvidence([flagged,verified],m.potential_ast).average,10);
+ assert.equal(e.evidenceReading({ast:0,potential_ast:0},m.potential_ast).value,0);
+});
+console.log('Jornada y calidad, total con verificaciones nuevas: '+checks.length);

@@ -6,8 +6,9 @@ import { getTeamColor } from '@/lib/teamColors';
 import { CURRENT_ROSTER_SEASON, CURRENT_ROSTER_UPDATED_AT } from '@/lib/currentRosters';
 import { argentinaDate, canonicalTeam, matchupFilters } from '@/lib/matchupFilters';
 import { getMatchupData, getMatchupSeasons, type TeamAverage } from '@/lib/matchupData';
+import {getJornadaSchedule} from '@/lib/nbaJornadaData';
 import {getInjuryReport} from '@/lib/injuryReportData';
-import {reportTimeLabel} from '@/lib/injuryReport';
+import {reportTimeLabel,nbaHistoryCutoff} from '@/lib/injuryReport';
 import MatchupFilterBar from '@/components/MatchupFilterBar';
 import {matchupHref} from '@/lib/playerNavigation';
 import MatchupPlayerTable from '@/components/MatchupPlayerTable';
@@ -65,15 +66,17 @@ export default async function MatchupPage({ params, searchParams }: { params: Pr
   const filters = matchupFilters(sp, seasons);
   const rawStart = Array.isArray(sp.start) ? sp.start[0] : sp.start;
   const start = rawStart && /^\d{4}-\d{2}-\d{2}T/.test(rawStart) && argentinaDate(rawStart) === filters.date ? rawStart : '';
-  const [data,injuryReport] = await Promise.all([getMatchupData(away, home, filters),getInjuryReport(filters.date)]);
+  const cutoff=nbaHistoryCutoff({start,date:filters.date});
+  const [data,injuryReport,schedule] = await Promise.all([getMatchupData(away, home, {...filters,date:cutoff}),getInjuryReport(filters.date),getJornadaSchedule(filters.date).catch(()=>[])]);
   const archiveSummary=archiveEnabled()?await archivePart('summaries').catch(()=>null):null;
   const restFor=(team:string)=>{
-    const prev=[...((archiveSummary?.teamDates?.[`${historySeasons(filters.date)[0]}/${team}`]??[]) as string[])].filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)&&d<filters.date).sort().at(-1);
+    const prev=[...((archiveSummary?.teamDates?.[`${historySeasons(filters.date)[0]}/${team}`]??[]) as string[])].filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)&&d<cutoff).sort().at(-1);
     if(!prev)return null;
     const days=(Date.parse(filters.date)-Date.parse(prev))/86400000-1;
     return Number.isInteger(days)&&days>=0?{days,prev}:null;
   };
   const matchInjuries=injuryReport.items.filter(p=>p.date===filters.date&&p.game?.away===away&&p.game?.home===home);
+  const scheduled=schedule.find(g=>g.away===away&&g.home===home);
   const awayData = data.teams.find(t => t.team_abbreviation === away);
   const homeData = data.teams.find(t => t.team_abbreviation === home);
   const sample = filters.last ? `Últimos ${filters.last} partidos disponibles` : 'Toda la temporada disponible';
@@ -91,10 +94,18 @@ export default async function MatchupPage({ params, searchParams }: { params: Pr
         </div>
         <div className={styles.gameDate}>{dateLabel(filters.date)}{start && ` · ${new Intl.DateTimeFormat('es-AR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Argentina/Buenos_Aires' }).format(new Date(start))} ARG`}</div>
       </header>
+      <section className={styles.context} aria-label="Previa del partido">
+        <strong>Previa rápida</strong>
+        <div className={styles.sampleGrid}>{[away,home].map(team=>{
+          const rest=restFor(team),rows=matchInjuries.filter(r=>r.team===team),key=rows.filter(r=>['OUT','DOUBTFUL','QUESTIONABLE'].includes(r.status));
+          return <div className={styles.sampleCard} key={team}><strong>{team}</strong><span>{rest?`${rest.days} día(s) de descanso`:'Descanso S/D'}</span><small>{key.length?key.slice(0,4).map(p=>`${p.name} · ${p.status}`).join(' / '):rows.length?'Sin bajas OUT, dudosas o en duda en el parte visible.':'Sin estados verificados para este partido.'}</small></div>;
+        })}</div>
+        {scheduled&&<Link className={styles.back} href={`/trending?date=${filters.date}&game=${scheduled.id}&mode=prices`}>Comparar líneas de ambos equipos →</Link>}
+      </section>
       <MatchupFilterBar path={`/partidos/${away}-${home}`} filters={filters} seasons={seasons.length ? seasons : [filters.season]} start={start} />
       <div className={styles.context}>
         <strong>Estadísticas {filters.season}</strong><span>{sample} · {filters.phase === 'ALL' ? 'Regular + playoffs' : filters.phase === 'Playoffs' ? 'Playoffs' : 'Temporada regular'}</span>
-        <p>Historial anterior al {dateLabel(filters.date)}. Si elegís una fecha pasada, se excluyen los partidos posteriores y los de ese mismo día.</p>
+        <p>Historial anterior al {dateLabel(cutoff)}. Si elegís una fecha pasada, se excluyen los partidos posteriores y los de ese mismo día.</p>
       </div>
       <div className={styles.sampleGrid}>{[away, home].map(team => {
         const stats = data.teams.find(t => t.team_abbreviation === team);

@@ -101,7 +101,7 @@ export async function getRosterPlayerAverages(team:string,season:string,date:str
   WITH latest AS (
    SELECT DISTINCT ON (player_id,game_id) player_id,game_id,game_date,team_abbreviation,min,pts,reb,ast,fg3m,fgm,fga,stl,blk,tov
    FROM public.player_game_logs
-   WHERE player_id IN (${Prisma.join(ids)}) AND season_year=${season} AND game_date < ${date}::date
+   WHERE player_id IN (${Prisma.join(ids)}) AND team_abbreviation=${team} AND season_year=${season} AND game_date < ${date}::date
     AND game_id IS NOT NULL AND min>0 AND season_type IN ('Regular Season','Playoffs')
    ORDER BY player_id,game_id,id DESC
   )

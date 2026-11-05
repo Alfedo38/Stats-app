@@ -65,17 +65,22 @@ export function evidenceValue(row:EvidenceRow,id:string,scope:PeriodScope='FULL'
   const combos:Record<string,string>={pr:'pts+reb',pa:'pts+ast',ra:'reb+ast',stl_blk:'stl+blk'};
   return combos[id]?finiteStat(periodMetricValue(row,combos[id],scope)):null;
 }
+export function potentialNeedsReview(value:unknown){
+ const n=finiteStat(value);return n!==null&&n>=40;
+}
 export function evidenceReading(row:EvidenceRow,metric:EvidenceMetric,scope:PeriodScope='FULL'){
   if(metric.numerator&&metric.denominator){
     const made=evidenceValue(row,metric.numerator,scope),attempts=evidenceValue(row,metric.denominator,scope);
-    const invalid=made!==null&&attempts!==null&&made>attempts;
-    return {value:invalid||made===null||attempts===null||attempts===0?null:made/attempts*100,invalid,zero:made===0&&attempts===0,made,attempts};
+    const review=metric.denominator==='potential_ast'&&potentialNeedsReview(attempts);
+    const invalid=review||made!==null&&attempts!==null&&made>attempts;
+    return {value:invalid||made===null||attempts===null||attempts===0?null:made/attempts*100,invalid,zero:made===0&&attempts===0,made,attempts,review};
   }
   const value=evidenceValue(row,metric.id,scope);
   const actual=({potential_ast:'ast',rebound_chances:'reb',fga:'fgm',fg3a:'fg3m',fta:'ftm'} as Record<string,string>)[metric.id]??null;
   const produced=actual?evidenceValue(row,actual,scope):null;
-  const invalid=value!==null&&produced!==null&&value<produced;
-  return {value:invalid?null:value,invalid,zero:false,made:null,attempts:null};
+  const review=metric.id==='potential_ast'&&potentialNeedsReview(value);
+  const invalid=review||value!==null&&produced!==null&&value<produced;
+  return {value:invalid?null:value,invalid,zero:false,made:null,attempts:null,review};
 }
 export function summarizeEvidence(rows:EvidenceRow[],metric:EvidenceMetric,scope:PeriodScope='FULL'){
   const ordered=evidenceRows(rows),items=ordered.map(row=>evidenceReading(row,metric,scope));
@@ -86,12 +91,13 @@ export function summarizeEvidence(rows:EvidenceRow[],metric:EvidenceMetric,scope
   const average=values.length?(ratio?numerator!/denominator!*100:values.reduce((sum,value)=>sum+value,0)/values.length):null;
   const latest=items.at(-1)?.value??null;
   return {metric,average,latest,maximum:ratio?100:values.length?Math.max(...values):null,
-    count:values.length,total:ordered.length,invalid:items.filter(item=>item.invalid).length,
+    count:values.length,total:ordered.length,invalid:items.filter(item=>item.invalid).length,review:items.filter(item=>item.review).length,
     zeroOpportunities:items.filter(item=>item.zero).length,numerator,denominator,
     latestDate:ordered.at(-1)?.game_date??null,coverage:ordered.length?values.length/ordered.length*100:null};
 }
 export function evidenceMissingText(summary:ReturnType<typeof summarizeEvidence>,scope:PeriodScope='FULL'){
   if(!summary.total)return 'Sin partidos en la muestra.';
+  if(summary.review)return `${summary.review} valor(es) de potenciales en revisión, fuera del cálculo.`;
   if(summary.count)return summary.invalid?`${summary.invalid} registro(s) inconsistente(s) excluido(s).`:'';
   if(summary.invalid)return 'Datos inconsistentes: no se calcula con esos registros.';
   if(summary.zeroOpportunities)return 'Sin oportunidades registradas para calcular la conversión.';

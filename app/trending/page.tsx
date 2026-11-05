@@ -1,3 +1,4 @@
+import {safeJornadaReturn} from "@/lib/playerNavigation";
 import {jornadaDateAllowed} from '@/lib/nbaJornada';
 import { requirePageUser } from '@/lib/auth/server';
 // app/trending/page.tsx — VERSIÓN FINAL
@@ -120,6 +121,11 @@ export default async function TrendingPage({searchParams}:{searchParams:Promise<
   const ranking=params.view==='rankings';
   const initialDate=jornadaDateAllowed(params.date)?params.date:argDate();
   const initialGame=typeof params.game==='string'&&/^\d{1,15}$/.test(params.game)?params.game:'all';
+  const raw=new URLSearchParams({date:initialDate});
+  for(const [k,v] of Object.entries(params))if(k!=="date"&&typeof v==="string"&&v.length<=100)raw.set(k,v);
+  const returnUrl=safeJornadaReturn("/trending?"+raw);
+  const initialFilters=Object.fromEntries(new URLSearchParams(returnUrl?.split("?")[1]));
+  const nbaSlate=params.slate==="nba"||(!params.date&&initialGame==="all");
   const data = ranking?await getTopPerformers():{puntos:[],rebotes:[],asistencias:[],pra:[]};
 
   const { puntos, rebotes, asistencias, pra } = data as any;
@@ -161,7 +167,7 @@ export default async function TrendingPage({searchParams}:{searchParams:Promise<
           {sections.map(s => (
             <Section key={s.title} {...s} />
           ))}
-        </div>:<JornadaExplorer key={initialDate+":"+initialGame} initialDate={initialDate} initialGame={initialGame} today={argDate()} storageKey={"moskprops-ticket-reader-v1:"+user.id}/>}
+        </div>:<JornadaExplorer key={initialDate+":"+initialGame} initialDate={initialDate} initialGame={initialGame} nbaSlate={nbaSlate} initialFilters={initialFilters} today={argDate()} storageKey={"moskprops-ticket-reader-v1:"+user.id}/>}
       </div>
     </main>
   );

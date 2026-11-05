@@ -1,11 +1,12 @@
 import 'server-only';
+import {mergeNbaSlate,nbaSlateDate} from './nbaSlate';
 import prisma from './prisma';
 import {archiveManifest,archivePart,archiveEnabled} from './nbaArchive';
 import {getCurrentRosterPlayers,CURRENT_ROSTER_UPDATED_AT} from './currentRosters';
 import {rosterFitsDate} from './ticketReader/teamContext';
 import {canonicalOddsPlayerName} from './oddsPlayerNames';
 import {oddsMarket} from './nbaOdds';
-import {normalizedGame,recentSample,extendedSample,jornadaQuotes,type JornadaData,type JornadaMarket} from './nbaJornada';
+import {normalizedGame,plusDays,recentSample,extendedSample,jornadaQuotes,type JornadaData,type JornadaMarket} from './nbaJornada';
 
 const cache=new Map<string,{until:number;value:Promise<JornadaData>}>();
 export class JornadaError extends Error {constructor(public code:string,public status:number,message:string){super(message);}}
@@ -14,6 +15,24 @@ export function getJornada(date:string,market:JornadaMarket):Promise<JornadaData
   const value=loadJornada(date,market),entry={until:Date.now()+60000,value};cache.set(key,entry);
   if(cache.size>24)cache.delete(cache.keys().next().value!);
   value.catch(()=>{if(cache.get(key)===entry)cache.delete(key);});return value;
+}
+export async function getNbaSlateSchedule(date:string){
+  const next=plusDays(date,1);
+  const [a,b]=await Promise.all([getJornadaSchedule(date),getJornadaSchedule(next).catch(()=>null)]);
+  return {games:mergeNbaSlate(date,[{date,games:a},{date:next,games:b??[]}]),partial:b===null};
+}
+export async function getNbaSlate(date:string,market:JornadaMarket):Promise<JornadaData>{
+  const next=plusDays(date,1);
+  const [a,b]=await Promise.all([getJornada(date,market),getJornada(next,market).catch(()=>null)]);
+  const games=mergeNbaSlate(date,[{date,games:a.games},{date:next,games:b?.games??[]}]);
+  const ids=(day:string)=>new Set(games.filter(g=>g.eventDate===day).map(g=>g.id));
+  const left=ids(date),right=ids(next);
+  const versionsMatch=!right.size||a.archiveId===b?.archiveId||!left.size;
+  const players=[...a.players.filter(p=>left.has(p.gameId)),...(b?.players??[]).filter(p=>right.has(p.gameId))];
+  return {...a,games,players:versionsMatch?players:players.map(p=>({...p,values:[],minutes:[],dates:[],opponents:[],rivalValues:undefined,extended:undefined,seasons:[]})),archiveId:versionsMatch?(left.size?a.archiveId:b?.archiveId??null):null,
+   history:versionsMatch&&(!left.size||a.history==='ready')&&(!right.size||b?.history==='ready')?'ready':'unavailable',
+   quotes:left.size&&a.quotes!=='ready'?a.quotes:right.size&&b?b.quotes:'ready',
+   warnings:[...new Set([...(left.size?a.warnings:[]),...(right.size?b?.warnings??[]:[]),...(b?[]:['No pudimos verificar los partidos de madrugada.']),...(versionsMatch?[]:['Cambió el archivo histórico durante la carga. Volvé a consultar la jornada.'])])]};
 }
 export async function getJornadaSchedule(date:string){
   let schedule:Record<string,unknown>[];
@@ -54,10 +73,11 @@ async function loadJornada(date:string,market:JornadaMarket):Promise<JornadaData
   for(const game of games)for(const p of roster.filter(p=>p.team_abbreviation===game.away||p.team_abbreviation===game.home)){
     const name=canonicalOddsPlayerName(p.full_name);
     const opponent=p.team_abbreviation===game.away?game.home:game.away;
-    const extended=extendedIndex===null?undefined:extendedSample(extendedIndex[String(p.player_id)],p.player_id,date,market,opponent);
-    const rivalValues=extended?extended.h2hValues.slice(0,5):rivalIndex===null?undefined:recentSample(rivalIndex[String(p.player_id)]?.[opponent],p.player_id,date,market).values.slice(0,5);
+    const cutoff=nbaSlateDate(game.start,date);
+    const extended=extendedIndex===null?undefined:extendedSample(extendedIndex[String(p.player_id)],p.player_id,cutoff,market,opponent);
+    const rivalValues=extended?extended.h2hValues.slice(0,5):rivalIndex===null?undefined:recentSample(rivalIndex[String(p.player_id)]?.[opponent],p.player_id,cutoff,market).values.slice(0,5);
     data.players.push({rivalValues,extended,id:p.player_id,name:p.full_name,team:p.team_abbreviation,opponent,position:p.position,gameId:game.id,
-      ...recentSample(summary[String(p.player_id)],p.player_id,date,market),quotes:counts.get(name)===1?jornadaQuotes(byName.get(name)??[],p.full_name,game,date,market,now):[]});
+      ...recentSample(summary[String(p.player_id)],p.player_id,cutoff,market),quotes:counts.get(name)===1?jornadaQuotes(byName.get(name)??[],p.full_name,game,date,market,now):[]});
   }
   return data;
 }

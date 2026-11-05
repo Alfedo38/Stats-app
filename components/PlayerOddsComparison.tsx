@@ -41,13 +41,13 @@ export default function PlayerOddsComparison({ rows, line, side, loading, error,
               key={book.key}
               {...(onSelectBook?{type:"button" as const,disabled:!quote||loading,onClick:()=>onSelectBook(selectedBook===book.key?null:book.key),"aria-pressed":selectedBook===book.key&&!!quote,title:"Elegir esta casa para agregar la selección"}:{})}
               style={onSelectBook&&selectedBook===book.key&&quote?{borderColor:"#10b981",boxShadow:"0 0 0 1px #10b981"}:undefined}
-              className="flex min-h-[52px] py-1 min-w-0 flex-col items-center justify-center gap-1 rounded-lg border border-[var(--border)] bg-[var(--bg)] px-2"
+              className="flex min-h-[42px] py-1 min-w-0 flex-col items-center justify-center gap-1 rounded-lg border border-[var(--border)] bg-[var(--bg)] px-2"
               aria-label={`${book.label}: ${price ? `cuota ${price}` : 'sin cuota disponible'}`}
             >
               <span className="text-[11px] font-bold leading-none text-[var(--text-muted)]">
                 {book.label}
               </span>
-              <span className={`text-xl font-black leading-none tabular-nums ${quote ? 'text-[var(--text)]' : 'text-[var(--text-soft)]'}`}>
+              <span className={`text-base font-black leading-none tabular-nums ${quote ? 'text-[var(--text)]' : 'text-[var(--text-soft)]'}`}>
                 {loading?'…':price ?? '—'}
               </span>
               {!loading&&time&&<time className="text-[10px] text-[var(--text-muted)]" dateTime={quote?.updatedAt??undefined}>{time} AR</time>}

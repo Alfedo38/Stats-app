@@ -27,7 +27,7 @@ export function assessSelection(leg:Leg,result:Result){
  const d=context?.defense,reference=d?.reference;
  if(d?.status==='ready'&&reference&&leg.scope==='FULL'&&reference.diffPct!==null&&reference.rankedTeams>=20){
   const over=leg.operator==='over'||leg.operator==='at_least',delta=reference.diffPct,aligned=over?delta>=5:delta<=-5,against=over?delta<=-5:delta>=5;
-  const text=`${context!.opponent} permite ${n(Math.abs(delta))}% ${delta>=0?'más':'menos'} que la liga a esa posición (${reference.season}, ${reference.games} PJ). Es una referencia del grupo completo.`;
+  const text=`${context!.opponent} permite ${n(Math.abs(delta))}% ${delta>=0?'más':'menos'} que la liga ${reference.position==='ALL'?'en defensa general':'a esa posición'} (${reference.season}, ${reference.games} PJ). ${reference.position==='ALL'?'Incluye todas las posiciones.':'Es una referencia del grupo completo.'}`;
   if(aligned)add(support,'DEFENSE_ALIGNED',text,'defense');else if(against)add(concerns,'DEFENSE_AGAINST',text,'defense');
  }
  if(!context)add(limitations,'CONTEXT_UNAVAILABLE','Contexto defensivo y médico no disponible para esta consulta.','coverage');

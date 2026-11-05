@@ -125,7 +125,7 @@ export default function DefensiveMatchups({ away, home, date, season, start, inj
   }
 
   return <section className={styles.shell} aria-labelledby={`defensive-matchups-${away}-${home}`}>
-    <header className={styles.heading}><div><span className={styles.eyebrow}>Prepará el enfrentamiento</span><h2 id={`defensive-matchups-${away}-${home}`}>¿Quién marca a quién?</h2><p>Explorá los cruces de ambos equipos. Podés cambiar cada asignación.</p></div>
+    <header className={styles.heading}><div><span className={styles.eyebrow}>Prepará el enfrentamiento</span><h2 id={`defensive-matchups-${away}-${home}`}>Cruces defensivos probables</h2><p>Explorá los cruces de ambos equipos. Podés cambiar cada asignación.</p></div>
       <span className={styles.saveStatus} role="status">{!hydrated ? 'Recuperando escenario…' : saved ? 'Guardado en este navegador' : 'Cambios de esta sesión'}</span>
     </header>
     <fieldset disabled={!hydrated} className={styles.fieldset}>

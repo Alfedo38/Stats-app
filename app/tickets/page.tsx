@@ -1,3 +1,5 @@
+import {getJornadaSchedule} from '@/lib/nbaJornadaData';
+import {normalizedEvent} from '@/lib/nbaOdds';
 import Link from 'next/link';
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Ticket as TicketIcon } from 'lucide-react';
 import { requirePageUser } from '@/lib/auth/server';
@@ -72,6 +74,7 @@ export default async function TicketsPage({ searchParams }: { searchParams: Prom
   const history = first(params.history) === '1';
   let tickets: Ticket[] = []; let failed = false;
   try { tickets = await getTickets(date, book || undefined, history); } catch { failed = true; }
+  const schedule=await getJornadaSchedule(date).catch(()=>null);
   const latest = new Map<string, Ticket>();
   for (const ticket of tickets) if (!latest.has(ticket.slot_key) || latest.get(ticket.slot_key)!.generation_seq < ticket.generation_seq) latest.set(ticket.slot_key, ticket);
   const current = [...latest.values()];
@@ -109,8 +112,12 @@ export default async function TicketsPage({ searchParams }: { searchParams: Prom
       const count = active.filter(t => t.result.status === status).length;
       return count ? <span key={status} data-status={status}><b>{count}</b> {({ WIN: 'ganados', LOSS: 'perdidos', PENDING: 'pendientes', REVIEW: 'en revisión', VOID: 'anulados' } as Record<string, string>)[status]}</span> : null;
     })}</div>}
+    {!!schedule?.length&&!failed&&<details className="rounded-xl border border-[var(--border)] p-3 text-sm"><summary className="cursor-pointer font-bold">Publicación por partido y casa · {schedule.length} partidos en la fecha argentina</summary><div className="mt-2 space-y-2">{schedule.map(event=>{
+      const key=normalizedEvent(event.away+'-'+event.home),rows=current.filter(t=>normalizedEvent(t.proposal.matchup)===key);
+      return <div key={event.id} className="flex flex-wrap gap-x-4 gap-y-1 border-t border-[var(--border)] pt-2"><strong>{event.away} @ {event.home}</strong>{Object.entries(BOOKS).filter(([b])=>!book||book===b).map(([b,label])=>{const seen=rows.filter(t=>t.book===b),count=seen.filter(hasPicks).length;return <span className="text-[var(--text-muted)]" key={b}>{label}: {count?`${count} publicados`:seen.length?'Sin selecciones en la publicación':'Sin publicación registrada'}</span>;})}<Link href={`/trending?date=${date}&game=${event.id}&mode=prices`}>Ver líneas →</Link></div>;
+    })}</div></details>}
     {(game||status)&&!failed&&<p className={styles.filteredCount}>{filtered.length} de {visible.length} tickets con estos filtros · <Link href={href(date)}>Limpiar filtros</Link></p>}
-    {failed ? <div className={styles.empty}><TicketIcon size={25} /><h2>Tickets no disponibles en este momento</h2></div> : games.length === 0 ? <div className={styles.empty}><TicketIcon size={25} /><h2>{visible.length?"Ningún ticket coincide con estos filtros":"Sin tickets publicados para esta jornada"}</h2><p>Este contador incluye partidos con selecciones publicadas.</p><Link href={`/?date=${date}`}>Ver partidos programados →</Link></div> : <div className={styles.games}>{games.map(group => {
+    {failed ? <div className={styles.empty}><TicketIcon size={25} /><h2>Tickets no disponibles en este momento</h2></div> : games.length === 0 ? <div className={styles.empty}><TicketIcon size={25} /><h2>{visible.length?"Ningún ticket coincide con estos filtros":"Sin tickets publicados para esta jornada"}</h2><p>Si hay partidos programados, consultá el estado por casa arriba. La falta de publicación no indica por sí sola que falten cuotas.</p><Link href={`/?date=${date}`}>Ver partidos programados →</Link></div> : <div className={styles.games}>{games.map(group => {
       const sample = group[0];
       const unavailable = status?[]:Object.entries(BOOKS).filter(([id]) => (!book || book === id) && !group.some(t => t.book === id && latest.get(t.slot_key)?.version_id === t.version_id));
       return <section key={sample.game_key} className={styles.game}>

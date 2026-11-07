@@ -58,9 +58,9 @@ export default function Sidebar() {
     <>
       <div className="md:hidden fixed top-0 left-0 w-full h-16 bg-[var(--surface)]/95 backdrop-blur-md border-b border-[var(--border)] flex items-center justify-between px-4 z-[150]">
         <Link href="/" className="flex items-center gap-2">
-          <h1 className="text-xl font-black italic uppercase tracking-tighter text-[var(--text)]">
+          <span className="text-xl font-black italic uppercase tracking-tighter text-[var(--text)]">
             Mosk<span className="text-[#10b981]">Props</span>
-          </h1>
+          </span>
         </Link>
         <button
           onClick={() => setIsOpen(true)}
@@ -90,9 +90,9 @@ export default function Sidebar() {
               <span className="text-xs font-black italic text-[#10b981]">MP</span>
             </div>
             <div className="min-w-0 opacity-100 md:opacity-0 md:group-data-[expanded=true]:opacity-100 transition-opacity duration-200">
-              <h1 className="whitespace-nowrap text-xl font-black italic uppercase tracking-tighter text-[var(--text)]">
+              <span className="whitespace-nowrap text-xl font-black italic uppercase tracking-tighter text-[var(--text)]">
                 Mosk<span className="text-[#10b981]">Props</span>
-              </h1>
+              </span>
               <p className="text-[8px] font-black uppercase tracking-[0.28em] text-[var(--text-muted)]">Player analytics</p>
             </div>
           </Link>

@@ -1,31 +1,34 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { Moon, Sun } from "lucide-react";
 
-type Theme = "light" | "dark";
+const themeEvent = "moskprops:theme";
+const isDark = () => document.documentElement.classList.contains("dark");
+const serverIsDark = () => false;
 
-function getInitialTheme(): Theme {
-  if (typeof window === "undefined") return "light";
-  return window.localStorage.getItem("theme") === "dark" ? "dark" : "light";
+function subscribe(listener: () => void) {
+  const onStorage = (event: StorageEvent) => {
+    if (event.key !== "theme" && event.key !== null) return;
+    document.documentElement.classList.toggle("dark", event.newValue === "dark");
+    listener();
+  };
+  window.addEventListener(themeEvent, listener);
+  window.addEventListener("storage", onStorage);
+  return () => {
+    window.removeEventListener(themeEvent, listener);
+    window.removeEventListener("storage", onStorage);
+  };
 }
 
-export default function ThemeToggle({compact=false}:{compact?:boolean}) {
-  const [theme, setTheme] = useState<Theme>("light");
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    const initial = getInitialTheme();
-    document.documentElement.classList.toggle("dark", initial === "dark");
-    setTheme(initial);
-    setMounted(true);
-  }, []);
-
+export default function ThemeToggle({ compact = false }: { compact?: boolean }) {
+  const dark = useSyncExternalStore(subscribe, isDark, serverIsDark);
   const toggleTheme = () => {
-    const next: Theme = theme === "dark" ? "light" : "dark";
-    document.documentElement.classList.toggle("dark", next === "dark");
-    window.localStorage.setItem("theme", next);
-    setTheme(next);
+    const next = !isDark();
+    document.documentElement.classList.toggle("dark", next);
+    try { window.localStorage.setItem("theme", next ? "dark" : "light"); }
+    catch { /* El tema sigue funcionando durante esta visita. */ }
+    window.dispatchEvent(new Event(themeEvent));
   };
 
   return (
@@ -35,9 +38,10 @@ export default function ThemeToggle({compact=false}:{compact?:boolean}) {
       className="flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-[10px] font-black uppercase tracking-widest text-[var(--text)] transition hover:border-[#10b981]/50 hover:text-[#10b981]"
       title="Cambiar tema"
       aria-label="Cambiar tema claro u oscuro"
+      aria-pressed={dark}
     >
-      {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
-      {!compact&&<span>{mounted && theme === "dark" ? "Tema claro" : "Tema oscuro"}</span>}
+      {dark ? <Sun size={14} /> : <Moon size={14} />}
+      {!compact && <span>{dark ? "Tema claro" : "Tema oscuro"}</span>}
     </button>
   );
 }

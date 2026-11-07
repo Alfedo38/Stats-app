@@ -27,3 +27,53 @@
  .results[data-dense=true] .playerAnalysis{padding:3px 0 0;border:0}
  .results[data-dense=true] .evidence{padding:5px 8px;background:transparent}
 }
+
+.explorer { --jornada-action: #047857; }
+:global(.dark) .explorer { --jornada-action: #34d399; }
+.explorer .analyzer, .explorer .actions button,
+.explorer .playerAnalysis summary, .explorer .matchFocus a { color: var(--jornada-action); }
+.explorer .playerAnalysis summary,
+.explorer .more summary, .explorer .method summary { min-height: 32px; padding-block: 7px; }
+.explorer .playerAnalysis:not([open]) { padding-top: 2px; }
+@media (pointer: coarse) {
+  .explorer .playerAnalysis summary,
+  .explorer .more summary, .explorer .method summary,
+  .explorer .actions a, .explorer .actions button { min-height: 44px; }
+  .explorer .playerAnalysis summary, .explorer .more summary, .explorer .method summary { padding-block: 11px; }
+}
+
+/* La fila principal conserva sus cinco columnas aunque existan alternativas. */
+@media(min-width:1001px){
+ .explorer .row>.player{grid-column:1;grid-row:1}
+ .explorer .row>.line{grid-column:2;grid-row:1}
+ .explorer .row>.evidence{grid-column:3;grid-row:1}
+ .explorer .row>.prices{grid-column:4;grid-row:1}
+ .explorer .row>.actions{grid-column:5;grid-row:1}
+ .explorer .row{align-items:center;row-gap:8px}
+}
+@media(min-width:621px) and (max-width:1000px){
+ .explorer .row>.player{grid-column:1;grid-row:1}
+ .explorer .row>.line{grid-column:2;grid-row:1}
+ .explorer .row>.evidence{grid-column:3;grid-row:1}
+ .explorer .row>.prices{grid-column:1/3;grid-row:2}
+ .explorer .row>.actions{grid-column:3;grid-row:2}
+}
+@media(max-width:620px){
+ .explorer .row>.player{grid-column:1/-1;grid-row:1}
+ .explorer .row>.line{grid-column:1;grid-row:2}
+ .explorer .row>.evidence{grid-column:2;grid-row:2}
+ .explorer .row>.prices{grid-column:1/-1;grid-row:3}
+ .explorer .row>.actions{grid-column:1/-1;grid-row:4}
+}
+.explorer .prices>div{display:flex;gap:5px}
+.explorer .prices button{padding:6px 5px;min-height:46px;gap:5px;max-width:72px}
+.explorer .prices button strong{font-size:14px}
+.explorer .prices button span{font-size:10px;color:var(--text-muted)}
+.explorer .playerAnalysis{min-width:0}
+.explorer .actions a,.explorer .actions button{min-height:34px}
+@media(pointer:coarse){.explorer .actions a,.explorer .actions button{min-height:44px}}
+
+.rowDetails{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:start;gap:0 22px;min-width:0;border-top:1px solid var(--border);padding-top:2px}
+.explorer .rowDetails>.playerAnalysis{flex:0 1 auto;min-width:0;border:0;padding-top:0}
+.explorer .rowDetails>.playerAnalysis[open]{flex-basis:100%;order:1}
+.explorer .rowDetails .analysisBody{margin-top:4px}

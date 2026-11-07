@@ -16,3 +16,30 @@
 .selectionBar .sampleShortcuts {gap:2px;}
 .selectionBar .sampleShortcuts button {padding:4px;min-height:27px;}
 @media(min-width:1151px){.selectionBar{align-items:start;gap:9px;padding:8px 12px;}}
+
+.selectionBar{grid-template-columns:minmax(145px,1.2fr) minmax(135px,1fr) 152px minmax(212px,1.25fr) minmax(155px,.85fr);align-items:start;gap:12px;padding:12px}
+.selectionBar>div>span{display:block;margin-bottom:5px;font-size:11px;font-weight:650;color:var(--text-muted)}
+.selectionBar .sampleShortcuts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px;margin-top:0;min-height:36px;white-space:nowrap}
+.selectionBar .sampleShortcuts button{min-height:36px;padding:5px 4px;font-size:11px}
+.lineChoice{align-items:end;gap:8px}
+.lineChoice label{flex:0 0 72px}
+.lineChoice [role=group]{min-height:36px;flex:1}
+.lineChoice button{flex:1;padding:6px;font-size:11px}
+.barOdds{display:grid;gap:0}
+.barOdds>div{min-width:0}
+@media(max-width:1150px){
+ .selectionBar{grid-template-columns:minmax(140px,1fr) minmax(140px,1fr) minmax(152px,.8fr)}
+ .lineChoice{grid-column:1/3;justify-content:flex-start;max-width:300px}
+ .barOdds{grid-column:3}
+}
+@media(max-width:640px){
+ .selectionBar{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+ .marketChoice{grid-column:1/-1}
+ .lineChoice{grid-column:1/-1;max-width:none;justify-content:space-between}
+ .lineChoice [role=group]{flex:0 1 180px}
+ .barOdds{grid-column:1/-1}
+ .barOdds>span{display:block}
+ .selectionBar .sampleShortcuts{min-width:0;gap:2px}
+ .selectionBar .sampleShortcuts button{padding:5px 2px;font-size:10px}
+}
+@media(pointer:coarse){.selectionBar select,.selectionBar input,.selectionBar .sampleShortcuts button,.lineChoice button{min-height:44px}}

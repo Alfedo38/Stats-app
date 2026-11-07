@@ -1,5 +1,6 @@
 "use client";
 import RotationPilot from "@/components/RotationPilot";
+import SelectionLegend from './SelectionLegend';
 import PlayerSelectionBar from "@/components/PlayerSelectionBar";
 import PlayerSampleSummary from "@/components/PlayerSampleSummary";
 import PlayerLineExplorer from "@/components/PlayerLineExplorer";
@@ -1209,7 +1210,7 @@ export default function PlayerChartContainer({
     <div className="space-y-3">
       {!compact&&<FloatingPlayerIdentity playerName={playerName || "Jugador"} statLabel={activeStatLabel} scope={activeScope} />}
       {!compact&&gameContext&&<p className="text-xs font-bold text-[var(--text-muted)]">Partido: {gameContext.away} – {gameContext.home} · {gameContext.date.split('-').reverse().join('/')} · Estadísticas anteriores a esa fecha.</p>}
-      {compact?<PlayerSelectionBar market={activeStat} markets={visibleNavStats} scope={activeScope} lastN={lastN} side={chartSide} line={Number(lineValue)} step={lineInputStep} onMarket={setActiveStat} onScope={value=>setActiveScope(value as SplitScope)} onWindow={setLastN} onSide={setChartSide} onLine={setLineValue} odds={<PlayerOddsComparison movement={gameContext&&playerName?{player:playerName,date:gameContext.date,away:gameContext.away,home:gameContext.home}:undefined} selectedBook={selectedBook} onSelectBook={setSelectedBook} rows={currentPrices} line={Number(lineValue)} side={chartSide} loading={oddsLoading} error={oddsError} eventReady={!!gameContext} eventRows={eventOdds} market={activeStat} scope={activeScope} onSelectLine={value=>{setLineValue(value);setSelectedBook(null);}} onRetry={()=>setOddsRetry(n=>n+1)}/>}/>:<>
+      {compact?<PlayerSelectionBar market={activeStat} markets={visibleNavStats} scope={activeScope} lastN={lastN} side={chartSide} line={Number(lineValue)} step={1} halfLines={!usesIntegerLine(activeStat)} onMarket={setActiveStat} onScope={value=>setActiveScope(value as SplitScope)} onWindow={setLastN} onSide={setChartSide} onLine={setLineValue} odds={<PlayerOddsComparison movement={gameContext&&playerName?{player:playerName,date:gameContext.date,away:gameContext.away,home:gameContext.home}:undefined} selectedBook={selectedBook} onSelectBook={setSelectedBook} rows={currentPrices} line={Number(lineValue)} side={chartSide} loading={oddsLoading} error={oddsError} eventReady={!!gameContext} eventRows={eventOdds} market={activeStat} scope={activeScope} onSelectLine={value=>{setLineValue(value);setSelectedBook(null);}} onRetry={()=>setOddsRetry(n=>n+1)}/>}/>:<>
       {/* MENÚ DE ESTADÍSTICAS */}
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-2">
         <div className="flex flex-wrap items-center gap-1.5 max-w-full">
@@ -1425,8 +1426,9 @@ export default function PlayerChartContainer({
               <p className="text-xs text-[var(--text-muted)]">Mismos partidos · escala propia</p>
               <PlayerChart comparisonOnly data={chartStats.map(row=>({...row,comparison:secondaryValue(row,opportunityOverlay.id)}))} statKey="comparison" lineValue={0} height={215} showSeasonBreaks/>
             </section>}
-            {compact&&<><div data-graph-legend aria-label="Leyenda del gráfico"><span><b style={{background:'#10b981'}}/>Cumplió la selección</span><span><b style={{background:'#ef4444'}}/>No la cumplió</span><span><b style={{background:'#f59e0b'}}/>Empate</span></div></>}
+            {compact&&<SelectionLegend hasPush={selection.pushes>0} hasMissing={selection.missing>0}/>}
           </div>
+          <div id={`absence-comparison-${playerId}`} className="scroll-mt-20"/>
           {playerId&&<details className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3" onToggle={e=>setRotationOpen(e.currentTarget.open)}>
             <summary className="cursor-pointer text-sm font-bold">Rotaciones verificadas · partidos del gráfico</summary>
             <div className="mt-2"><RotationPilot playerId={String(playerId)} gameIds={chartStats.map(row=>row.game_id??row.id)} open={rotationOpen&&!sampleLoading&&!sampleError}/></div>

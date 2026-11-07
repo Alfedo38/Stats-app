@@ -14,7 +14,7 @@ const label=(p:number)=>p<=4?'Q'+p:'PR '+(p-4);
 export default function RotationPilot({playerId,gameIds,open}:{playerId:string;gameIds:unknown[];open:boolean}){
  const ids=[...new Set(gameIds.map(rotationGameId).filter((x):x is string=>x!==null))].slice(0,30);
  const [chosen,setChosen]=useState(''),[retry,setRetry]=useState(0);
- const q=useAnalysisQuery<Pilot>(open&&ids.length&&/^[1-9]\d{0,9}$/.test(playerId)?'/api/nba-rotations?retry='+retry:null,{playerId,gameIds:ids});
+ const q=useAnalysisQuery<Pilot>(open&&ids.length&&/^[1-9]\d{0,9}$/.test(playerId)?'/api/nba-rotaciones?retry='+retry:null,{playerId,gameIds:ids});
  const d=q.data;
  const game=d?.games.find(g=>g.gameId===chosen)??d?.games[0];
  if(!open)return null;

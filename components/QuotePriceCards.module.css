@@ -1,0 +1,12 @@
+.cards{display:flex;gap:5px;align-items:stretch;min-width:0;width:100%;max-width:216px}
+.card{box-sizing:border-box;display:flex;flex:1 1 0;min-width:0;min-height:46px;max-width:72px;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:6px 5px;border:1px solid var(--border,#26323a);border-radius:9px;background:var(--bg,#080b0d);color:var(--text,#edf5f2);font-family:inherit;line-height:1}
+.card>span{font-size:10px;font-weight:650;color:var(--text-muted,#94a3b8);white-space:nowrap}
+.card>strong{font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+button.card{cursor:pointer}
+button.card:disabled{cursor:default;color:var(--text-muted,#94a3b8)}
+.card[data-best=true]{border-color:#10b98166}
+.card[data-best=true]>strong{color:var(--success,#10b981)}
+.card[aria-pressed=true]{border-color:#10b981;box-shadow:0 0 0 1px #10b981}
+.card:focus-visible{outline:2px solid #10b981;outline-offset:3px}
+.card:not(:disabled):hover{border-color:#10b98199}
+@media(pointer:coarse){.card{min-height:48px}}

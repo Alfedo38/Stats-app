@@ -20,11 +20,15 @@ export function useAnalysisQuery<T=any>(url: string|null, body?: Record<string,u
     fetch(url,{method:encoded===null?'GET':'POST',headers:encoded===null?undefined:{'Content-Type':'application/json'},
       body:encoded,signal:controller.signal,cache:'no-store'})
       .then(async response => {
-        const data = await response.json();
-        if (!response.ok || data?.ok === false) throw new Error(data?.error || 'No se pudieron cargar los datos.');
+        const data = await response.json().catch(() => null);
+        if (response.status === 401) throw new Error('Tu sesión terminó. Volvé a iniciar sesión.');
+        if (!response.ok || data === null || data?.ok === false) {
+          throw new Error(typeof data?.error === 'string' && data.error.trim()
+            ? data.error : 'No se pudieron cargar los datos. Reintentá.');
+        }
         if (!controller.signal.aborted) setState({key,status:'ready',data,error:null});
       })
-      .catch(error => { if (!controller.signal.aborted) setState({key,status:'error',data:null,error:error?.message || 'No se pudieron cargar los datos.'}); }).finally(()=>{if(timer)clearTimeout(timer);});
+      .catch(error => { if (!controller.signal.aborted) setState({key,status:'error',data:null,error:error instanceof TypeError ? 'No se pudo conectar. Reintentá.' : error?.message || 'No se pudieron cargar los datos.'}); }).finally(()=>{if(timer)clearTimeout(timer);});
     return () => {controller.abort();if(timer)clearTimeout(timer);};
   },[key,url,encoded,timeoutMs]);
   return currentQuery(state,key);

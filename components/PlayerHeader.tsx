@@ -130,7 +130,7 @@ export default function PlayerHeader({
 
               <h1 className="font-black italic uppercase leading-none tracking-tighter">
                 <span className="text-2xl text-[var(--text)] md:text-3xl">{firstName}</span>
-                {lastName && <span className="ml-2 text-2xl md:text-3xl" style={{ color: teamColor }}>{lastName}</span>}
+                {lastName && <>{" "}<span className="text-2xl md:text-3xl" style={{ color: teamColor }}>{lastName}</span></>}
               </h1>
 
               <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -175,7 +175,7 @@ export default function PlayerHeader({
           )}
         </div>
 
-        <details className="mt-2 text-xs text-[var(--text-muted)]"><summary className="w-fit cursor-pointer font-bold">Perfil del jugador</summary>        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+        <details className="mt-2 text-xs text-[var(--text-muted)]"><summary className="qa-disclosure w-fit cursor-pointer font-bold">Perfil del jugador</summary>        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
           <BioPill icon={<Ruler size={12} />} label="Altura" value={bio?.height} accent="#22d3ee" />
           <BioPill icon={<Weight size={12} />} label="Peso" value={bio?.weight} accent="#fb923c" />
           <BioPill icon={<CalendarDays size={12} />} label="Edad" value={bio?.age ? `${bio.age} años` : null} accent="#facc15" />

@@ -259,3 +259,19 @@
     display: none !important;
   }
 }
+
+/* Controles de lectura: área clicable amplia sin añadir cajas decorativas. */
+.qa-disclosure {
+  box-sizing: border-box;
+  min-height: 32px;
+  padding-block: 7px;
+  cursor: pointer;
+}
+.qa-disclosure:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+@media (pointer: coarse) {
+  .qa-disclosure { min-height: 44px; padding-block: 12px; }
+}

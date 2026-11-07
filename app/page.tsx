@@ -3,7 +3,7 @@ import { requirePageUser } from '@/lib/auth/server';
 import Link from "next/link";
 import { Ticket, CalendarDays, ChevronLeft, ChevronRight, Users, TrendingUp, Zap, ShieldCheck } from "lucide-react";
 import { getTodayScoreboard, getTopPerformers } from "@/lib/api";
-import {getNbaSlateSchedule} from "@/lib/nbaJornadaData";
+import {getJornadaSchedule,getNbaSlateSchedule} from "@/lib/nbaJornadaData";
 import {archiveEnabled,archiveManifest} from '@/lib/nbaArchive';
 import {validDate} from "@/lib/matchupFilters";
 import GameCarousel      from "@/components/GameCarousel";
@@ -78,16 +78,18 @@ function shortDate(date: string) {
     .format(new Date(`${date}T12:00:00Z`));
 }
 
-export default async function Home(props: { searchParams?: Promise<{ date?: string }> | { date?: string } }) {
+export default async function Home(props: { searchParams?: Promise<{ date?: string; slate?: string }> | { date?: string; slate?: string } }) {
   await requirePageUser();
   const searchParams = await Promise.resolve(props.searchParams || {});
   const today = argentinaToday();
   const requestedDate = validDate(searchParams.date) || today;
+  const nbaSlate = searchParams.slate !== 'arg';
+  const dayHref = (date: string) => '/?'+new URLSearchParams({date,...(nbaSlate?{}:{slate:'arg'})});
   const previousDate = shiftDate(requestedDate, -1);
   const nextDate = shiftDate(requestedDate, 1);
   const [games, schedule, performers, manifest] = await Promise.all([
     getTodayScoreboard(requestedDate),
-    getNbaSlateSchedule(requestedDate).catch(()=>null),
+    (nbaSlate ? getNbaSlateSchedule(requestedDate) : getJornadaSchedule(requestedDate).then(games=>({games,partial:false}))).catch(()=>null),
     getTopPerformers(),
     archiveEnabled()?archiveManifest().catch(()=>null):null,
   ]);
@@ -133,7 +135,7 @@ export default async function Home(props: { searchParams?: Promise<{ date?: stri
         {/* ── Cartelera del día ────────────────────────────────────────────── */}
         <section className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2">
-            <Link href={`/?date=${previousDate}`} className="inline-flex h-9 items-center gap-1 rounded-xl px-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] hover:bg-[var(--surface-soft)] hover:text-[var(--text)]">
+            <Link href={dayHref(previousDate)} className="inline-flex h-9 items-center gap-1 rounded-xl px-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] hover:bg-[var(--surface-soft)] hover:text-[var(--text)]">
               <ChevronLeft size={14} /> Anterior
             </Link>
             <div className="flex items-center gap-2 text-center">
@@ -143,18 +145,18 @@ export default async function Home(props: { searchParams?: Promise<{ date?: stri
                 <p className="text-xs font-black uppercase text-[var(--text)]">{shortDate(requestedDate)}</p>
               </div>
             </div>
-            <Link href={`/?date=${nextDate}`} className="inline-flex h-9 items-center gap-1 rounded-xl px-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] hover:bg-[var(--surface-soft)] hover:text-[var(--text)]">
+            <Link href={dayHref(nextDate)} className="inline-flex h-9 items-center gap-1 rounded-xl px-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] hover:bg-[var(--surface-soft)] hover:text-[var(--text)]">
               Siguiente <ChevronRight size={14} />
             </Link>
           </div>
           {manifest?.updated_at&&Number.isFinite(Date.parse(manifest.updated_at))&&<p className="px-1 text-xs text-[var(--text-muted)]">Archivo histórico generado: {new Date(manifest.updated_at).toLocaleString("es-AR",{timeZone:"America/Argentina/Buenos_Aires"})} AR</p>}
-          <GameCarousel games={games} schedule={schedule?.games??null} date={requestedDate} nbaSlate partial={schedule?.partial} />
+          <GameCarousel games={games} schedule={schedule?.games??null} date={requestedDate} nbaSlate={nbaSlate} partial={schedule?.partial} checkedAt={Date.now()} />
         </section>
 
         <RecentPlayers />
 
         {/* ── Top performers ────────────────────────────────────────────────── */}
-        <details className="space-y-3 rounded-2xl border border-[var(--border)] p-3"><summary className="cursor-pointer text-sm font-bold">Rachas de liga · últimos 5 partidos</summary><TopPerformersGrid performers={performers as any} /></details>
+        <details className="space-y-3 rounded-2xl border border-[var(--border)] p-3"><summary className="qa-disclosure text-sm font-bold">Rachas de liga · últimos 5 partidos</summary><TopPerformersGrid performers={performers as any} /></details>
 
         {/* ── Quick access grid ─────────────────────────────────────────────── */}
         <section className="space-y-3">

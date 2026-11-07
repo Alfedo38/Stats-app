@@ -1,11 +1,12 @@
 // components/GameCarousel.tsx — VERSIÓN FINAL (sin logos ni imágenes)
 "use client";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Radio } from "lucide-react";
 import { getTeamColor } from "@/lib/teamColors";
 import {jornadaDateAllowed,type JornadaGame} from "@/lib/nbaJornada";
 import { argentinaDate, canonicalTeam } from "@/lib/matchupFilters";
+import { carouselArrows, gameCardStatus } from "@/lib/gameCardStatus";
 
 function formatArgTime(dateStr: string): string {
   return new Date(dateStr)
@@ -38,13 +39,13 @@ function TeamBlock({ abbr, score, isLive }: { abbr: string; score?: string; isLi
   );
 }
 
-function GameCard({ game, event, showPlayerLinks, slateDate }: { game: any; event: JornadaGame & {date:string};showPlayerLinks:boolean;slateDate?:string }) {
+function GameCard({ game, event, showPlayerLinks, slateDate, state }: { game: any; event: JornadaGame & {date:string};showPlayerLinks:boolean;slateDate?:string;state:ReturnType<typeof gameCardStatus> }) {
   const comp  = game.competitions?.[0];
   const home  = comp?.competitors?.find((c: any) => c.homeAway === "home");
   const away  = comp?.competitors?.find((c: any) => c.homeAway === "away");
-  const state = event.status===3?"post":event.status===2?"in":event.status===1?"pre":undefined;
-  const isLive = state === "in";
-  const isFinal = state === "post";
+  const isLive = state === "live";
+  const isFinal = state === "final";
+  const scoreVerified = game.status?.type?.state === (isFinal ? "post" : "in");
 
   if (!home || !away) return null;
 
@@ -88,7 +89,7 @@ function GameCard({ game, event, showPlayerLinks, slateDate }: { game: any; even
         }}
       >
         <span className="text-[8px] font-black uppercase tracking-[0.25em] text-[var(--text-muted)]">
-          {isLive?"En juego":isFinal?"Finalizado":state==="pre"?"Programado":"Estado sin confirmar"}
+          {isLive?"En juego":isFinal?"Finalizado":state==="scheduled"?"Programado":"Estado sin confirmar"}
         </span>
         <div className="flex items-center gap-1.5">
           {isLive && (
@@ -111,13 +112,13 @@ function GameCard({ game, event, showPlayerLinks, slateDate }: { game: any; even
 
       {/* Teams + scores */}
       <div className="px-4 py-4 flex flex-col gap-3 flex-1 relative z-10">
-        <TeamBlock abbr={awayAbbr} score={game.status?.type?.state===state?away.score:undefined} isLive={isLive || isFinal} />
+        <TeamBlock abbr={awayAbbr} score={scoreVerified?away.score:undefined} isLive={isLive || isFinal} />
         <div className="flex items-center gap-2">
           <div className="flex-1 h-px" style={{ background: `linear-gradient(to right, ${awayColor}40, ${homeColor}40)` }} />
           <span className="text-[8px] font-black text-[var(--text-muted)] uppercase tracking-widest shrink-0">vs</span>
           <div className="flex-1 h-px" style={{ background: `linear-gradient(to right, ${homeColor}40, transparent)` }} />
         </div>
-        <TeamBlock abbr={homeAbbr} score={game.status?.type?.state===state?home.score:undefined} isLive={isLive || isFinal} />
+        <TeamBlock abbr={homeAbbr} score={scoreVerified?home.score:undefined} isLive={isLive || isFinal} />
       </div>
 
       {/* Odds footer */}
@@ -141,7 +142,7 @@ function GameCard({ game, event, showPlayerLinks, slateDate }: { game: any; even
   );
 }
 
-export default function GameCarousel({ games, schedule, date, updatedAt, showPlayerLinks=jornadaDateAllowed(date),nbaSlate=false,partial=false }: { games: any[]; schedule: JornadaGame[]|null; date:string; updatedAt?: string;showPlayerLinks?:boolean;nbaSlate?:boolean;partial?:boolean }) {
+export default function GameCarousel({ games, schedule, date, updatedAt, showPlayerLinks=jornadaDateAllowed(date),nbaSlate=false,partial=false,checkedAt }: { games: any[]; schedule: JornadaGame[]|null; date:string; updatedAt?: string;showPlayerLinks?:boolean;nbaSlate?:boolean;partial?:boolean;checkedAt:number }) {
   const teamFor=(game:any,side:string)=>canonicalTeam(game.competitions?.[0]?.competitors?.find((c:any)=>c.homeAway===side)?.team?.abbreviation);
   const official=schedule??[];
   const rows=official.map(event=>{
@@ -149,10 +150,25 @@ export default function GameCarousel({ games, schedule, date, updatedAt, showPla
     const matching=games.filter(game=>argentinaDate(game.date)===eventDate&&teamFor(game,"away")===event.away&&teamFor(game,"home")===event.home);
     const feed=matching.length===1?matching[0]:null;
     const game={...(feed??{}),date:event.start,competitions:feed?.competitions??[{competitors:[{homeAway:"away",team:{abbreviation:event.away}},{homeAway:"home",team:{abbreviation:event.home}}]}]};
-    return {event:{...event,date:eventDate},game};
+    return {event:{...event,date:eventDate},game,state:gameCardStatus(event.status,feed?.status?.type?.state,event.start,checkedAt)};
   });
-  const finals=official.filter(game=>game.status===3).length;
+  const finals=rows.filter(row=>row.state==="final").length;
+  const unknown = rows.filter(row=>row.state==="unknown").length;
   const ref = useRef<HTMLDivElement>(null);
+  const [arrows,setArrows]=useState({previous:false,next:false});
+  const checkScroll=()=>{
+    const rail=ref.current;
+    if(rail)setArrows(carouselArrows(rail.clientWidth,rail.scrollWidth,rail.scrollLeft));
+  };
+  useEffect(()=>{
+    const rail=ref.current;
+    if(!rail)return;
+    checkScroll();
+    const observer=new ResizeObserver(checkScroll);
+    observer.observe(rail);
+    for(const card of rail.children)observer.observe(card);
+    return ()=>observer.disconnect();
+  },[date,rows.length]);
 
   const scroll = (dir: "left" | "right") => {
     if (!ref.current) return;
@@ -168,19 +184,20 @@ export default function GameCarousel({ games, schedule, date, updatedAt, showPla
             <Radio size={13} className="text-red-400" />
             {nbaSlate?"Jornada NBA · Hora ARG":"Cartelera · Hora ARG"}
           </h3>
-          {official.length>0&&<p className="mt-1 text-xs text-[var(--text-muted)]">{finals===official.length?"Todos los partidos finalizaron":`${official.length} partidos · ${finals} finalizados`}</p>}
+          {official.length>0&&<p className="mt-1 text-xs text-[var(--text-muted)]">{finals===official.length?"Todos los partidos finalizaron":`${official.length} partidos · ${finals} finalizados${unknown?` · ${unknown} con estado sin confirmar`:""}`}</p>}
           {nbaSlate&&<p className="mt-1 text-xs text-[var(--text-muted)]">{rows.filter(r=>r.event.date!==date).length} en la madrugada siguiente{partial?" · madrugada sin verificar":""}</p>}
           {!nbaSlate&&updatedAt && <p className="mt-1 text-xs text-[var(--text-muted)]">Actualizado {updatedAt}</p>}
         </div>
-        {rows.length > 1 && (
+        {(arrows.previous || arrows.next) && (
           <div className="flex gap-1.5">
             {(["left","right"] as const).map(d => (
               <button
                 key={d}
                 aria-label={d==="left"?"Partidos anteriores":"Más partidos"}
                 type="button"
+                disabled={d==="left"?!arrows.previous:!arrows.next}
                 onClick={() => scroll(d)}
-                className="p-1.5 bg-[var(--surface)] border border-[var(--border)] hover:bg-[var(--surface-soft)] rounded-lg text-[var(--text-muted)] hover:text-[var(--text)] transition-all"
+                className="grid h-9 w-9 place-items-center bg-[var(--surface)] border border-[var(--border)] hover:bg-[var(--surface-soft)] rounded-lg text-[var(--text-muted)] hover:text-[var(--text)] transition-all disabled:opacity-40 disabled:cursor-default"
               >
                 {d === "left" ? <ChevronLeft size={15} /> : <ChevronRight size={15} />}
               </button>
@@ -191,10 +208,11 @@ export default function GameCarousel({ games, schedule, date, updatedAt, showPla
 
       <div
         ref={ref}
+        onScroll={checkScroll}
         className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] snap-x snap-mandatory"
       >
         {rows.length > 0 ? (
-          rows.map(({event,game}) => <GameCard key={event.id} event={event} game={game} showPlayerLinks={showPlayerLinks} slateDate={nbaSlate?date:undefined} />)
+          rows.map(({event,game,state}) => <GameCard key={event.id} event={event} game={game} state={state} showPlayerLinks={showPlayerLinks} slateDate={nbaSlate?date:undefined} />)
         ) : (
           <div className="w-full bg-[var(--surface)] border border-dashed border-[var(--border)] p-10 rounded-3xl text-center">
             <p className="text-[var(--text-muted)] text-[10px] font-black uppercase tracking-widest">

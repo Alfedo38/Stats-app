@@ -95,7 +95,9 @@ export default async function TicketsPage({ searchParams }: { searchParams: Prom
     if (active.some(t => t.game_key === ticket.game_key)) continue;
     const group = withoutTickets.get(ticket.game_key) || []; group.push(ticket); withoutTickets.set(ticket.game_key, group);
   }
-  const href = (day: string) => `/tickets?date=${day}${book ? `&book=${book}` : ''}${history ? '&history=1' : ''}`;
+  const href = (day: string, clear = false) => '/tickets?' + new URLSearchParams({
+    date: day, ...(!clear && book ? {book} : {}), ...(!clear && status ? {status} : {}), ...(history ? {history:'1'} : {}),
+  });
   return <main className={styles.page}>
     <header className={styles.header}><div><div className={styles.eyebrow}><TicketIcon size={14} /> NBA</div><h1>Tickets</h1><p>{failed ? 'No pudimos cargar esta jornada.' : `${gameCount} ${gameCount === 1 ? 'partido con tickets publicados' : 'partidos con tickets publicados'} · ${active.length} ${active.length === 1 ? 'ticket' : 'tickets'}`}</p></div><RefreshTickets /></header>
     <div className={styles.toolbar}>
@@ -112,12 +114,12 @@ export default async function TicketsPage({ searchParams }: { searchParams: Prom
       const count = active.filter(t => t.result.status === status).length;
       return count ? <span key={status} data-status={status}><b>{count}</b> {({ WIN: 'ganados', LOSS: 'perdidos', PENDING: 'pendientes', REVIEW: 'en revisión', VOID: 'anulados' } as Record<string, string>)[status]}</span> : null;
     })}</div>}
-    {!!schedule?.length&&!failed&&<details className="rounded-xl border border-[var(--border)] p-3 text-sm"><summary className="cursor-pointer font-bold">Publicación por partido y casa · {schedule.length} partidos en la fecha argentina</summary><div className="mt-2 space-y-2">{schedule.map(event=>{
+    {!!schedule?.length&&!failed&&<details className="rounded-xl border border-[var(--border)] p-3 text-sm"><summary className="qa-disclosure font-bold">Publicación por partido y casa · {schedule.length} partidos en la fecha argentina</summary><div className="mt-2 space-y-2">{schedule.map(event=>{
       const key=normalizedEvent(event.away+'-'+event.home),rows=current.filter(t=>normalizedEvent(t.proposal.matchup)===key);
       return <div key={event.id} className="flex flex-wrap gap-x-4 gap-y-1 border-t border-[var(--border)] pt-2"><strong>{event.away} @ {event.home}</strong>{Object.entries(BOOKS).filter(([b])=>!book||book===b).map(([b,label])=>{const seen=rows.filter(t=>t.book===b),count=seen.filter(hasPicks).length;return <span className="text-[var(--text-muted)]" key={b}>{label}: {count?`${count} publicados`:seen.length?'Sin selecciones en la publicación':'Sin publicación registrada'}</span>;})}<Link href={`/trending?date=${date}&game=${event.id}&mode=prices`}>Ver líneas →</Link></div>;
     })}</div></details>}
-    {(game||status)&&!failed&&<p className={styles.filteredCount}>{filtered.length} de {visible.length} tickets con estos filtros · <Link href={href(date)}>Limpiar filtros</Link></p>}
-    {failed ? <div className={styles.empty}><TicketIcon size={25} /><h2>Tickets no disponibles en este momento</h2></div> : games.length === 0 ? <div className={styles.empty}><TicketIcon size={25} /><h2>{visible.length?"Ningún ticket coincide con estos filtros":"Sin tickets publicados para esta jornada"}</h2><p>Si hay partidos programados, consultá el estado por casa arriba. La falta de publicación no indica por sí sola que falten cuotas.</p><Link href={`/?date=${date}`}>Ver partidos programados →</Link></div> : <div className={styles.games}>{games.map(group => {
+    {(game||status||book)&&!failed&&<p className={styles.filteredCount}>{filtered.length} de {visible.length} tickets con estos filtros · <Link href={href(date,true)}>Limpiar filtros</Link></p>}
+    {failed ? <div className={styles.empty}><TicketIcon size={25} /><h2>Tickets no disponibles en este momento</h2></div> : games.length === 0 ? <div className={styles.empty}><TicketIcon size={25} /><h2>{visible.length?"Ningún ticket coincide con estos filtros":"Sin tickets publicados para esta jornada"}</h2><p>Si hay partidos programados, consultá el estado por casa arriba. La falta de publicación no indica por sí sola que falten cuotas.</p><Link href={`/?date=${date}&slate=arg`}>Ver cartelera de esta fecha →</Link></div> : <div className={styles.games}>{games.map(group => {
       const sample = group[0];
       const unavailable = status?[]:Object.entries(BOOKS).filter(([id]) => (!book || book === id) && !group.some(t => t.book === id && latest.get(t.slot_key)?.version_id === t.version_id));
       return <section key={sample.game_key} className={styles.game}>

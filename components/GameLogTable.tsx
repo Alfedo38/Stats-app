@@ -340,7 +340,7 @@ export default function GameLogTable({
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded bg-red-500/30" />
-                <span className="text-[8px] text-red-400 font-black uppercase">{summary.misses} fallos · {summary.pushes} empates · {summary.missing} S/D</span>
+                <span className="text-[8px] text-red-400 font-black uppercase">{summary.misses} fallos{summary.pushes>0?` · ${summary.pushes} nulas`:""}{summary.missing>0?` · ${summary.missing} S/D`:""}</span>
               </div>
             </div>
           </div>

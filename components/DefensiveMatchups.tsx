@@ -24,6 +24,7 @@ export default function DefensiveMatchups({ away, home, date, season, start, inj
   const [hydrated, setHydrated] = useState(false);
   const [saved, setSaved] = useState(false);
   const storageKey = defensiveScenarioKey(away, home, date);
+  const excludedOut = new Set(outIds.filter(id => scenario.excluded.includes(id))).size;
   const lookup = useMemo(() => new Map(averages.map(player => [player.player_id, player])), [averages]);
   const allPlayers = [...awayRoster, ...homeRoster];
 
@@ -118,7 +119,7 @@ export default function DefensiveMatchups({ away, home, date, season, start, inj
         </article>;
       })}</div>
       <details className={styles.bench}><summary>Resto del plantel disponible <span>{bench.length}</span></summary><p>Podés elegir cualquiera de estos jugadores en las filas de arriba.</p>
-        <ul>{bench.map(player => <li key={player.player_id}><Link href={`/players/${player.player_id}`}>{player.full_name}</Link><span>{player.position || '—'} · {format(lookup.get(player.player_id)?.min)} MIN</span></li>)}</ul>
+        <ul>{bench.map(player => <li key={player.player_id}><Link href={playerHref(player.player_id)}>{player.full_name}</Link><span>{player.position || '—'} · {format(lookup.get(player.player_id)?.min)} MIN</span></li>)}</ul>
         {!bench.length && <p>Todos los jugadores disponibles ya están en el quinteto de trabajo.</p>}
       </details>
     </section>;
@@ -139,7 +140,7 @@ export default function DefensiveMatchups({ away, home, date, season, start, inj
       </div>
       {scenario.excluded.length > 0 && <div className={styles.exclusions} aria-label="Jugadores excluidos">{scenario.excluded.map(id => <button type="button" key={id} onClick={() => exclude(id, false)} aria-label={`Volver a incluir a ${allPlayers.find(player => player.player_id === id)?.full_name ?? 'jugador'}`}>{allPlayers.find(player => player.player_id === id)?.full_name ?? 'Jugador'} <span aria-hidden="true">×</span></button>)}</div>}
       <p className={styles.explanation}>Quintetos de trabajo elegidos por minutos históricos. Los cruces iniciales se sugieren por posición; podés editarlos sin modificar el otro lado. Las alineaciones y marcas reales se confirman en el partido.</p>
-      <p className={styles.explanation}>{reportAvailable?`${outIds.length} bajas OUT con reporte reciente excluidas al sugerir. Podés reincorporarlas en «Excluir jugadores» para explorar otro escenario. Los estados dudosos permanecen identificados.`:'Parte no disponible: no se confirma disponibilidad de ningún jugador.'}</p>
+      <p className={styles.explanation}>{reportAvailable?`${excludedOut} de ${new Set(outIds).size} bajas confirmadas del parte reciente están excluidas de este escenario. Podés reincorporarlas para simular otro quinteto. Los estados dudosos permanecen identificados.`:'Parte no disponible: no se confirma disponibilidad de ningún jugador.'}</p>
       <div className={styles.grid}>{side('away')}{side('home')}</div>
     </fieldset>
   </section>;

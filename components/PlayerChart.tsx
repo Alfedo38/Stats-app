@@ -18,10 +18,12 @@ import {
 import { finiteStat, selectionOutcome } from "@/lib/selectionStats";
 import {getOpponent as canonicalOpponent, getGameLocation} from "@/lib/playerUtils";
 import { trackingValue } from "@/lib/trackingValues";
+import styles from "./PlayerStatistics.module.css";
 
 // potential-history-v1
 type PlayerChartProps = {
   height?:number;
+  clean?:boolean;
   comparisonOnly?:boolean;
   showSeasonBreaks?:boolean;
   data: any[];
@@ -157,11 +159,20 @@ function ValueLabel(props: any) {
       textAnchor="middle"
       fill="var(--text)"
       fontSize={10}
-      fontWeight={900}
+      fontWeight={props.clean?700:900}
     >
-      {Number.isInteger(n) ? n : n.toFixed(1)}
+      {props.clean?n.toLocaleString('es-AR',{maximumFractionDigits:1}):Number.isInteger(n) ? n : n.toFixed(1)}
     </text>
   );
+}
+
+function GameTick({x,y,payload,labels}:{x?:number;y?:number;payload?:{value?:string};labels:Map<string,{date:string;opponent:string}>}){
+  const label=labels.get(String(payload?.value));
+  if(!label||x===undefined||y===undefined)return null;
+  return <text x={x} y={y+11} textAnchor="middle" fill="var(--text-muted)" fontSize={10}>
+    <tspan x={x}>{label.date}</tspan>
+    <tspan x={x} dy={13}>{label.opponent}</tspan>
+  </text>;
 }
 
 function OverlayPointLabel(props: any) {
@@ -189,7 +200,7 @@ function OverlayPointLabel(props: any) {
 
 export default function PlayerChart({
   data,
-  height=CHART_HEIGHT,showSeasonBreaks=false,comparisonOnly=false,
+  height=CHART_HEIGHT,showSeasonBreaks=false,comparisonOnly=false,clean=false,
   statKey = "value",
   lineValue,
   overlayKey,
@@ -210,7 +221,7 @@ export default function PlayerChart({
     const measure = () => {
       const rect = el.getBoundingClientRect();
       const width = Math.floor(rect.width || el.clientWidth || FALLBACK_WIDTH);
-      setChartWidth(Math.max(320, width));
+      setChartWidth(Math.max(clean?1:320, width));
     };
 
     measure();
@@ -223,7 +234,7 @@ export default function PlayerChart({
       ro.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, [data]);
+  }, [data,clean]);
 
   const chartData = useMemo(() => {
     return Array.isArray(data)
@@ -284,11 +295,24 @@ export default function PlayerChart({
     return map;
   }, [chartData]);
 
+  const gameLabels=useMemo(()=>new Map(chartData.map(row=>[String(row._xKey),{date:formatDate(row.game_date),opponent:opponentLabel(row)}])),[chartData]);
+  const plotHeight=clean&&chartWidth<480?Math.min(height,284):height;
+  const tickInterval=Math.max(0,Math.ceil(chartData.length/Math.max(2,Math.floor((chartWidth-46)/51)))-1);
+  const chartMaximum=Math.max(1,...chartData.map(row=>row.value??0),!comparisonOnly&&Number.isFinite(lineValue)?lineValue:0);
+  const showValues=!clean||chartData.length<=Math.min(30,Math.floor((chartWidth-46)/22));
+
   const hasRows = chartData.length > 0;
   const hasRealValues = chartData.some((row) => row.value !== null);
   const hasOverlay =
     Boolean(overlayKey) &&
     chartData.some((row) => trackingValue(row._overlayValue) !== null);
+
+  if(clean&&(!hasRows||!hasRealValues)){
+    return <div className={styles.emptyChart} style={{minHeight:Math.min(height,205)}}>
+      <strong>{hasRows?'Sin datos de esta estadística':'Sin partidos en esta muestra'}</strong>
+      <span>{hasRows?'Los valores faltantes se mantienen como S/D.':'Ampliá los filtros o elegí otra muestra.'}</span>
+    </div>;
+  }
 
   if (!hasRows) {
     return (
@@ -323,14 +347,14 @@ export default function PlayerChart({
   return (
     <div
       ref={wrapRef}
-      className="w-full min-w-0 overflow-hidden relative"
-      style={{ height, minHeight: height }}
+      className={`w-full min-w-0 overflow-hidden relative ${clean?styles.chart:''}`}
+      style={{ height:plotHeight, minHeight:plotHeight }}
     >
       <ComposedChart
         width={chartWidth}
-        height={height}
+        height={plotHeight}
         data={chartData}
-        margin={{ top: 35, right: overlayAxis==="right"?64:56, left: -18, bottom: 20 }}
+        margin={clean?{top:23,right:10,left:0,bottom:3}:{top:35,right:overlayAxis==="right"?64:56,left:-18,bottom:20}}
       >
         <defs>
           <linearGradient id="mp-bar-over" x1="0" y1="0" x2="0" y2="1">
@@ -352,27 +376,28 @@ export default function PlayerChart({
           </linearGradient>
         </defs>
 
-        <CartesianGrid vertical={false} stroke="url(#mp-grid-glow)" strokeDasharray="4 6" />
+        <CartesianGrid vertical={false} stroke={clean?"var(--border)":"url(#mp-grid-glow)"} strokeDasharray={clean?"3 4":"4 6"} />
 
         <XAxis
           dataKey="_xKey"
-          interval={chartData.length > 14 ? 1 : 0}
-          angle={chartData.length > 14 ? -35 : 0}
-          textAnchor={chartData.length > 14 ? "end" : "middle"}
-          height={chartData.length > 14 ? 74 : 46}
+          interval={clean?tickInterval:chartData.length > 14 ? 1 : 0}
+          angle={!clean&&chartData.length > 14 ? -35 : 0}
+          textAnchor={!clean&&chartData.length > 14 ? "end" : "middle"}
+          height={clean?36:chartData.length > 14 ? 74 : 46}
           tickFormatter={(value) => labelByXKey.get(String(value)) ?? ""}
-          tick={{ fill: "var(--text-muted)", fontSize: 11, fontWeight: 600 }}
-          axisLine={{ stroke: "rgba(16,185,129,0.35)" }}
+          tick={clean?<GameTick labels={gameLabels}/>: {fill:"var(--text-muted)",fontSize:11,fontWeight:600}}
+          axisLine={{ stroke: clean?"var(--border)":"rgba(16,185,129,0.35)" }}
           tickLine={false}
         />
 
         <YAxis
           yAxisId="left"
-          tick={{ fill: "#34d399", fontSize: 10, fontWeight: 900 }}
+          tick={{ fill: clean?"var(--text-muted)":"#34d399", fontSize: 10, fontWeight: clean?600:900 }}
+          width={clean?34:undefined}
           axisLine={false}
           tickLine={false}
           allowDecimals={false}
-          domain={[0, "dataMax + 5"]}
+          domain={clean?[0,Math.ceil(chartMaximum*1.13)]:[0,"dataMax + 5"]}
         />
 
         {hasOverlay&&overlayAxis==="right"&&<YAxis yAxisId="right" orientation="right" tick={{fill:overlayColor,fontSize:10,fontWeight:800}} axisLine={false} tickLine={false} allowDecimals={false} domain={[0,"dataMax + 2"]}/>}
@@ -383,32 +408,32 @@ export default function PlayerChart({
           yAxisId="left"
           y={lineValue}
           stroke="var(--text)"
-          strokeWidth={2.5}
-          strokeDasharray="7 5"
+          strokeWidth={clean?1.25:2.5}
+          strokeDasharray={clean?"5 4":"7 5"}
           label={{
-            value: `Línea ${lineValue}`,
-            position: "right",
-            fill: "#10b981",
-            fontSize: 11,
-            fontWeight: 900,
+            value: clean?lineValue.toLocaleString('es-AR'):`Línea ${lineValue}`,
+            position: clean?"insideTopLeft":"right",
+            fill: clean?"var(--text)":"#10b981",
+            fontSize: clean?10:11,
+            fontWeight: clean?700:900,
           }}
         />}
 
         <Bar
           yAxisId="left"
           dataKey="value"
-          radius={[10, 10, 2, 2]}
+          radius={clean?[5,5,1,1]:[10,10,2,2]}
           maxBarSize={64}
           minPointSize={4}
           isAnimationActive={false}
         >
-          <LabelList content={<ValueLabel />} />
+          {showValues&&<LabelList content={<ValueLabel clean={clean}/>} />}
           {chartData.map((row, index) => (
             <Cell
               key={`bar-${row.game_id || row.game_date || index}`}
-              fill={comparisonOnly?"#0e7490":row._barState === "over" ? "url(#mp-bar-over)" : row._barState === "under" ? "url(#mp-bar-under)" : "url(#mp-bar-push)"}
-              stroke={comparisonOnly?"#22d3ee":row._barState === "over" ? "#6ee7b7" : row._barState === "under" ? "#fca5a5" : "#fde68a"}
-              strokeWidth={1}
+              fill={clean?comparisonOnly?"var(--chart-support)":row._barState==="over"?"var(--chart-hit)":row._barState==="under"?"var(--chart-miss)":row._barState==="push"?"var(--chart-push)":"var(--chart-support)":comparisonOnly?"#0e7490":row._barState === "over" ? "url(#mp-bar-over)" : row._barState === "under" ? "url(#mp-bar-under)" : "url(#mp-bar-push)"}
+              stroke={clean?"none":comparisonOnly?"#22d3ee":row._barState === "over" ? "#6ee7b7" : row._barState === "under" ? "#fca5a5" : "#fde68a"}
+              strokeWidth={clean?0:1}
             />
           ))}
         </Bar>

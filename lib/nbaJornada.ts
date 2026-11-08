@@ -8,6 +8,7 @@ import {getMinutesValue} from './formatters';
 import {historySeasons,twoSeasonRows} from './nbaHistoryWindow';
 import {getOpponent} from './playerUtils';
 import {gamePhase} from './nbaGameFilters';
+import {marketSupport,type MarketSupport} from './nbaMarketSupport';
 
 export const JORNADA_MARKETS = {
   pts:'Puntos', reb:'Rebotes', ast:'Asistencias', fg3m:'Triples anotados',
@@ -18,7 +19,7 @@ export type JornadaMarket = keyof typeof JORNADA_MARKETS;
 export type JornadaGame = {id:string; away:string; home:string; start:string|null; status:number|null; eventDate?:string};
 export type JornadaQuote = PriceQuote & {overCapturedAt:string|null;underCapturedAt:string|null};
 export type JornadaPlayer = {id:number; name:string; team:string; opponent:string; gameId:string; position:string|null;
-  values:(number|null)[]; minutes:(number|null)[]; dates:string[]; opponents?:(string|null)[]; rivalValues?:(number|null)[]; extended?:{season:string;seasonValues:(number|null)[];h2hValues:(number|null)[]}; seasons:string[]; quotes:JornadaQuote[]};
+  values:(number|null)[]; minutes:(number|null)[]; dates:string[]; opponents?:(string|null)[]; rivalValues?:(number|null)[]; extended?:{season:string;seasonValues:(number|null)[];h2hValues:(number|null)[]}; seasons:string[]; support?:{l5:MarketSupport;l10:MarketSupport}; quotes:JornadaQuote[]};
 export type JornadaData = {ok:true; date:string; market:JornadaMarket; generatedAt:string; rosterAt:string;
   archiveId:string|null; history:'ready'|'unavailable'; quotes:'ready'|'unavailable'|'limited';
   games:JornadaGame[]; players:JornadaPlayer[]; warnings:string[]};
@@ -40,7 +41,7 @@ export function normalizedGame(row:Record<string,unknown>,date:string):JornadaGa
 }
 type Row = Record<string,unknown>;
 function gameId(row:Row){const raw=String(row.game_id??'');return /^\d{1,15}$/.test(raw)?String(Number(raw)):null;}
-export function recentSample(rows:unknown,playerId:number,date:string,market:JornadaMarket,limit=10){
+export function recentSample(rows:unknown,playerId:number,date:string,market:JornadaMarket,limit=10,includeSupport=false){
   const fields:Record<string,string[]>={pra:['pts','reb','ast'],pr:['pts','reb'],pa:['pts','ast'],ra:['reb','ast']};
   const valid=twoSeasonRows((Array.isArray(rows)?rows:[]),date).filter((row):row is Row=>!!row&&typeof row==='object'&&!Array.isArray(row))
     .filter(r=>Number(r.player_id)===playerId&&isDate(String(r.game_date??'').slice(0,10))&&String(r.game_date).slice(0,10)<date&&gameId(r)!==null)
@@ -54,6 +55,7 @@ export function recentSample(rows:unknown,playerId:number,date:string,market:Jor
   return {values:chosen.map(r=>{const parts=(fields[market]??[market]).map(k=>finiteStat(r[k]));return parts.every(v=>v!==null)?parts.reduce<number>((s,v)=>s+v!,0):null;}),
     minutes:chosen.map(r=>getMinutesValue(r)),dates:chosen.map(r=>String(r.game_date).slice(0,10)),
     opponents:chosen.map(r=>{const t=getOpponent(r);return TEAMS.includes(t)&&t!==String(r.team_abbreviation??"").trim().toUpperCase()?t:null;}),
+    ...(includeSupport?{support:{l5:marketSupport(chosen.slice(0,5),market),l10:marketSupport(chosen.slice(0,10),market)}}:{}),
     seasons:[...new Set(chosen.map(r=>String(r.season_year??r.season??r.season_id??'')).filter(Boolean))]};
 }
 export function extendedSample(rows:unknown,playerId:number,date:string,market:JornadaMarket,opponent:string){

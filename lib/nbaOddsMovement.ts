@@ -10,11 +10,35 @@ export function parseMovement(q:URLSearchParams):MovementQuery|null {
  if(!validDate(date)||!/^[A-Z]{3}-[A-Z]{3}$/.test(game)||game!==normalizedEvent(game)||!player||player.length>120||!book||!market||!scope||(side!=='over'&&side!=='under')||line===null||line<0||line>300)return null;
  return {date,game,player,book,market,scope,side,line};
 }
+function matchingRow(row:Record<string,unknown>,query:MovementQuery){
+ return oddsBook(row.book)===query.book&&normalizedEvent(row.game_norm)===query.game&&matchesOddsPlayer(row.player_name,row.player_norm,query.player)&&
+  oddsMarket(row.stat_key)===query.market&&typeof row.period_scope==='string'&&row.period_scope.trim()!==''&&oddsScope(row.period_scope)===query.scope&&row.side===query.side&&oddsNumber(row.line)===query.line;
+}
+function capturedTime(row:Record<string,unknown>){
+ return row.at instanceof Date?row.at.getTime():Date.parse(String(row.at??''));
+}
+export type PriorPrice={status:'unverified'|'none'|'conflict'}|{status:'ready';price:number};
+export function priorPrice(rows:Record<string,unknown>[],query:MovementQuery,start:unknown,now=Date.now()):PriorPrice{
+ const cutoff=start instanceof Date?start.getTime():typeof start==='string'&&/(?:Z|[+-]\d{2}:\d{2})$/.test(start)?Date.parse(start):NaN;
+ if(!Number.isFinite(cutoff)||cutoff>now)return {status:'unverified'};
+ let latest=-Infinity;
+ const prices=new Set<number|null>();
+ for(const row of rows){
+  if(!matchingRow(row,query))continue;
+  const at=capturedTime(row);
+  if(!Number.isFinite(at)||at>=cutoff||at<latest)continue;
+  if(at>latest){latest=at;prices.clear();}
+  prices.add(decimalPrice(row.price));
+ }
+ if(!prices.size)return {status:'none'};
+ const [price]=prices;
+ return prices.size===1&&price!==null?{status:'ready',price}:{status:'conflict'};
+}
 export function movementPoints(rows:Record<string,unknown>[],query:MovementQuery,now=Date.now()){
  const byTime=new Map<string,number>(),conflicts=new Set<string>();
  for(const row of rows){
-  if(oddsBook(row.book)!==query.book||normalizedEvent(row.game_norm)!==query.game||!matchesOddsPlayer(row.player_name,row.player_norm,query.player)||oddsMarket(row.stat_key)!==query.market||oddsScope(row.period_scope)!==query.scope||row.side!==query.side||oddsNumber(row.line)!==query.line)continue;
-  const price=decimalPrice(row.price),time=row.at instanceof Date?row.at.getTime():Date.parse(String(row.at??''));
+  if(!matchingRow(row,query))continue;
+  const price=decimalPrice(row.price),time=capturedTime(row);
   if(price===null||!Number.isFinite(time)||time>now)continue;
   const at=new Date(time).toISOString(),previous=byTime.get(at);
   if(previous!==undefined&&previous!==price)conflicts.add(at);

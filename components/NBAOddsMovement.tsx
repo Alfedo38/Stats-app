@@ -2,15 +2,16 @@
 import {useState} from 'react';
 import {PRICE_BOOKS,normalizedEvent} from '@/lib/nbaOdds';
 import {useAnalysisQuery} from '@/hooks/useAnalysisQuery';
-import type {MovementPoint} from '@/lib/nbaOddsMovement';
-type Props={player:string;date:string;away:string;home:string;line:number;market:string;scope:string;side:'over'|'under';selectedBook?:string|null};
+import type {MovementPoint,PriorPrice} from '@/lib/nbaOddsMovement';
+type Props={player:string;date:string;away:string;home:string;line:number;market:string;scope:string;side:'over'|'under';selectedBook?:string|null;displayPrices?:Record<string,number|null>};
 const price=(value:number)=>value.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});
 export default function NBAOddsMovement(p:Props){
  const [open,setOpen]=useState(false),[choice,setChoice]=useState(''),[retry,setRetry]=useState(0);
  const book=choice||p.selectedBook||'stake';
  const params=new URLSearchParams({player:p.player,date:p.date,game:normalizedEvent(p.away+'-'+p.home),line:String(p.line),market:p.market,scope:p.scope,side:p.side,book,retry:String(retry)});
- const q=useAnalysisQuery<{enabled:boolean;points:MovementPoint[];limited:boolean;conflicts:number}>(open?'/api/nba-odds-movement?'+params:null,undefined,8000);
+ const q=useAnalysisQuery<{enabled:boolean;points:MovementPoint[];limited:boolean;conflicts:number;prior?:PriorPrice}>(open?'/api/nba-odds-movement?'+params:null,undefined,8000);
  const points=q.data?.points??[],first=points[0],last=points.at(-1);
+ const displayed=p.displayPrices?.[book]??null,prior=q.data?.prior;
  const low=Math.min(...points.map(p=>p.price)),high=Math.max(...points.map(p=>p.price));
  const position=(p:MovementPoint)=>[14+252*points.indexOf(p)/Math.max(1,points.length-1),64-50*(p.price-low)/Math.max(.01,high-low)] as const;
  return <details className="mt-2 max-w-72 text-xs text-[var(--text-muted)]" onToggle={e=>setOpen(e.currentTarget.open)}>
@@ -22,6 +23,13 @@ export default function NBAOddsMovement(p:Props){
    {q.loading&&<p role="status">Consultando capturas…</p>}
    {q.error&&<p role="alert">{q.error} <button type="button" className="underline" onClick={()=>setRetry(v=>v+1)}>Reintentar</button></p>}
    {q.data&&!q.data.enabled&&<p>El registro de cambios todavía no está activado.</p>}
+   {q.data?.enabled&&<>
+    <div className="grid grid-cols-2 gap-2 rounded border border-[var(--border)] p-2">
+     <div>Precio en ficha<strong className="mt-1 block text-[var(--text)]">{displayed===null?'S/D':price(displayed)}</strong></div>
+     <div>Último previo registrado<strong className="mt-1 block text-[var(--text)]">{prior?.status==='ready'?price(prior.price):'S/D'}</strong></div>
+    </div>
+    <p>{prior?.status==='ready'?'Antes del horario programado, para la misma casa, línea y condición. No es cierre oficial.':prior?.status==='conflict'?'El último registro previo tiene precios inconsistentes.':prior?.status==='none'?'No hay un registro previo al horario programado para esta selección.':'La referencia previa requiere un partido iniciado y un horario verificado.'}</p>
+   </>}
    {q.data?.enabled&&points.length<2&&<p>Todavía no hay dos precios registrados para esta línea, lado y casa.</p>}
    {points.length>=2&&last&&<>
     <p>{q.data?.limited?"Primera visible":"Primera registrada"} <strong>{price(first.price)}</strong> · Última registrada <strong>{price(last.price)}</strong></p>

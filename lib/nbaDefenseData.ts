@@ -4,12 +4,12 @@ import {playerComparableProfile} from './nbaComparableProfile';
 import {defenseRankings,recentDefenders,type DefenseSettings,type DefenseReport} from './nbaDefense';
 
 const cache=new Map<string,{until:number;value:Promise<DefenseReport>}>();
-export function getDefenseReport(settings:DefenseSettings,details=false,profilePlayer:number|null=null):Promise<DefenseReport>{
- const key=JSON.stringify([settings,details,profilePlayer]),old=cache.get(key);if(old&&old.until>Date.now())return old.value;
- const value=load(settings,details,profilePlayer),entry={until:Date.now()+60000,value};cache.set(key,entry);
+export function getDefenseReport(settings:DefenseSettings,details=false,profilePlayer:number|null=null,similarMinutes:number|null=null):Promise<DefenseReport>{
+ const key=JSON.stringify([settings,details,profilePlayer,similarMinutes]),old=cache.get(key);if(old&&old.until>Date.now())return old.value;
+ const value=load(settings,details,profilePlayer,similarMinutes),entry={until:Date.now()+60000,value};cache.set(key,entry);
  if(cache.size>48)cache.delete(cache.keys().next().value!);value.catch(()=>{if(cache.get(key)===entry)cache.delete(key);});return value;
 }
-async function load(settings:DefenseSettings,details:boolean,profilePlayer:number|null):Promise<DefenseReport>{
+async function load(settings:DefenseSettings,details:boolean,profilePlayer:number|null,similarMinutes:number|null):Promise<DefenseReport>{
  const empty:DefenseReport={ok:true,available:false,archiveId:null,settings,seasons:[],through:null,source:'Archivo NBA verificado',positionSource:'Posición de referencia del catálogo',minGames:5,rankings:{ALL:[],G:[],F:[],C:[]},recent:[],recentAvailable:false};
  if(!archiveEnabled())return {...empty,reason:'Lectura del archivo desactivada. Revisá la configuración del servidor.'};
  // Todos los objetos de esta respuesta pertenecen al mismo índice.
@@ -34,7 +34,9 @@ async function load(settings:DefenseSettings,details:boolean,profilePlayer:numbe
    try{const rows=await archivePart(recentName,manifest);if(!Array.isArray(rows)||rows.length>30000)throw Error('DEFENSE_RECENT_LIMIT');const prev=settings.previousSeason?`defense-players/${settings.previousSeason}/${settings.opponent}`:null;
     const extra=prev&&manifest.parts[prev]?await archivePart(prev,manifest):[];
     if(!Array.isArray(extra)||extra.length>30000)throw Error('DEFENSE_RECENT_LIMIT');
-    recent=recentDefenders([...rows,...extra],settings);recentAvailable=true;}catch{/* El ranking válido se conserva; la tabla indica que no pudo cargarse. */}
+    const first=settings.window==='season'?null:rankings.ALL.find(team=>team.team===settings.opponent)?.first;
+    const similar=profilePlayer&&similarMinutes!==null?{playerId:profilePlayer,minutes:similarMinutes,from:first??undefined}:undefined;
+    recent=similar&&settings.window!=='season'&&!first?[]:recentDefenders([...rows,...extra],settings,similar);recentAvailable=true;}catch{/* El ranking válido se conserva; la tabla indica que no pudo cargarse. */}
   }
  }
  let profiles:DefenseReport['profiles'];

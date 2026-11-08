@@ -232,4 +232,17 @@ await check('51 potenciales queda en revisión, sin reemplazar un cero confirmad
  assert.equal(e.summarizeEvidence([flagged,verified],m.potential_ast).average,10);
  assert.equal(e.evidenceReading({ast:0,potential_ast:0},m.potential_ast).value,0);
 });
+await check('Datos de apoyo de Jornada respetan fecha, deduplicación y cobertura del mismo L5/L10',()=>{
+ const rows=Array.from({length:9},(_,i)=>({player_id:123,game_id:'00226000'+String(i+10),game_date:'2026-10-'+String(i+20),season:'2026-27',season_type:'Regular Season',team_abbreviation:'CLE',opponent_abbr:'BKN',ast:3,min:25,potential_ast:i===8?51:i===7?null:8}));
+ const summary=j.recentSample([...rows,rows[7],{...rows[0],game_id:'0022600019',game_date:date,potential_ast:99}],123,date,'ast',10,true);
+ const metric=summary.support.l5.items.find(x=>x.id==='potential_ast');
+ assert.equal(summary.support.l5.total,5);assert.equal(summary.support.l10.total,9);assert.equal(metric.count,3);assert.equal(metric.review,1);assert.equal(metric.average,8);
+});
+await check('Una vista guardada restaura filtros, sin arrastrar fecha o partido; rechaza mercados corruptos',()=>{
+ const {readPresets}=load('./lib/jornadaPresets.ts');
+ const filters={market:'ast',book:'stake',side:'under',sample:5,minimum:5,onlyQuotes:true,sort:'rate',defenseBand:'all',published:true,dense:true,date:'2026-01-01',game:'1'};
+ const presets=readPresets({getItem:()=>JSON.stringify([{name:' Asistencias ',filters},{name:'Inválido',filters:{...filters,market:'__proto__'}}])},'qa');
+ assert.equal(presets.length,1);assert.equal(presets[0].name,'Asistencias');assert.equal(presets[0].filters.side,'under');
+ assert.equal(presets[0].filters.date,undefined);assert.equal(presets[0].filters.game,undefined);
+});
 console.log('Jornada y calidad, total con verificaciones nuevas: '+checks.length);

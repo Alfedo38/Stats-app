@@ -29,7 +29,7 @@ export async function getNbaSlate(date:string,market:JornadaMarket):Promise<Jorn
   const left=ids(date),right=ids(next);
   const versionsMatch=!right.size||a.archiveId===b?.archiveId||!left.size;
   const players=[...a.players.filter(p=>left.has(p.gameId)),...(b?.players??[]).filter(p=>right.has(p.gameId))];
-  return {...a,games,players:versionsMatch?players:players.map(p=>({...p,values:[],minutes:[],dates:[],opponents:[],rivalValues:undefined,extended:undefined,seasons:[]})),archiveId:versionsMatch?(left.size?a.archiveId:b?.archiveId??null):null,
+  return {...a,games,players:versionsMatch?players:players.map(p=>({...p,values:[],minutes:[],dates:[],opponents:[],rivalValues:undefined,extended:undefined,support:undefined,seasons:[]})),archiveId:versionsMatch?(left.size?a.archiveId:b?.archiveId??null):null,
    history:versionsMatch&&(!left.size||a.history==='ready')&&(!right.size||b?.history==='ready')?'ready':'unavailable',
    quotes:left.size&&a.quotes!=='ready'?a.quotes:right.size&&b?b.quotes:'ready',
    warnings:[...new Set([...(left.size?a.warnings:[]),...(right.size?b?.warnings??[]:[]),...(b?[]:['No pudimos verificar los partidos de madrugada.']),...(versionsMatch?[]:['Cambió el archivo histórico durante la carga. Volvé a consultar la jornada.'])])]};
@@ -77,7 +77,7 @@ async function loadJornada(date:string,market:JornadaMarket):Promise<JornadaData
     const extended=extendedIndex===null?undefined:extendedSample(extendedIndex[String(p.player_id)],p.player_id,cutoff,market,opponent);
     const rivalValues=extended?extended.h2hValues.slice(0,5):rivalIndex===null?undefined:recentSample(rivalIndex[String(p.player_id)]?.[opponent],p.player_id,cutoff,market).values.slice(0,5);
     data.players.push({rivalValues,extended,id:p.player_id,name:p.full_name,team:p.team_abbreviation,opponent,position:p.position,gameId:game.id,
-      ...recentSample(summary[String(p.player_id)],p.player_id,cutoff,market),quotes:counts.get(name)===1?jornadaQuotes(byName.get(name)??[],p.full_name,game,date,market,now):[]});
+      ...recentSample(summary[String(p.player_id)],p.player_id,cutoff,market,10,true),quotes:counts.get(name)===1?jornadaQuotes(byName.get(name)??[],p.full_name,game,date,market,now):[]});
   }
   return data;
 }

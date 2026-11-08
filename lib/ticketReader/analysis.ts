@@ -16,7 +16,7 @@ function valueOf(row:Row,market:Market,prefix=''):number|null {
  if(keys.length>1){for(const key of [market.toLowerCase(),keys.join('_'),keys.join('+')]){const n=numberOrNull(row[prefix+key]);if(n!==null)return n;}}
  return null;
 }
-export function prepareGames(facts:Row[],splits:Row[],leg:Leg,settings:Settings):Game[]{
+export function prepareGames(facts:Row[],splits:Row[],leg:Leg,settings:Settings,acceptedFacts?:Map<string,Row>):Game[]{
  const byId=new Map<string,Row>();for(const row of splits)if(String(row.split_code).toUpperCase()===leg.scope)byId.set(gameId(row),row);
  const prefix=leg.scope==='Q1'?'q1_':leg.scope==='H1'?'h1_':leg.scope==='H2_REG'?'h2_':'';
  const unique=new Map<string,Game>();
@@ -30,7 +30,7 @@ export function prepareGames(facts:Row[],splits:Row[],leg:Leg,settings:Settings)
   const team=abbr(row.team_abbreviation??row.team_abbr),opponent=abbr(row.opponent_clean??row.opponent_abbr??row.opponent)??findTeams(String(row.matchup_clean??row.matchup??'')).find(t=>t!==team)??null;
   const id=gameId(row);if(!id)continue;
   const split=byId.get(id);const value=leg.market?leg.scope==='FULL'?valueOf(row,leg.market):split?valueOf(split,leg.market):valueOf(row,leg.market,prefix):null;
-  if(!unique.has(id))unique.set(id,{id,date,season,phase,opponent,team,minutes:min,value});
+  if(!unique.has(id)){unique.set(id,{id,date,season,phase,opponent,team,minutes:min,value});acceptedFacts?.set(id,row);}
  }
  return [...unique.values()].sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id));
 }

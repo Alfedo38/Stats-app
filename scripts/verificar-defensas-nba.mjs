@@ -50,6 +50,23 @@ await check('Movimiento exige la misma línea y omite precios contradictorios',(
  ],q,Date.parse('2026-11-03T11:00:00Z'));
  assert.deepEqual(JSON.parse(JSON.stringify(result)),{points:[{at:'2026-11-03T10:00:00.123Z',price:1.9},{at:'2026-11-03T10:04:00.000Z',price:2.1}],limited:false,conflicts:1});
 });
+await check('Referencia previa excluye el inicio y el vivo; un último precio contradictorio no vuelve a uno viejo',()=>{
+ const m=loader()('./lib/nbaOddsMovement');
+ const q=m.parseMovement(new URLSearchParams({date:'2026-11-03',game:'CLE-TOR',player:'Jugador QA',book:'stake',market:'PTS',scope:'FULL',side:'over',line:'20.5'}));
+ const start='2026-11-03T23:00:00Z',now=Date.parse('2026-11-04T01:00:00Z');
+ const row={book:'stake',game_norm:'TOR @ CLE',player_name:'Jugador QA',player_norm:'jugador qa',stat_key:'PTS',period_scope:'FULL',side:'over',line:20.5,price:1.9,at:'2026-11-03T22:00:00Z'};
+ const rows=[row,{...row,at:start,price:2},{...row,at:'2026-11-04T00:30:00Z',price:1.7},{...row,at:'2026-11-03T22:59:59Z',line:21.5,price:3}];
+ assert.equal(m.priorPrice(rows,q,start,now).price,1.9);
+ assert.equal(m.priorPrice([...rows,{...row,price:1.85}],q,start,now).status,'conflict');
+ assert.equal(m.priorPrice(rows,q,null,now).status,'unverified');
+ assert.equal(m.priorPrice(rows.slice(1),q,start,now).status,'none');
+});
+await check('Comparables de asistencias usan minutos previos, no el tiempo del duelo ni perfiles con poca muestra',()=>{
+ const row={id:'001',playerId:4,name:'Jugador QA',team:'TOR',opponent:'BKN',position:'G',season:'2026-27',phase:'Regular Season',date:'2026-10-26',minutes:10,values:{ast:3},baseline:{ast:4,minutes:12},priorGames:5};
+ const rows=[row,{...row,id:'002',playerId:5,minutes:13,baseline:{ast:4,minutes:25}},{...row,id:'003',playerId:6,priorGames:4},{...row,id:'004',playerId:7,position:'C'},{...row,id:'005',playerId:8,date},{...row,id:'006',playerId:1}];
+ const found=d.recentDefenders(rows,settings({market:'ast'}),{minutes:13,playerId:1,from:'2026-10-25'});
+ assert.equal(found.length,1);assert.equal(found[0].playerId,4);assert.equal(found[0].value,3);assert.equal(found[0].baseline,4);
+});
 await check('Perfil propio excluye otros períodos, fases y la fecha de corte',()=>{
  const m=loader()('./lib/nbaComparableProfile');
  const facts=Array.from({length:7},(_,i)=>({game_id:'002260000'+i,game_date:'2026-10-'+(20+i),min:'30:00',pts:i<5?22:99,usage_pct:i<5?.2:.9,period_scope:i===5?'Q1':'FULL'}));

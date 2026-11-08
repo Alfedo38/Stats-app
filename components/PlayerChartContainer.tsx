@@ -33,6 +33,8 @@ import { sampleCoverage, type AnalysisSample } from "@/lib/nbaAnalysis";
 import PlayerChart from "@/components/PlayerChart";
 import PlayerChangeCard from "@/components/PlayerChangeCard";
 import PlayerSecondaryControl from "@/components/PlayerSecondaryControl";
+import AlternativeLines from "@/components/AlternativeLines";
+import PlayerSupportingStats from "@/components/PlayerSupportingStats";
 import {parseSecondary,selectedSecondary,validSecondaryChoice,secondaryValue,type SecondaryChoice} from "@/lib/playerRecentChange";
 import SupportingDataGrid from "@/components/SupportingDataGrid";
 import PickInsightPanel from "@/components/PickInsightPanel";
@@ -749,13 +751,12 @@ export default function PlayerChartContainer({
 
   const activeScopeOption = SPLIT_SCOPE_BY_ID[activeScope];
   const isFullScope = activeScope === "FULL";
-  const effectiveSecondaryChoice=validSecondaryChoice(activeStat,compact&&secondaryChoice==="auto"?"none":secondaryChoice);
-  const changeSecondary=(value:SecondaryChoice)=>setSecondaryChoice(value==="auto"&&compact?validSecondaryChoice(activeStat,(selectedSecondary(activeStat,"auto",activeScope)?.id??"none") as SecondaryChoice):value);
+  const effectiveSecondaryChoice=validSecondaryChoice(activeStat,secondaryChoice);
+  const changeSecondary=setSecondaryChoice;
   const opportunityOverlay = useMemo(
-    () => selectedSecondary(activeStat, effectiveSecondaryChoice, activeScope),
-    [activeStat, effectiveSecondaryChoice, activeScope],
+    () => compact?null:selectedSecondary(activeStat, effectiveSecondaryChoice, activeScope),
+    [compact, activeStat, effectiveSecondaryChoice, activeScope],
   );
-  const separateComparison=compact&&!!opportunityOverlay&&secondaryAxis(activeStat,opportunityOverlay.id)==="right";
   const historicalMarket = useMemo(
     () => getStakePropType(activeStat),
     [activeStat],
@@ -1210,7 +1211,7 @@ export default function PlayerChartContainer({
     <div className="space-y-3">
       {!compact&&<FloatingPlayerIdentity playerName={playerName || "Jugador"} statLabel={activeStatLabel} scope={activeScope} />}
       {!compact&&gameContext&&<p className="text-xs font-bold text-[var(--text-muted)]">Partido: {gameContext.away} – {gameContext.home} · {gameContext.date.split('-').reverse().join('/')} · Estadísticas anteriores a esa fecha.</p>}
-      {compact?<PlayerSelectionBar market={activeStat} markets={visibleNavStats} scope={activeScope} lastN={lastN} side={chartSide} line={Number(lineValue)} step={1} halfLines={!usesIntegerLine(activeStat)} onMarket={setActiveStat} onScope={value=>setActiveScope(value as SplitScope)} onWindow={setLastN} onSide={setChartSide} onLine={setLineValue} odds={<PlayerOddsComparison movement={gameContext&&playerName?{player:playerName,date:gameContext.date,away:gameContext.away,home:gameContext.home}:undefined} selectedBook={selectedBook} onSelectBook={setSelectedBook} rows={currentPrices} line={Number(lineValue)} side={chartSide} loading={oddsLoading} error={oddsError} eventReady={!!gameContext} eventRows={eventOdds} market={activeStat} scope={activeScope} onSelectLine={value=>{setLineValue(value);setSelectedBook(null);}} onRetry={()=>setOddsRetry(n=>n+1)}/>}/>:<>
+      {compact?<PlayerSelectionBar market={activeStat} markets={visibleNavStats} scope={activeScope} lastN={lastN} side={chartSide} line={Number(lineValue)} step={1} halfLines={!usesIntegerLine(activeStat)} onMarket={setActiveStat} onScope={value=>setActiveScope(value as SplitScope)} onWindow={setLastN} onSide={setChartSide} onLine={setLineValue} odds={<PlayerOddsComparison movement={gameContext&&playerName?{player:playerName,date:gameContext.date,away:gameContext.away,home:gameContext.home}:undefined} selectedBook={selectedBook} onSelectBook={setSelectedBook} rows={currentPrices} line={Number(lineValue)} side={chartSide} loading={oddsLoading} error={oddsError} eventReady={!!gameContext} eventRows={eventOdds} market={activeStat} scope={activeScope} onRetry={()=>setOddsRetry(n=>n+1)}/>}/>:<>
       {/* MENÚ DE ESTADÍSTICAS */}
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-2">
         <div className="flex flex-wrap items-center gap-1.5 max-w-full">
@@ -1382,7 +1383,7 @@ export default function PlayerChartContainer({
         {/* GRÁFICA PRINCIPAL + ODDS COMPACTAS */}
         <div className="min-w-0">
           <div data-chart-card className="bg-[var(--surface)] p-4 md:p-5 rounded-[2rem] border border-[#10b981]/25 shadow-2xl shadow-[#10b981]/5 relative min-w-0 overflow-hidden">
-            <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#10b981] to-transparent" />
+            {!compact&&<div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#10b981] to-transparent" />}
 
             <ChartIdentity playerName={playerName || "Jugador"} statLabel={compact?playerMarketLabel(activeStat):activeStatLabel} scope={activeScope} count={chartStats.length} line={Number(lineValue)} loading={sampleLoading} compact={compact} />
             {compact&&<PlayerSampleSummary values={metricStats.map(row=>row.value)} line={Number(lineValue)} side={chartSide} lastN={lastN} loading={sampleLoading} error={sampleError}/>}
@@ -1403,31 +1404,29 @@ export default function PlayerChartContainer({
             </div>}
 
 
-            {isFullScope&&<PlayerSecondaryControl compact={compact} market={activeStat} marketLabel={activeStatLabel} choice={effectiveSecondaryChoice} onChange={changeSecondary} rows={chartStats} disabled={sampleLoading||!!sampleError}/>}
+            {!compact&&isFullScope&&<PlayerSecondaryControl market={activeStat} marketLabel={activeStatLabel} choice={effectiveSecondaryChoice} onChange={changeSecondary} rows={chartStats} disabled={sampleLoading||!!sampleError}/>}
             {!isFullScope && periodLoading && <p className="mb-3 text-xs text-cyan-300">Cargando datos de períodos…</p>}
             {!isFullScope && periodError && <p className="mb-3 text-xs text-amber-300">No se pudieron cargar los datos del período.</p>}
-            <div className={compact?"min-h-[350px] w-full relative":"min-h-[470px] w-full relative"}>
+            <div className={compact?"w-full relative":"min-h-[470px] w-full relative"}>
               {sampleLoading?<div className="flex min-h-[240px] items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--bg)]" role="status"><Loader2 size={18} className="mr-2 animate-spin text-[#10b981]"/>Actualizando la muestra…</div>:sampleError?<div className="flex min-h-[240px] items-center justify-center p-5 text-sm text-amber-300" role="alert">No pudimos consultar esta muestra. Revisá los filtros o reintentá.</div>:              <PlayerChart
                 data={chartStats}
                 statKey="value"
                 lineValue={lineValue}
                 side={chartSide}
-                overlayKey={separateComparison?undefined:opportunityOverlay?.id}
+                clean={compact}
+                overlayKey={opportunityOverlay?.id}
                 overlayLabel={opportunityOverlay?.label}
                 overlayColor={opportunityOverlay?.color}
                 overlayValueReader={opportunityOverlay?(row)=>secondaryValue(row,opportunityOverlay.id):undefined}
                 height={compact?350:undefined}
                 showSeasonBreaks={compact}
-                overlayAxis={isFullScope&&!separateComparison?secondaryAxis(activeStat,opportunityOverlay?.id):"left"}
+                overlayAxis={isFullScope?secondaryAxis(activeStat,opportunityOverlay?.id):"left"}
               />}
             </div>
-            {separateComparison&&opportunityOverlay&&!sampleLoading&&!sampleError&&chartStats.some(row=>secondaryValue(row,opportunityOverlay.id)!==null)&&<section className="mt-3 border-t border-[var(--border)] pt-3" aria-label={opportunityOverlay.label}>
-              <h3 className="text-sm font-bold">{opportunityOverlay.label}</h3>
-              <p className="text-xs text-[var(--text-muted)]">Mismos partidos · escala propia</p>
-              <PlayerChart comparisonOnly data={chartStats.map(row=>({...row,comparison:secondaryValue(row,opportunityOverlay.id)}))} statKey="comparison" lineValue={0} height={215} showSeasonBreaks/>
-            </section>}
             {compact&&<SelectionLegend hasPush={selection.pushes>0} hasMissing={selection.missing>0}/>}
           </div>
+          {compact&&!oddsLoading&&!oddsError&&gameContext&&<AlternativeLines quotes={currentPrices} values={chartStats.slice(-10).map(row=>row.value)} historyLabel={chartStats.length>=10?'L10':'de la muestra'} line={Number(lineValue)} book={selectedBook} side={chartSide} onSelect={(value,house)=>{setLineValue(value);setSelectedBook(house);}}/>}
+          {compact&&isFullScope&&!sampleLoading&&!sampleError&&<PlayerSupportingStats market={activeStat} rows={chartStats} choice={effectiveSecondaryChoice} onChange={changeSecondary}/>}
           <div id={`absence-comparison-${playerId}`} className="scroll-mt-20"/>
           {playerId&&<details className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3" onToggle={e=>setRotationOpen(e.currentTarget.open)}>
             <summary className="cursor-pointer text-sm font-bold">Rotaciones verificadas · partidos del gráfico</summary>
@@ -1444,7 +1443,7 @@ export default function PlayerChartContainer({
               <span>Historial filtrado: <strong>{chartOpponent||'Todos los rivales'}</strong></span>
               {chartOpponent&&chartOpponent!==pageEvent.opponent&&<span>La defensa de este panel usa el rival del historial.</span>}
             </div>
-            <DefenseContextCard profile={activeStat==="pts"&&isFullScope&&selection.valid>=5&&minutesValues.length>=5&&selection.average!==null?{playerId:Number(playerId),points:selection.average,minutes:Number(avgMinutes),sample:selection.valid}:undefined} state={defense} opponent={defenseOpponent} scope={activeScope} side={chartSide}/>
+            <DefenseContextCard profile={isFullScope&&minutesValues.length>=5&&Number(avgMinutes)>0&&Number(avgMinutes)<=80?{playerId:Number(playerId),minutes:Number(avgMinutes),sample:minutesValues.length}:undefined} state={defense} opponent={defenseOpponent} scope={activeScope} side={chartSide}/>
             <details ref={historyFilters} className="rounded-xl border border-[var(--border)] p-3"><summary className="cursor-pointer text-sm font-bold text-[var(--text)]">Filtrar histórico</summary><div className="mt-3 flex flex-col gap-3">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[11px] font-black uppercase tracking-widest text-cyan-300">Fase</span>

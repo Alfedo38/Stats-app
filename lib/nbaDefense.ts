@@ -85,17 +85,23 @@ export function filterDefense<T extends Row>(rows:T[],report:DefenseReport|null|
  if(!report?.available)return [];
  return rows.filter(row=>rankBand(rankFor(report,getOpponent(row),position))===band);
 }
-export function recentDefenders(raw:unknown,settings:DefenseSettings):DefenseRecent[]{
+export type ComparableMinutes={minutes:number;playerId:number;from?:string};
+export const COMPARABLE_MINUTES_GAP=6;
+export function recentDefenders(raw:unknown,settings:DefenseSettings,similar?:ComparableMinutes):DefenseRecent[]{
  if(!Array.isArray(raw))return [];
  const unique=new Map<string,DefenseRecent>(),conflicts=new Set<string>();
  for(const row of raw){
   if(settings.venue&&settings.venue!=='ALL'&&row?.venue!==(settings.venue==='HOME'?'AWAY':'HOME'))continue;
   if(!row||row.opponent!==settings.opponent||(row.season!==settings.season&&row.season!==settings.previousSeason)||!isDate(row.date)||row.date>=settings.asOfDate||!['Regular Season','Playoffs'].includes(row.phase)||settings.phase!=='ALL'&&row.phase!==settings.phase||!TEAMS.includes(row.team)||!Number.isSafeInteger(row.playerId)||row.playerId<=0||!/^\d{1,10}$/.test(String(row.id)))continue;
-  const position=defensePosition(row.position),minutes=finiteStat(row.minutes);if(minutes===null||minutes<15||settings.position!=='ALL'&&position!==settings.position)continue;
+  const position=defensePosition(row.position),minutes=finiteStat(row.minutes);if(minutes===null||minutes<=0||minutes>80||(!similar&&minutes<15)||settings.position!=='ALL'&&position!==settings.position)continue;
   const item:DefenseRecent={phase:row.phase,priorMinutes:finiteStat(row.baseline?.minutes),priorUsage:finiteStat(row.baseline?.usage),priorGames:typeof row.priorGames==='number'&&Number.isSafeInteger(row.priorGames)?row.priorGames:0,usageGames:typeof row.usageGames==='number'&&Number.isSafeInteger(row.usageGames)?row.usageGames:0,priorShot:Array.isArray(row.priorZones)?usableShotProfile(row.priorZones.slice(0,4),row.priorZones[4]):null,id:String(Number(row.id)),playerId:row.playerId,name:String(row.name).slice(0,100),team:row.team,position,date:row.date,minutes,value:defenseValue(row.values,settings.market),baseline:['pra','pr','pa','ra'].includes(settings.market)?finiteStat(row.baseline?.[settings.market]):defenseValue(row.baseline,settings.market),venue:row.venue==='HOME'||row.venue==='AWAY'?row.venue:null};
   const key=item.id+':'+item.playerId,prior=unique.get(key);if(prior&&JSON.stringify(prior)!==JSON.stringify(item))conflicts.add(key);else unique.set(key,item);
  }
- return [...unique.entries()].filter(([key])=>!conflicts.has(key)).map(([,v])=>v).sort((a,b)=>b.date.localeCompare(a.date)||Number(b.id)-Number(a.id)||b.minutes-a.minutes).slice(0,30);
+ return [...unique.entries()].filter(([key])=>!conflicts.has(key)).map(([,v])=>v).filter(row=>!similar||(
+  row.playerId!==similar.playerId&&row.position!==null&&row.position===settings.position&&(!similar.from||row.date>=similar.from)&&
+  row.value!==null&&row.baseline!==null&&row.priorMinutes!=null&&row.priorMinutes>0&&row.priorMinutes<=80&&
+  (row.priorGames??0)>=5&&Math.abs(row.priorMinutes-similar.minutes)<=COMPARABLE_MINUTES_GAP
+ )).sort((a,b)=>b.date.localeCompare(a.date)||Number(b.id)-Number(a.id)||b.minutes-a.minutes).slice(0,30);
 }
 
 export function defenseUrlChoice(q:URLSearchParams):{season:string|null;window:'season'|'10'|'20'|null;position:DefenseGroup|null;band:DefenseBand}{

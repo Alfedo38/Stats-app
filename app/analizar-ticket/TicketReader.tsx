@@ -1,6 +1,7 @@
 'use client';
 import {useEffect,useRef,useState,type ClipboardEvent,type DragEvent} from 'react';
 import Link from 'next/link';
+import NbaMarketSupport from '@/components/NbaMarketSupport';
 import AnalyzerGameChoice from '@/components/AnalyzerGameChoice';
 import {readDraft,saveDraft,exportDraftDocument,blankDraft,draftKey} from '@/lib/ticketReader/draft';
 import {selectionPlayerHref} from '@/lib/playerNavigation';
@@ -221,6 +222,7 @@ export function Analysis({result,leg}:{result:Result;leg:Leg}){const price=leg.o
  <div className={s.analysisHeading}><strong>{assessSelection(leg,result).title}</strong><Link href={selectionPlayerHref({...leg,playerId:result.player.id})}>Ver jugador <ArrowRight size={13}/></Link></div>
  <div className={s.metrics}><Metric title="ÚLTIMOS 10" games={recent} leg={leg}/><Metric title="ÚLTIMOS 5" games={result.games.slice(0,5)} leg={leg}/><Metric title={r.rival?`VS ${r.rival} · HASTA 5`:'RIVAL PENDIENTE'} games={r.h2h} leg={leg}/><Metric title="TEMPORADA ACTUAL" games={current} leg={leg}/></div>
  <Chart games={recent} leg={leg}/>
+ {result.support&&<NbaMarketSupport support={result.support} label={`Últimos ${recent.length} · partido completo`}/>}
  <SelectionInsight leg={leg} result={result}/>
  <p className={s.interpretation}>{r.recent.hits} de {r.recent.n} partidos con datos cumplen esta condición.{r.recent.hits+r.recent.misses<5?' La muestra tiene menos de cinco resultados decididos: no mostramos un porcentaje de frecuencia.':''}{r.recent.pushes?` Hay ${r.recent.pushes} empate(s) separados del acierto.`:''} {price?`La cuota ${leg.odds?'del ticket':'consultada'} ${fmt(price,2)} exige ${fmt(100/price)} % de acierto entre resultados decididos para equilibrar, bajo liquidación estándar sin comisión.`:'Sin cuota individual no se evalúa el precio de esta selección.'} Esta frecuencia histórica no determina su probabilidad para el próximo partido.</p>
  <details className={s.resultDetail}><summary>Partidos recientes y minutos</summary><GameTable games={recent} leg={leg}/></details>

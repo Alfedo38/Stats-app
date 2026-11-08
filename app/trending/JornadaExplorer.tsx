@@ -10,6 +10,9 @@ import {appendDraft,readDraft} from '@/lib/ticketReader/draft';
 import {getTeamColor} from '@/lib/teamColors';
 import {defenseSeason,defenseReferencePosition,rankFor,rankBand,DEFENSE_BANDS,type DefenseBand,type DefenseReport} from '@/lib/nbaDefense';
 import styles from './jornada.module.css';
+import AlternativeLines from '@/components/AlternativeLines';
+import JornadaPresets from '@/components/JornadaPresets';
+import NbaMarketSupport from '@/components/NbaMarketSupport';
 import QuotePriceCards from '@/components/QuotePriceCards';
 import JornadaAbsenceImpact from '@/components/JornadaAbsenceImpact';
 import {useJornadaInjuryImpact} from '@/hooks/useJornadaInjuryImpact';
@@ -129,6 +132,10 @@ export default function JornadaExplorer({initialDate,initialGame="all",today=ini
       <details className={styles.more}><summary><SlidersHorizontal size={14}/> Más filtros</summary><div><label>Mínimo con datos<select aria-label="Mínimo con datos" value={minimum} onChange={e=>setMinimum(Number(e.target.value))}><option value={0}>Sin mínimo</option><option value={5}>5 partidos</option><option value={10}>Muestra completa</option></select></label><label>Ordenar por<select aria-label="Ordenar por" value={sort} onChange={e=>setSort(e.target.value)}><option value="average">Promedio del mercado</option><option value="minutes">Minutos promedio</option><option value="rate">Acierto histórico de la línea</option></select></label><label>Temporada de defensa<select aria-label="Temporada defensiva Jornada" value={referenceSeason} onChange={e=>setDefenseSeasonChoice({date,season:e.target.value})}>{[...new Set([referenceSeason,...(defenseQuery.data?.seasons??[])])].sort().reverse().map(season=><option value={season} key={season}>{season}</option>)}</select></label><label>Defensa por posición<select aria-label="Defensa de la jornada" value={defenseBand} onChange={e=>setDefenseBand(e.target.value as DefenseBand)}>{Object.entries(DEFENSE_BANDS).map(([key,label])=><option value={key} key={key}>{label}</option>)}</select></label><label className={styles.check}><input type="checkbox" checked={onlyQuotes} onChange={e=>setOnlyQuotes(e.target.checked)}/> Solo con cuotas publicadas</label></div></details>
     </div>
     <div className={styles.quickFilters} role="group" aria-label="Filtros rápidos de jugadores"><button type="button" aria-pressed={onlyQuotes} onClick={()=>setOnlyQuotes(v=>!v)}>Con cuotas disponibles</button><button type="button" aria-pressed={minimum>=5} onClick={()=>setMinimum(v=>v>=5?0:5)}>Al menos 5 partidos</button><button type="button" aria-pressed={dense} onClick={()=>setDense(v=>!v)}>Vista compacta</button><span>Muestra histórica: esta temporada y la anterior</span></div>
+    <JornadaPresets storageKey={storageKey} filters={{market,book,side,sample,minimum,onlyQuotes,sort,defenseBand,published,dense}} onApply={f=>{
+      setMarket(f.market);setBook(f.book);setSide(f.side);setSample(f.sample);setMinimum(f.minimum);setOnlyQuotes(f.onlyQuotes);setSort(f.sort);
+      setDefenseBand(f.defenseBand);setPublished(f.published);setDense(f.dense);setNotice('');setVisibleLimit(40);
+    }}/>
     <p role="status" className={styles.notice}>{notice}</p>
     {query.loading?<div className={styles.empty} role="status">Cargando partidos, jugadores y estadísticas…</div>:query.error?<div className={styles.empty} role="alert"><p>{query.error}</p><button onClick={()=>setRetry(v=>v+1)}>Reintentar</button></div>:data?<>
       {data.warnings.map(w=><p key={w} className={styles.warning} role="status">{w}</p>)}
@@ -167,14 +174,14 @@ export default function JornadaExplorer({initialDate,initialGame="all",today=ini
               <div className={styles.actions}><Link href={href}>Ver ficha <ArrowUpRight size={13}/></Link><button disabled={busy||!validJornadaLine(line)} onClick={()=>add(p)}><Plus size={13}/> Al analizador</button></div>
               {line!==null&&dots.length>0&&<div className={styles.sequence} aria-label="Últimos resultados, más reciente a la derecha"><span>L10 · anterior → reciente</span>{dots.map((_,index)=>{const i=dots.length-1-index,outcome=dots[i];return <span key={i} data-outcome={outcome} data-l5={i<5} title={(p.dates[i]??'')+' · '+(p.values[i]??'S/D')} aria-label={outcome==='hit'?'Acierto':outcome==='miss'?'Fallo':outcome==='push'?'Empate':'Sin dato'}>{outcome==='hit'?'✓':outcome==='miss'?'×':outcome==='push'?'=':'·'}</span>;})}<small>Últimos 5 resaltados</small>{streak>1&&<small>{streak} aciertos seguidos</small>}</div>}
               <div className={styles.rowDetails}>
-              {!published&&lines.some(l=>validJornadaLine(l)&&l!==line)&&<details className={styles.playerAnalysis}><summary>Ver otras líneas</summary><div className={styles.quickFilters}>{lines.filter(validJornadaLine).map(l=><button key={l} type="button" onClick={()=>choose(p,{line:l,book:null})}>{number(l)}</button>)}</div></details>}
+              <AlternativeLines quotes={p.quotes} values={p.values.slice(0,10)} historyLabel="L10" line={line} book={selectedBook} bookFilter={book} side={side} onSelect={(value,house)=>choose(p,{line:value,book:house})}/>
               <details className={styles.playerAnalysis}>
                 <summary>Ver análisis<span className={styles.analysisPlayer}> · {p.name}</span></summary>
                 <div className={styles.analysisBody}>
                   <h3>{JORNADA_MARKETS[market]} · {line===null?'Sin línea':(side==='over'?'Más de ':'Menos de ')+number(line)}</h3>
                   <p><strong>Últimos 5:</strong> {explainSample(l5,line,side)}</p>
                   <p><strong>Últimos 10:</strong> {explainSample(l10,line,side)}</p>
-                  <p><strong>Minutos:</strong> {minutes.average===null?'Sin datos':number(minutes.average)+' de promedio en '+minutes.valid+' partidos del L'+sample}.</p>
+                  {p.support?<NbaMarketSupport support={sample===5?p.support.l5:p.support.l10} label={`L${sample}`}/>:<p><strong>Minutos:</strong> {minutes.average===null?'Sin datos':number(minutes.average)+' de promedio en '+minutes.valid+' partidos del L'+sample}.</p>}
                   <p><strong>Contra {p.opponent}:</strong> {rivalSource==='unavailable'?'Historial adicional no disponible.':rival.total?(rivalSource==='recent'?'Cruces dentro de L10. ':'Hasta cinco cruces anteriores. ')+explainSample(rival,line,side):'Sin cruces en el historial disponible.'}</p>
                   {p.extended?<><p><strong>Temporada {p.extended.season}:</strong> {explainSample(selectionSummary(p.extended.seasonValues,line??NaN,side),line,side)}</p>
                   <p><strong>Cara a cara vs. {p.opponent} · dos temporadas:</strong> {explainSample(selectionSummary(p.extended.h2hValues,line??NaN,side),line,side)}</p></>:<p>Temporada y cara a cara ampliado: disponibles cuando se publique el nuevo índice NBA.</p>}

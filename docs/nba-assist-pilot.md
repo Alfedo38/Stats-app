@@ -16,4 +16,27 @@ Cada ejecución escribe un informe nuevo en `maintenance-state/assist-pilot/repo
 
 Fuentes: [corrección liveData de nba_api 1.11.6](https://github.com/swar/nba_api/releases/tag/v1.11.6), [NBA Stats V3: jugada por jugada](https://github.com/swar/nba_api/blob/master/docs/nba_api/stats/endpoints/playbyplayv3.md), [NBA liveData boxscore](https://github.com/swar/nba_api/blob/master/docs/nba_api/live/endpoints/boxscore.md) y [mapeo de identificadores de pbpstats para el jugada por jugada](https://pbpstats.readthedocs.io/en/latest/_modules/pbpstats/resources/enhanced_pbp/live/enhanced_pbp_item.html).
 
-**Antes de publicar:** probar tres partidos reales, revisar toda exclusión y algunos pares de jugadores contra el boxscore. Si concilia, ampliar a seis y medir cobertura por zona. Después agregar una sección en la ficha que use solo resúmenes por partido, con cantidad de partidos y zonas sin dato. No subir los JSON crudos a Supabase.
+## Vista previa en la ficha
+
+Desde el worktree del piloto, indicá el informe de la corrida `6/6` y la ruta del proyecto donde quedaron los JSON originales. Por ejemplo:
+
+```bash
+cd "$HOME/stats-app-piloto-v24" &&
+"$HOME/stats-app/.venv-maintenance/bin/python" -m maintenance_nba.assist_snapshot \
+  --project "$HOME/stats-app" \
+  --report "$HOME/stats-app/maintenance-state/assist-pilot/reports/SAS-20261120-130844-344689.json"
+```
+
+El comando valida que los archivos originen los mismos datos del informe y guarda `maintenance-state/assist-pilot/snapshot.json` en el worktree. Contiene nombres, jugadores que entraron y conteos por partido, pareja y zona; no contiene jugadas. Si falta algún JSON o cambió después del informe, se debe regenerar el informe antes de preparar el resumen.
+
+Con las dependencias de Node instaladas en el worktree (`npm ci`), iniciá la app local en el puerto 3001, reutilizando la configuración que ya usa el proyecto principal:
+
+```bash
+NBA_ASSIST_LOCAL=1 AUTH_ORIGIN=http://localhost:3001 \
+  node --env-file-if-exists="$HOME/stats-app/.env" --env-file-if-exists="$HOME/stats-app/.env.local" \
+  node_modules/next/dist/bin/next dev --port 3001
+```
+
+Entrá en [la ficha de Stephon Castle](http://localhost:3001/players/1642264?stat=ast), dejá el filtro **Partido completo** y abrí **Conexiones de asistencias** debajo del gráfico. La cobertura cuenta los partidos solicitados en los que se pudo comprobar que jugó. Un cero solo se muestra si hay partidos verificados; una ausencia queda fuera del recuento.
+
+La vista previa lee el archivo local solo en desarrollo y con `NBA_ASSIST_LOCAL=1`. Para una publicación futura, el exportador habitual puede incluir el resumen como una sola parte comprimida del archivo privado si encuentra `maintenance-state/assist-pilot/snapshot.json` en el proyecto de publicación y `NBA_ASSIST_ARCHIVE=1`. Generar el resumen y probarlo en desarrollo no modifica Supabase ni la web publicada.

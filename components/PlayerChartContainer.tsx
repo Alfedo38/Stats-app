@@ -4,6 +4,7 @@ import {PlayerPortrait} from "@/components/NbaMedia";
 import type {TeamMate} from "@/components/TeamMatesPanel";
 import NbaNextMatchup from "@/components/NbaNextMatchup";
 import RotationPilot from "@/components/RotationPilot";
+import AssistConnections from "@/components/AssistConnections";
 import SelectionLegend from './SelectionLegend';
 import PlayerSelectionBar from "@/components/PlayerSelectionBar";
 import {SeasonWindows} from "@/components/SeasonWindows";
@@ -1279,6 +1280,9 @@ export default function PlayerChartContainer({
           </div>
           {compact&&isFullScope&&!sampleLoading&&!sampleError&&<PlayerSupportingStats market={activeStat} rows={chartStats} choice={secondaryChoice} onChange={setSecondaryChoice}/>}
           <div id={`absence-comparison-${playerId}`} className="scroll-mt-20"/>
+          {playerId&&isFullScope&&activeStat==="ast"&&<AssistConnections playerId={String(playerId)}
+            gameIds={chartStats.map(row=>row.game_id??row.id)} enabled={!sampleLoading&&!sampleError}/>}
+
           {playerId&&<details className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3" onToggle={e=>setRotationOpen(e.currentTarget.open)}>
             <summary className="cursor-pointer text-sm font-bold">Rotaciones de los partidos del gráfico</summary>
             <div className="mt-2"><RotationPilot playerId={String(playerId)} gameIds={chartStats.map(row=>row.game_id??row.id)} open={rotationOpen&&!sampleLoading&&!sampleError}/></div>

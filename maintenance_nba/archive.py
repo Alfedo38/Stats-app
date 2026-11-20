@@ -229,6 +229,10 @@ def _export_with_rebounds(upload=False):
     summaries(directory,manifest,summary_data=summary_data)
     from .rotation_pilot import archive_parts as rotation_parts
     rotation_parts(STATE,directory,manifest,save_part,load_part)
+    # Opt-in: incorpora sólo el resumen generado explícitamente en este proyecto.
+    if env().get('NBA_ASSIST_ARCHIVE')=='1':
+        from .assist_snapshot import archive_part as assist_part
+        assist_part(STATE,directory,manifest,save_part)
     manifest['updated_at']=datetime.now(timezone.utc).isoformat()
     manifest['counts']={kind:sum(m['rows'] for n,m in manifest['parts'].items() if n.startswith(kind+'/')) for kind in SOURCES}
     manifest['id']=sha(canonical({k:v for k,v in manifest.items() if k not in ('id','updated_at')}))

@@ -4,12 +4,17 @@ import {isDate} from './ticketReader/model';
 import {marketIsValid,type JornadaMarket,type JornadaGame} from './nbaJornada';
 import type {InjuryItem,InjuryReport} from './injuryReport';
 export const IMPACT_MIN_GAMES=5;
-export const IMPACT_UNITS:Record<JornadaMarket,string>={pts:'pts',reb:'reb',ast:'ast',fga:'FGA',fg3m:'triples',fg3a:'3PA',fta:'FTA',pra:'PRA',pr:'P+R',pa:'P+A',ra:'R+A'};
+export const IMPACT_UNITS:Record<JornadaMarket,string>={pts:'pts',reb:'reb',ast:'ast',fga:'FGA',fgm:'FGM',fg3m:'triples',fg3a:'3PA',fta:'FTA',pra:'PRA',pr:'P+R',pa:'P+A',ra:'R+A'};
 export type ImpactTarget={playerId:number;gameId:string};
 export type AutoImpactRequest={date:string;market:JornadaMarket;slate:boolean;players:ImpactTarget[]};
-import type {SeasonMinutes} from './minutesDistribution';
-export type AutoImpactItem={teammateId:number;name:string;reportAt:string|null;withAverage:number|null;withoutAverage:number|null;withCount:number;withoutCount:number;difference:number|null;unknown:number;conflicts:number;firstDate:string|null;lastDate:string|null;minutes?:{with:SeasonMinutes[];without:SeasonMinutes[]}};
-export type AutoImpactPlayer=ImpactTarget&{team:string;status:'ready'|'none'|'unavailable'|'player_out';reason?:string;items:AutoImpactItem[]};
+import {minutesDistribution,type SeasonMinutes} from './minutesDistribution';
+import {getMinutesValue} from './formatters';
+import {finiteStat} from './selectionStats';
+export const ROLE_STATS={minutes:'MIN',pts:'PTS',reb:'REB',ast:'AST',fga:'FGA',fgm:'FGM'} as const;
+export type RoleStats={metric:keyof typeof ROLE_STATS;withAvg:number|null;withoutAvg:number|null;withCount:number;withoutCount:number;delta:number|null};
+export type AbsenceCohort={present:string[];absent:string[]};
+export type AutoImpactItem={teammateId:number;name:string;reportAt:string|null;withAverage:number|null;withoutAverage:number|null;withCount:number;withoutCount:number;difference:number|null;unknown:number;conflicts:number;firstDate:string|null;lastDate:string|null;minutes?:{with:SeasonMinutes[];without:SeasonMinutes[]};role?:RoleStats[]};
+export type AutoImpactPlayer=ImpactTarget&{team:string;status:'ready'|'none'|'unavailable'|'player_out';reason?:string;items:AutoImpactItem[];joint?:{names:string[];role:RoleStats[]}};
 export type AutoImpactReport=AutoImpactRequest&{ok:true;version:2;archiveId:string|null;rosterAt:string;results:AutoImpactPlayer[]};
 export function impactPlayerKey(player:ImpactTarget){return player.gameId+':'+player.playerId;}
 export function automaticImpactRequest(raw:Record<string,unknown>):AutoImpactRequest|null{
@@ -26,9 +31,41 @@ export function confirmedGameAbsences(report:InjuryReport,game:JornadaGame,event
  for(const row of rows){if(!row.playerId)continue;const old=unique.get(row.playerId);if(old&&old.status!==row.status)invalid.add(row.playerId);unique.set(row.playerId,row);}
  return [...unique.values()].filter(i=>i.status==='OUT'&&!i.conflict&&!i.stale&&i.playerId&&!invalid.has(i.playerId));
 }
-export function automaticImpact(facts:Record<string,any>[],mateFacts:Record<string,any>[],absences:Record<string,any>[],settings:Omit<ComparisonSettings,'teammateName'>,mate:{playerId:number;name:string;reportAt:string|null}):AutoImpactItem{
+export function absenceRole(facts:Record<string,any>[],cohorts:AbsenceCohort[],team:string){
+ const intersection=(key:keyof AbsenceCohort)=>{
+  const sets=cohorts.map(c=>new Set(c[key]));
+  return new Set((cohorts[0]?.[key]??[]).filter(id=>sets.every(set=>set.has(id))));
+ };
+ const yes=intersection('present'),no=intersection('absent');
+ const rows=new Map<string,Record<string,any>>();
+ for(const row of facts){
+  const id=String(row.game_id??'').replace(/^0+/,'');
+  if((yes.has(id)||no.has(id))&&!rows.has(id)&&(row.team_abbreviation??row.team_abbr)===team&&
+   (!row.period_scope||row.period_scope==='FULL')&&(!row.split_code||row.split_code==='FULL'))rows.set(id,row);
+ }
+ const values=(ids:Set<string>,metric:keyof typeof ROLE_STATS)=>minutesDistributionOrMean([...ids].map(id=>{
+  const r=rows.get(id);return !r?null:metric==='minutes'?getMinutesValue(r):finiteStat(r[metric]);
+ }),metric==='minutes');
+ return (Object.keys(ROLE_STATS) as (keyof typeof ROLE_STATS)[]).map(metric=>{
+  const withPlayer=values(yes,metric),without=values(no,metric);
+  return {metric,withAvg:withPlayer.average,withoutAvg:without.average,withCount:withPlayer.count,withoutCount:without.count,
+   delta:withPlayer.count>=IMPACT_MIN_GAMES&&without.count>=IMPACT_MIN_GAMES&&withPlayer.average!==null&&without.average!==null
+    ?Math.round((without.average-withPlayer.average)*10)/10||0:null};
+ });
+}
+function minutesDistributionOrMean(values:(number|null)[],minutes:boolean){
+ if(minutes)return minutesDistribution(values);
+ const known=values.filter((v):v is number=>v!==null);
+ return {count:known.length,average:known.length?known.reduce((a,b)=>a+b,0)/known.length:null};
+}
+export function automaticImpactDetail(facts:Record<string,any>[],mateFacts:Record<string,any>[],absences:Record<string,any>[],settings:Omit<ComparisonSettings,'teammateName'>,mate:{playerId:number;name:string;reportAt:string|null}){
  const data=compareAbsences(facts,mateFacts,absences,[],{...settings,teammateName:mate.name},mate.playerId),yes=data.withPlayer.selection,no=data.withoutPlayer.selection;
- return {teammateId:mate.playerId,name:mate.name,reportAt:mate.reportAt,withAverage:yes.average,withoutAverage:no.average,withCount:yes.valid,withoutCount:no.valid,difference:yes.average!==null&&no.average!==null?(Math.round((no.average-yes.average)*10)/10||0):null,unknown:data.window.unknown,conflicts:data.window.conflicts,firstDate:data.window.firstDate,lastDate:data.window.lastDate,minutes:{with:data.withPlayer.minuteSeasons,without:data.withoutPlayer.minuteSeasons}};
+ const cohort={present:data.withPlayer.gameIds,absent:data.withoutPlayer.gameIds};
+ const item:AutoImpactItem={teammateId:mate.playerId,name:mate.name,reportAt:mate.reportAt,withAverage:yes.average,withoutAverage:no.average,withCount:yes.valid,withoutCount:no.valid,difference:yes.average!==null&&no.average!==null?(Math.round((no.average-yes.average)*10)/10||0):null,unknown:data.window.unknown,conflicts:data.window.conflicts,firstDate:data.window.firstDate,lastDate:data.window.lastDate,minutes:{with:data.withPlayer.minuteSeasons,without:data.withoutPlayer.minuteSeasons},role:absenceRole(facts,[cohort],settings.team)};
+ return {item,cohort};
+}
+export function automaticImpact(...args:Parameters<typeof automaticImpactDetail>):AutoImpactItem{
+ return automaticImpactDetail(...args).item;
 }
 export function impactDirection(item:AutoImpactItem){return item.difference===null||item.withCount<IMPACT_MIN_GAMES||item.withoutCount<IMPACT_MIN_GAMES?'missing':item.difference>0?'up':item.difference<0?'down':'same';}
 export function impactDelta(value:number){return (value>0?'+':'')+value.toLocaleString('es-AR',{minimumFractionDigits:1,maximumFractionDigits:1});}

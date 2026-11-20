@@ -2,7 +2,7 @@ import {outcome} from './analysis';
 import {TEAMS,type Game,type Leg} from './model';
 type History={games:Game[];coverage:string;asOf:string;archiveId:string};
 type Observation={id:string;outcome:'hit'|'miss'|'push'|'missing'};
-export type JointGroup={event:string;teams:string[];legIds:string[];sample:Observation[];comparisons?:{first:string;second:string;complete:number;firstHits:number;secondHits:number;bothHits:number}[];hits:number;misses:number;pushes:number;missing:number;complete:number;rate:number|null;status:'ready'|'insufficient'};
+export type JointGroup={event:string;teams:string[];legIds:string[];sample:Observation[];comparisons?:{first:string;second:string;complete:number;firstHits:number;secondHits:number;bothHits:number;firstMisses:number;secondWhenFirstMisses:number}[];hits:number;misses:number;pushes:number;missing:number;complete:number;rate:number|null;status:'ready'|'insufficient'};
 const MIN_SAMPLE=5;
 function bounds(leg:Leg){
  const n=leg.line!;
@@ -54,8 +54,8 @@ export function combinedHistory(legs:Leg[],histories:Record<string,History|undef
   const ready=complete>=MIN_SAMPLE;
   const comparisons=[];
   for(let i=0;i<items.length&&comparisons.length<12;i++)for(let j=i+1;j<items.length&&comparisons.length<12;j++){
-   const comparable=outcomes.filter(states=>states[i]!=="missing"&&states[j]!=="missing");
-   comparisons.push({first:items[i].id,second:items[j].id,complete:comparable.length,firstHits:comparable.filter(states=>states[i]==="hit").length,secondHits:comparable.filter(states=>states[j]==="hit").length,bothHits:comparable.filter(states=>states[i]==="hit"&&states[j]==="hit").length});
+   const comparable=outcomes.filter(states=>[states[i],states[j]].every(state=>state==="hit"||state==="miss"));
+   comparisons.push({first:items[i].id,second:items[j].id,complete:comparable.length,firstHits:comparable.filter(states=>states[i]==="hit").length,secondHits:comparable.filter(states=>states[j]==="hit").length,bothHits:comparable.filter(states=>states[i]==="hit"&&states[j]==="hit").length,firstMisses:comparable.filter(states=>states[i]==="miss").length,secondWhenFirstMisses:comparable.filter(states=>states[i]==="miss"&&states[j]==="hit").length});
   }
   groups.push({comparisons,event,teams:[...items[0].teams].sort(),legIds:items.map(l=>l.id),sample,hits,misses,pushes,missing,complete,rate:ready?hits/complete:null,status:ready?'ready':'insufficient'});
  }

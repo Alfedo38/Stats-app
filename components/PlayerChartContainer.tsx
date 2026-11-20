@@ -4,6 +4,9 @@ import {PlayerPortrait} from "@/components/NbaMedia";
 import type {TeamMate} from "@/components/TeamMatesPanel";
 import NbaNextMatchup from "@/components/NbaNextMatchup";
 import RotationPilot from "@/components/RotationPilot";
+import NbaPlaytypePanel from "@/components/NbaPlaytypePanel";
+import NbaResearchStrip from "@/components/NbaResearchStrip";
+import {expectedMinutes} from "@/lib/minutesResearch";
 import AssistConnections from "@/components/AssistConnections";
 import SelectionLegend from './SelectionLegend';
 import PlayerSelectionBar from "@/components/PlayerSelectionBar";
@@ -486,6 +489,7 @@ export default function PlayerChartContainer({
   const linkedContext=useMemo(()=>parseGameContext(searchParams),[searchParams]);
   const [rotationOpen,setRotationOpen]=useState(false);
   const historyFilters=useRef<HTMLDetailsElement>(null);
+  const chartCard=useRef<HTMLDivElement>(null);
   useEffect(()=>{
     const openFilters=(event:Event)=>{
       const detail=(event as CustomEvent).detail;
@@ -1190,6 +1194,8 @@ export default function PlayerChartContainer({
   const displayStat=playerMarketLabel(activeStat);
   const formatDecimal=(value:number)=>value.toLocaleString("es-AR",{maximumFractionDigits:1});
   const gameRival=pageEvent.opponent;
+  const minuteTeam=pageEvent.team??playerTeam;
+  const minuteGuide=isFullScope&&minuteTeam&&gameContext?expectedMinutes(twoSeasonStats,historyCutoff??eventDate,minuteTeam):null;
   const rivalHistory=gameRival&&!sampleLoading&&!sampleError&&!chartOpponent
     ?recentRivalSelection(changeRows,gameRival,Number(lineValue),chartSide)
     :null;
@@ -1241,7 +1247,7 @@ export default function PlayerChartContainer({
       <div className="mosk-analysis-grid">
         {/* GRÁFICA PRINCIPAL + ODDS COMPACTAS */}
         <div className="min-w-0">
-          <div data-chart-card className="mosk-chart-card">
+          <div ref={chartCard} data-chart-card className="mosk-chart-card scroll-mt-20">
             <header data-chart-identity className="mosk-chart-heading">
               <div><h2>{displayStat}</h2>{!isFullScope&&<span>{activeScopeOption.label}</span>}</div>
               {!sampleLoading&&!sampleError&&selection.valid>0&&<dl className="mosk-chart-stats">
@@ -1250,6 +1256,9 @@ export default function PlayerChartContainer({
                 {minutesValues.length===metricStats.length&&isFullScope&&<div><dt>Minutos</dt><dd>{formatDecimal(Number(avgMinutes))}</dd></div>}
               </dl>}
             </header>
+            {!sampleLoading&&!sampleError&&<NbaResearchStrip seasons={seasonRows} rival={gameRival}
+              rivalHistory={rivalHistory} line={Number(lineValue)} side={chartSide}
+              onFilterRival={!chartOpponent&&gameRival?()=>setChartOpponent(gameRival):undefined}/>}
             <div className="mosk-chart-tools" data-chart-sample-row>
               {gameRival&&<button type="button" className="mosk-soft-button" aria-pressed={chartOpponent===gameRival} onClick={()=>setChartOpponent(chartOpponent===gameRival?"":gameRival)}>Contra {gameRival}</button>}
               <button type="button" className="mosk-soft-button" onClick={()=>{if(historyFilters.current){historyFilters.current.open=true;historyFilters.current.scrollIntoView({block:"nearest"});historyFilters.current.querySelector("summary")?.focus({preventScroll:true});}}}>Filtros</button>
@@ -1281,8 +1290,10 @@ export default function PlayerChartContainer({
           {compact&&isFullScope&&!sampleLoading&&!sampleError&&<PlayerSupportingStats market={activeStat} rows={chartStats} choice={secondaryChoice} onChange={setSecondaryChoice}/>}
           <div id={`absence-comparison-${playerId}`} className="scroll-mt-20"/>
           {playerId&&isFullScope&&activeStat==="ast"&&<AssistConnections playerId={String(playerId)}
-            gameIds={chartStats.map(row=>row.game_id??row.id)} enabled={!sampleLoading&&!sampleError}/>}
+            gameIds={chartStats.map(row=>row.game_id??row.id)} enabled={!sampleLoading&&!sampleError}
+            cutoff={historyCutoff??eventDate} rival={gameRival} context={gameContext}/>}
 
+          {playerId&&isFullScope&&["pts","fga","fgm","fg2a","fg2m","fg3a","fg3m"].includes(activeStat)&&<NbaPlaytypePanel playerId={String(playerId)} cutoff={historyCutoff??eventDate} rival={gameRival}/>}
           {playerId&&<details className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3" onToggle={e=>setRotationOpen(e.currentTarget.open)}>
             <summary className="cursor-pointer text-sm font-bold">Rotaciones de los partidos del gráfico</summary>
             <div className="mt-2"><RotationPilot playerId={String(playerId)} gameIds={chartStats.map(row=>row.game_id??row.id)} open={rotationOpen&&!sampleLoading&&!sampleError}/></div>
@@ -1290,7 +1301,9 @@ export default function PlayerChartContainer({
 
         </div>
         <aside aria-label="Contexto del partido" className="mosk-context-column">
-            <NbaNextMatchup context={gameContext} team={pageEvent.team??playerTeam} playerId={playerId??undefined} market={activeStat} scope={activeScope} rivalHistory={rivalHistory} onFilterRival={!chartOpponent&&gameRival?()=>setChartOpponent(gameRival):undefined}/>
+            <NbaNextMatchup context={gameContext} team={pageEvent.team??playerTeam} playerId={playerId??undefined} market={activeStat} scope={activeScope} rivalHistory={rivalHistory} minuteGuide={minuteGuide}
+              onFilterRival={!chartOpponent&&gameRival?()=>setChartOpponent(gameRival):undefined}
+              onApplyAbsences={names=>{changeAbsences(names);chartCard.current?.scrollIntoView({block:"start"});}}/>
             {chartOpponent&&gameRival&&chartOpponent!==gameRival&&<p className="mosk-context-note">Defensa del rival elegido en el historial: {chartOpponent}.</p>}
             {defenseOpponent&&defense.market&&<DefenseContextCard profile={isFullScope&&minutesValues.length>=5&&Number(avgMinutes)>0&&Number(avgMinutes)<=80?{playerId:Number(playerId),minutes:Number(avgMinutes),sample:minutesValues.length}:undefined} state={defense} opponent={defenseOpponent} scope={activeScope} side={chartSide}/>}
             <details ref={historyFilters} className="rounded-xl border border-[var(--border)] p-3"><summary className="cursor-pointer text-sm font-bold text-[var(--text)]">Filtrar histórico</summary><div className="mt-3 flex flex-col gap-3">

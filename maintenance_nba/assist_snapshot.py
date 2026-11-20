@@ -31,6 +31,32 @@ def played(player, stats_source):
     return any(int(part or 0) for part in match.groups())
 
 
+def summarize_game(gid, day, *, raw_box, stats_source, checked):
+    names = {}
+    rosters = []
+    for side in ("awayTeam", "homeTeam"):
+        players = []
+        side_box = raw_box[side]
+        for player in side_box["players"]:
+            if not played(player, stats_source):
+                continue
+            pid = positive(player["personId"])
+            name = player.get("name") or f"{player.get('firstName') or ''} {player.get('familyName') or ''}"
+            name = " ".join(name.split())
+            require(0 < len(name) <= 100, "NOMBRE_INVALIDO")
+            names[str(pid)] = name
+            players.append(pid)
+        require(len(players) >= 5, "PLANTEL_INCOMPLETO")
+        rosters.append([side_box["teamTricode"], sorted(players)])
+    team_players = {code: set(players) for code, players in rosters}
+    pairs = []
+    for item in checked["connections"]:
+        passer, shooter = item["passerId"], item["shooterId"]
+        require({passer, shooter} <= team_players[item["team"]], "CONEXION_SIN_PARTICIPACION")
+        pairs.append([passer, shooter, ZONES.index(item["zone"]), item["assists"]])
+    return {"id": gid, "date": day, "rosters": rosters, "pairs": pairs, "names": names}
+
+
 def build_snapshot(project, report):
     require(report.get("version") == 1 and report.get("source") in SOURCES.values(), "INFORME_NO_RECONOCIDO")
     season, team = report["season"], report["team"]
@@ -59,29 +85,10 @@ def build_snapshot(project, report):
         checked = reconcile(gid, day, box, pbp, team)
         require(checked == {k: v for k, v in game.items() if k != "sha256"}, f"INFORME_DISTINTO_DE_LA_FUENTE_{gid}")
 
-        raw_box = parts[1]["boxScoreTraditional"] if stats_source else box["game"]
-        rosters = []
-        for side in ("awayTeam", "homeTeam"):
-            players = []
-            side_box = raw_box[side]
-            for player in side_box["players"]:
-                if not played(player, stats_source):
-                    continue
-                pid = positive(player["personId"])
-                name = player.get("name") or f"{player.get('firstName') or ''} {player.get('familyName') or ''}"
-                name = " ".join(name.split())
-                require(0 < len(name) <= 100, "NOMBRE_INVALIDO")
-                names[str(pid)] = name
-                players.append(pid)
-            require(len(players) >= 5, "PLANTEL_INCOMPLETO")
-            rosters.append([side_box["teamTricode"], sorted(players)])
-        team_players = {code: set(players) for code, players in rosters}
-        pairs = []
-        for item in checked["connections"]:
-            passer, shooter = item["passerId"], item["shooterId"]
-            require({passer, shooter} <= team_players[item["team"]], "CONEXION_SIN_PARTICIPACION")
-            pairs.append([passer, shooter, ZONES.index(item["zone"]), item["assists"]])
-        games.append({"id": gid, "date": day, "rosters": rosters, "pairs": pairs})
+        game = summarize_game(gid, day, raw_box=(parts[1]["boxScoreTraditional"] if stats_source else box["game"]),
+                              stats_source=stats_source, checked=checked)
+        names.update(game.pop("names"))
+        games.append(game)
     return {"version": 1, "team": team, "season": season, "names": names, "games": games}
 
 

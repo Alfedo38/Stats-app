@@ -4,7 +4,7 @@ import {useEffect,useMemo,useState} from 'react';
 import Link from 'next/link';
 import {Search,SlidersHorizontal,ArrowUpRight,Plus,Ticket,CalendarDays} from 'lucide-react';
 import {useAnalysisQuery} from '@/hooks/useAnalysisQuery';
-import {JORNADA_MARKETS,BOOK_LABELS,marketIsValid,jornadaEvidence,bestJornadaPrice,availableLines,publishedJornadaLine,defaultLine,validJornadaLine,JORNADA_MIN_LINE,JORNADA_MAX_LINE,quoteAt,summaryFor,jornadaPlayerHref,jornadaLeg,contextFor,plusDays,type JornadaData,type JornadaMarket,type JornadaPlayer} from '@/lib/nbaJornada';
+import {JORNADA_MARKETS,BOOK_LABELS,marketIsValid,jornadaEvidence,jornadaPriceGap,bestJornadaPrice,availableLines,publishedJornadaLine,defaultLine,validJornadaLine,JORNADA_MIN_LINE,JORNADA_MAX_LINE,quoteAt,summaryFor,jornadaPlayerHref,jornadaLeg,contextFor,plusDays,type JornadaData,type JornadaMarket,type JornadaPlayer} from '@/lib/nbaJornada';
 import {nbaSlateDate} from '@/lib/nbaSlate';
 import {selectionSummary} from '@/lib/selectionStats';
 import {appendDraft,readDraft} from '@/lib/ticketReader/draft';
@@ -27,12 +27,12 @@ function explainSample(stat:ReturnType<typeof jornadaEvidence>['l5'],line:number
   if(line===null)return average+' Elegí una línea para comparar.';
   if(!stat.decided)return average+' Todos los resultados con dato igualaron la línea.';
   return stat.hits+' de '+stat.decided+' '+(side==='over'?'superaron':'quedaron por debajo de')+' '+number(line)+'. '+average+
-    (stat.pushes?' Empates: '+stat.pushes+'.':'')+(stat.missing?' Sin dato: '+stat.missing+'.':'');
+    (stat.pushes?' En la línea: '+stat.pushes+'.':'')+(stat.missing?' Sin dato: '+stat.missing+'.':'');
 }
 function sampleLabel(stat:ReturnType<typeof jornadaEvidence>['l5'],line:number|null){
   if(line===null)return 'Sin línea';
-  if(!stat.decided)return stat.pushes?stat.pushes+' empate(s)':'S/D';
-  return stat.hits+'/'+stat.decided+(stat.pushes?' · '+stat.pushes+' empate(s)':'');
+  if(!stat.decided)return stat.pushes?stat.pushes+' en la línea':'S/D';
+  return stat.hits+'/'+stat.decided+(stat.pushes?' · '+stat.pushes+' en la línea':'');
 }
 function LineInput({id,name,line,side,onChange}:{id:string;name:string;line:number|null;side:'over'|'under';onChange:(line:number|null)=>void}){
   const [draft,setDraft]=useState<string|null>(null);
@@ -54,8 +54,8 @@ function LineInput({id,name,line,side,onChange}:{id:string;name:string;line:numb
 type Choice={line:number|null;book:string|null};
 export default function JornadaExplorer({initialDate,initialGame="all",today=initialDate,storageKey,nbaSlate=false,initialFilters={}}:{initialDate:string;initialGame?:string;today?:string;storageKey:string;nbaSlate?:boolean;initialFilters?:Record<string,string>}){
   const [date,setDate]=useState(initialDate),[market,setMarket]=useState<JornadaMarket>(marketIsValid(initialFilters.market)?initialFilters.market:'pts');
-  const [search,setSearch]=useState(initialFilters.search??''),[gameId,setGameId]=useState(initialGame),[book,setBook]=useState(initialFilters.book??'all'),[side,setSide]=useState<'over'|'under'>(initialFilters.side==='under'?'under':'over');
-  const [sample,setSample]=useState<5|10>(initialFilters.n==='5'?5:10),[minimum,setMinimum]=useState(Number(initialFilters.minimum??0)),[onlyQuotes,setOnlyQuotes]=useState(initialFilters.only==='1'),[sort,setSort]=useState(initialFilters.sort??(initialGame==='all'?'average':'rate'));
+  const [search,setSearch]=useState(initialFilters.search??''),[gameId,setGameId]=useState(initialGame),[book,setBook]=useState(initialFilters.sort==='gap'&&initialFilters.mode==='prices'?'all':initialFilters.book??'all'),[side,setSide]=useState<'over'|'under'>(initialFilters.side==='under'?'under':'over');
+  const [sample,setSample]=useState<5|10>(initialFilters.n==='5'?5:10),[minimum,setMinimum]=useState(Number(initialFilters.minimum??0)),[onlyQuotes,setOnlyQuotes]=useState(initialFilters.only==='1'),[sort,setSort]=useState(initialFilters.sort==='gap'&&initialFilters.mode!=='prices'?'rate':initialFilters.sort??(initialGame==='all'?'average':'rate'));
   const [choices,setChoices]=useState<Record<string,Choice>>({}),[notice,setNotice]=useState(''),[draftCount,setDraftCount]=useState(0),[busy,setBusy]=useState(false),[retry,setRetry]=useState(0);
   const [defenseBand,setDefenseBand]=useState<DefenseBand>('all');
   const [defenseSeasonChoice,setDefenseSeasonChoice]=useState<{date:string;season:string}|null>(null);
@@ -76,24 +76,26 @@ export default function JornadaExplorer({initialDate,initialGame="all",today=ini
   },[storageKey]);
   function selectGame(id:string){
     setGameId(id);
-    setSort(id==='all'?'average':'rate');
+    setSort(old=>old==='gap'?old:id==='all'?'average':'rate');
     setNotice('');
   }
   const normalized=search.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
   function matchesSearch(p:JornadaPlayer){return (gameId==='all'||p.gameId===gameId)&&`${p.name} ${p.team} ${p.opponent}`.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(normalized);}
   const searchedCount=(data?.players??[]).filter(matchesSearch).length;
   function returnHref(){return '/trending?'+new URLSearchParams({date,game:gameId,market,side,book,n:String(sample),sort,...(search.trim()?{search:search.trim()}:{}),...(published?{mode:'prices'}:{}),...(onlyQuotes?{only:'1'}:{}),...(minimum?{minimum:String(minimum)}:{}),...(nbaSlate?{slate:'nba'}:{})});}
-  function key(p:JornadaPlayer){return [date,market,side,book,p.gameId,p.id,...(published?['published']:[])].join(':');}
-  function selection(p:JornadaPlayer){const choice=choices[key(p)];const line=published?publishedJornadaLine(p,book,side,choice?.line):choice?choice.line:defaultLine(p);
+  function key(p:JornadaPlayer){return [date,market,side,book,p.gameId,p.id,...(published?['published',sort==='gap'?'gap':'standard']:[])].join(':');}
+  function selection(p:JornadaPlayer){const choice=choices[key(p)];const line=published&&sort==='gap'&&!choice?jornadaPriceGap(p,side)?.line??null:published?publishedJornadaLine(p,book,side,choice?.line):choice?choice.line:defaultLine(p);
     return {line,book:choice?.book??(book==='all'?(published?Object.keys(BOOK_LABELS).filter(b=>quoteAt(p,b,line,side)).sort((a,b)=>quoteAt(p,b,line,side)!.price-quoteAt(p,a,line,side)!.price)[0]??null:null):book)};}
   function choose(p:JornadaPlayer,change:Partial<Choice>){setNotice('');setChoices(old=>({...old,[key(p)]:{...selection(p),...change}}));}
   const visible=useMemo(()=>{
     const rows=(data?.players??[]).filter(matchesSearch)
       .map(p=>{const s=selection(p),stats=summaryFor(p,sample,s.line,side);return {p,...s,...stats};})
       .filter(row=>row.stat.valid>=Math.min(minimum,sample)&&(!(onlyQuotes||published)||(book==='all'?Object.keys(BOOK_LABELS):[book]).some(b=>quoteAt(row.p,b,row.line,side)!==null)))
+      .filter(row=>sort!=='gap'||row.line!==null&&(jornadaPriceGap(row.p,side,row.line)?.percent??0)>0)
       .filter(row=>defenseBand==='all'||rankBand(rankFor(defense,row.p.opponent,defenseReferencePosition(row.p.position)??'ALL'))===defenseBand);
     const metric=(r:typeof rows[number])=>sort==='minutes'?r.minutes.average:sort==='rate'?r.line===null?null:r.stat.rate:r.stat.average;
     return rows.sort((a,b)=>{
+      if(sort==='gap')return (jornadaPriceGap(b.p,side,b.line)?.percent??0)-(jornadaPriceGap(a.p,side,a.line)?.percent??0);
       if(sort==='rate'){
         // First show usable samples; one win in one game must not outrank sustained results.
         const tier=(r:typeof a)=>r.stat.decided>=5?2:r.stat.decided>0?1:0;
@@ -119,17 +121,17 @@ export default function JornadaExplorer({initialDate,initialGame="all",today=ini
     finally{setBusy(false);}
   }
   return <section className={styles.explorer} aria-label="Explorador de la jornada">
-    <div className={styles.quickFilters} role="group" aria-label="Modo de jornada"><button type="button" aria-pressed={!published} onClick={()=>setPublished(false)}>Explorar historial</button><button type="button" aria-pressed={published} onClick={()=>setPublished(true)}>Comparar cuotas</button></div>
+    <div className={styles.quickFilters} role="group" aria-label="Modo de jornada"><button type="button" aria-pressed={!published} onClick={()=>{setPublished(false);if(sort==='gap')setSort('rate');}}>Explorar historial</button><button type="button" aria-pressed={published&&sort!=='gap'} onClick={()=>{setPublished(true);if(sort==='gap')setSort('rate');}}>Comparar cuotas</button><button type="button" aria-pressed={published&&sort==='gap'} onClick={()=>{setPublished(true);setBook('all');setSort('gap');}}>Diferencias de cuota</button></div>
     <div className={styles.topline}><p><CalendarDays size={15}/><strong>Jugadores de la jornada</strong><span>Partido completo</span></p><Link href="/analizar-ticket" className={styles.analyzer}><Ticket size={14}/> Analizador{draftCount>0?` (${draftCount})`:''}</Link></div>
     <div className={styles.filters}>
       <label>{nbaSlate?"Fecha de jornada NBA":"Fecha · Argentina"}<input aria-label="Fecha de la jornada" type="date" min={plusDays(today,-30)} max={plusDays(today,7)} value={date} onChange={e=>{if(e.target.value){setDate(e.target.value);selectGame('all');}}}/></label>
       <label>Mercado<select aria-label="Mercado" value={market} onChange={e=>{setMarket(e.target.value as JornadaMarket);setNotice('');}}>{Object.entries(JORNADA_MARKETS).map(([k,label])=><option key={k} value={k}>{label}</option>)}</select></label>
       <label className={styles.search}>Buscar jugador o equipo<span><Search size={15}/><input aria-label="Buscar jugador o equipo" placeholder="Nombre, equipo o rival…" maxLength={100} value={search} onChange={e=>setSearch(e.target.value)}/></span></label>
       <label>Partido<select aria-label="Partido" value={gameId} onChange={e=>selectGame(e.target.value)}><option value="all">Todos los partidos</option>{data?.games.map(g=><option key={g.id} value={g.id}>{g.away} @ {g.home}</option>)}</select></label>
-      <label>Casa<select aria-label="Casa" value={book} onChange={e=>setBook(e.target.value)}><option value="all">Todas las casas</option>{Object.entries(BOOK_LABELS).map(([k,label])=><option key={k} value={k}>{label}</option>)}</select></label>
+      <label>Casa<select aria-label="Casa" value={book} disabled={published&&sort==='gap'} onChange={e=>setBook(e.target.value)}><option value="all">Todas las casas</option>{Object.entries(BOOK_LABELS).map(([k,label])=><option key={k} value={k}>{label}</option>)}</select></label>
       <label>Condición<select aria-label="Condición" value={side} onChange={e=>setSide(e.target.value as 'over'|'under')}><option value="over">Más de (Over)</option><option value="under">Menos de (Under)</option></select></label>
       <label>Aciertos y orden<select aria-label="Aciertos y orden" value={sample} onChange={e=>setSample(Number(e.target.value) as 5|10)}><option value={5}>Últimos 5 partidos</option><option value={10}>Últimos 10 partidos</option></select></label>
-      <details className={styles.more}><summary><SlidersHorizontal size={14}/> Más filtros</summary><div><label>Mínimo con datos<select aria-label="Mínimo con datos" value={minimum} onChange={e=>setMinimum(Number(e.target.value))}><option value={0}>Sin mínimo</option><option value={5}>5 partidos</option><option value={10}>Muestra completa</option></select></label><label>Ordenar por<select aria-label="Ordenar por" value={sort} onChange={e=>setSort(e.target.value)}><option value="average">Promedio del mercado</option><option value="minutes">Minutos promedio</option><option value="rate">Acierto histórico de la línea</option></select></label><label>Temporada de defensa<select aria-label="Temporada defensiva Jornada" value={referenceSeason} onChange={e=>setDefenseSeasonChoice({date,season:e.target.value})}>{[...new Set([referenceSeason,...(defenseQuery.data?.seasons??[])])].sort().reverse().map(season=><option value={season} key={season}>{season}</option>)}</select></label><label>Defensa por posición<select aria-label="Defensa de la jornada" value={defenseBand} onChange={e=>setDefenseBand(e.target.value as DefenseBand)}>{Object.entries(DEFENSE_BANDS).map(([key,label])=><option value={key} key={key}>{label}</option>)}</select></label><label className={styles.check}><input type="checkbox" checked={onlyQuotes} onChange={e=>setOnlyQuotes(e.target.checked)}/> Solo con cuotas publicadas</label></div></details>
+      <details className={styles.more}><summary><SlidersHorizontal size={14}/> Más filtros</summary><div><label>Mínimo con datos<select aria-label="Mínimo con datos" value={minimum} onChange={e=>setMinimum(Number(e.target.value))}><option value={0}>Sin mínimo</option><option value={5}>5 partidos</option><option value={10}>Muestra completa</option></select></label><label>Ordenar por<select aria-label="Ordenar por" value={sort} onChange={e=>{setSort(e.target.value);if(e.target.value==='gap')setBook('all');}}><option value="average">Promedio del mercado</option><option value="minutes">Minutos promedio</option><option value="rate">Acierto histórico de la línea</option>{published&&<option value="gap">Mayor diferencia de cuota</option>}</select></label><label>Temporada de defensa<select aria-label="Temporada defensiva Jornada" value={referenceSeason} onChange={e=>setDefenseSeasonChoice({date,season:e.target.value})}>{[...new Set([referenceSeason,...(defenseQuery.data?.seasons??[])])].sort().reverse().map(season=><option value={season} key={season}>{season}</option>)}</select></label><label>Defensa por posición<select aria-label="Defensa de la jornada" value={defenseBand} onChange={e=>setDefenseBand(e.target.value as DefenseBand)}>{Object.entries(DEFENSE_BANDS).map(([key,label])=><option value={key} key={key}>{label}</option>)}</select></label><label className={styles.check}><input type="checkbox" checked={onlyQuotes} onChange={e=>setOnlyQuotes(e.target.checked)}/> Solo con cuotas publicadas</label></div></details>
     </div>
     <div className={styles.quickFilters} role="group" aria-label="Filtros rápidos de jugadores"><button type="button" aria-pressed={onlyQuotes} onClick={()=>setOnlyQuotes(v=>!v)}>Con cuotas disponibles</button><button type="button" aria-pressed={minimum>=5} onClick={()=>setMinimum(v=>v>=5?0:5)}>Al menos 5 partidos</button></div>
     <JornadaPresets storageKey={storageKey} filters={{market,book,side,sample,minimum,onlyQuotes,sort,defenseBand,published,dense:false}} onApply={f=>{
@@ -163,7 +165,7 @@ export default function JornadaExplorer({initialDate,initialGame="all",today=ini
               {published?<label className={styles.line}>Línea publicada<select className="rounded border border-[var(--border)] bg-[var(--bg)] p-2" value={line??''} onChange={event=>choose(p,{line:Number(event.target.value),book:null})}>{lines.filter(validJornadaLine).map(l=><option key={l} value={l}>{number(l)}</option>)}</select></label>:<LineInput key={key(p)} id={`lines-${p.gameId}-${p.id}`} name={p.name} line={line} side={side} onChange={value=>choose(p,{line:value,book:book==='all'?null:book})}/> }
               <datalist id={`lines-${p.gameId}-${p.id}`}>{lines.filter(validJornadaLine).map(l=><option key={l} value={l}/>)}</datalist>
               <div className={styles.evidence}><span>Últimos {sample} · {JORNADA_MARKETS[market]}</span><strong>{!stat.valid?'Sin muestra para evaluar':line===null?'Elegí una línea':!stat.decided?'Solo empates en esta muestra':`${stat.hits} de ${stat.decided} ${side==='over'?'superaron':'quedaron por debajo de'} ${number(line)}`}</strong><small>{line!==null&&(published?"Línea publicada · ":choices[key(p)]?"Línea ajustada · ":"Línea inicial de L10 · ")}Promedio {number(stat.average)}{stat.pushes?` · ${stat.pushes} empate(s)`:''}{stat.valid<sample?` · ${stat.valid} con dato`:''}</small></div>
-              <div className={styles.prices}><span>Cuotas</span><QuotePriceCards
+              <div className={styles.prices}><span>Cuotas</span>{published&&sort==='gap'&&line!==null&&(()=>{const gap=jornadaPriceGap(p,side,line);return gap?<small>{BOOK_LABELS[gap.best.book]} paga {number(gap.percent)}% más que {BOOK_LABELS[gap.worst.book]} · misma línea</small>:null;})()}<QuotePriceCards
                 label={`Cuotas de ${p.name}`} selectedBook={selectedBook} bestPrice={best}
                 cards={Object.entries(BOOK_LABELS).filter(([b])=>book==='all'||b===book).map(([b,label])=>({key:b,label:({bet365:'365',betano:'Bto',stake:'Ste'} as Record<string,string>)[b]??label,price:quoteAt(p,b,line,side)?.price??null}))}
                 onSelectBook={b=>choose(p,{book:b})}/><small>{selectedQuote?'Cuota seleccionada':best!==null?'Verde: mejor precio disponible':line===null?'Elegí una línea':'Sin cuota para esta línea'}</small></div>

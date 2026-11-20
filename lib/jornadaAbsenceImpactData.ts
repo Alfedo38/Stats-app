@@ -6,7 +6,7 @@ import {getJornadaSchedule,getNbaSlateSchedule} from './nbaJornadaData';
 import {getInjuryReport} from './injuryReportData';
 import {nbaSlateDate} from './nbaSlate';
 import {rosterFitsDate} from './ticketReader/teamContext';
-import {automaticImpact,confirmedGameAbsences,impactName,impactPlayerKey,type AutoImpactRequest,type AutoImpactReport,type AutoImpactPlayer} from './jornadaAbsenceImpact';
+import {automaticImpactDetail,absenceRole,type AbsenceCohort,confirmedGameAbsences,impactName,impactPlayerKey,type AutoImpactRequest,type AutoImpactReport,type AutoImpactPlayer} from './jornadaAbsenceImpact';
 const cache=new Map<string,{until:number;value:Promise<AutoImpactReport>}>();
 const teamSql="upper(trim(coalesce(to_jsonb(cache)->>'team_abbreviation',to_jsonb(cache)->>'team_abbr','')))";
 const gameKey=(v:unknown)=>/^\d{1,15}$/.test(String(v))?String(Number(v)):'';
@@ -46,10 +46,13 @@ async function read(request:AutoImpactRequest):Promise<AutoImpactReport>{
   const byPlayer=new Map<number,Record<string,any>[]>();for(const {row} of absences){const id=Number(row.player_id),list=byPlayer.get(id)??[];list.push(row);byPlayer.set(id,list);}
   for(const v of pending){
    const own=facts.get(v.p.playerId);if(!own){v.row.status='unavailable';v.row.reason='Histórico sin verificar';continue;}
+   const cohorts:AbsenceCohort[]=[];
    for(const mate of v.mates){const teammate=facts.get(mate.playerId!);if(!teammate){v.row.status='unavailable';v.row.reason='Histórico sin verificar';v.row.items=[];break;}
     const canonical=getCurrentRosterPlayer(mate.playerId!)!;
-    v.row.items.push(automaticImpact(own,teammate,byPlayer.get(v.p.playerId)??[],{playerId:v.p.playerId,mode:'current',team:v.row.team,market:request.market,scope:'FULL',side:'over',line:.5,asOfDate:nbaSlateDate(v.game.start,v.eventDate),phase:'ALL',season:'all',lastN:1000,opponent:null,homeAway:null,minMinutes:null,thresholds:[]},{playerId:mate.playerId!,name:canonical.full_name,reportAt:mate.reportAt}));
+    const detail=automaticImpactDetail(own,teammate,byPlayer.get(v.p.playerId)??[],{playerId:v.p.playerId,mode:'current',team:v.row.team,market:request.market,scope:'FULL',side:'over',line:.5,asOfDate:nbaSlateDate(v.game.start,v.eventDate),phase:'ALL',season:'all',lastN:1000,opponent:null,homeAway:null,minMinutes:null,thresholds:[]},{playerId:mate.playerId!,name:canonical.full_name,reportAt:mate.reportAt});
+    v.row.items.push(detail.item);cohorts.push(detail.cohort);
    }
+   if(v.row.items.length>=2&&cohorts.length===v.mates.length)v.row.joint={names:v.row.items.map(m=>m.name),role:absenceRole(own,cohorts,v.row.team)};
    v.row.items.sort((a,b)=>b.withoutCount-a.withoutCount||a.name.localeCompare(b.name));
   }
   return result;

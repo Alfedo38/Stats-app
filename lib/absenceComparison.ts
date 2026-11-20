@@ -53,8 +53,8 @@ export function compareAbsences(facts:Row[],teammateFacts:Row[],absenceRows:Row[
  const minuteSeasons=(rows:Row[])=>historySeasons(s.asOfDate).filter(season=>s.season==='all'||s.season===season).map(season=>({season,...minutesDistribution(rows.filter(r=>seasonKey(r)===season).map(getMinutesValue))}));
  const withPlayer={...summarize(withRows),minuteSeasons:minuteSeasons(withFull)},withoutPlayer={...summarize(withoutRows),minuteSeasons:minuteSeasons(withoutFull)},dates=selected.map(r=>injuryDate(r.full.game_date)!).sort();return {settings:s,seasons,window:{games:selected.length,firstDate:dates[0]??null,lastDate:dates.at(-1)??null,unknown,conflicts,invalidIdentities:invalid.size},withPlayer,withoutPlayer,difference:{average:withPlayer.selection.average!==null&&withoutPlayer.selection.average!==null?withoutPlayer.selection.average-withPlayer.selection.average:null,hitRatePoints:withPlayer.selection.rate!==null&&withoutPlayer.selection.rate!==null?withoutPlayer.selection.rate-withPlayer.selection.rate:null},metricDifferences:withPlayer.metrics.map(m=>{const other=withoutPlayer.metrics.find(n=>n.id===m.id);return {id:m.id,label:m.label,withAverage:m.average,withoutAverage:other?.average??null,difference:m.average!==null&&other?.average!=null?other.average-m.average:null,withCount:m.count,withoutCount:other?.count??0};}),smallSample:withPlayer.selection.decided<5||withoutPlayer.selection.decided<5};
 }
-export function comparisonRotation(rows:RotationGame[],base:ReturnType<typeof compareAbsences>){
- return {withPlayer:summarizeRotation(rows,base.withPlayer.gameIds,base.settings.team),
-  withoutPlayer:summarizeRotation(rows,base.withoutPlayer.gameIds,base.settings.team)};
+export function comparisonRotation(rows:RotationGame[],base:ReturnType<typeof compareAbsences>,limit?:number){
+ return {withPlayer:summarizeRotation(rows,base.withPlayer.gameIds.slice(0,limit),base.settings.team),
+  withoutPlayer:summarizeRotation(rows,base.withoutPlayer.gameIds.slice(0,limit),base.settings.team)};
 }
 export type AbsenceComparison=ReturnType<typeof compareAbsences> & {ok:true;archiveId:string;teammateId:number;teammateName:string;periodsAvailable:boolean;rosterAt:string;rotation?:ReturnType<typeof comparisonRotation>};

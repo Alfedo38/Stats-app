@@ -12,20 +12,36 @@ const clock=(ms:number)=>{const seconds=Math.round(ms/1000);return Math.floor(se
 const label=(p:number)=>p<=4?'Q'+p:'PR '+(p-4);
 
 export default function RotationPilot({playerId,gameIds,open}:{playerId:string;gameIds:unknown[];open:boolean}){
- const ids=[...new Set(gameIds.map(rotationGameId).filter((x):x is string=>x!==null))].slice(0,30);
+ const ids=[...new Set(gameIds.map(rotationGameId).filter((x):x is string=>x!==null))].slice(-30);
+ const [pattern,setPattern]=useState(true);
  const [chosen,setChosen]=useState(''),[retry,setRetry]=useState(0);
  const q=useAnalysisQuery<Pilot>(open&&ids.length&&/^[1-9]\d{0,9}$/.test(playerId)?'/api/nba-rotaciones?retry='+retry:null,{playerId,gameIds:ids});
  const d=q.data;
  const game=d?.games.find(g=>g.gameId===chosen)??d?.games[0];
  if(!open)return null;
  return <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--bg)] p-3 text-xs">
-  <p className="text-[var(--text-muted)]">Piloto BOS y LAL · Hasta 30 partidos de esta muestra. Los minutos reconstruidos se contrastan con el box score.</p>
+  <p className="text-[var(--text-muted)]">Hasta 30 partidos de la muestra. Solo se muestran tramos que concilian con el boxscore.</p>
   {!ids.length&&<p>No hay partidos NBA elegibles con estos filtros.</p>}
   {q.loading&&<p role="status">Buscando rotaciones conciliadas…</p>}
   {q.error&&<p role="alert">{q.error} <button type="button" onClick={()=>setRetry(n=>n+1)} className="underline">Reintentar</button></p>}
-  {d&&<p role="status" className="text-[var(--text-muted)]"><strong className="text-[var(--text)]">{d.coverage.covered}/{d.coverage.requested} partidos verificados</strong>{d.source==='local'?' · vista previa local':''}{!d.available?' · todavía no hay rotaciones publicadas para este jugador.':!d.coverage.covered?' · no hay cruces con el piloto en esta muestra.':''}</p>}
+  {d&&<p role="status" className="text-[var(--text-muted)]"><strong className="text-[var(--text)]">{d.coverage.covered}/{d.coverage.requested} partidos verificados</strong>{d.source==='local'?' · vista previa local':''}{!d.available?' · todavía no hay rotaciones publicadas para este jugador.':!d.coverage.covered?' · no hay rotaciones verificadas en esta muestra.':''}</p>}
   {d&&game&&<>
    <dl className="grid grid-cols-3 gap-3"><div><dt className="text-[var(--text-muted)]">Titular</dt><dd className="text-base font-bold">{d.coverage.starts}/{d.coverage.covered}</dd></div><div><dt className="text-[var(--text-muted)]">Min. promedio</dt><dd className="text-base font-bold">{fmt(d.coverage.minutes)}</dd></div><div><dt className="text-[var(--text-muted)]">Min. 1.º cuarto</dt><dd className="text-base font-bold">{fmt(d.coverage.q1Minutes)}</dd></div></dl>
+   <div className="flex flex-wrap gap-2" role="group" aria-label="Vista de rotaciones">
+    <button type="button" className="mosk-soft-button" aria-pressed={pattern} onClick={()=>setPattern(true)}>Patrón reciente</button>
+    <button type="button" className="mosk-soft-button" aria-pressed={!pattern} onClick={()=>setPattern(false)}>Partido a partido</button>
+   </div>
+   {pattern?<div>
+    <p className="mb-2 text-[var(--text-muted)]">Cada bloque indica en cuántos partidos estuvo en cancha al segundo 30 de ese minuto. Usá el reloj de izquierda a derecha: 12:00 → 0:00.</p>
+    {Array.from({length:4},(_,i)=>i+1).map(period=><div className="mb-2 flex items-center gap-2" key={period}>
+      <strong>Q{period}</strong><div className="grid flex-1 grid-cols-12 gap-1">{Array.from({length:12},(_,i)=>{
+       const tick=i*60000+30000,played=d.games.filter(g=>g.spans.some(([p,a,b])=>p===period&&a<=tick&&tick<b)).length;
+       return <span key={i} className="rounded border border-[var(--border)] text-center text-[9px] leading-5" title={`Q${period} · ${12-i}:00 → ${11-i}:00 · ${played}/${d.games.length} partidos`}
+        style={{background:`color-mix(in srgb, var(--brand, #10b981) ${Math.round(55*played/d.games.length)}%, var(--bg))`}}>{played}</span>;
+      })}</div>
+    </div>)}
+    <p className="text-[var(--text-muted)]">Cerró el primer cuarto en {d.games.filter(g=>g.spans.some(([p,,b])=>p===1&&b===720000)).length}/{d.games.length} partidos verificados.</p>
+   </div>:<>
    <label className="flex flex-wrap items-center gap-2">Partido <select value={game.gameId} onChange={e=>setChosen(e.target.value)} className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-2">{d.games.map(g=><option key={g.gameId} value={g.gameId}>{reportDateLabel(g.date)} · {g.team}</option>)}</select></label>
    <p><strong>{game.starter?'Titular':'Suplente'}</strong> · {clock(game.playedMs)} reconstruidos · {clock(game.boxMs)} box score</p>
    <ul className="space-y-2" aria-label="Minutos en cancha por período">
@@ -35,7 +51,7 @@ export default function RotationPilot({playerId,gameIds,open}:{playerId:string;g
      {spans.length>0&&<p className="ml-14 text-[11px] text-[var(--text-muted)]">{spans.map(([,a,b])=>clock(max-a)+' → '+clock(max-b)).join(' · ')}</p>}</li>;
     })}
    </ul>
-   <p className="text-[var(--text-muted)]">La barra muestra cuándo estuvo en cancha. Los horarios debajo usan el reloj descendente del período. La muestra no proyecta el próximo partido.</p>
+   <p className="text-[var(--text-muted)]">La barra muestra cuándo estuvo en cancha. Los horarios debajo usan el reloj descendente del período. La muestra no proyecta el próximo partido.</p></>}
   </>}
  </div>;
 }

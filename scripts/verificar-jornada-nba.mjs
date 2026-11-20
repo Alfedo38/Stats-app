@@ -150,13 +150,15 @@ await check('Partido muestra los dos equipos, excluye terceros y prioriza una mu
  assert.doesNotMatch(html,/Fuera del partido/);
  assert.ok(html.indexOf('Muestra amplia')>=0&&html.indexOf('Muestra amplia')<html.indexOf('Muestra corta'));
 });
-await check('Cruces fuera de L10 se cuentan contra la línea elegida sin reemplazar cruces recientes',()=>{
+await check('Los últimos cruces usan la muestra ampliada aunque haya cruces en L10',()=>{
  const player=p({values:[25,12],opponents:['BOS','NYK'],rivalValues:[0,30,22,null,18]});
  const result=j.jornadaEvidence(player,19.5,'over');
  assert.equal(result.rivalSource,'rival');assert.equal(result.rival.hits,2);assert.equal(result.rival.decided,4);
  assert.equal(j.jornadaEvidence(player,19.5,'under').rival.hits,2);
  const recent=j.jornadaEvidence({...player,opponents:[player.opponent,'NYK']},19.5,'over');
- assert.equal(recent.rivalSource,'recent');assert.equal(recent.rival.hits,1);assert.equal(recent.rival.decided,1);
+ assert.equal(recent.rivalSource,'rival');assert.equal(recent.rival.hits,2);assert.equal(recent.rival.decided,4);
+ const fallback=j.jornadaEvidence({...player,rivalValues:[],opponents:[player.opponent,'NYK']},19.5,'over');
+ assert.equal(fallback.rivalSource,'recent');assert.equal(fallback.rival.hits,1);assert.equal(fallback.rival.decided,1);
 });
 await check('La secuencia pone el último partido a la derecha y separa los cinco más recientes',()=>{
  const player=p({values:[30,30,30,30,30,0,0,0,30,30]});

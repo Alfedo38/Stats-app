@@ -20,7 +20,7 @@ export function safeJornadaReturn(value:unknown):string|null {
  const u=new URL(value,'https://local.invalid'),p=u.searchParams,q=new URLSearchParams();
  if(u.pathname!=='/trending'||u.origin!=='https://local.invalid'||!isDate(p.get('date')))return null;
  q.set('date',p.get('date')!);
- for(const [key,pattern] of Object.entries({game:/^\d{1,15}$/,slate:/^nba$/,market:/^[a-z0-9_]{1,12}$/,side:/^(over|under)$/,book:/^(all|betano|bet365|stake)$/,n:/^(5|10)$/,mode:/^prices$/,minimum:/^(5|10)$/,only:/^1$/,sort:/^(rate|average|minutes)$/})){
+ for(const [key,pattern] of Object.entries({game:/^\d{1,15}$/,slate:/^nba$/,market:/^[a-z0-9_]{1,12}$/,side:/^(over|under)$/,book:/^(all|betano|bet365|stake)$/,n:/^(5|10)$/,mode:/^prices$/,minimum:/^(5|10)$/,only:/^1$/,sort:/^(rate|average|minutes|gap)$/})){
   const v=p.get(key);if(v&&pattern.test(v))q.set(key,v);
  }
  const search=p.get('search')?.trim();if(search&&search.length<=100)q.set('search',search);

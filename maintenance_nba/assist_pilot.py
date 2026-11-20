@@ -69,13 +69,13 @@ def zone(action, three):
     return "aro" if d < 4 else "otros_dobles"
 
 
-def reconcile(game_id, day, boxscore, playbyplay, team_code):
+def reconcile(game_id, day, boxscore, playbyplay, team_code, *, calendar_tz=TZ):
     game, pbp = boxscore["game"], playbyplay["game"]
     require(str(game["gameId"]) == game_id == str(pbp["gameId"]), "ID_DE_FUENTE_DISTINTO")
     require(str(game.get("gameStatus")) == "3", "PARTIDO_NO_FINALIZADO")
     if game.get("gameTimeUTC"):
         start = datetime.fromisoformat(game["gameTimeUTC"].replace("Z", "+00:00"))
-        require(start.tzinfo is not None and start.astimezone(TZ).date().isoformat() == day, "FECHA_ARG_DISTINTA")
+        require(start.tzinfo is not None and start.astimezone(calendar_tz).date().isoformat() == day, "FECHA_ARG_DISTINTA" if calendar_tz == TZ else "FECHA_NBA_DISTINTA")
 
     teams, players = {}, {}
     expected_ast, expected_fgm = {}, {}
@@ -130,12 +130,12 @@ def read_cached(path):
     return json.loads(raw), sha256(raw).hexdigest()
 
 
-def v3_inputs(game_id, day, summary, traditional, playbyplay):
+def v3_inputs(game_id, day, summary, traditional, playbyplay, *, calendar_tz=TZ):
     header, box, pbp = summary["boxScoreSummary"], traditional["boxScoreTraditional"], playbyplay["game"]
     require(str(header["gameId"]) == str(box["gameId"]) == str(pbp["gameId"]) == game_id, "ID_DE_FUENTE_DISTINTO")
     require(str(header.get("gameStatus")) == "3", "PARTIDO_NO_FINALIZADO")
     start = datetime.fromisoformat(header["gameTimeUTC"].replace("Z", "+00:00"))
-    require(start.tzinfo is not None and start.astimezone(TZ).date().isoformat() == day, "FECHA_ARG_DISTINTA")
+    require(start.tzinfo is not None and start.astimezone(calendar_tz).date().isoformat() == day, "FECHA_ARG_DISTINTA" if calendar_tz == TZ else "FECHA_NBA_DISTINTA")
     game = {k: header[k] for k in ("gameId", "gameStatus", "gameTimeUTC")}
     aliases, expected_3pm = {}, {}
     for side in ("awayTeam", "homeTeam"):

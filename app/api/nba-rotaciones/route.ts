@@ -11,7 +11,7 @@ export const POST=withAuth(async (req:Request)=>{
    ||data.gameIds.length<1||data.gameIds.length>30||data.gameIds.some((x:unknown)=>rotationGameId(x)===null))
   return NextResponse.json({ok:false,error:'Revisá el jugador y los partidos.'},{status:400,headers});
  try{
-  const d=await playerRotations(playerId);
+  const d=await playerRotations(playerId,undefined,data.gameIds);
   return NextResponse.json({ok:true,available:d.available,source:d.source,games:rotationSample(d.rows,data.gameIds),coverage:summarizeRotation(d.rows,data.gameIds)},{headers});
  }catch{
   return NextResponse.json({ok:false,error:'No se pudieron leer las rotaciones. Reintentá.'},{status:503,headers});

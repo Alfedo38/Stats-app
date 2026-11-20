@@ -29,14 +29,22 @@ cd "$HOME/stats-app-piloto-v24" &&
 
 El comando valida que los archivos originen los mismos datos del informe y guarda `maintenance-state/assist-pilot/snapshot.json` en el worktree. Contiene nombres, jugadores que entraron y conteos por partido, pareja y zona; no contiene jugadas. Si falta algún JSON o cambió después del informe, se debe regenerar el informe antes de preparar el resumen.
 
-Con las dependencias de Node instaladas en el worktree (`npm ci`), iniciá la app local en el puerto 3001, reutilizando la configuración que ya usa el proyecto principal:
+Con las dependencias de Node instaladas en el worktree (`npm ci`), desde el worktree, enlazá los archivos de configuración del proyecto principal si todavía no están y liberá primero el puerto 3000 con Ctrl+C en la otra terminal:
 
 ```bash
-NBA_ASSIST_LOCAL=1 AUTH_ORIGIN=http://localhost:3001 \
-  node --env-file-if-exists="$HOME/stats-app/.env" --env-file-if-exists="$HOME/stats-app/.env.local" \
-  node_modules/next/dist/bin/next dev --port 3001
+(
+  for f in .env .env.local; do
+    if [ -f "$HOME/stats-app/$f" ] && [ ! -e "$f" ] && [ ! -L "$f" ]; then
+      ln -s "$HOME/stats-app/$f" "$f" || exit 1
+    fi
+  done
+  env -u NODE_OPTIONS NBA_ASSIST_LOCAL=1 AUTH_ORIGIN=http://localhost:3000 \
+    npm run dev -- --port 3000 --hostname localhost
+)
 ```
 
-Entrá en [la ficha de Stephon Castle](http://localhost:3001/players/1642264?stat=ast), dejá el filtro **Partido completo** y abrí **Conexiones de asistencias** debajo del gráfico. La cobertura cuenta los partidos solicitados en los que se pudo comprobar que jugó. Un cero solo se muestra si hay partidos verificados; una ausencia queda fuera del recuento.
+Entrá en [la ficha de Stephon Castle](http://localhost:3000/players/1642264?stat=ast), dejá el filtro **Partido completo** y abrí **Conexiones de asistencias** debajo del gráfico. La cobertura cuenta los partidos solicitados en los que se pudo comprobar que jugó. Un cero solo se muestra si hay partidos verificados; una ausencia queda fuera del recuento.
 
 La vista previa lee el archivo local solo en desarrollo y con `NBA_ASSIST_LOCAL=1`. Para una publicación futura, el exportador habitual puede incluir el resumen como una sola parte comprimida del archivo privado si encuentra `maintenance-state/assist-pilot/snapshot.json` en el proyecto de publicación y `NBA_ASSIST_ARCHIVE=1`. Generar el resumen y probarlo en desarrollo no modifica Supabase ni la web publicada.
+
+Para pasar del piloto a toda la liga: [NBA v2.5](nba-investigacion-liga-v25.md).

@@ -10,8 +10,8 @@ export function cleanPreset(value:unknown):JornadaPreset|null{
  if(typeof name!=='string'||!name.trim()||name.length>32||!filters||typeof filters!=='object')return null;
  const {market,book,side,sample,minimum,onlyQuotes,sort,defenseBand,published,dense}=filters;
  if(!marketIsValid(market)||typeof book!=='string'||book!=='all'&&!Object.hasOwn(BOOK_LABELS,book)||(side!=='over'&&side!=='under')
-   ||(sample!==5&&sample!==10)||![0,5,10].includes(minimum)||typeof onlyQuotes!=='boolean'||!['average','minutes','rate'].includes(sort)
-   ||typeof defenseBand!=='string'||!Object.hasOwn(DEFENSE_BANDS,defenseBand)||typeof published!=='boolean'||typeof dense!=='boolean')return null;
+   ||(sample!==5&&sample!==10)||![0,5,10].includes(minimum)||typeof onlyQuotes!=='boolean'||!['average','minutes','rate','gap'].includes(sort)
+   ||sort==='gap'&&(!published||book!=='all')||typeof defenseBand!=='string'||!Object.hasOwn(DEFENSE_BANDS,defenseBand)||typeof published!=='boolean'||typeof dense!=='boolean')return null;
  return {name:name.trim(),filters:{market,book,side,sample,minimum,onlyQuotes,sort,defenseBand,published,dense}};
 }
 export function readPresets(storage:Pick<Storage,'getItem'>,key:string){

@@ -233,6 +233,11 @@ def _export_with_rebounds(upload=False):
     if env().get('NBA_ASSIST_ARCHIVE')=='1':
         from .assist_snapshot import archive_part as assist_part
         assist_part(STATE,directory,manifest,save_part)
+        from .assist_league import archive_parts as league_assists
+        league_assists(STATE,directory,manifest,save_part)
+    if env().get('NBA_PLAYTYPES_ARCHIVE')=='1':
+        from .playtypes_snapshot import archive_parts as playtypes_parts
+        playtypes_parts(STATE,directory,manifest,save_part)
     manifest['updated_at']=datetime.now(timezone.utc).isoformat()
     manifest['counts']={kind:sum(m['rows'] for n,m in manifest['parts'].items() if n.startswith(kind+'/')) for kind in SOURCES}
     manifest['id']=sha(canonical({k:v for k,v in manifest.items() if k not in ('id','updated_at')}))

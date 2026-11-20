@@ -13,7 +13,7 @@ import {marketSupport,type MarketSupport} from './nbaMarketSupport';
 export const JORNADA_MARKETS = {
   pts:'Puntos', reb:'Rebotes', ast:'Asistencias', fg3m:'Triples anotados',
   pra:'PRA', pr:'Puntos + rebotes', pa:'Puntos + asistencias', ra:'Rebotes + asistencias',
-  fga:'Tiros de campo intentados', fg3a:'Triples intentados', fta:'Tiros libres intentados',
+  fga:'Tiros de campo intentados', fgm:'Tiros de campo convertidos', fg3a:'Triples intentados', fta:'Tiros libres intentados',
 } as const;
 export type JornadaMarket = keyof typeof JORNADA_MARKETS;
 export type JornadaGame = {id:string; away:string; home:string; start:string|null; status:number|null; eventDate?:string};
@@ -136,8 +136,9 @@ export function quoteAt(player:JornadaPlayer,book:string,line:number|null,side:'
 export function jornadaEvidence(player:JornadaPlayer,line:number|null,side:'over'|'under'){
   const threshold=line??NaN, values=player.values.slice(0,10);
   const recentRival=values.filter((_,i)=>player.opponents?.[i]===player.opponent);
-  const rivalSource=recentRival.length?'recent':player.rivalValues!==undefined?'rival':'unavailable';
-  const rival=recentRival.length?recentRival:player.rivalValues?.slice(0,5)??[];
+  const fullRival=[player.extended?.h2hValues,player.rivalValues].find(values=>values?.length)??player.extended?.h2hValues??player.rivalValues;
+  const rivalSource=fullRival?.length?'rival':recentRival.length?'recent':fullRival!==undefined?'rival':'unavailable';
+  const rival=rivalSource==='rival'?fullRival?.slice(0,5)??[]:recentRival;
   const dots=values.map(value=>selectionOutcome(value,threshold,side));
   let streak=0;
   for(const outcome of dots){if(outcome!=='hit')break;streak++;}
@@ -148,4 +149,16 @@ export function jornadaEvidence(player:JornadaPlayer,line:number|null,side:'over
 export function bestJornadaPrice(player:JornadaPlayer,line:number|null,side:'over'|'under',books=Object.keys(BOOK_LABELS)){
   const prices=books.map(book=>quoteAt(player,book,line,side)?.price??null).filter((n):n is number=>n!==null);
   return prices.length>1?Math.max(...prices):null;
+}
+
+/** Solo agrupa ofertas actuales de este jugador, partido, mercado y lado. */
+export function jornadaPriceGap(player:JornadaPlayer,side:'over'|'under',line?:number|null){
+ const candidates=typeof line==='number'?[line]:availableLines(player,'all',side);
+ const matches=candidates.flatMap(candidate=>{
+  const books=Object.keys(BOOK_LABELS).flatMap(book=>{const quote=quoteAt(player,book,candidate,side);return quote?[{book,price:quote.price}]:[];}).sort((a,b)=>b.price-a.price);
+  if(books.length<2)return [];
+  const best=books[0],worst=books.at(-1)!;
+  return [{line:candidate,best,worst,percent:(best.price/worst.price-1)*100,offers:books.length}];
+ });
+ return matches.sort((a,b)=>b.percent-a.percent||a.line-b.line)[0]??null;
 }

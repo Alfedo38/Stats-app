@@ -71,3 +71,37 @@ if(process.argv[2]){
  assert.ok(given?.total>0);assert.equal(given.total,received.total);assert.deepEqual(given.zones,received.zones);
  console.log(`OK Piloto real: ${ids.length} partidos, ${totals} AST; Castle → Wembanyama: ${given.total} (${given.zones.join('/')}).`);
 }
+
+const {assistDefense,assistShard,verifiedAssistShard}=load('lib/nbaAssistConnections.ts');
+const normalized=raw.games[0],key=assistShard(a);
+assert.equal(verifiedAssistShard([{...normalized,names:raw.names}],key).length,1);
+assert.throws(()=>verifiedAssistShard([{...normalized,names:raw.names}],'0'),/ASSIST_SHARD_ID/);
+assert.equal(s.given[0].together,1);
+assert.equal(s.given[0].share,1);
+assert.equal(s.givenZones[4],1);
+const allowed=assistDefense([['2026-11-19',a,[3,0,2,0,0]],['2026-11-17',b,null],['2026-11-15',c,[2,0,0,0,0]]],'2026-11-19','26');
+assert.equal(allowed.covered,1);
+assert.equal(allowed.requested,2);
+assert.equal(allowed.zones[0],2);
+const {expectedMinutes}=load('lib/minutesResearch.ts');
+const mk=(i,min,team='SAS')=>({game_id:i+1,game_date:new Date(Date.UTC(2026,9,1+i)).toISOString().slice(0,10),team_abbreviation:team,min});
+const observations=Array.from({length:40},(_,i)=>mk(i,Math.floor(i/5)%2===0?18:36));
+const history=expectedMinutes([...observations,mk(61,50),mk(52,60,'LAL')],'2026-11-22','SAS');
+assert.equal(history.observations,30);
+assert.equal(expectedMinutes(observations.slice(0,5),'2026-11-22','SAS').estimate,null);
+const {absenceRole}=load('lib/jornadaAbsenceImpact.ts');
+const sRows=Array.from({length:16},(_,i)=>({...mk(i,30),pts:i<5?10:i<10?14:90,fga:i<5?6:i<10?8:50}));
+const baseline=['1','2','3','4','5'],absent=['6','7','8','9','10'];
+const cohort=absenceRole(sRows,[{present:baseline,absent:[...absent,'11']},{present:baseline,absent:[...absent,'12']}],'SAS');
+assert.equal(cohort.find(x=>x.metric==='pts').delta,4);
+assert.equal(cohort.find(x=>x.metric==='fga').withoutCount,5);
+const {jornadaPriceGap}=load('lib/nbaJornada.ts');
+const offers={quotes:[{book:'bet365',line:5.5,over_price:1.8},{book:'betano',line:5.5,over_price:2.2},{book:'stake',line:6.5,over_price:9,under_price:5}]};
+assert.equal(jornadaPriceGap(offers,'over').best.book,'betano');
+assert.equal(jornadaPriceGap(offers,'over').line,5.5);
+assert.equal(jornadaPriceGap(offers,'under'),null);
+const {playerPlaytypes}=load('lib/nbaPlaytypes.ts');
+const style={version:1,season:'2026-27',capturedOn:'2026-11-19',players:{11:{Transition:[6,1.2,6,30]}},teams:{SAC:{Transition:[9,1.5,6,36]}}};
+assert.equal(playerPlaytypes(style,11,'SAC','2026-27','2026-11-19').available,false);
+assert.equal(playerPlaytypes(style,11,'SAC','2026-27','2026-11-20').rows[0].rivalPpp,1.5);
+console.log('OK Bloques de liga, zona del rival, fechas de corte, bajas conjuntas, minutos y comparación exacta de cuotas.');

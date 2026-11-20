@@ -43,6 +43,8 @@ const STAT_ALIASES: Record<string, string> = {
   "3PTA": "fg3a",
   FGM: "fgm",
   FGA: "fga",
+  "2PA": "fg2a",
+  "2PM": "fg2m",
   FTM: "ftm", FTA: "fta",
   BLK: "blk",
   BLOCKS: "blk",

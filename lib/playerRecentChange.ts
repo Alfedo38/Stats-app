@@ -3,7 +3,7 @@ import {gamePhase} from './nbaGameFilters';
 import {normalizeDateOnly} from './formatters';
 import {isDate,TEAMS} from './ticketReader/model';
 
-export const SECONDARY_IDS=['minutes','fga','fta','fg3a','fg3m','fgm','ftm','potential_ast','rebound_chances','touches','pts','reb','ast'] as const;
+export const SECONDARY_IDS=['minutes','fga','fta','fg3a','fg3m','fg2a','fg2m','fgm','ftm','potential_ast','rebound_chances','touches','pts','reb','ast'] as const;
 export type SecondaryMetric=typeof SECONDARY_IDS[number];
 export type SecondaryChoice='auto'|'none'|SecondaryMetric;
 export function parseSecondary(value:unknown):SecondaryChoice{return value==='none'||value==='auto'||SECONDARY_IDS.includes(value as SecondaryMetric)?value as SecondaryChoice:'auto';}
@@ -17,7 +17,7 @@ export function selectedSecondary(market:string,choice:SecondaryChoice,scope:str
  return secondaryOptions(market).find(m=>m.id===id)??null;
 }
 export function secondaryAxis(market:string,secondary:string|null|undefined):'left'|'right'{
- const pairs=[['ast','potential_ast'],['reb','rebound_chances'],['fg3m','fg3a'],['fgm','fga'],['ftm','fta']];
+ const pairs=[['ast','potential_ast'],['reb','rebound_chances'],['fg3m','fg3a'],['fg2m','fg2a'],['fgm','fga'],['ftm','fta']];
  return pairs.some(pair=>pair.includes(market)&&pair.includes(secondary??''))?'left':'right';
 }
 export function secondaryValue(row:EvidenceRow,id:string){const metric=EVIDENCE_METRICS[id];return metric?evidenceReading(row,metric,'FULL').value:null;}

@@ -61,6 +61,6 @@ export async function archivedContext(player:number,season:string){
   const m=await archiveManifest();const [shots,matchups,s]=await Promise.all([archivePart(`shots/${player}/${season}`,m),archivePart(`matchups/${player}/${season}`,m),archivePart('summaries',m)]);
   const defenders=new Set(matchups.map((r:any)=>String(r.defensive_player_id)));
   return {shots:[...shots].sort((a,b)=>String(b.game_date).localeCompare(String(a.game_date))||Number(a.game_event_id)-Number(b.game_event_id)),
-    matchups:matchups.map((r:any)=>({...r,defensive_position:s.positions?.[String(r.defensive_player_id)]??''})).sort((a:any,b:any)=>String(b.game_date).localeCompare(String(a.game_date))||Number(b.partial_possessions)-Number(a.partial_possessions)),
+    matchups:matchups.map((r:any)=>({...r,defensive_position:r.defensive_position||s.positions?.[String(r.defensive_player_id)]||''})).sort((a:any,b:any)=>String(b.game_date).localeCompare(String(a.game_date))||Number(b.partial_possessions)-Number(a.partial_possessions)),
     defenderFouls:(s.fouls??[]).filter((r:any)=>r.season===season&&defenders.has(String(r.player_id)))};
 }

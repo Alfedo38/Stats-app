@@ -1,3 +1,4 @@
+import {periodMetricValue} from "./nbaPeriodStats";
 import {historySeasons,twoSeasonRows} from "./nbaHistoryWindow";
 import { finiteStat, selectionOutcome, selectionSummary } from "./selectionStats";
 import { trackingValue } from "@/lib/trackingValues";
@@ -20,6 +21,8 @@ const MARKET_TO_COLUMN: Record<string, string> = {
   RA: "ra",
   FGM: "fgm",
   FGA: "fga",
+  "2PA": "fg2a",
+  "2PM": "fg2m",
   "3PT": "fg3m",
   "3PM": "fg3m",
   "3PTM": "fg3m",
@@ -107,6 +110,7 @@ function getSeasonKey(row: any): string {
 
 function getMarketValue(row: any, market: string): number | null {
   const col = MARKET_TO_COLUMN[String(market || "").toUpperCase()] || String(market || "").toLowerCase();
+  if(col==='fg2a'||col==='fg2m')return periodMetricValue(row,col,'FULL');
   const combinations: Record<string,string[]> = {pra:['pts','reb','ast'],pr:['pts','reb'],pa:['pts','ast'],ra:['reb','ast'],stl_blk:['stl','blk']};
   const alias:Record<string,string>={pra:'pts_reb_ast',pr:'pts_reb',pa:'pts_ast',ra:'reb_ast',stl_blk:'stocks'};
   const direct=num(row[col]??row[alias[col]]);

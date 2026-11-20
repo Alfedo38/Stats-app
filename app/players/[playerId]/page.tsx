@@ -14,7 +14,7 @@ import { getPlayerData } from "@/lib/api";
 import { getPlayerDataFast } from "@/lib/playerDataFast";
 import { getPlayerOddsMultiBook } from "@/lib/playerOdds";
 import { getPlayerBioDetails } from "@/lib/playerBio";
-import { getCurrentRosterPlayer } from "@/lib/currentRosters";
+import { getCurrentRosterPlayer, getCurrentRosterPlayers, CURRENT_ROSTER_UPDATED_AT } from "@/lib/currentRosters";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
@@ -26,9 +26,9 @@ const NAV_STATS = [
   { id: "pts",         label: "PTS"     }, { id: "ast",         label: "AST"     },
   { id: "reb",         label: "REB"     }, { id: "pts+ast",     label: "PTS+AST" },
   { id: "pts+reb",     label: "PTS+REB" }, { id: "reb+ast",     label: "REB+AST" },
-  { id: "pts+reb+ast", label: "P+R+A"   }, { id: "fgm",         label: "FGM"     },
-  { id: "fga",         label: "FGA"     }, { id: "fg3m",        label: "3PTM"    },
-  { id: "fg3a",        label: "3PTA"    }, { id:"ftm", label:"FTM" }, { id:"fta", label:"FTA" }, { id: "blk",         label: "BLK"     },
+  { id: "pts+reb+ast", label: "P+R+A"   }, { id: "fga", label: "FGA" }, { id: "fgm", label: "FGM" },
+  { id: "fg2a", label: "2PA" }, { id: "fg2m", label: "2PM" },
+  { id: "fg3a", label: "3PA" }, { id: "fg3m", label: "3PM" }, { id:"ftm", label:"FTM" }, { id:"fta", label:"FTA" }, { id: "blk",         label: "BLK"     },
   { id: "stl",         label: "STL"     }, { id: "stl+blk",     label: "STL+BLK" },
   { id: "tov",         label: "TO"      }, { id: "pf",          label: "PF"      },
 ];
@@ -285,10 +285,11 @@ export default async function PlayerPage(props: any) {
     // Render inicial liviano:
     // - No bloqueamos HTML con schedule/scoreboard ESPN.
     // - No bloqueamos HTML con injury context; PlayerChartContainer ya lo carga por API cliente.
-    // ── Render inicial turbo ─────────────────────────────────────────────────
-    // Compañeros queda lazy/no bloqueante por ahora.
-    // Los compañeros se cargan desde el cliente para no bloquear el HTML inicial.
-    const teammates: any[] = [];
+    // El catálogo local alcanza para los accesos a fichas; las líneas del plantel siguen siendo lazy.
+    const teammates = getCurrentRosterPlayers(rosterTeams).map(p=>({
+      id:p.player_id,full_name:p.full_name,team_abbreviation:p.team_abbreviation,
+      position:p.position,jersey_number:p.jersey_number,roster_updated_at:CURRENT_ROSTER_UPDATED_AT,
+    }));
 
     const [stakeOdds, bioDetails] = await Promise.all([
       soft("stakeOdds", getPlayerOddsMultiBook(playerName), [] as any[], 900),
@@ -353,8 +354,8 @@ export default async function PlayerPage(props: any) {
     const clientTeammates = JSON.parse(JSON.stringify(clientPlain(teammates))) as any[];
 
     return (
-      <main className="min-h-screen bg-[var(--bg)] text-[var(--text)] font-sans pb-20">
-        <nav data-player-nav className="border-b border-[var(--border)] bg-[var(--surface)]/95 backdrop-blur-md sticky top-0 z-50 px-6 py-4">
+      <main className="mosk-player-page min-h-screen bg-[var(--bg)] text-[var(--text)] pb-20">
+        <nav data-player-nav className="mosk-player-back">
           <Link href={eventContext?.returnTo??"/"} className="text-[var(--text-muted)] hover:text-[#10b981] transition-colors flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
             <ArrowLeft size={14} /> {eventContext?.returnTo.startsWith("/trending?")?"Volver a On Fire":eventContext?"Volver al partido":"Volver al Inicio"}
           </Link>
@@ -362,22 +363,22 @@ export default async function PlayerPage(props: any) {
 
         <div className="p-4 md:p-6 2xl:p-8 max-w-[1700px] mx-auto space-y-4">
 
-          <PlayerPresentation initialCompact={searchParams?.vista!=="clasica"}>
+          <PlayerPresentation>
           {/* Header del jugador */}
           <div data-player-header>
           <PlayerHeader
+            playerId={String(playerId)}
             playerName={playerName}
             teamAbbr={teamAbbr ? String(teamAbbr).toUpperCase() : undefined}
             position={position ?? undefined}
             initials={`${firstName?.charAt(0) ?? ""}${lastName?.charAt(0) ?? ""}`}
             bio={currentBio}
             kpis={kpis}
-            nextGame={nextGame}
           />
 
           </div>
 
-          <div data-inline-injury><PlayerInjuryStatus playerId={Number(playerId)} team={normalizedTeamAbbr} date={eventContext?.date??argentinaDate()} context={eventContext}/></div>
+          <PlayerInjuryStatus playerId={Number(playerId)} team={normalizedTeamAbbr} date={eventContext?.date??argentinaDate()} context={eventContext}/>
 
           {/* Grid sidebar + gráfico — maneja selectedGame en client */}
           <PlayerPageContent

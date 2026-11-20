@@ -19,12 +19,12 @@ export default function AlternativeLines({quotes,values,line,book,side,bookFilte
  const lines=[...grouped.keys()].filter(n=>PRICE_BOOKS.some(b=>(bookFilter==='all'||bookFilter===b.key)&&priceAt(grouped.get(n)!,b.key,n,side))).sort((a,b)=>a-b);
  if(!lines.some(n=>n!==line))return null;
  return <details className={styles.disclosure} onToggle={event=>setOpen(event.currentTarget.open)}>
-  <summary>Comparar líneas y cuotas <small>· {lines.length} disponibles</small></summary>
+  <summary>Comparar líneas y cuotas <small>· {lines.length} {lines.length===1?'línea':'líneas'}</small></summary>
   {open&&<div className={styles.detail}>
    <p>{side==='over'?'Más de':'Menos de'} · Elegí una línea o el precio de una casa.</p>
    <div className={styles.tableWrap} tabIndex={0} role="region" aria-label="Comparación de líneas y cuotas">
     <table className={styles.table}>
-     <thead><tr><th scope="col">Línea</th>{PRICE_BOOKS.map(b=><th scope="col" key={b.key}>{b.label}</th>)}<th scope="col">Aciertos {historyLabel}</th></tr></thead>
+     <thead><tr><th scope="col">Línea</th>{PRICE_BOOKS.map(b=><th scope="col" key={b.key}>{b.label}</th>)}<th scope="col">Cumplió {historyLabel}</th></tr></thead>
      <tbody>{lines.map(n=>{
       const stat=selectionSummary(values,n,side),prices=PRICE_BOOKS.map(b=>priceAt(grouped.get(n)!,b.key,n,side)?.price??null);
       const count=prices.filter(v=>v!==null).length,best=count>1?Math.max(...prices.map(v=>v??0)):null;

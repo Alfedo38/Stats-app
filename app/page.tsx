@@ -4,7 +4,6 @@ import Link from "next/link";
 import { Ticket, CalendarDays, ChevronLeft, ChevronRight, Users, TrendingUp, Zap, ShieldCheck } from "lucide-react";
 import { getTodayScoreboard, getTopPerformers } from "@/lib/api";
 import {getJornadaSchedule,getNbaSlateSchedule} from "@/lib/nbaJornadaData";
-import {archiveEnabled,archiveManifest} from '@/lib/nbaArchive';
 import {validDate} from "@/lib/matchupFilters";
 import GameCarousel      from "@/components/GameCarousel";
 import TopPerformersGrid from "@/components/TopPerformersGrid";
@@ -28,7 +27,6 @@ const QUICK_LINKS = [
     color:   "#10b981",
     title:   "Tickets NBA",
     desc:    "Selecciones x2 y x5 por partido y casa de apuestas.",
-    cta:     "Ver tickets",
   },
   {
     href:    "/trending",
@@ -36,7 +34,6 @@ const QUICK_LINKS = [
     color:   "#3b82f6",
     title:   "On Fire",
     desc:    "Jugadores por partido, estadísticas recientes y cuotas por línea.",
-    cta:     "Explorar jornada",
   },
   {
     href:    "/teams",
@@ -44,7 +41,6 @@ const QUICK_LINKS = [
     color:   "#8b5cf6",
     title:   "Equipos",
     desc:    "Planteles, estadísticas y métricas de las 30 franquicias.",
-    cta:     "Explorar equipos",
   },
   {
     href:    "/wnba",
@@ -52,7 +48,6 @@ const QUICK_LINKS = [
     color:   "#f59e0b",
     title:   "WNBA",
     desc:    "Análisis de props para la temporada WNBA con las mismas herramientas.",
-    cta:     "Ver WNBA",
   },
 ];
 
@@ -87,26 +82,23 @@ export default async function Home(props: { searchParams?: Promise<{ date?: stri
   const dayHref = (date: string) => '/?'+new URLSearchParams({date,...(nbaSlate?{}:{slate:'arg'})});
   const previousDate = shiftDate(requestedDate, -1);
   const nextDate = shiftDate(requestedDate, 1);
-  const [games, schedule, performers, manifest] = await Promise.all([
+  const [games, schedule, performers] = await Promise.all([
     getTodayScoreboard(requestedDate),
     (nbaSlate ? getNbaSlateSchedule(requestedDate) : getJornadaSchedule(requestedDate).then(games=>({games,partial:false}))).catch(()=>null),
     getTopPerformers(),
-    archiveEnabled()?archiveManifest().catch(()=>null):null,
   ]);
 
   return (
     <main className="min-h-screen bg-[var(--bg)] text-[var(--text)] pb-20">
 
       {/* ── Sticky nav ─────────────────────────────────────────────────────── */}
-      <nav className="border-b border-[var(--border)] bg-[var(--surface)]/95 backdrop-blur-md sticky top-0 z-50 px-4 md:px-6 py-3 flex items-center justify-between gap-4">
+      <nav className="border-b border-[var(--border)] bg-[var(--surface)]/95 px-4 md:px-6 py-3 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="w-7 h-7 bg-[#10b981] rounded-lg flex items-center justify-center shrink-0">
             <ShieldCheck size={14} className="text-black" />
           </div>
           <span className="text-sm font-black uppercase tracking-widest text-[var(--text)]">MoskProps</span>
-          <span className="hidden sm:block text-[8px] font-black uppercase tracking-[0.25em] text-[var(--text-muted)] border border-[var(--border)] px-2 py-0.5 rounded-full">
-            Player analytics
-          </span>
+
         </div>
         <div className="flex items-center gap-3">
           <div className="w-full sm:w-64">
@@ -118,38 +110,22 @@ export default async function Home(props: { searchParams?: Promise<{ date?: stri
 
       <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-7">
 
-        {/* ── Hero header ─────────────────────────────────────────────────── */}
-        <header className="pt-2">
-          <p className="text-[9px] font-black uppercase tracking-[0.35em] text-[#10b981] flex items-center gap-2 mb-3">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse inline-block" />
-            Centro de Comando
-          </p>
-          <h1 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter leading-none">
-            Decidir con <span className="text-[#10b981]">datos.</span>
-          </h1>
-          <p className="text-[var(--text-muted)] text-sm font-medium mt-2 max-w-lg">
-            Partidos, tendencias y herramientas en un solo lugar.
-          </p>
-        </header>
-
-        {/* ── Cartelera del día ────────────────────────────────────────────── */}
-        <section className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2">
-            <Link href={dayHref(previousDate)} className="inline-flex h-9 items-center gap-1 rounded-xl px-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] hover:bg-[var(--surface-soft)] hover:text-[var(--text)]">
-              <ChevronLeft size={14} /> Anterior
+        <section className="space-y-3" aria-labelledby="nba-slate-heading">
+          <div className="mosk-slate-heading">
+            <h1 id="nba-slate-heading">Jornada NBA</h1>
+            <div className="mosk-day-control">
+            <Link aria-label="Día anterior" href={dayHref(previousDate)} className="mosk-date-button">
+              <ChevronLeft size={14} /> <span>Anterior</span>
             </Link>
-            <div className="flex items-center gap-2 text-center">
-              <CalendarDays size={15} className="text-[#10b981]" />
-              <div>
-                <p className="text-[8px] font-black uppercase tracking-widest text-[#10b981]">{requestedDate === today ? "Hoy" : "Fecha elegida"}</p>
-                <p className="text-xs font-black uppercase text-[var(--text)]">{shortDate(requestedDate)}</p>
-              </div>
+            <div className="mosk-day-date">
+              <CalendarDays size={16} aria-hidden />
+              <time dateTime={requestedDate}>{requestedDate === today ? "Hoy · " : ""}{shortDate(requestedDate)}</time>
             </div>
-            <Link href={dayHref(nextDate)} className="inline-flex h-9 items-center gap-1 rounded-xl px-3 text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] hover:bg-[var(--surface-soft)] hover:text-[var(--text)]">
-              Siguiente <ChevronRight size={14} />
+            <Link aria-label="Día siguiente" href={dayHref(nextDate)} className="mosk-date-button">
+              <span>Siguiente</span> <ChevronRight size={14} />
             </Link>
           </div>
-          {manifest?.updated_at&&Number.isFinite(Date.parse(manifest.updated_at))&&<p className="px-1 text-xs text-[var(--text-muted)]">Archivo histórico generado: {new Date(manifest.updated_at).toLocaleString("es-AR",{timeZone:"America/Argentina/Buenos_Aires"})} AR</p>}
+          </div>
           <GameCarousel games={games} schedule={schedule?.games??null} date={requestedDate} nbaSlate={nbaSlate} partial={schedule?.partial} checkedAt={Date.now()} />
         </section>
 
@@ -160,34 +136,22 @@ export default async function Home(props: { searchParams?: Promise<{ date?: stri
 
         {/* ── Quick access grid ─────────────────────────────────────────────── */}
         <section className="space-y-3">
-          <h3 className="text-[9px] font-black uppercase tracking-[0.3em] text-[var(--text-muted)] px-1">
+          <h3 className="text-base font-bold">
             Herramientas
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {QUICK_LINKS.map(({ href, icon: Icon, color, title, desc, cta }) => (
+            {QUICK_LINKS.map(({ href, icon: Icon, color, title, desc }) => (
               <Link
                 key={href}
                 href={href}
-                className="group block bg-[var(--surface)] border border-[var(--border)] p-6 rounded-3xl hover:border-[var(--border-strong)] transition-all relative overflow-hidden"
+                className="mosk-tool"
               >
-                {/* Background glow */}
-                <div className="absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
-                  style={{ background: color }} />
-
-                <div className="relative z-10">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-5 border"
-                    style={{ background: `${color}18`, borderColor: `${color}30` }}>
-                    <Icon size={18} style={{ color }} />
-                  </div>
-                  <h2 className="text-base font-black uppercase tracking-tight mb-1.5" style={{ color }}>
-                    {title}
-                  </h2>
-                  <p className="text-[var(--text-muted)] text-[11px] mb-5 leading-relaxed">{desc}</p>
-                  <div className="flex items-center text-[9px] font-black uppercase tracking-widest transition-colors" style={{ color }}>
-                    {cta}
-                    <ChevronRight size={13} className="ml-1 group-hover:translate-x-1 transition-transform" />
-                  </div>
-                </div>
+                <Icon size={20} style={{ color }} aria-hidden />
+                <span>
+                  <strong>{title}</strong>
+                  <small>{desc}</small>
+                </span>
+                <ChevronRight size={16} aria-hidden />
               </Link>
             ))}
           </div>

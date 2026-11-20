@@ -32,7 +32,7 @@ const formatters = evaluate('lib/formatters.ts');
 const react = { useEffect() {}, useMemo: f => f(), useRef: () => ({ current: null }), useState: x => [x, () => {}] };
 const recharts = Object.fromEntries(['Bar','CartesianGrid','Cell','ComposedChart','LabelList','Line','ReferenceLine','Tooltip','XAxis','YAxis'].map(x => [x, x]));
 const playerUtils = evaluate('lib/playerUtils.ts', {'@/lib/formatters':formatters});
-const chart = evaluate('components/PlayerChart.tsx', { react, recharts, '@/lib/selectionStats': selection, '@/lib/trackingValues': tracking, '@/lib/playerUtils':playerUtils, '@/lib/formatters': formatters }, '\nmodule.exports.testTooltip=CustomTooltip;module.exports.testOverlayLabel=OverlayPointLabel;');
+const chart = evaluate('components/PlayerChart.tsx', { '@/lib/nbaVisuals':evaluate('lib/nbaVisuals.ts',{'./selectionStats':selection}), './PlayerStatistics.module.css':{default:{}}, react, recharts, '@/lib/selectionStats': selection, '@/lib/trackingValues': tracking, '@/lib/playerUtils':playerUtils, '@/lib/formatters': formatters }, '\nmodule.exports.testTooltip=CustomTooltip;module.exports.testOverlayLabel=OverlayPointLabel;');
 function find(tree, name) {
   if (!tree || typeof tree !== 'object') return null;
   if (tree.type === name) return tree;
@@ -46,18 +46,18 @@ function content(tree) {
 }
 const base = { game_id: '0022600001', game_date: '2026-10-21', ast: 3, opponent: 'TOR' };
 function render(data, overlayKey = 'potential_ast') { return chart.default({ data, statKey: 'ast', lineValue: 4.5, overlayKey, overlayLabel: 'Pot. AST' }); }
-check('El último dato vacío corta la línea y mantiene la barra', () => {
+check('El último dato vacío deja hueco en potenciales y mantiene la barra real', () => {
   const tree = render([{ ...base, potential_ast: 6 }, { ...base, game_id: '2', game_date: '2026-10-22', potential_ast: null }]);
   const data = find(tree, 'ComposedChart').props.data;
   assert.equal(data[0]._overlayValue, 6); assert.equal(data[1]._overlayValue, null); assert.equal(data[1].value, 3);
-  assert.equal(find(tree, 'Line').props.connectNulls, false);
+  assert.equal(find(tree, 'Line'), null);assert.equal(find(tree,'ComposedChart').props.barGap,-find(tree,'Bar').props.barSize);
 });
 check('Un hueco intermedio permanece vacío', () => {
   const tree = render([6, null, 8].map((x, i) => ({ ...base, game_date: `2026-10-${21+i}`, game_id: String(i+1), potential_ast: x })));
   const data = find(tree, 'ComposedChart').props.data;
   assert.equal(data[1]._overlayValue, null); assert.equal(data[2]._overlayValue, 8);
 });
-check('Una serie de ceros confirmados sigue visible', () => assert.ok(find(render([{ ...base, potential_ast: 0 }]), 'Line')));
+check('Una serie de ceros confirmados sigue siendo cero', () => assert.equal(find(render([{ ...base, potential_ast: 0 }]), 'ComposedChart').props.data[0]._overlayValue,0));
 check('Una serie sin datos no dibuja puntos', () => assert.equal(find(render([{ ...base, potential_ast: null }]), 'Line'), null));
 check('El punto reaparece al llegar el dato', () => {
   const data = find(render([{ ...base, potential_ast: 7 }]), 'ComposedChart').props.data;

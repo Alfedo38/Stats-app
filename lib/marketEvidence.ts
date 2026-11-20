@@ -2,6 +2,7 @@ import { finiteStat } from './selectionStats';
 import { getDateSortValue, getMinutesValue } from './formatters';
 import { periodCode, periodMetricValue, type PeriodScope } from './nbaPeriodStats';
 
+
 export type EvidenceRow = Record<string, any>;
 export type EvidenceMetric = {
   id: string; label: string; description: string; kind?: 'number'|'percent'|'minutes';
@@ -17,6 +18,9 @@ export const EVIDENCE_METRICS:Record<string,EvidenceMetric> = {
   ftm:metric('ftm','Libres anotados','Producción en libres'),
   fg3a:metric('fg3a','Triples intentados','Volumen de triples','#f97316'),
   fg3m:metric('fg3m','Triples anotados','Producción de triples'),
+  fg2a:metric('fg2a','Dobles intentados · 2PA','Intentos de campo de dos puntos','#f97316'),
+  fg2m:metric('fg2m','Dobles anotados · 2PM','Tiros de campo de dos puntos anotados'),
+  fg2_rate:metric('fg2_rate','Acierto de dobles · 2P%','2PM / 2PA · mismos partidos','#a855f7',{kind:'percent',numerator:'fg2m',denominator:'fg2a'}),
   fg3_rate:metric('fg3_rate','Acierto de triple','3PM / 3PA · mismos partidos','#a855f7',{kind:'percent',numerator:'fg3m',denominator:'fg3a'}),
   fg_rate:metric('fg_rate','Acierto de campo','FGM / FGA · mismos partidos','#a855f7',{kind:'percent',numerator:'fgm',denominator:'fga'}),
   ft_rate:metric('ft_rate','Acierto en libres','FTM / FTA · mismos partidos','#a855f7',{kind:'percent',numerator:'ftm',denominator:'fta'}),
@@ -59,7 +63,7 @@ export function evidenceValue(row:EvidenceRow,id:string,scope:PeriodScope='FULL'
     if(scope!=='FULL'&&periodCode(row.period_scope??row.split_code)!==scope)return null;
     return getMinutesValue(row);
   }
-  if(scope==='FULL'&&row.split_code&&periodCode(row.split_code)!=='FULL')return null;
+  if(scope==='FULL'&&((row.split_code&&periodCode(row.split_code)!=='FULL')||(row.period_scope&&periodCode(row.period_scope)!=='FULL')))return null;
   const direct=finiteStat(periodMetricValue(row,id,scope));
   if(direct!==null)return direct;
   const combos:Record<string,string>={pr:'pts+reb',pa:'pts+ast',ra:'reb+ast',stl_blk:'stl+blk'};

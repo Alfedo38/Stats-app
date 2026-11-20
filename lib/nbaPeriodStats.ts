@@ -1,3 +1,4 @@
+import {twoPointFieldGoals} from './twoPointFieldGoals';
 import { getMinutesValue, toFiniteNumber } from './formatters';
 export type PeriodScope='FULL'|'Q1'|'H1'|'H2_REG';
 const ALIASES:Record<string,string[]>={
@@ -22,6 +23,11 @@ function take(row:Record<string,any>,keys:string[]):number|null {for(const key o
 function keys(stat:string):string[]{const canonical=Object.keys(ALIASES).find(key=>ALIASES[key].includes(stat));return canonical?ALIASES[canonical]:[stat];}
 function prefix(scope:PeriodScope){return scope==='Q1'?'q1':scope==='H1'?'h1':scope==='H2_REG'?'h2':'';}
 export function periodMetricValue(row:Record<string,any>,stat:string,scope:PeriodScope):number|null {
+ if(stat==='fg2a'||stat==='fg2m'){
+  const reading=(key:string)=>periodMetricValue(row,key,scope);
+  const {attempts,made}=twoPointFieldGoals(reading('fga'),reading('fgm'),reading('fg3a'),reading('fg3m'));
+  return stat==='fg2a'?attempts:made;
+ }
  if(stat.includes('+')){const values=stat.split('+').map(key=>periodMetricValue(row,key,scope));return values.some(v=>v===null)?null:values.reduce<number>((sum,v)=>sum+v!,0);}
  const direct=keys(stat),isLong=scope!=='FULL'&&periodCode(row.split_code)===scope;
  const candidates=scope==='FULL'||isLong?direct:direct.map(key=>`${prefix(scope)}_${key}`);

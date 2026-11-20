@@ -1,0 +1,162 @@
+/* Shared palette. Components inherit these tokens in both themes. */
+html {
+  --bg: #f3f6f8;
+  --surface: #fff;
+  --surface-soft: #edf2f5;
+  --surface-hover: #e4edf1;
+  --text: #15242c;
+  --text-muted: #4f616c;
+  --text-soft: #677a84;
+  --border: #d8e1e7;
+  --border-strong: #aebec8;
+  --mosk-accent: #087858;
+  --mosk-active: #dff4ec;
+  --mosk-button: #087858;
+  --mosk-button-text: #fff;
+}
+
+html.dark {
+  --bg: #10161b;
+  --surface: #171f25;
+  --surface-soft: #202b32;
+  --surface-hover: #29363f;
+  --text: #eef4f7;
+  --text-muted: #adbdc7;
+  --text-soft: #8d9fa9;
+  --border: #2d3a44;
+  --border-strong: #4b5c66;
+  --mosk-accent: #6be0b4;
+  --mosk-active: #233e35;
+  --mosk-button: #63dcb0;
+  --mosk-button-text: #10231c;
+}
+
+body :is(a,button,input,select,summary):focus-visible {
+  outline: 2px solid var(--mosk-accent);
+  outline-offset: 3px;
+}
+.mosk-text-link { color: var(--mosk-accent); font-size: .8125rem; font-weight: 700; }
+.mosk-text-link:hover { text-decoration: underline; }
+.mosk-primary,.mosk-soft-button {
+  display: inline-flex; align-items: center; justify-content: center; gap: .3rem;
+  min-height: 36px; border-radius: 8px; padding: .4rem .75rem;
+  font-size: .8125rem; line-height: 1.2; font-weight: 700;
+}
+.mosk-primary { background: var(--mosk-button); color: var(--mosk-button-text); }
+.mosk-primary:hover { filter: brightness(.94); }
+.mosk-soft-button { border: 1px solid var(--border-strong); background: var(--surface-soft); color: var(--text); }
+.mosk-soft-button:hover { background: var(--surface-hover); }
+.mosk-soft-button[aria-pressed=true] { background: var(--mosk-active); color: var(--mosk-accent); border-color: var(--mosk-accent); }
+
+.mosk-slate-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .75rem; }
+.mosk-slate-heading h1 { font-size: clamp(1.65rem, 4vw, 2.45rem); font-weight: 800; line-height: 1.15; letter-spacing: -.04em; }
+.mosk-day-control {
+  display: flex; justify-content: space-between; align-items: center; gap: .5rem;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 3px;
+}
+.mosk-date-button { display: flex; align-items: center; gap: .25rem; min-height: 38px; padding: .25rem .6rem; border-radius: 8px; color: var(--text-muted); font-size: .8125rem; font-weight: 650; }
+.mosk-date-button:hover { background: var(--surface-soft); color: var(--text); }
+.mosk-day-date { display: flex; align-items: center; justify-content: center; gap: .5rem; padding: 0 .4rem; font-size: .875rem; font-weight: 750; }
+.mosk-day-date svg { color: var(--mosk-accent); flex-shrink: 0; }
+.mosk-day-date time::first-letter { text-transform: uppercase; }
+.mosk-match-card {
+  display: flex; flex-direction: column; flex: 0 0 clamp(242px,27vw,296px); min-width: 0; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 14px; overflow: hidden;
+}
+.mosk-match-card:hover { border-color: var(--border-strong); }
+.mosk-match-meta { display: flex; flex-wrap: wrap; justify-content: space-between; padding: .6rem .9rem; gap: .35rem; border-bottom: 1px solid var(--border); background: var(--surface-soft); font-size: .75rem; color: var(--text-muted); font-weight: 650; }
+.mosk-match-teams { display: grid; gap: .65rem; flex: 1; padding: .85rem .9rem; }
+.mosk-match-team { display: flex; align-items: center; gap: .6rem; font-size: .975rem; }
+.mosk-match-team > strong { font-weight: 800; }
+.mosk-match-team > span:last-child:not(:first-child) { margin-left: auto; font-size: 1.05rem; font-weight: 750; font-variant-numeric: tabular-nums; }
+.mosk-match-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem; padding: .5rem .6rem; border-top: 1px solid var(--border); font-size: .75rem; font-weight: 650; }
+.mosk-tool { display: grid; grid-template-columns: 22px minmax(0,1fr) 16px; align-items: center; gap: .75rem; min-height: 90px; padding: 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: 13px; }
+.mosk-tool:hover { border-color: var(--border-strong); background: var(--surface-soft); }
+.mosk-tool strong { display: block; font-size: .95rem; font-weight: 750; }
+.mosk-tool small { display: block; margin-top: .2rem; color: var(--text-muted); font-size: .75rem; line-height: 1.4; }
+.mosk-tool > svg:last-child { color: var(--text-muted); }
+
+.mosk-player-back { padding: .6rem clamp(.9rem, 3vw, 1.5rem); border-bottom: 1px solid var(--border); background: var(--bg); }
+.mosk-player-back > a { width: fit-content; font-size: .8125rem; font-weight: 650; text-transform: none; letter-spacing: normal; }
+.mosk-player-page [data-player-hero] { padding: 0 1rem 0 .35rem; min-height: 110px; gap: .75rem; border: none; border-bottom: 1px solid var(--border); border-radius: 0; background: none; }
+.mosk-player-page [data-player-hero] h1 { font-size: clamp(1.55rem,3.4vw,2.6rem); font-weight: 800; }
+.mosk-player-page [data-player-hero] [data-size=hero] { border-radius: 0; width: clamp(88px,13vw,148px); height: clamp(86px,12vw,132px); background: transparent; }
+.mosk-player-page [data-player-hero] [data-size=hero] img { transform: none; object-fit: contain; object-position: center bottom; }
+.mosk-player-page [data-player-hero] details { flex-basis: auto; border-top: 0; padding: 0; }
+.mosk-player-page [data-player-hero] details[open] { flex-basis: 100%; padding: .35rem .5rem .75rem; }
+.mosk-injury-strip { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; padding: .65rem .8rem; border: 1px solid var(--border); border-radius: 10px; color: var(--text-muted); background: var(--surface); font-size: .8125rem; }
+.mosk-injury-strip > a { margin-left: auto; }
+.mosk-roster-nav { display: flex; align-items: center; gap: .55rem; min-width: 0; }
+.mosk-roster-rail { display: flex; min-width: 0; flex: 1; overflow-x: auto; gap: .4rem; padding: 4px; scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+.mosk-roster-rail > * { display: flex; align-items: center; gap: .4rem; flex: 0 0 auto; padding: 0 .55rem; min-height: 36px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); font-size: .8125rem; font-weight: 650; }
+.mosk-roster-rail > a:hover { background: var(--surface-hover); }
+.mosk-roster-rail [data-size=card] { width: 24px; height: 24px; border-radius: 6px; }
+.mosk-roster-rail .mosk-roster-current { color: var(--mosk-accent); background: var(--mosk-active); }
+.mosk-selection {
+  display: grid; grid-template-columns: minmax(150px,1.1fr) auto auto minmax(138px,1fr) minmax(140px,1fr);
+  align-items: start; gap: .75rem; padding: .8rem; background: var(--surface); border: 1px solid var(--border); border-radius: 13px;
+}
+.mosk-selection > *, .mosk-line-field { min-width: 0; }
+.mosk-selection > label,.mosk-selection > div > span { display: block; color: var(--text-muted); font-size: .75rem; font-weight: 650; margin-bottom: .28rem; }
+.mosk-selection select { display: block; width: 100%; margin-top: .25rem; padding: .45rem .5rem; text-overflow: ellipsis; }
+.mosk-selection select,.mosk-segment,.mosk-stepper {
+  min-height: 38px; color: var(--text); font-size: .8125rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-soft);
+}
+.mosk-line-controls,.mosk-segment,.mosk-stepper { display: flex; align-items: center; gap: 3px; }
+.mosk-line-controls { gap: .35rem; }
+.mosk-segment { width: fit-content; padding: 3px; }
+.mosk-segment button,.mosk-stepper button { display: grid; place-items: center; min-width: 31px; min-height: 31px; padding: .2rem .35rem; border-radius: 5px; font-weight: 700; color: var(--text-muted); }
+.mosk-segment button:hover,.mosk-stepper button:not(:disabled):hover { background: var(--surface-hover); color: var(--text); }
+.mosk-segment button[aria-pressed=true] { background: var(--mosk-active); color: var(--mosk-accent); }
+.mosk-stepper button:disabled { opacity: .45; }
+.mosk-stepper input { width: 44px; padding: .2rem .1rem; text-align: center; font-size: .875rem; font-weight: 750; font-variant-numeric: tabular-nums; appearance: textfield; }
+.mosk-stepper input::-webkit-inner-spin-button,.mosk-stepper input::-webkit-outer-spin-button { appearance: none; margin: 0; }
+.mosk-selection-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: .2rem .3rem; }
+.mosk-selection-actions summary { min-height: 36px; padding: .55rem .2rem; }
+.mosk-analysis-grid { display: grid; align-items: start; grid-template-columns: minmax(0,1fr); gap: 1rem; }
+.mosk-context-column { display: grid; align-content: start; gap: .75rem; min-width: 0; }
+.mosk-context-column > details { background: var(--surface); }
+.mosk-context-note { color: var(--text-muted); font-size: .8125rem; padding: 0 .2rem; }
+.mosk-next-rival { display: flex; align-items: center; gap: .6rem; color: var(--text); }
+.mosk-next-rival h2 { font-size: 1rem; font-weight: 750; line-height: 1.25; margin: .15rem 0; }
+.mosk-next-rival span,.mosk-next-rival time { font-size: .75rem; color: var(--text-muted); }
+.mosk-chart-card { min-width: 0; padding: 1rem; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }
+.mosk-chart-heading { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: .75rem 1rem; padding: .15rem 0 .65rem; border-bottom: 1px solid var(--border); }
+.mosk-chart-heading h2 { font-weight: 800; font-size: 1.2rem; line-height: 1.2; }
+.mosk-chart-heading > div > span { font-size: .75rem; color: var(--text-muted); }
+.mosk-chart-stats { display: flex; flex-wrap: wrap; gap: .6rem 1.2rem; font-variant-numeric: tabular-nums; }
+.mosk-chart-stats dt { font-size: .75rem; color: var(--text-muted); }
+.mosk-chart-stats dd { display: flex; align-items: baseline; gap: .4rem; color: var(--text); font-size: 1.25rem; font-weight: 800; line-height: 1.2; }
+.mosk-chart-stats small { font-size: .75rem; color: var(--text-muted); font-weight: 650; }
+.mosk-chart-tools { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem; margin: .65rem 0 .35rem; }
+.mosk-filter-chip { background: var(--mosk-active); color: var(--mosk-accent); padding: .3rem .55rem; border-radius: 6px; font-size: .75rem; }
+.mosk-sample-coverage { margin-left: auto; font-size: .75rem; color: var(--text-muted); }
+.mosk-season-windows { border: 1px solid var(--border); border-radius: 11px; background: var(--surface); padding: .65rem .8rem; }
+.mosk-season-windows > summary { cursor: pointer; font-size: .875rem; font-weight: 700; }
+.mosk-season-windows[open] > summary { margin-bottom: .65rem; }
+
+@media(min-width: 1080px) {
+  .mosk-analysis-grid { grid-template-columns: minmax(0,1fr) minmax(250px,22%); }
+}
+@media(max-width: 1040px) {
+  .mosk-selection { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .mosk-selection-odds { grid-column: span 2; }
+}
+@media(max-width: 760px) {
+  .mosk-selection { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .mosk-selection > label:first-child,.mosk-line-field,.mosk-selection-odds { grid-column: span 2; }
+  .mosk-day-control { width: 100%; }
+  .mosk-player-page [data-player-hero] { gap: .4rem; padding-right: .35rem; }
+  .mosk-player-page [data-player-hero] details { flex-basis: 100%; padding: 0 .5rem .5rem; }
+}
+@media(max-width: 370px) {
+  .mosk-date-button span { display: none; }
+}
+
+@media(max-width: 400px) {
+  .mosk-selection > div:nth-child(3),.mosk-selection > label:nth-child(4) { grid-column: 1 / -1; }
+}
+
+.mosk-rival-history { display: grid; gap: .22rem; margin-top: .7rem; padding: .6rem .65rem; border-radius: 8px; background: var(--surface-soft); }
+.mosk-rival-history > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .35rem .65rem; }
+.mosk-rival-history small { color: var(--text-muted); font-size: .75rem; }

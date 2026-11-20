@@ -4,6 +4,7 @@ import './player-page-polish.css';
 import AppChrome from '@/components/auth/AppChrome';
 import { getSession } from '@/lib/auth/server';
 import './auth.css';
+import './mosk-restyle.css';
 
 export const metadata: Metadata = {
   title: {

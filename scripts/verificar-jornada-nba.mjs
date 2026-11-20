@@ -79,7 +79,7 @@ await check('Inicio conserva un partido finalizado aunque no llegue el marcador 
  const Carousel=loader({'next/link':({children,href,...props})=>jsx('a',{...props,href,children})})('./components/GameCarousel.tsx').default;
  const render=(schedule,games=[])=>reactDOM.renderToStaticMarkup(jsx(Carousel,{schedule,games,date,showPlayerLinks:true}));
  const html=render([{...game,status:3}]);
- assert.match(html,/Todos los partidos finalizaron/);assert.match(html,/Finalizado/);
+ assert.doesNotMatch(html,/Todos los partidos finalizaron|partidos · \d+ finalizados/);assert.match(html,/Finalizado/);
  assert.match(html,new RegExp('trending\\?date='+date+'&amp;game='+game.id));
  assert.match(render(null),/Calendario no disponible/);
  assert.match(render([]),/No hay partidos en el calendario/);

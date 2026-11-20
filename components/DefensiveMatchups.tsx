@@ -5,9 +5,11 @@ import Link from 'next/link';
 import type { PlayerAverage } from '@/lib/matchupData';
 import { getTeamColor } from '@/lib/teamColors';
 import { applyMatchupInjuries, defensiveScenarioKey, rankedMatchupRoster, restoreDefensiveScenario, suggestDefensiveScenario, type DefensiveAssignment, type DefensiveScenario, type MatchupRosterPlayer } from '@/lib/defensiveMatchups';
-import {INJURY_LABELS,type InjuryItem} from '@/lib/injuryReport';
+import {INJURY_LABELS,nbaHistoryCutoff,type InjuryItem} from '@/lib/injuryReport';
 import {playerGameHref,matchupHref} from '@/lib/playerNavigation';
 import styles from './DefensiveMatchups.module.css';
+
+import PlayerH2H from "./PlayerH2H";
 
 type Props = { away: string; home: string; date: string; season: string; start?:string; injuries?:InjuryItem[]; reportAvailable?:boolean; awayRoster: MatchupRosterPlayer[]; homeRoster: MatchupRosterPlayer[]; averages: PlayerAverage[] };
 type Direction = 'away' | 'home';
@@ -114,7 +116,8 @@ export default function DefensiveMatchups({ away, home, date, season, start, inj
               <Link href={playerHref(attacker.player_id)}>Ficha de {attacker.full_name} ↗</Link>
               {defender && <Link href={playerHref(defender.player_id)}>Ficha de {defender.full_name} ↗</Link>}
             </div>
-            {defender && <p className={styles.note}>{defender.full_name}: {defender.position || 'posición sin datos'} · {format(defenderStats?.min)} min de promedio. Las cifras de esta fila son promedios generales de la muestra; el rendimiento individual contra este defensor aún no está disponible.</p>}
+            {defender && <p className={styles.note}>{defender.full_name}: {defender.position || 'posición sin datos'} · {format(defenderStats?.min)} min de promedio. Promedio general de la muestra.</p>}
+            {defender&&<PlayerH2H key={attacker.player_id+":"+defender.player_id} attacker={attacker.player_id} defender={defender.player_id} attackerName={attacker.full_name} defenderName={defender.full_name} before={nbaHistoryCutoff({date,start})} />}
           </details>}
         </article>;
       })}</div>

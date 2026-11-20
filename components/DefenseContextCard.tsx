@@ -2,6 +2,7 @@
 import {useState} from 'react';
 import Link from 'next/link';
 import styles from './DefenseContextCard.module.css';
+import {PlayerPortrait} from './NbaMedia';
 import {Shield} from 'lucide-react';
 import {useAnalysisQuery} from '@/hooks/useAnalysisQuery';
 import {SHOT_ZONES,zoneDistance} from '@/lib/nbaComparableProfile';
@@ -20,11 +21,11 @@ export function DefenseReadout({data,opponent,position,side}:{data:DefenseReport
  const short=row.games<(data.minGames??5);
  return <div className={styles.readout}>
   <div className={styles.allowed}><strong>{fmt(row.allowed)}</strong><span>{metric} permitidos por partido</span></div>
+  {row.rank!==null&&<p className={styles.coverage}><strong>{row.rank}.º de {row.rankedTeams}</strong> por lo que permite{row.rankedTeams<30?' · ranking parcial':''}</p>}
   {delta!==null&&<p className={styles.delta}>{Math.abs(delta)<.05?'Similar al promedio de la liga':`${fmt(Math.abs(delta))}% ${delta>0?'más':'menos'} que el promedio de la liga`}</p>}
-  {delta!==null&&!short&&<p className={styles.explanation}>{Math.abs(delta)<.05?'Esta defensa está cerca del promedio de la liga.':`Este rival concede ${delta>0?'más':'menos'} ${metric} que el promedio${position==='ALL'?'':' a este grupo de jugadores'}.`}</p>}
   <p className={styles.coverage}>Datos de <strong>{row.games} de {row.total} partidos</strong>.{short?' Todavía hay pocos partidos para comparar.':''}</p>
-  <p className={styles.note}>{position==='ALL'?'Total del equipo rival.':'Suma de todos los jugadores de este grupo por partido.'} No es una proyección para tu jugador.</p>
-  <details className={styles.calculation}><summary>Cómo se compara con la liga</summary><div>
+  <details className={styles.calculation}><summary>Detalle del ranking</summary><div>
+   <p>{position==='ALL'?'Total del equipo rival.':'Suma por partido de todos los jugadores de este grupo.'} No es una proyección individual.</p>
    <p>{row.rank!==null?`Puesto ${row.rank} de ${row.rankedTeams} equipos con datos. El 1.º es el que más permite.`:`Sin orden aún: necesita al menos ${data.minGames??5} partidos con datos para entrar al ranking.`}</p>
    {row.leagueAverage!=null&&<p>Promedio de la liga: {fmt(row.leagueAverage)} por partido.</p>}
    {row.rankedTeams<30&&<p>Ranking parcial: {row.rankedTeams} de 30 equipos tienen datos suficientes.</p>}
@@ -43,8 +44,8 @@ export default function DefenseContextCard({state,opponent,scope,side,profile}:{
  const seasons=[...new Set([options.season,...(state.data?.seasons??[])])].sort().reverse();
  return <section className={styles.card} aria-label="Defensa del rival">
   <header className="flex items-center justify-between gap-2"><span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-emerald-400"><Shield size={13}/> Defensa {opponent||'del rival'}</span><span className="text-[10px] text-[var(--text-muted)]">{report?.settings.previousSeason?`${options.season} + ${report.settings.previousSeason}`:options.season}</span></header>
-  <p className="mt-1 text-xs font-bold">{state.market?DEFENSE_MARKETS[state.market]:'Mercado sin ranking'} · {DEFENSE_GROUPS[options.position]}</p>
-  <label className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">Posición del jugador<select aria-label="Posición defensiva de referencia" value={options.position} onChange={e=>state.select({position:e.target.value as DefenseGroup})} className="min-w-0 max-w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] p-1.5 text-[var(--text)]">{Object.entries(DEFENSE_GROUPS).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
+  <p className="mt-1 text-xs font-bold">{state.market?DEFENSE_MARKETS[state.market]:'Mercado sin ranking'}</p>
+  <label className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">Posición<select aria-label="Posición defensiva de referencia" value={options.position} onChange={e=>state.select({position:e.target.value as DefenseGroup})} className="min-w-0 max-w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] p-1.5 text-[var(--text)]">{Object.entries(DEFENSE_GROUPS).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>
   {state.positionUnclear&&options.position==='ALL'&&<p className="mt-1 text-xs text-[var(--text-muted)]">Posición mixta: mostramos el total del equipo. Podés elegir un grupo para comparar.</p>}
   {!state.market?<p className="mt-2 text-xs text-[var(--text-muted)]">Este mercado no tiene una referencia defensiva comparable.</p>:state.loading?<p role="status" className="mt-2 text-xs text-[var(--text-muted)]">Cargando defensa…</p>:state.error?<p role="alert" className="mt-2 text-xs text-amber-400">No pudimos leer la defensa verificada.</p>:report?<DefenseReadout data={report} opponent={opponent} position={options.position} side={side}/>:<p role="status" className="mt-2 text-xs text-[var(--text-muted)]">{state.data?.reason??'Resumen defensivo pendiente.'}</p>}
   {report&&opponent&&rankFor(report,opponent,options.position)?.games===0&&options.position!=='ALL'&&<button type="button" className="mt-2 text-[11px] font-bold text-emerald-400" onClick={()=>state.select({position:'ALL'})}>Ver total del equipo · todas las posiciones</button>}
@@ -61,7 +62,7 @@ export default function DefenseContextCard({state,opponent,scope,side,profile}:{
       const zones=own?.shot&&row.priorShot?zoneDistance(own.shot,row.priorShot):null;
       const delta=row.value!==null&&row.baseline!==null?row.value-row.baseline:null;
       return <li key={row.id+':'+row.playerId} className="rounded-lg border border-[var(--border)] p-2">
-       <Link className="font-bold hover:text-emerald-400" href={`/players/${row.playerId}`}>{row.name}</Link><span className="text-[var(--text-muted)]"> · {row.team} · {day(row.date)}</span>
+       <Link className="flex items-center gap-2 font-bold hover:text-emerald-400" href={`/players/${row.playerId}`}><PlayerPortrait id={row.playerId} name={row.name}/>{row.name}</Link><span className="text-[var(--text-muted)]"> · {row.team} · {day(row.date)}</span>
        <div className="mt-1"><strong>{fmt(row.value)}</strong> vs. {opponent} · {fmt(row.baseline)} de promedio previo{delta!==null&&<span> ({delta>0?'+':''}{delta.toLocaleString('es-AR',{maximumFractionDigits:1})})</span>}</div>
        <p className="text-[var(--text-muted)]">{fmt(row.minutes)} min en ese partido · {fmt(row.priorMinutes)} min previos · {row.priorGames} PJ{usage!==null?` · diferencia de uso: ${fmt(usage)} pp`:''}</p>
        {zones!==null&&row.priorShot&&own?.shot&&<details><summary className="cursor-pointer">Distribución de tiros</summary><p className="text-[var(--text-muted)]">Comparable / jugador: {SHOT_ZONES.map((zone,i)=>`${zone} ${fmt(row.priorShot!.zones[i]/row.priorShot!.attempts*100,0)}/${fmt(own.shot!.zones[i]/own.shot!.attempts*100,0)} %`).join(' · ')}</p></details>}

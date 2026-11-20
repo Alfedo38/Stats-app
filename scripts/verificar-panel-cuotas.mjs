@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
-import {readFileSync} from 'node:fs';
+import {existsSync,readFileSync} from 'node:fs';
+import path from 'node:path';
 import ts from 'typescript';
 import React from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
@@ -8,6 +9,7 @@ const native=createRequire(new URL('../package.json',import.meta.url));
 const modules=new Map();let handler=async()=>[],queries=[],authenticated=0;
 const prisma={$queryRaw:async(statement)=>{queries.push(statement);return handler(statement);},player_odds:{findMany:async()=>[]}};
 function load(file){
+ if(file.endsWith('.css'))return {__esModule:true,default:{}};
  if(modules.has(file))return modules.get(file).exports;
  const module={exports:{}};modules.set(file,module);
  const code=ts.transpileModule(readFileSync(file,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
@@ -16,8 +18,12 @@ function load(file){
   if(name==='@prisma/client')return {Prisma:{sql:(strings,...values)=>({strings,values}),join:values=>values}};
   if(name==='@/lib/auth/server')return {withAuth:fn=>{authenticated++;return fn;}};
   if(name==='next/server')return {NextResponse:{json:(data,options={})=>({data,status:options.status??200,headers:options.headers??{}})}};
-  if(name.startsWith('@/lib/'))return load(`lib/${name.slice(6)}.ts`);
-  if(name.startsWith('./'))return load('lib/'+name.slice(2)+'.ts');
+  if(name.startsWith('@/')||name.startsWith('.')){
+   const target=name.startsWith('@/')?name.slice(2):path.join(path.dirname(file),name);
+   const source=['','.ts','.tsx'].map(ext=>target+ext).find(existsSync);
+   if(!source)throw Error('Falta módulo '+name);
+   return load(source);
+  }
   return native(name);
  };
  new Function('require','module','exports',code)(require,module,module.exports);return module.exports;
@@ -32,7 +38,7 @@ assert.ok(under.includes('aria-label="Cuotas Under 36,5"'));
 assert.ok(render(36.5,[]).includes('sin cuota disponible'));
 for(const name of ['Bet365','Betano','Stake'])assert.ok(!html.includes(name));
 assert.ok(!render(35.5).includes('1,90'));
-assert.ok(render(35.5).includes('sin cuota disponible'));
+assert.ok(render(35.5).includes('Sin cuota para esta línea.'));
 const busy=renderToStaticMarkup(React.createElement(panel,{rows:[],line:36.5,side:'under',loading:true,error:null}));
 assert.ok(busy.includes('aria-busy="true"'));assert.ok(busy.includes('Actualizando cuotas'));
 const route=load('app/api/player-odds/route.ts');assert.equal(authenticated,1);

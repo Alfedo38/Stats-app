@@ -42,3 +42,13 @@
  .metric strong{font-size:16px}
 }
 @media(pointer:coarse){.mode button,.extra select{min-height:40px}}
+
+.opportunityLegend{display:flex;align-items:center;flex-wrap:wrap;gap:8px 17px;border-bottom:1px solid var(--border);padding:5px 0 10px;margin:0 0 2px;color:var(--text-muted);font-size:.72rem;line-height:1.4}
+.opportunityLegend span{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.opportunityLegend i{width:9px;height:9px;border-radius:3px;display:inline-block;background:linear-gradient(135deg,#3cb48a 50%,#d16f76 50%)}
+.opportunityLegend i[data-series=tracking]{background:#9aa5b0}
+.opportunityCoverage{margin-left:auto;font-variant-numeric:tabular-nums}
+.chartValueLabel,.trackingLabel text{font-size:11px;font-weight:750;font-variant-numeric:tabular-nums;pointer-events:none}
+.trackingLabel rect{fill:#323a44;stroke:#687482;stroke-width:1}
+.trackingLabel text{fill:#edf1f5}
+.scrollChart{overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;overscroll-behavior-inline:contain}

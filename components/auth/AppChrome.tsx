@@ -4,7 +4,6 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
 import Footer from '@/components/Footer';
-import QuickSwitcher from '@/components/QuickSwitcher';
 import { LogoutButton } from './AuthForms';
 
 type User = { username: string; role: string; mustChangePassword: boolean } | null;
@@ -14,7 +13,6 @@ export default function AppChrome({ user, children }: { user: User; children: Re
   const limited = !user || user.mustChangePassword;
   return <>
     {!limited && <Sidebar />}
-    {!limited && <QuickSwitcher />}
     <div className={`flex-1 min-w-0 min-h-screen flex flex-col ${limited ? '' : 'md:pl-[72px]'}`}
       style={{ paddingTop: limited ? 0 : 'var(--topbar-height, 0px)' }}>
       {user && <div className="auth-accountbar">

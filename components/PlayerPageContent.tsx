@@ -87,19 +87,7 @@ export default function PlayerPageContent({
   const [rosterOpen, setRosterOpen] = useState(false);
   const [detailTab,setDetailTab]=useState<"summary"|"volume"|"opponent"|"shots">("summary");
   const [contextVisited,setContextVisited]=useState(false);
-  const [analysisMode, setAnalysisMode] = useState<"simple" | "pro">("simple");
-
-  const effectiveMode=compact?"pro":analysisMode;
-  useEffect(() => {
-    const saved = window.localStorage.getItem("moskprops:nba-analysis-mode");
-    if (saved === "pro" || saved === "simple") setAnalysisMode(saved);
-  }, []);
-
-  const changeAnalysisMode = useCallback((mode: "simple" | "pro") => {
-    setAnalysisMode(mode);
-    window.localStorage.setItem("moskprops:nba-analysis-mode", mode);
-  }, []);
-
+  const effectiveMode = "pro";
   useEffect(() => {
     setDvpOpponentFromFilters(null);setResolvedEventDate(null);setResolvedEventOpponent(null);setContextCutoff(null);setDetailTab("summary");setContextVisited(false);
     setClientTeammates(teammates||[]);
@@ -115,7 +103,6 @@ export default function PlayerPageContent({
 
   useEffect(() => {
     if (!teamAbbr) return;
-    window.dispatchEvent(new CustomEvent("team-context-change", { detail: { team: teamAbbr } }));
     try {
       const key = "moskprops:recent-players";
       const parsed = JSON.parse(window.localStorage.getItem(key) || "[]");
@@ -252,29 +239,7 @@ export default function PlayerPageContent({
         </div>
       )}
 
-      <main data-player-content className="flex flex-col gap-4 min-w-0 overflow-hidden">
-        <section data-analysis-modes className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-1.5">
-          <div className="grid grid-cols-2 gap-2" role="group" aria-label="Modo de análisis">
-            <button
-              type="button"
-              onClick={() => changeAnalysisMode("simple")}
-              aria-pressed={analysisMode === "simple"}
-              className={`flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-black uppercase tracking-widest transition-all ${analysisMode === "simple" ? "bg-[#10b981] text-black shadow-[0_0_18px_rgba(16,185,129,0.22)]" : "text-[var(--text-muted)] hover:bg-white/[0.035] hover:text-[var(--text)]"}`}
-            >
-              <BarChart3 size={15} /> Vista rápida
-            </button>
-            <button
-              type="button"
-              onClick={() => changeAnalysisMode("pro")}
-              aria-pressed={analysisMode === "pro"}
-              className={`flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-black uppercase tracking-widest transition-all ${analysisMode === "pro" ? "bg-cyan-300 text-slate-950 shadow-[0_0_18px_rgba(34,211,238,0.18)]" : "text-[var(--text-muted)] hover:bg-white/[0.035] hover:text-[var(--text)]"}`}
-            >
-              <BrainCircuit size={15} /> Análisis detallado
-            </button>
-          </div>
-
-        </section>
-
+      <section aria-label="Análisis del jugador" data-player-content className="flex flex-col gap-4 min-w-0 overflow-hidden">
         <PlayerChartContainer
           analyzerStorageKey={analyzerStorageKey}
           stats={stats}
@@ -282,6 +247,7 @@ export default function PlayerPageContent({
           playerName={playerName}
           playerPosition={position}
           playerTeam={teamAbbr}
+          teammates={teammates}
           playerId={currentPlayerId}
           stakeOdds={stakeOdds}
           filterTeams={filterTeams}
@@ -317,7 +283,7 @@ export default function PlayerPageContent({
           </div>}
           </>
         )}
-      </main>
+      </section>
     </div>
   );
 }

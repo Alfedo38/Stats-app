@@ -1,8 +1,13 @@
 "use client";
+import Link from "next/link";
+import {PlayerPortrait} from "@/components/NbaMedia";
+import type {TeamMate} from "@/components/TeamMatesPanel";
+import NbaNextMatchup from "@/components/NbaNextMatchup";
 import RotationPilot from "@/components/RotationPilot";
 import SelectionLegend from './SelectionLegend';
 import PlayerSelectionBar from "@/components/PlayerSelectionBar";
-import PlayerSampleSummary from "@/components/PlayerSampleSummary";
+import {SeasonWindows} from "@/components/SeasonWindows";
+import {seasonWindowValues} from "@/lib/seasonWindows";
 import PlayerLineExplorer from "@/components/PlayerLineExplorer";
 import {playerMarketLabel} from "@/lib/playerPresentation";
 
@@ -10,7 +15,7 @@ import {playerMarketLabel} from "@/lib/playerPresentation";
 import { useEffect, useLayoutEffect, useMemo, useState, useCallback, useRef, type ReactNode } from "react";
 import {gamePhase} from "@/lib/nbaGameFilters";
 import {historySeasons,twoSeasonRows} from "@/lib/nbaHistoryWindow";
-import {secondaryAxis} from "@/lib/playerRecentChange";
+import {opportunityFor} from "@/lib/nbaVisuals";
 import { useSearchParams } from "next/navigation";
 import {
   getMinutesValue,
@@ -25,17 +30,18 @@ import AddSelectionToAnalyzer from "@/components/AddSelectionToAnalyzer";
 import DefenseContextCard from "@/components/DefenseContextCard";
 import {usePlayerDefense} from "@/hooks/usePlayerDefense";
 import {DEFENSE_BANDS,defenseUrlChoice} from "@/lib/nbaDefense";
-import {parseGameContext,putGameContext} from "@/lib/playerNavigation";
+import {parseGameContext,putGameContext,playerGameHref,PAGE_MARKETS} from "@/lib/playerNavigation";
 import { useAnalysisQuery } from "@/hooks/useAnalysisQuery";
+import { recentRivalSelection } from "@/lib/rivalSelection";
 import { finiteStat, selectionSummary } from "@/lib/selectionStats";
 import { buildPeriodRows, periodMetricValue } from "@/lib/nbaPeriodStats";
 import { sampleCoverage, type AnalysisSample } from "@/lib/nbaAnalysis";
 import PlayerChart from "@/components/PlayerChart";
 import PlayerChangeCard from "@/components/PlayerChangeCard";
-import PlayerSecondaryControl from "@/components/PlayerSecondaryControl";
+import PlayerOpportunityLegend from "@/components/PlayerSecondaryControl";
 import AlternativeLines from "@/components/AlternativeLines";
 import PlayerSupportingStats from "@/components/PlayerSupportingStats";
-import {parseSecondary,selectedSecondary,validSecondaryChoice,secondaryValue,type SecondaryChoice} from "@/lib/playerRecentChange";
+import {secondaryValue,type SecondaryChoice} from "@/lib/playerRecentChange";
 import SupportingDataGrid from "@/components/SupportingDataGrid";
 import PickInsightPanel from "@/components/PickInsightPanel";
 import PlayerHistoricalExplorer from "@/components/PlayerHistoricalExplorer";
@@ -45,7 +51,6 @@ import {argentinaDate,isDate} from "@/lib/ticketReader/model";
 import {cleanPageSample,sampleGameKey} from '@/lib/playerSample';
 import StatFilters, { type ActiveFilter } from "@/components/StatFilters";
 import GameLogTable from "@/components/GameLogTable";
-import FloatingPlayerIdentity, {ChartIdentity} from "@/components/PlayerIdentity";
 import PlayerAbsenceFilter from "@/components/PlayerAbsenceFilter";
 import {absenceScope as parseAbsenceScope,absenceTeam as parseAbsenceTeam,absenceEmptyMessage,type AbsenceScope} from "@/lib/playerAbsenceContext";
 import {parsePhase,phaseRows,absenceRows,cleanAbsences,PHASE_OPTIONS,type NBASeasonPhase} from "@/lib/nbaGameFilters";
@@ -54,11 +59,6 @@ import {decimalPrice,oddsBook,quoteMatches,type PriceQuote} from "@/lib/nbaOdds"
 import ShareButton from "@/components/ShareButton";
 import { usePlayerUrlState } from "@/hooks/usePlayerUrlState";
 import {
-  Clock,
-  Gauge,
-  Sparkles,
-  Target,
-  TrendingUp,
   LayoutList,
   History,
   Loader2,
@@ -77,6 +77,7 @@ interface PlayerChartContainerProps {
   playerName?: string;
   playerPosition?: string;
   playerTeam?: string|null;
+  teammates?: TeamMate[];
   playerId?: string | number | null;
   stakeOdds?: StakePlayerOdd[];
   filterTeams?: string[];
@@ -465,6 +466,7 @@ export default function PlayerChartContainer({
   playerName,
   playerPosition,
   playerTeam,
+  teammates=[],
   playerId,
   stakeOdds = [],
   filterTeams,
@@ -580,7 +582,7 @@ export default function PlayerChartContainer({
   const absenceContextKey = `${playerId}:${absenceMode}:${absenceTeamFilter}:${absenceKey}`;
   const [absenceState, setAbsenceState] = useState<{key:string;matches:Record<string,string[]>|null;loading:boolean;error:string|null}>({key:'',matches:null,loading:false,error:null});
   const [absenceRetry,setAbsenceRetry] = useState(0);
-  const [secondaryChoice,setSecondaryChoice]=useState<SecondaryChoice>(()=>parseSecondary(searchParams.get("compare")));
+  const [secondaryChoice,setSecondaryChoice]=useState<SecondaryChoice>("auto");
   const currentAbsence = absenceState.key === absenceContextKey ? absenceState : {matches:null,loading:effectiveAbsences.length>0,error:null};
   const changeAbsences = useCallback((names:string[])=>{setAbsentNames(cleanAbsences(names));setActiveWoTeammateState(null);},[]);
   useEffect(()=>{
@@ -751,14 +753,9 @@ export default function PlayerChartContainer({
 
   const activeScopeOption = SPLIT_SCOPE_BY_ID[activeScope];
   const isFullScope = activeScope === "FULL";
-  const effectiveSecondaryChoice=validSecondaryChoice(activeStat,secondaryChoice);
-  const changeSecondary=setSecondaryChoice;
-  const opportunityOverlay = useMemo(
-    () => compact?null:selectedSecondary(activeStat, effectiveSecondaryChoice, activeScope),
-    [compact, activeStat, effectiveSecondaryChoice, activeScope],
-  );
+  const opportunityOverlay = compact?undefined:opportunityFor(activeStat,activeScope);
   const historicalMarket = useMemo(
-    () => getStakePropType(activeStat),
+    () => activeStat==='fg2a'?'2PA':activeStat==='fg2m'?'2PM':getStakePropType(activeStat),
     [activeStat],
   );
   const isHistoricalChartMode = isFullScope && Boolean(historicalMarket);
@@ -829,15 +826,10 @@ export default function PlayerChartContainer({
       );
       return;
     }
-    if (uniqueStats.length > 0) {
+    const recent=uniqueStats.slice(0,10).map(row=>getStatValue(row,activeStat,activeScope)).filter(Number.isFinite);
+    if(recent.length){
       autoLineContext.current=context;
-      const recent = uniqueStats.slice(0, 10);
-      const total = recent.reduce(
-        (sum, s) => sum + getStatValue(s, activeStat, activeScope),
-        0,
-      );
-      const avg = total / (recent.length || 1);
-      setLineValue(getAutoLine(avg, activeStat));
+      setLineValue(getAutoLine(recent.reduce((sum,value)=>sum+value,0)/recent.length,activeStat));
     }
   }, [
     activeStat,
@@ -1009,6 +1001,7 @@ export default function PlayerChartContainer({
   const sampleError=defenseFilterError||currentAbsence.error||(isHistoricalChartMode?historicalChartError:!isFullScope?periodError:null);
   const chartStats: any[] = useMemo(()=>sampleLoading||sampleError?[]:isHistoricalChartMode?sharedHistoricalWindow:visibleStats,[sampleLoading,sampleError,isHistoricalChartMode,sharedHistoricalWindow,visibleStats]);
   const metricStats: any[] = chartStats;
+  const seasonRows=useMemo(()=>seasonWindowValues(isHistoricalChartMode?sharedHistoricalBeforeWindow:filteredStatsBeforeWindow,historyCutoff??eventDate),[isHistoricalChartMode,sharedHistoricalBeforeWindow,filteredStatsBeforeWindow,historyCutoff,eventDate]);
   const changeRows=sampleLoading||sampleError?[]:isHistoricalChartMode?sharedHistoricalBeforeWindow:filteredStatsBeforeWindow;
   const changeReferenceRows=useMemo(()=>[...twoSeasonStats,...historicalChartStats],[twoSeasonStats,historicalChartStats]);
   const pageSample=useMemo(()=>{
@@ -1043,12 +1036,7 @@ export default function PlayerChartContainer({
   // ── Derived metrics ───────────────────────────────────────────────────────────
   const selection=selectionSummary(metricStats.map(row=>row.value),lineValue,chartSide);
   const avgValue=selection.average===null?'S/D':selection.average.toFixed(1);
-  const availableComparison = isFullScope && isHistoricalChartMode ? historicalSampleRows : absenceRows(phaseRows(processedStats,seasonPhase),effectiveAbsences,currentAbsence.matches);
   const currentSampleLabel=`${windowLabel} · ${metricStats.length} PJ`;
-  const baseSampleLabel=`${isHistoricalChartMode?"Histórico":"Base disponible"} · ${availableComparison.length} PJ`;
-  const seasonAvgValue=selectionSummary(availableComparison.map(row=>row.value),lineValue,chartSide).average;
-  const filteredAvgValue=selection.average;
-  const lineDifference=filteredAvgValue===null?null:filteredAvgValue-Number(lineValue);
   // -1 is a display-only sentinel; the shared summary retains null, never 0% for no sample.
   const hits=selection.hits;
   const hitRateNumber=selection.rate===null?-1:Math.round(selection.rate);
@@ -1064,25 +1052,6 @@ export default function PlayerChartContainer({
         ).toFixed(1)
       : "S/D";
 
-  const lowMinuteGames = isFullScope?minutesValues.filter((m) => m < 20).length:0;
-
-  const trendLabel =
-    sampleLoading ? "Cargando muestra" : selection.rate===null ? "Sin muestra para evaluar" : hitRateNumber >= 60
-      ? "Mayoría de aciertos históricos"
-      : hitRateNumber >= 50
-        ? "Tendencia media"
-        : "Tendencia baja";
-
-  const volumeLabel =
-    avgMinutes === "S/D"
-      ? "Sin minutos"
-      : Number(avgMinutes) >= 30
-        ? "30 minutos o más"
-        : Number(avgMinutes) >= 24
-          ? "24 a 30 minutos"
-          : "Menos de 24 minutos";
-
-  const lineInputStep = usesIntegerLine(activeStat) ? "1" : "any";
 
   // ── Supporting metric más correlacionada con la prop activa ───────────────────
   const correlatedMetric = useMemo(() => {
@@ -1154,7 +1123,6 @@ export default function PlayerChartContainer({
       params.set("stat", activeStat);
       params.set("line", String(lineValue));
       params.set("n", String(lastN));
-      if(effectiveSecondaryChoice!=="auto")params.set("compare",effectiveSecondaryChoice);
       if (activeScope !== "FULL") params.set("scope", activeScope);
       if (chartSide !== "over") params.set("side", chartSide);
       if (chartHomeAway) params.set("homeAway", chartHomeAway);
@@ -1171,7 +1139,7 @@ export default function PlayerChartContainer({
     } catch {
       return false;
     }
-  }, [effectiveSecondaryChoice,defense.options.season,defense.options.window,defense.options.position,defense.band,activeStat, lineValue, lastN, activeScope, chartSide, chartHomeAway, chartHistMinMinutes, chartOpponent, activeWoTeammate, seasonPhase, absenceKey, absenceMode, absenceTeamFilter,gameContext]);
+  }, [defense.options.season,defense.options.window,defense.options.position,defense.band,activeStat, lineValue, lastN, activeScope, chartSide, chartHomeAway, chartHistMinMinutes, chartOpponent, activeWoTeammate, seasonPhase, absenceKey, absenceMode, absenceTeamFilter,gameContext]);
 
     const marketContext=(
 <div>
@@ -1207,160 +1175,50 @@ export default function PlayerChartContainer({
   );
 
 
+  const activeContextLabels = [
+    seasonPhase!=="ALL"?PHASE_OPTIONS.find(option=>option.value===seasonPhase)?.label:null,
+    chartHomeAway==="HOME"?"Solo local":chartHomeAway==="AWAY"?"Solo visitante":null,
+    chartHistMinMinutes!==null?`Desde ${chartHistMinMinutes} min`:null,
+    chartOpponent?`vs. ${chartOpponent}`:null,
+    effectiveAbsences.length?`Sin ${effectiveAbsences.join(", ")}`:null,
+    defense.band!=="all"?DEFENSE_BANDS[defense.band]:null,
+  ].filter(Boolean);
+  const filtered = activeContextLabels.length>0 || activeFilters.length>0 || externalFilters.length>0 || Boolean(activeWoTeammate);
+  const rosterPlayers = [...new Map(teammates.filter(p=>String(p.id)!==String(playerId)&&/^[1-9]\d{0,12}$/.test(String(p.id))&&(p.full_name||p.player_name)).map(p=>[String(p.id),p])).values()];
+  const canAddToAnalyzer=Boolean(analyzerStorageKey&&PAGE_MARKETS[activeStat]);
+  const displayStat=playerMarketLabel(activeStat);
+  const formatDecimal=(value:number)=>value.toLocaleString("es-AR",{maximumFractionDigits:1});
+  const gameRival=pageEvent.opponent;
+  const rivalHistory=gameRival&&!sampleLoading&&!sampleError&&!chartOpponent
+    ?recentRivalSelection(changeRows,gameRival,Number(lineValue),chartSide)
+    :null;
+  const rosterContext=gameContext&&playerTeam&&[gameContext.away,gameContext.home].includes(playerTeam)?gameContext:null;
+  const teamPlayerHref=(id:string|number)=>{
+    const [path,query]=playerGameHref(id,rosterContext,playerTeam).split("?");
+    const q=new URLSearchParams(query);
+    q.set("stat",activeStat);q.set("n",String(lastN));
+    if(activeScope!=="FULL")q.set("scope",activeScope);
+    return `${path}?${q}`;
+  };
   return (
-    <div className="space-y-3">
-      {!compact&&<FloatingPlayerIdentity playerName={playerName || "Jugador"} statLabel={activeStatLabel} scope={activeScope} />}
-      {!compact&&gameContext&&<p className="text-xs font-bold text-[var(--text-muted)]">Partido: {gameContext.away} – {gameContext.home} · {gameContext.date.split('-').reverse().join('/')} · Estadísticas anteriores a esa fecha.</p>}
-      {compact?<PlayerSelectionBar market={activeStat} markets={visibleNavStats} scope={activeScope} lastN={lastN} side={chartSide} line={Number(lineValue)} step={1} halfLines={!usesIntegerLine(activeStat)} onMarket={setActiveStat} onScope={value=>setActiveScope(value as SplitScope)} onWindow={setLastN} onSide={setChartSide} onLine={setLineValue} odds={<PlayerOddsComparison movement={gameContext&&playerName?{player:playerName,date:gameContext.date,away:gameContext.away,home:gameContext.home}:undefined} selectedBook={selectedBook} onSelectBook={setSelectedBook} rows={currentPrices} line={Number(lineValue)} side={chartSide} loading={oddsLoading} error={oddsError} eventReady={!!gameContext} eventRows={eventOdds} market={activeStat} scope={activeScope} onRetry={()=>setOddsRetry(n=>n+1)}/>}/>:<>
-      {/* MENÚ DE ESTADÍSTICAS */}
-      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-2">
-        <div className="flex flex-wrap items-center gap-1.5 max-w-full">
-          {visibleNavStats.map((stat) => {
-            const active = activeStat === stat.id;
-            return (
-              <button
-                key={stat.id}
-                type="button"
-                onClick={() => setActiveStat(stat.id)}
-                className={`shrink-0 rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-widest transition-all ${
-                  active
-                    ? "border-[#10b981]/60 bg-[#10b981] text-black shadow-[0_0_14px_rgba(16,185,129,0.22)]"
-                    : "border-[var(--border)] bg-[var(--bg)] text-[var(--text-muted)] hover:border-[#10b981]/35 hover:text-[var(--text)]"
-                }`}
-              >
-                {stat.label}
-              </button>
-            );
-          })}
+    <div className="space-y-3" data-mosk-analysis>
+      {rosterPlayers.length>0&&<nav className="mosk-roster-nav" aria-label="Cambiar de jugador">
+        <div className="mosk-roster-rail">
+          <span className="mosk-roster-current" aria-current="page">{playerName}</span>
+          {rosterPlayers.map(p=><Link key={String(p.id)} href={teamPlayerHref(p.id)} prefetch={false}>
+            <PlayerPortrait id={p.id} name={String(p.full_name||p.player_name)} size="card" />
+            <span>{p.full_name||p.player_name}</span>
+          </Link>)}
         </div>
-      </div>
-
-      {/* CONTROLES */}
-      <div className="flex flex-col md:flex-row justify-between items-center bg-[var(--surface)] border border-[#10b981]/20 rounded-2xl p-3 gap-3 shadow-xl shadow-[#10b981]/5 flex-wrap">
-        <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto">
-          <div className="flex flex-wrap bg-[var(--surface-soft)] p-1 rounded-xl border border-[var(--border)] max-w-full">
-            {SPLIT_SCOPE_OPTIONS.map((scope) => (
-              <button
-                key={scope.id}
-                type="button"
-                className={`shrink-0 flex items-center gap-2 px-4 py-2 text-xs font-black rounded-lg transition-all ${
-                  activeScope === scope.id
-                    ? "bg-[#10b981] text-black shadow-[0_0_10px_rgba(16,185,129,0.3)]"
-                    : "text-[var(--text-muted)] hover:text-[var(--text)]"
-                }`}
-                onClick={() => setActiveScope(scope.id)}
-              >
-                {scope.id === "FULL" && <Clock size={12} />}
-                {scope.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="bg-gradient-to-b from-transparent via-[#10b981]/40 to-transparent w-[1px] h-10 hidden md:block" />
-
-          <div className="flex bg-[var(--bg)] p-1 rounded-xl border border-[var(--border)]">
-            {[30, 20, 10, 5].map((n) => (
-              <button
-                key={n}
-                onClick={() => setLastN(n)}
-                className={`flex-1 md:flex-none px-5 py-2.5 rounded-lg text-xs font-black transition-all ${
-                  lastN === n
-                    ? "bg-[var(--brand-soft)] text-[var(--text)] shadow-md border border-[var(--border-strong)]"
-                    : "text-[var(--text-muted)] hover:text-[var(--text)] border border-transparent"
-                }`}
-              >
-                {`L${n}`}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="order-3 w-full min-w-0 sm:w-[190px] lg:order-none lg:shrink-0">
-          <PlayerOddsComparison movement={gameContext&&playerName?{player:playerName,date:gameContext.date,away:gameContext.away,home:gameContext.home}:undefined} selectedBook={selectedBook} onSelectBook={setSelectedBook} rows={currentPrices} line={Number(lineValue)} side={chartSide} loading={oddsLoading} error={oddsError} eventReady={!!gameContext} eventRows={eventOdds} market={activeStat} scope={activeScope} onSelectLine={value=>{setLineValue(value);setSelectedBook(null);}} onRetry={()=>setOddsRetry(n=>n+1)}/>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3 md:gap-5 w-full md:w-auto justify-between md:justify-end">
-                <div role="group" aria-label="Lado de la selección">
-                  <p className="mb-1.5 text-[11px] font-black uppercase tracking-[0.22em] text-[var(--text-muted)]">
-                    Lado
-                  </p>
-                  <div className="grid grid-cols-2 gap-1 rounded-2xl border border-[var(--border)] bg-[var(--bg)] p-1">
-                    <button
-                      type="button"
-                      onClick={() => setChartSide("over")}
-                      className={`rounded-xl px-3 py-2 text-xs font-black uppercase tracking-widest transition-all ${chartSide === "over" ? "bg-[#10b981] text-black shadow-[0_0_14px_rgba(16,185,129,0.25)]" : "text-[var(--text-muted)] hover:text-[var(--text)]"}`}
-                    >
-                      Over
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setChartSide("under")}
-                      className={`rounded-xl px-3 py-2 text-xs font-black uppercase tracking-widest transition-all ${chartSide === "under" ? "bg-red-500 text-white shadow-[0_0_14px_rgba(239,68,68,0.25)]" : "text-[var(--text-muted)] hover:text-[var(--text)]"}`}
-                    >
-                      Under
-                    </button>
-                  </div>
-                </div>
-
-
-          <div className="flex flex-col items-start md:items-end">
-            <span className="text-[11px] text-[var(--text-muted)] font-black uppercase tracking-[0.2em] flex items-center gap-1 mb-1">
-              <Sparkles size={10} className="text-[#10b981]" />
-              Línea
-            </span>
-            <div className="flex items-center bg-[var(--bg)] px-2 py-1 rounded-lg border border-[var(--border)]">
-              <Target size={14} className="text-red-500 ml-2" />
-              <button
-                onClick={() =>
-                  setLineValue((prev) => adjustLine(prev, -1, activeStat))
-                }
-                className="px-3 text-[var(--text-muted)] hover:text-[var(--text)] font-black text-xl transition-colors select-none"
-              >
-                -
-              </button>
-              <input
-                type="number"
-                step={lineInputStep}
-                value={formatLineValue(lineValue, activeStat)}
-                onChange={(e) => setLineValue(parseFloat(e.target.value) || 0)}
-                onBlur={() =>
-                  setLineValue((prev) => normalizeLineForStat(prev, activeStat))
-                }
-                className="bg-transparent border-none text-2xl font-black w-16 text-center focus:outline-none text-[var(--text)] p-0 tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              />
-              <button
-                onClick={() =>
-                  setLineValue((prev) => adjustLine(prev, 1, activeStat))
-                }
-                className="px-3 text-[var(--text-muted)] hover:text-[var(--text)] font-black text-xl transition-colors select-none"
-              >
-                +
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-b from-transparent via-[#10b981]/40 to-transparent w-[1px] h-10 hidden md:block" />
-
-          <div className="flex flex-col items-end min-w-[70px]">
-            <span className="text-[11px] text-[var(--text-muted)] font-black uppercase tracking-[0.2em] mb-1">
-              Promedio: {sampleLoading?'…':avgValue}
-              {activeStat === "usage_pct" ? "%" : ""}
-            </span>
-            <span
-              className={`text-3xl font-black tabular-nums leading-none ${hitRateNumber >= 50 ? "text-[#10b981]" : "text-red-500"}`}
-            >
-              {sampleLoading?'…':hitRate}{sampleLoading||selection.rate===null?"":"%"}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      </>}
-      {/* SHARE BUTTON */}
-
-      {!analyzerStorageKey&&<div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#10b981]/25 p-3"><PlayerEventControl event={pageEvent}/><span className="ml-auto"><ShareButton onShare={shareCurrentAnalysisUrl}/></span></div>}
-      {!compact&&analyzerStorageKey&&<AddSelectionToAnalyzer compact={compact} storageKey={analyzerStorageKey} playerId={playerId||''} playerName={playerName||''} stat={activeStat} scope={activeScope} side={chartSide} line={Number(lineValue)} context={gameContext} team={pageEvent.team??playerTeam} pageSample={pageSample} samplePending={sampleLoading||!!sampleError} managedEvent={pageEvent} onShare={shareCurrentAnalysisUrl} quotes={currentPrices} book={selectedBook} />}
-
+        <button type="button" className="mosk-soft-button" onClick={()=>window.dispatchEvent(new Event("open-player-roster"))}>Ver plantel</button>
+      </nav>}
+      {!rosterPlayers.length&&playerTeam&&<Link className="mosk-soft-button" href={`/teams/${playerTeam}`}>Ver plantel de {playerTeam}</Link>}
+      <PlayerSelectionBar market={activeStat} markets={visibleNavStats} scope={activeScope} lastN={lastN} side={chartSide} line={Number(lineValue)} halfLines={!usesIntegerLine(activeStat)} onMarket={setActiveStat} onScope={value=>setActiveScope(value as SplitScope)} onWindow={setLastN} onSide={setChartSide} onLine={setLineValue} onStep={direction=>setLineValue(prev=>Math.min(usesIntegerLine(activeStat)?300:299.5,adjustLine(prev,direction,activeStat)))}
+        odds={<PlayerOddsComparison selectedBook={selectedBook} onSelectBook={setSelectedBook} rows={currentPrices} line={Number(lineValue)} side={chartSide} loading={oddsLoading} error={oddsError} eventReady={!!gameContext} eventRows={eventOdds} market={activeStat} scope={activeScope} onRetry={()=>setOddsRetry(n=>n+1)}/>}
+      />
+      {!oddsLoading&&!oddsError&&gameContext&&<AlternativeLines quotes={currentPrices} values={chartStats.map(row=>row.value)} historyLabel="de la muestra" line={Number(lineValue)} book={selectedBook} side={chartSide} onSelect={(value,house)=>{setLineValue(value);setSelectedBook(house);}}/>}
+      {canAddToAnalyzer?<AddSelectionToAnalyzer compact storageKey={analyzerStorageKey!} playerId={playerId||''} playerName={playerName||''} stat={activeStat} scope={activeScope} side={chartSide} line={Number(lineValue)} context={gameContext} team={pageEvent.team??playerTeam} pageSample={pageSample} samplePending={sampleLoading||!!sampleError} managedEvent={pageEvent} onShare={shareCurrentAnalysisUrl} quotes={currentPrices} book={selectedBook} />:
+        <div className="mosk-selection-actions"><PlayerEventControl event={pageEvent}/><span className="ml-auto"><ShareButton onShare={shareCurrentAnalysisUrl}/></span></div>}
 
       {/* FILTROS ACTIVOS — internos (sliders) + externos (W/O) en un solo lugar */}
       <StatFilters
@@ -1379,71 +1237,58 @@ export default function PlayerChartContainer({
         }}
       />
 
-      <div className="grid grid-cols-1 min-[1100px]:grid-cols-[minmax(0,1fr)_300px] gap-4 items-start">
+      <div className="mosk-analysis-grid">
         {/* GRÁFICA PRINCIPAL + ODDS COMPACTAS */}
         <div className="min-w-0">
-          <div data-chart-card className="bg-[var(--surface)] p-4 md:p-5 rounded-[2rem] border border-[#10b981]/25 shadow-2xl shadow-[#10b981]/5 relative min-w-0 overflow-hidden">
-            {!compact&&<div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#10b981] to-transparent" />}
-
-            <ChartIdentity playerName={playerName || "Jugador"} statLabel={compact?playerMarketLabel(activeStat):activeStatLabel} scope={activeScope} count={chartStats.length} line={Number(lineValue)} loading={sampleLoading} compact={compact} />
-            {compact&&<PlayerSampleSummary values={metricStats.map(row=>row.value)} line={Number(lineValue)} side={chartSide} lastN={lastN} loading={sampleLoading} error={sampleError}/>}
-            <div data-chart-sample-row className="mb-3 flex flex-wrap items-center justify-between gap-2"><p data-chart-sample className="text-xs text-[var(--text-muted)]">{pageSample?.labels.join(" · ")||PHASE_OPTIONS.find(option=>option.value===seasonPhase)?.label}</p><button type="button" onClick={resetMainFilters} title="Restablecer 20 partidos, dos temporadas, todos los rivales, local y visitante" className="rounded-lg border border-[#10b981]/30 px-3 py-2 text-xs font-bold text-[#10b981]">{compact?"Restablecer · L20":"Muestra base · L20"}</button>{compact&&defenseOpponent&&<button type="button" aria-pressed={chartOpponent===defenseOpponent} className="rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-bold" onClick={()=>setChartOpponent(chartOpponent===defenseOpponent?"":defenseOpponent)}>vs {defenseOpponent}</button>}</div>
-
-            {(!compact||!isFullScope||activeFilters.length+externalFilters.length>0)&&<div className="mb-3 flex flex-wrap items-center gap-2">
-              {!isFullScope && (
-                <span className="rounded-xl border border-[#10b981]/30 bg-[#10b981]/10 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-[#10b981]">
-                  {activeScopeOption.badgeLabel}
-                </span>
-              )}
-              {activeFilters.length + externalFilters.length > 0 && (
-                <span className="rounded-xl border border-orange-500/30 bg-orange-500/10 px-3 py-1.5 text-[11px] font-black uppercase tracking-widest text-orange-400">
-                  {chartStats.length} partidos filtrados
-                </span>
-              )}
-
-            </div>}
-
-
-            {!compact&&isFullScope&&<PlayerSecondaryControl market={activeStat} marketLabel={activeStatLabel} choice={effectiveSecondaryChoice} onChange={changeSecondary} rows={chartStats} disabled={sampleLoading||!!sampleError}/>}
+          <div data-chart-card className="mosk-chart-card">
+            <header data-chart-identity className="mosk-chart-heading">
+              <div><h2>{displayStat}</h2>{!isFullScope&&<span>{activeScopeOption.label}</span>}</div>
+              {!sampleLoading&&!sampleError&&selection.valid>0&&<dl className="mosk-chart-stats">
+                <div><dt>Promedio</dt><dd>{selection.average===null?"S/D":formatDecimal(selection.average)}{activeStat==="usage_pct"?"%":""}</dd></div>
+                <div><dt>Acierto histórico</dt><dd>{selection.rate===null?"S/D":`${hitRate}%`}{selection.decided>0&&<small>{hits}/{selection.decided}</small>}</dd></div>
+                {minutesValues.length===metricStats.length&&isFullScope&&<div><dt>Minutos</dt><dd>{formatDecimal(Number(avgMinutes))}</dd></div>}
+              </dl>}
+            </header>
+            <div className="mosk-chart-tools" data-chart-sample-row>
+              {gameRival&&<button type="button" className="mosk-soft-button" aria-pressed={chartOpponent===gameRival} onClick={()=>setChartOpponent(chartOpponent===gameRival?"":gameRival)}>Contra {gameRival}</button>}
+              <button type="button" className="mosk-soft-button" onClick={()=>{if(historyFilters.current){historyFilters.current.open=true;historyFilters.current.scrollIntoView({block:"nearest"});historyFilters.current.querySelector("summary")?.focus({preventScroll:true});}}}>Filtros</button>
+              {activeContextLabels.map((text,index)=><span className="mosk-filter-chip" key={`${text}-${index}`}>{text}</span>)}
+              {(filtered||lastN!==20)&&<button type="button" onClick={resetMainFilters} title="Quitar filtros y volver a los últimos 20" className="mosk-text-link">Restablecer filtros</button>}
+              {!sampleLoading&&!sampleError&&selection.valid>0&&selection.missing>0&&<span className="mosk-sample-coverage">{selection.valid}/{selection.total} partidos con datos</span>}
+            </div>
+            {!sampleLoading&&!sampleError&&opportunityOverlay&&<PlayerOpportunityLegend market={activeStat} scope={activeScope} rows={chartStats}/>}
             {!isFullScope && periodLoading && <p className="mb-3 text-xs text-cyan-300">Cargando datos de períodos…</p>}
             {!isFullScope && periodError && <p className="mb-3 text-xs text-amber-300">No se pudieron cargar los datos del período.</p>}
-            <div className={compact?"w-full relative":"min-h-[470px] w-full relative"}>
+            <div className="w-full relative">
               {sampleLoading?<div className="flex min-h-[240px] items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--bg)]" role="status"><Loader2 size={18} className="mr-2 animate-spin text-[#10b981]"/>Actualizando la muestra…</div>:sampleError?<div className="flex min-h-[240px] items-center justify-center p-5 text-sm text-amber-300" role="alert">No pudimos consultar esta muestra. Revisá los filtros o reintentá.</div>:              <PlayerChart
                 data={chartStats}
                 statKey="value"
+                mainMetric={activeStat}
                 lineValue={lineValue}
                 side={chartSide}
-                clean={compact}
-                overlayKey={opportunityOverlay?.id}
-                overlayLabel={opportunityOverlay?.label}
-                overlayColor={opportunityOverlay?.color}
-                overlayValueReader={opportunityOverlay?(row)=>secondaryValue(row,opportunityOverlay.id):undefined}
-                height={compact?350:undefined}
-                showSeasonBreaks={compact}
-                overlayAxis={isFullScope?secondaryAxis(activeStat,opportunityOverlay?.id):"left"}
+                clean={true}
+                overlayKey={opportunityOverlay}
+                overlayLabel={opportunityOverlay==="potential_ast"?"Asistencias potenciales":opportunityOverlay==="rebound_chances"?"Chances de rebote":undefined}
+                overlayValueReader={opportunityOverlay?(row)=>secondaryValue(row,opportunityOverlay):undefined}
+                height={380}
+                showSeasonBreaks={true}
+                overlayAxis="left"
               />}
             </div>
             {compact&&<SelectionLegend hasPush={selection.pushes>0} hasMissing={selection.missing>0}/>}
           </div>
-          {compact&&!oddsLoading&&!oddsError&&gameContext&&<AlternativeLines quotes={currentPrices} values={chartStats.slice(-10).map(row=>row.value)} historyLabel={chartStats.length>=10?'L10':'de la muestra'} line={Number(lineValue)} book={selectedBook} side={chartSide} onSelect={(value,house)=>{setLineValue(value);setSelectedBook(house);}}/>}
-          {compact&&isFullScope&&!sampleLoading&&!sampleError&&<PlayerSupportingStats market={activeStat} rows={chartStats} choice={effectiveSecondaryChoice} onChange={changeSecondary}/>}
+          {compact&&isFullScope&&!sampleLoading&&!sampleError&&<PlayerSupportingStats market={activeStat} rows={chartStats} choice={secondaryChoice} onChange={setSecondaryChoice}/>}
           <div id={`absence-comparison-${playerId}`} className="scroll-mt-20"/>
           {playerId&&<details className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3" onToggle={e=>setRotationOpen(e.currentTarget.open)}>
-            <summary className="cursor-pointer text-sm font-bold">Rotaciones verificadas · partidos del gráfico</summary>
+            <summary className="cursor-pointer text-sm font-bold">Rotaciones de los partidos del gráfico</summary>
             <div className="mt-2"><RotationPilot playerId={String(playerId)} gameIds={chartStats.map(row=>row.game_id??row.id)} open={rotationOpen&&!sampleLoading&&!sampleError}/></div>
           </details>}
-          {compact&&analyzerStorageKey&&<AddSelectionToAnalyzer compact={compact} storageKey={analyzerStorageKey} playerId={playerId||''} playerName={playerName||''} stat={activeStat} scope={activeScope} side={chartSide} line={Number(lineValue)} context={gameContext} team={pageEvent.team??playerTeam} pageSample={pageSample} samplePending={sampleLoading||!!sampleError} managedEvent={pageEvent} onShare={shareCurrentAnalysisUrl} quotes={currentPrices} book={selectedBook} />}
+
         </div>
-        {/* FILTROS GLOBALES — panel lateral limpio */}
-        <div className="min-[1100px]:sticky min-[1100px]:top-4 rounded-[1.5rem] border border-[#10b981]/20 bg-[var(--surface)] p-3 shadow-xl shadow-[#10b981]/5 overflow-hidden">
-          <div className="flex flex-col gap-3">
-            {compact&&<p className="px-1 text-sm font-bold">Para este partido{gameContext?` · ${gameContext.away}–${gameContext.home}`:""}</p>}
-            <div className="grid gap-1 px-1 text-xs text-[var(--text-muted)]">
-              <span>Rival del partido: <strong>{pageEvent.opponent||'Sin confirmar'}</strong></span>
-              <span>Historial filtrado: <strong>{chartOpponent||'Todos los rivales'}</strong></span>
-              {chartOpponent&&chartOpponent!==pageEvent.opponent&&<span>La defensa de este panel usa el rival del historial.</span>}
-            </div>
-            <DefenseContextCard profile={isFullScope&&minutesValues.length>=5&&Number(avgMinutes)>0&&Number(avgMinutes)<=80?{playerId:Number(playerId),minutes:Number(avgMinutes),sample:minutesValues.length}:undefined} state={defense} opponent={defenseOpponent} scope={activeScope} side={chartSide}/>
+        <aside aria-label="Contexto del partido" className="mosk-context-column">
+            <NbaNextMatchup context={gameContext} team={pageEvent.team??playerTeam} playerId={playerId??undefined} market={activeStat} scope={activeScope} rivalHistory={rivalHistory} onFilterRival={!chartOpponent&&gameRival?()=>setChartOpponent(gameRival):undefined}/>
+            {chartOpponent&&gameRival&&chartOpponent!==gameRival&&<p className="mosk-context-note">Defensa del rival elegido en el historial: {chartOpponent}.</p>}
+            {defenseOpponent&&defense.market&&<DefenseContextCard profile={isFullScope&&minutesValues.length>=5&&Number(avgMinutes)>0&&Number(avgMinutes)<=80?{playerId:Number(playerId),minutes:Number(avgMinutes),sample:minutesValues.length}:undefined} state={defense} opponent={defenseOpponent} scope={activeScope} side={chartSide}/>}
             <details ref={historyFilters} className="rounded-xl border border-[var(--border)] p-3"><summary className="cursor-pointer text-sm font-bold text-[var(--text)]">Filtrar histórico</summary><div className="mt-3 flex flex-col gap-3">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[11px] font-black uppercase tracking-widest text-cyan-300">Fase</span>
@@ -1679,101 +1524,12 @@ export default function PlayerChartContainer({
               </>
             )}
             </div></details>
-          </div>
-        </div>
+        </aside>
       </div>
 
       {analysisMode==="pro"&&detailNavigation}
 
-      {/* CONTEXTO RÁPIDO */}
-      {!compact&&(!metricStats.length ? <p className="rounded-xl border border-[var(--border)] p-4 text-sm text-[var(--text-muted)]">{sampleLoading?"Actualizando estadísticas…":sampleError?"La muestra no está disponible.":"Sin partidos para esta selección. Ampliá los filtros para analizarla."}</p> : analysisMode === "simple" ? (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-          {[
-            { label: "Prom. histórico", sample:baseSampleLabel, value: seasonAvgValue===null?"S/D":seasonAvgValue.toFixed(1), tone: "text-cyan-300", border: "border-cyan-400/25" },
-            { label: "Prom. gráfico", sample:currentSampleLabel, value: filteredAvgValue===null?"S/D":filteredAvgValue.toFixed(1), tone: "text-[#10b981]", border: "border-[#10b981]/25" },
-            { label: "Aciertos históricos", sample:`${currentSampleLabel} · ${selection.decided} decididos`, value: selection.rate===null?"S/D":`${hitRate}%`, tone: hitRateNumber >= 50 ? "text-[#10b981]" : "text-red-400", border: hitRateNumber >= 50 ? "border-[#10b981]/25" : "border-red-400/25" },
-            { label: "Línea", sample:activeScopeOption.label, value: formatLineValue(lineValue, activeStat), tone: "text-orange-300", border: "border-orange-400/25" },
-            { label: "Diferencia", sample:currentSampleLabel, value: lineDifference===null?"S/D":`${(lineDifference ?? -1) >= 0 ? "+" : ""}${lineDifference.toFixed(1)}`, tone: (lineDifference ?? -1) >= 0 ? "text-[#10b981]" : "text-red-400", border: (lineDifference ?? -1) >= 0 ? "border-[#10b981]/25" : "border-red-400/25" },
-          ].map((item) => (
-            <div key={item.label} className={`rounded-2xl border bg-[var(--surface)] p-4 ${item.border}`}>
-              <p className="text-[11px] font-black uppercase tracking-widest text-[var(--text-muted)]">{item.label}</p>
-              <p className={`mt-1 text-2xl font-black tabular-nums ${item.tone}`}>{item.value}</p>
-              <p className="mt-1 text-[11px] font-bold uppercase tracking-widest text-[var(--text-muted)]">{item.sample} · {activeStatLabel}</p>
-            </div>
-          ))}
-        </div>
-      ) : (
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-[var(--surface)] border border-[#10b981]/25 rounded-2xl p-4 shadow-xl shadow-[#10b981]/5 relative overflow-hidden">
-          <div className="absolute inset-x-0 top-0 h-[2px] bg-[#10b981]" />
-          <p className="text-[11px] text-[#10b981] font-black uppercase tracking-widest">
-            Aciertos históricos
-          </p>
-          <p
-            className={`text-2xl font-black ${hitRateNumber >= 50 ? "text-[#10b981]" : "text-red-500"}`}
-          >
-            {selection.rate===null?"S/D":`${hits}/${selection.decided}`}
-          </p>
-          <p className="text-[11px] text-[var(--text-muted)] font-black uppercase tracking-widest mt-1">
-            {trendLabel}{selection.pushes?` · ${selection.pushes} empates`:""}{selection.missing?` · ${selection.missing} S/D`:""}
-          </p>
-        </div>
-
-        <div className="bg-[var(--surface)] border border-cyan-400/25 rounded-2xl p-4 shadow-xl shadow-cyan-400/5 relative overflow-hidden">
-          <div className="absolute inset-x-0 top-0 h-[2px] bg-cyan-400" />
-          <p className="text-[11px] text-cyan-300 font-black uppercase tracking-widest">
-            Min Prom.
-          </p>
-          <p className="text-2xl font-black text-[var(--text)] tabular-nums">
-            {avgMinutes}
-          </p>
-          <p className="text-[11px] text-[var(--text-muted)] font-black uppercase tracking-widest mt-1">
-            {volumeLabel}
-          </p>
-        </div>
-
-        <div className="bg-[var(--surface)] border border-orange-400/25 rounded-2xl p-4 shadow-xl shadow-orange-400/5 relative overflow-hidden">
-          <div className="absolute inset-x-0 top-0 h-[2px] bg-orange-400" />
-          <p className="text-[11px] text-orange-300 font-black uppercase tracking-widest">
-            Línea
-          </p>
-          <p className="text-2xl font-black text-[var(--text)] tabular-nums">
-            {formatLineValue(lineValue, activeStat)}
-          </p>
-          <p className="text-[11px] text-[var(--text-muted)] font-black uppercase tracking-widest mt-1">
-            {activeStatLabel}
-          </p>
-        </div>
-
-        <div
-          className={`bg-[var(--surface)] border rounded-2xl p-4 shadow-xl relative overflow-hidden ${lowMinuteGames > 0 ? "border-yellow-400/30 shadow-yellow-400/5" : "border-[#10b981]/25 shadow-[#10b981]/5"}`}
-        >
-          <div
-            className={`absolute inset-x-0 top-0 h-[2px] ${lowMinuteGames > 0 ? "bg-yellow-400" : "bg-[#10b981]"}`}
-          />
-          <p
-            className={`text-[11px] font-black uppercase tracking-widest ${lowMinuteGames > 0 ? "text-yellow-300" : "text-[#10b981]"}`}
-          >
-            Alerta
-          </p>
-          <p className="text-sm font-black text-[#10b981] uppercase flex items-center gap-2">
-            <Gauge size={14} />{" "}
-            {sampleLoading ? "Cargando muestra" : sampleError ? "No disponible" : !metricStats.length ? "Sin muestra" : minutesValues.length!==metricStats.length ? "Minutos sin confirmar" : !isFullScope ? "Minutos del período" : lowMinuteGames > 0
-              ? `${lowMinuteGames} con menos de 20 min`
-              : "Sin partidos con menos de 20 min"}
-          </p>
-          <p className="text-[11px] text-[var(--text-muted)] font-black uppercase tracking-widest mt-2 flex items-center gap-1">
-            <TrendingUp size={10} /> {windowLabel}
-            {activeFilters.length + externalFilters.length > 0 && (
-              <span className="text-orange-400 ml-1">
-                · {activeFilters.length + externalFilters.length} filtro
-                {activeFilters.length + externalFilters.length > 1 ? "s" : ""}
-              </span>
-            )}
-          </p>
-        </div>
-      </div>
-      ))}
+      {detailTab==="summary"&&!sampleLoading&&!sampleError&&selection.valid>0&&<SeasonWindows seasons={seasonRows} line={Number(lineValue)} side={chartSide}/>}
 
       {(analysisMode==="simple"||detailTab==="volume")&&isFullScope&&<PlayerChangeCard rows={changeRows} referenceRows={changeReferenceRows} market={activeStat} marketLabel={activeStatLabel} cutoff={historyCutoff??eventDate} playerId={playerId} loading={sampleLoading} error={sampleError}/>}
       {analysisMode === "simple" && marketContext}

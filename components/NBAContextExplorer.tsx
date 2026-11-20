@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Calculator, ChevronDown, ChevronLeft, ChevronRight, Crosshair, Shield, Target } from "lucide-react";
 import type { AnalysisSample } from "@/lib/nbaAnalysis";
 import { contextEvidence, contextEmptyText } from "@/lib/marketEvidence";
-import {historyReferenceDate,historySeasons} from "@/lib/nbaHistoryWindow";
+import {historyReferenceDate,matchupSeasons} from "@/lib/nbaHistoryWindow";
 import {contextGames,sampleGameKey} from '@/lib/playerSample';
 import { keyGame } from "@/lib/nbaAnalysis";
 import {analysisStyles} from "@/components/AnalysisAccordion";
@@ -19,6 +19,8 @@ type Shot = {
   shot_distance?: number | null; loc_x?: number | null; loc_y?: number | null;
   shot_made_flag?: number | null; home_team_abbr?: string | null; away_team_abbr?: string | null;
 };
+
+import PlayerH2H from "./PlayerH2H";
 
 type Matchup = {
   game_id: string; game_date: string; season_type: string;
@@ -327,9 +329,12 @@ export default function NBAContextExplorer({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [seasonChoice,setSeasonChoice]=useState("both");
-  const [currentSeason,previousSeason]=historySeasons(nextGameDate);
-  const selectedSeason=seasonChoice===currentSeason||seasonChoice===previousSeason?seasonChoice:"both";
-  const seasonLabel=selectedSeason==="both"?currentSeason+" + "+previousSeason:selectedSeason;
+  const seasons=useMemo(()=>matchupSeasons(nextGameDate),[nextGameDate]);
+  const [currentSeason,previousSeason]=seasons;
+  const selectedSeason=seasonChoice==="four"||seasons.includes(seasonChoice)?seasonChoice:"both";
+  const chosenSeasons=useMemo(()=>selectedSeason==="four"?seasons:selectedSeason==="both"?seasons.slice(0,2):[selectedSeason],[selectedSeason,seasons]);
+  const combined=chosenSeasons.length>1;
+  const seasonLabel=selectedSeason==="four"?`${seasons[3]} a ${currentSeason}`:chosenSeasons.join(" + ");
   const cutoff=historyReferenceDate(cutoffDate??nextGameDate);
   const [seasonType,setSeasonType]=useState("ALL");
   useEffect(()=>{if(sharedSample?.phase)setSeasonType(sharedSample.phase);},[sharedSample?.phase]);
@@ -359,8 +364,7 @@ export default function NBAContextExplorer({
     setShots([]); setMatchups([]); setGameLogs([]); setDefenderFouls([]);
     setSelectedGameId("");
     setWarnings([]);
-    const seasons=selectedSeason==="both"?[currentSeason,previousSeason]:[selectedSeason];
-    void Promise.allSettled(seasons.map(async season=>{
+    void Promise.allSettled(chosenSeasons.map(async season=>{
       const response=await fetch(`/api/nba-context?playerId=${encodeURIComponent(playerId)}&season=${encodeURIComponent(season)}`,{signal:controller.signal});
       const data=await response.json();
       if(!response.ok||!data?.ok)throw Error("Temporada no disponible");
@@ -368,7 +372,7 @@ export default function NBAContextExplorer({
     })).then(results=>{
       if(controller.signal.aborted)return;
       const batches=results.flatMap(result=>result.status==="fulfilled"?[result.value]:[]);
-      setWarnings(results.flatMap((result,i)=>result.status==="rejected"?[`No pudimos cargar ${seasons[i]}.`]:(result.value.warnings??[]).map(message=>`${seasons[i]}: ${message}`)));
+      setWarnings(results.flatMap((result,i)=>result.status==="rejected"?[`No pudimos cargar ${chosenSeasons[i]}.`]:(result.value.warnings??[]).map(message=>`${chosenSeasons[i]}: ${message}`)));
       if(!batches.length){setError("No se pudo cargar el contexto NBA.");return;}
       setShots(batches.flatMap(batch=>batch.shots??[]));
       setMatchups(batches.flatMap(batch=>batch.matchups??[]));
@@ -383,7 +387,7 @@ export default function NBAContextExplorer({
       setLoaded(true);
     }).finally(()=>{if(!controller.signal.aborted)setLoading(false);});
     return () => controller.abort();
-  }, [expanded,playerId,selectedSeason,currentSeason,previousSeason,retry]);
+  }, [expanded,playerId,chosenSeasons,retry]);
 
   function toggleExpanded() {
     setExpanded((current) => {
@@ -417,11 +421,20 @@ export default function NBAContextExplorer({
     if (!filteredGames.some((game) => game.id === selectedGameId)) setSelectedGameId(filteredGames[0]?.id || "");
   }, [filteredGames, selectedGameId]);
 
+  const allRivalCount = useMemo(() => {
+    if (!rivalOnly||opponent==="ALL"||range===0||filteredGames.length) return 0;
+    return contextGames([...gameMeta.values()].filter(game=>game.date&&game.date<cutoff),
+      {ids:null,phase:seasonType,opponent,rivalOnly:true,range:0}).length;
+  },[rivalOnly,opponent,range,filteredGames.length,gameMeta,cutoff,seasonType]);
+
   const allowedIds = useMemo(() => new Set(filteredGames.map((game) => game.id)), [filteredGames]);
   const rangeMatchups = useMemo(() => matchups.filter((row) => (!rivalOnly||String(row.defensive_team_abbr??"").toUpperCase()===opponent) && allowedIds.has(sampleGameKey(row.game_id)) && (position === "ALL" || positionGroup(row.defensive_position) === position)), [allowedIds, matchups, position,rivalOnly,opponent]);
   const selectedGame = filteredGames.find((game) => game.id === selectedGameId);
   const selectedIndex = filteredGames.findIndex((game) => game.id === selectedGameId);
   const selectedShots = shots.filter((shot) => sampleGameKey(shot.game_id) === selectedGameId);
+  const h2hOptions=useMemo(()=>[...new Map(rangeMatchups.filter(r=>Number(r.defensive_player_id)>0&&r.defensive_player_name).map(r=>[String(r.defensive_player_id),r.defensive_player_name])).entries()].sort((a,b)=>a[1].localeCompare(b[1],'es')),[rangeMatchups]);
+  const [chosenDefender,setChosenDefender]=useState('');
+  const h2hDefender=h2hOptions.find(([id])=>id===chosenDefender);
   const contextCoverage=contextEvidence(filteredGames,shots,rangeMatchups);
   const selectedMatchups = rangeMatchups.filter((row) => sampleGameKey(row.game_id) === selectedGameId);
 
@@ -606,8 +619,8 @@ export default function NBAContextExplorer({
           <label htmlFor={`pro-season-${playerId}`} className="text-xs font-bold text-[var(--text-muted)]">Temporada del análisis</label>
           <select id={`pro-season-${playerId}`} value={selectedSeason} onChange={event=>setSeasonChoice(event.target.value)} className="rounded-lg border border-cyan-400/30 bg-[var(--bg)] px-3 py-2 text-xs font-bold text-[var(--text)]">
             <option value="both">Actual y anterior · {currentSeason} + {previousSeason}</option>
-            <option value={currentSeason}>{currentSeason}</option>
-            <option value={previousSeason}>{previousSeason}</option>
+            <option value="four">Últimas 4 temporadas</option>
+            {seasons.map(season=><option key={season} value={season}>{season}</option>)}
           </select>
           <span className="text-xs text-[var(--text-muted)]">Partidos anteriores al {dateLabel(cutoff)}.</span>
         </div>
@@ -630,16 +643,20 @@ export default function NBAContextExplorer({
             <p className="text-xs text-[var(--text-muted)]">{range===-1?"Partidos del gráfico":range>0?`Últimos ${range} partidos`:"Todos los partidos disponibles"} · {seasonLabel}. {rivalOnly&&opponent!=="ALL"?`Muestra: solo cruces contra ${opponent}.`:!rivalOnly?"Muestra: todos los rivales.":"Esperando un rival para mostrar los cruces."}</p>
             {sharedSample && sharedSample.scope !== "FULL" ? <p className="text-xs text-amber-300">El gráfico está en un período parcial. Los defensores y el calendario de este bloque se ocultan para evitar mezclar totales; el resumen de rol superior usa el período elegido.</p> : <>
             <p className="mb-3 text-xs text-[var(--text-muted)]">{contextCoverage.total} PJ seleccionados · {contextCoverage.shots}/{contextCoverage.total} con tiros · {contextCoverage.matchups}/{contextCoverage.total} con asignaciones defensivas. Mapas y marcadores del partido completo · {seasonLabel}.{sharedSample?.scope&&sharedSample.scope!=="FULL"?` El gráfico principal usa ${sharedSample.scope}; este contexto no está separado por período.`:""}</p>
-            {rivalOnly&&filteredGames.length===0&&<p role="status" className="text-xs text-amber-300">{opponent==="ALL"?"No hay un próximo rival confirmado. Elegí un equipo o Todos los rivales.":`No hay partidos contra ${opponent} con los filtros elegidos.`}</p>}
+            {rivalOnly&&filteredGames.length===0&&<div role="status" className="flex flex-wrap items-center gap-2 text-xs text-amber-300">
+              <span>{opponent==="ALL"?"No hay un próximo rival confirmado. Elegí un equipo o Todos los rivales.":allRivalCount?`La muestra no incluye los ${allRivalCount} PJ disponibles contra ${opponent}.`:`No hay partidos contra ${opponent} con los filtros elegidos.`}</span>
+              {allRivalCount>0&&<button type="button" className="rounded-lg border border-cyan-400/40 px-3 py-2 font-bold text-cyan-300" onClick={()=>setRange(0)}>Ver todos los PJ contra {opponent}</button>}
+              {!allRivalCount&&opponent!=="ALL"&&selectedSeason!=="four"&&<button type="button" className="rounded-lg border border-cyan-400/40 px-3 py-2 font-bold text-cyan-300" onClick={()=>{setSeasonChoice("four");setRange(0);}}>Buscar en 4 temporadas</button>}
+            </div>}
             <ul className="flex flex-wrap gap-2 text-xs text-[var(--text-muted)]" aria-label="Cobertura por temporada">
-              {(selectedSeason==="both"?[currentSeason,previousSeason]:[selectedSeason]).map(season=>{
+              {chosenSeasons.map(season=>{
                 const year=Number(season.slice(0,4));
                 const rows=filteredGames.filter(g=>(Number(g.date.slice(0,4))-(Number(g.date.slice(5,7))<10?1:0))===year);
                 const coverage=contextEvidence(rows,shots,rangeMatchups);
                 return <li key={season} className="rounded-lg border border-[var(--border)] px-3 py-2"><strong>{season}</strong> · {coverage.total} PJ · {coverage.shots} con tiros · {coverage.matchups} con marcas</li>;
               })}
             </ul>
-            <NBAProInsights view={view} rivalOnly={rivalOnly} onRivalOnlyChange={setRivalOnly} referenceSeason={selectedSeason==="both"?currentSeason:selectedSeason} combinedSeasons={selectedSeason==="both"?seasonLabel:undefined} key={playerId} rows={gameLogs.filter(row => allowedIds.has(sampleGameKey(row.game_id)))} shots={shots} playerId={playerId} opponent={opponent} seasonType={seasonType} range={range} nextGameDate={nextGameDate} />
+            <NBAProInsights view={view} rivalOnly={rivalOnly} onRivalOnlyChange={setRivalOnly} referenceSeason={combined?currentSeason:selectedSeason} combinedSeasons={combined?seasonLabel:undefined} key={playerId} rows={gameLogs.filter(row => allowedIds.has(sampleGameKey(row.game_id)))} shots={shots} playerId={playerId} opponent={opponent} seasonType={seasonType} range={range} nextGameDate={nextGameDate} />
             {view!=="shots"&&<>
             <CollapsibleSection title="FGA, FGM y escenario de faltas" meta={opponent === "ALL" ? "Elegí un equipo" : `vs ${opponent}`} icon={<Calculator size={16} />} defaultOpen={false}>
               {opponent === "ALL" ? <div className="rounded-xl border border-dashed border-[var(--border)] p-6 text-center text-xs text-[var(--text-muted)]">Seleccioná un equipo rival para calcular FGA, FGM y el escenario de faltas.</div> : projection ? <div className="space-y-4">
@@ -657,6 +674,12 @@ export default function NBAContextExplorer({
 
             {view!=="opponent"&&<>
             <CollapsibleSection title="Marca por equipo y posición" meta={`${contextCoverage.matchups} con marcas de ${filteredGames.length} PJ`} icon={<Shield size={16} />} defaultOpen={false}>
+              {h2hOptions.length>0&&<div className="mb-3">
+                <label className="flex flex-wrap items-center gap-2 text-xs font-bold">Cara a cara con un defensor
+                  <select className="rounded-lg border border-[var(--border)] bg-[var(--bg)] p-2 text-[var(--text)]" value={h2hDefender?.[0]??''} onChange={e=>setChosenDefender(e.target.value)}><option value="">Elegí un defensor de la muestra</option>{h2hOptions.map(([id,name])=><option key={id} value={id}>{name}</option>)}</select>
+                </label>
+                {h2hDefender&&<PlayerH2H key={h2hDefender[0]} attacker={Number(playerId)} defender={Number(h2hDefender[0])} attackerName={playerName} defenderName={h2hDefender[1]} before={cutoff} />}
+              </div>}
               <div className="space-y-2">{teamGroups.map(([team, rows]) => { const positions = ["G", "F", "C", "S/D"].map((group) => [group, rows.filter((row) => positionGroup(row.defensive_position) === group)] as const).filter(([, items]) => items.length); return <details key={team} open={opponent !== "ALL" || teamGroups.length === 1} className="group rounded-xl border border-[var(--border)] bg-[var(--bg)]"><summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3"><span className="font-black">vs {team}</span><span className="text-right text-[10px] font-bold uppercase text-[var(--text-muted)]">{new Set(rows.map((row) => row.game_id)).size} PJ · {buildDefenderTotals(rows).length} defensores</span></summary><div className="border-t border-[var(--border)] p-2">{positions.map(([group, items]) => <div key={group} className="mb-2 overflow-hidden rounded-lg border border-[var(--border)] last:mb-0"><div className="bg-white/[0.035] px-4 py-2 text-[10px] font-black uppercase tracking-widest text-emerald-300">Posición {group}</div><DefenderTable rows={items} compact /></div>)}</div></details>; })}{!teamGroups.length && <div className="rounded-xl border border-dashed border-[var(--border)] p-6 text-center text-xs text-[var(--text-muted)]">{contextEmptyText("matchups",contextCoverage)}</div>}</div>
             </CollapsibleSection>
 

@@ -17,6 +17,7 @@ import {
 
 import { finiteStat, selectionOutcome } from "@/lib/selectionStats";
 import {getOpponent as canonicalOpponent, getGameLocation} from "@/lib/playerUtils";
+import {isOpportunityPair} from '@/lib/nbaVisuals';
 import { trackingValue } from "@/lib/trackingValues";
 import styles from "./PlayerStatistics.module.css";
 
@@ -28,6 +29,7 @@ type PlayerChartProps = {
   showSeasonBreaks?:boolean;
   data: any[];
   statKey?: string;
+  mainMetric?: string;
   lineValue: number;
   overlayKey?: string | null;
   overlayLabel?: string;
@@ -138,7 +140,7 @@ function CustomTooltip({ active, payload }: any) {
       </div>
 
       {row._overlayEnabled && row._overlayLabel && (
-        <div className="mt-2 rounded-lg border border-cyan-400/25 bg-cyan-400/10 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-cyan-300">
+        <div className="mt-2 rounded-lg border border-white/15 bg-white/5 px-2 py-1 text-xs font-bold text-slate-300">
           {row._overlayLabel}: {trackingValue(row._overlayValue) === null ? "Sin datos disponibles" : formatNumber(row._overlayValue, 1)}
         </div>
       )}
@@ -147,23 +149,32 @@ function CustomTooltip({ active, payload }: any) {
 }
 
 function ValueLabel(props: any) {
-  const { x, y, width, value } = props;
-  const n = finiteStat(value);
-
-  if (n === null) return null;
-
+  const { x, y, width, height } = props.viewBox ?? props;
+  const n = finiteStat(props.value);
+  if (n === null || ![x,y,width].every(Number.isFinite)) return null;
+  const inside=props.paired&&height>=24;
   return (
     <text
       x={x + width / 2}
-      y={y - 8}
+      y={inside?y+15:y-4}
       textAnchor="middle"
-      fill="var(--text)"
-      fontSize={10}
-      fontWeight={props.clean?700:900}
+      fill={inside?"#071612":"var(--text)"}
+      className={styles.chartValueLabel}
     >
-      {props.clean?n.toLocaleString('es-AR',{maximumFractionDigits:1}):Number.isInteger(n) ? n : n.toFixed(1)}
+      {n.toLocaleString('es-AR',{maximumFractionDigits:1})}
     </text>
   );
+}
+
+function TrackingBarLabel(props: any) {
+  const {x,y,width}=props.viewBox??props;
+  const value=trackingValue(props.value);
+  if(value===null||![x,y,width].every(Number.isFinite))return null;
+  const cx=x+width/2;
+  return <g className={styles.trackingLabel}>
+    <rect x={cx-12} y={y-32} width={24} height={17} rx={5}/>
+    <text x={cx} y={y-20} textAnchor="middle">{value.toLocaleString('es-AR',{maximumFractionDigits:1})}</text>
+  </g>;
 }
 
 function GameTick({x,y,payload,labels}:{x?:number;y?:number;payload?:{value?:string};labels:Map<string,{date:string;opponent:string}>}){
@@ -202,6 +213,7 @@ export default function PlayerChart({
   data,
   height=CHART_HEIGHT,showSeasonBreaks=false,comparisonOnly=false,clean=false,
   statKey = "value",
+  mainMetric,
   lineValue,
   overlayKey,
   overlayLabel,
@@ -296,10 +308,24 @@ export default function PlayerChart({
   }, [chartData]);
 
   const gameLabels=useMemo(()=>new Map(chartData.map(row=>[String(row._xKey),{date:formatDate(row.game_date),opponent:opponentLabel(row)}])),[chartData]);
-  const plotHeight=clean&&chartWidth<480?Math.min(height,284):height;
-  const tickInterval=Math.max(0,Math.ceil(chartData.length/Math.max(2,Math.floor((chartWidth-46)/51)))-1);
-  const chartMaximum=Math.max(1,...chartData.map(row=>row.value??0),!comparisonOnly&&Number.isFinite(lineValue)?lineValue:0);
-  const showValues=!clean||chartData.length<=Math.min(30,Math.floor((chartWidth-46)/22));
+  const opportunityBars=isOpportunityPair(mainMetric??statKey,overlayKey);
+  const hasTrackingBars=opportunityBars&&chartData.some(row=>row._overlayValue!==null);
+  const plotWidth=hasTrackingBars?Math.max(chartWidth,chartData.length*34+48):chartWidth;
+  const scrolls=plotWidth>chartWidth;
+  const plotHeight=clean&&chartWidth<480?Math.min(height,300):height;
+  const margin=clean?{top:hasTrackingBars?40:22,right:12,left:0,bottom:3}:{top:35,right:overlayAxis==="right"?64:56,left:-18,bottom:20};
+  const yAxisWidth=clean?34:60;
+  const gameWidth=(plotWidth-margin.left-margin.right-yAxisWidth)/Math.max(1,chartData.length);
+  // A percentage gap uses the full category, not the bar. Use a shared pixel width
+  // and its exact negative gap so both SVG bars are anchored to the same slot.
+  const pairedBarSize=hasTrackingBars?Math.min(64,Math.max(1,Math.floor(gameWidth*.86))):undefined;
+  const tickInterval=Math.max(0,Math.ceil(chartData.length/Math.max(2,Math.floor((plotWidth-46)/44)))-1);
+  const lastGameKey=chartData.at(-1)?._xKey;
+  useEffect(()=>{
+    if(scrolls&&wrapRef.current)wrapRef.current.scrollLeft=wrapRef.current.scrollWidth;
+  },[scrolls,lastGameKey,plotWidth]);
+  const chartMaximum=Math.max(1,...chartData.map(row=>row.value??0),...(opportunityBars?chartData.map(row=>row._overlayValue??0):[]),!comparisonOnly&&Number.isFinite(lineValue)?lineValue:0);
+  const showValues=!clean||chartData.length<=Math.min(30,Math.floor((plotWidth-46)/22));
 
   const hasRows = chartData.length > 0;
   const hasRealValues = chartData.some((row) => row.value !== null);
@@ -347,14 +373,18 @@ export default function PlayerChart({
   return (
     <div
       ref={wrapRef}
-      className={`w-full min-w-0 overflow-hidden relative ${clean?styles.chart:''}`}
-      style={{ height:plotHeight, minHeight:plotHeight }}
+      className={`w-full min-w-0 relative ${clean?styles.chart:''} ${scrolls?styles.scrollChart:'overflow-hidden'}`}
+      style={{ minHeight:plotHeight }}
+      tabIndex={scrolls?0:undefined}
+      role={scrolls?"region":undefined}
+      aria-label={scrolls?"Gráfico desplazable por partido":undefined}
     >
       <ComposedChart
-        width={chartWidth}
+        width={plotWidth}
         height={plotHeight}
         data={chartData}
-        margin={clean?{top:23,right:10,left:0,bottom:3}:{top:35,right:overlayAxis==="right"?64:56,left:-18,bottom:20}}
+        barGap={pairedBarSize===undefined?undefined:-pairedBarSize}
+        margin={margin}
       >
         <defs>
           <linearGradient id="mp-bar-over" x1="0" y1="0" x2="0" y2="1">
@@ -393,41 +423,45 @@ export default function PlayerChart({
         <YAxis
           yAxisId="left"
           tick={{ fill: clean?"var(--text-muted)":"#34d399", fontSize: 10, fontWeight: clean?600:900 }}
-          width={clean?34:undefined}
+          width={yAxisWidth}
           axisLine={false}
           tickLine={false}
           allowDecimals={false}
-          domain={clean?[0,Math.ceil(chartMaximum*1.13)]:[0,"dataMax + 5"]}
+          domain={clean?[0,Math.ceil(chartMaximum*(hasTrackingBars?1.15:1.09))]:[0,"dataMax + 5"]}
         />
 
-        {hasOverlay&&overlayAxis==="right"&&<YAxis yAxisId="right" orientation="right" tick={{fill:overlayColor,fontSize:10,fontWeight:800}} axisLine={false} tickLine={false} allowDecimals={false} domain={[0,"dataMax + 2"]}/>}
+        {hasOverlay&&!opportunityBars&&overlayAxis==="right"&&<YAxis yAxisId="right" orientation="right" tick={{fill:overlayColor,fontSize:10,fontWeight:800}} axisLine={false} tickLine={false} allowDecimals={false} domain={[0,"dataMax + 2"]}/>}
         <Tooltip content={<CustomTooltip />} />
         {showSeasonBreaks&&chartData.flatMap((row,index)=>{if(!index)return [];const year=(v:any)=>{const date=String(v.game_date).slice(0,10);return Number(date.slice(0,4))-(Number(date.slice(5,7))<10?1:0);};const y=year(row);return y!==year(chartData[index-1])?[<ReferenceLine key={row._xKey} yAxisId="left" x={row._xKey} stroke="var(--text-muted)" strokeDasharray="3 4" label={{value:`${y}-${String(y+1).slice(-2)}`,position:'insideTopRight',fill:'var(--text-muted)',fontSize:10}}/>]:[];})}
 
         {!comparisonOnly&&<ReferenceLine
           yAxisId="left"
           y={lineValue}
-          stroke="var(--text)"
-          strokeWidth={clean?1.25:2.5}
+          stroke={clean?"#91a4a2":"var(--text)"}
+          strokeWidth={clean?1:2.5}
           strokeDasharray={clean?"5 4":"7 5"}
           label={{
             value: clean?lineValue.toLocaleString('es-AR'):`Línea ${lineValue}`,
-            position: clean?"insideTopLeft":"right",
+            position: clean?"left":"right",
             fill: clean?"var(--text)":"#10b981",
             fontSize: clean?10:11,
             fontWeight: clean?700:900,
           }}
         />}
 
+        {hasOverlay&&opportunityBars&&<Bar yAxisId="left" dataKey="_overlayValue" name={overlayLabel} fill="var(--chart-tracking-fill, #343b44)" stroke="var(--chart-tracking-stroke, #67727e)" strokeWidth={1} radius={[5,5,0,0]} barSize={pairedBarSize} maxBarSize={64} minPointSize={1} isAnimationActive={false}>
+          <LabelList dataKey="_overlayValue" content={<TrackingBarLabel/>}/>
+        </Bar>}
         <Bar
           yAxisId="left"
           dataKey="value"
           radius={clean?[5,5,1,1]:[10,10,2,2]}
+          barSize={pairedBarSize}
           maxBarSize={64}
           minPointSize={4}
           isAnimationActive={false}
         >
-          {showValues&&<LabelList content={<ValueLabel clean={clean}/>} />}
+          {(showValues||hasTrackingBars)&&<LabelList dataKey="value" content={<ValueLabel paired={hasTrackingBars}/>} />}
           {chartData.map((row, index) => (
             <Cell
               key={`bar-${row.game_id || row.game_date || index}`}
@@ -438,7 +472,7 @@ export default function PlayerChart({
           ))}
         </Bar>
 
-        {hasOverlay && (
+        {hasOverlay && !opportunityBars && (
           <Line
             yAxisId={overlayAxis}
             type="monotone"

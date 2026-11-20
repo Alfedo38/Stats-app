@@ -12,6 +12,9 @@ function Impact({item,market}:{item:AutoImpactItem;market:JornadaMarket}){
    <div><span>Sin {item.name}</span><strong>{number(item.withoutAverage)} {unit}</strong><small>{item.withoutCount} partidos con dato</small></div>
    <p>Promedio por partido · temporada actual y anterior · mismo equipo. {direction==='missing'?'Se necesitan 5 partidos con dato en cada grupo.':'Diferencia: sin − con; no es una predicción.'}{item.unknown>0?` ${item.unknown} PJ sin presencia/ausencia confirmada, excluidos.`:''}{item.conflicts>0?` ${item.conflicts} PJ contradictorios, excluidos.`:''}</p>
   </div>
+  {item.minutes?.without.filter(s=>s.count>0).map(s=><p className="mt-1 text-[var(--text-muted)]" key={s.season}>
+   {s.season} · Minutos sin: <strong>{number(s.average)}</strong> ({s.count} PJ){s.typical?` · usual ${number(s.typical[0])}–${number(s.typical[1])}`:' · muestra chica'}
+  </p>)}
  </details>;
 }
 export default function JornadaAbsenceImpact({data,market}:{data:AutoImpactPlayer|null;market:JornadaMarket}){
@@ -20,6 +23,7 @@ export default function JornadaAbsenceImpact({data,market}:{data:AutoImpactPlaye
  if(!data.items.length)return null;
  return <div className={styles.impact} aria-label="Impacto de bajas confirmadas">
   {data.items.slice(0,2).map(item=><Impact key={item.teammateId} item={item} market={market}/>)}
+  {data.items.length>1&&<small className="text-[var(--text-muted)]">Cada comparación es individual. Las bajas simultáneas pueden cambiar el rol.</small>}
   {data.items.length>2&&<details className={styles.more}><summary>{data.items.length-2} {data.items.length===3?'baja más':'bajas más'}</summary>{data.items.slice(2).map(item=><Impact key={item.teammateId} item={item} market={market}/>)}</details>}
  </div>;
 }

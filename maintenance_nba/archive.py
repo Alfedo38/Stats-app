@@ -218,6 +218,9 @@ def _export_with_rebounds(upload=False):
             old=load_part(directory,manifest['parts'][name]) if name in manifest['parts'] else []
             manifest['parts'][name]=save_part(directory,name,merge(kind,old,new))
         manifest['source_snapshots'][kind]=table_snapshot(data)
+    from .matchup_history import FILENAME as MATCHUP_BACKFILL, integrate as integrate_matchups
+    count=integrate_matchups(STATE/MATCHUP_BACKFILL,directory,manifest,load_part,save_part,identity)
+    if count:print(f"DEFENSAS HISTÓRICAS: {count} filas nuevas o completadas",flush=True)
     # POTENTIAL_HISTORY_V1
     from .potential_history import enrich_archive
     enrich_archive(directory,manifest,load_part,save_part)

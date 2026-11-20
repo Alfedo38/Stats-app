@@ -2,7 +2,7 @@
 
 import {useMemo,useState} from 'react';
 import PlayerChart from './PlayerChart';
-import {evidenceMetricIds,type EvidenceRow} from '@/lib/marketEvidence';
+import {EVIDENCE_METRICS,evidenceMetricIds,summarizeEvidence,type EvidenceRow} from '@/lib/marketEvidence';
 import {secondaryOptions,secondaryValue,selectedSecondary,type SecondaryChoice} from '@/lib/playerRecentChange';
 import {selectionSummary} from '@/lib/selectionStats';
 import styles from './PlayerStatistics.module.css';
@@ -30,6 +30,7 @@ export default function PlayerSupportingStats({market,rows,choice,onChange}:{mar
  const featured=available.slice(0,3);
  if(explicit&&!featured.includes(explicit)){if(featured.length===3)featured.pop();featured.push(explicit);}
  const remaining=available.filter(item=>!featured.includes(item));
+ const twos=useMemo(()=>['pts','fga','fgm','fg3a','fg3m'].includes(market)?['fg2a','fg2m','fg2_rate'].map(id=>summarizeEvidence(rows,EVIDENCE_METRICS[id])):[],[market,rows]);
  if(!rows.length)return null;
  return <section className={styles.support} aria-label="Estadísticas de apoyo">
   <header className={styles.supportHeader}>
@@ -53,5 +54,8 @@ export default function PlayerSupportingStats({market,rows,choice,onChange}:{mar
     {selected.summary.missing>0&&<p className={styles.supportNote}>{selected.summary.missing} sin dato o en revisión. Los huecos conservan su lugar en la muestra.</p>}
    </>:<p className={styles.supportNote}>{selected?'Sin dato verificable para esta métrica.':'Elegí una estadística para ver su gráfico.'}</p>}
   </>:<p className={styles.supportNote}>Sin estadísticas de apoyo verificables en esta muestra.</p>}
+  {twos.some(s=>s.count>0)&&<details className="mt-3 border-t border-[var(--border)] pt-3"><summary className="cursor-pointer text-xs font-bold text-emerald-400">Tiros de 2 puntos</summary>
+   <div className="mt-2 grid gap-2 sm:grid-cols-3">{twos.map(s=><div key={s.metric.id} className="rounded-lg border border-[var(--border)] p-2 text-xs"><span>{s.metric.label}</span><strong className="block">{number(s.average)}{s.average!==null&&s.metric.kind==='percent'?'%':s.average!==null?' por partido':''}</strong><small>{s.metric.kind==='percent'&&s.denominator? `${s.numerator}/${s.denominator} en ` :''}{s.count}/{s.total} PJ con dato{s.metric.kind==='percent'?' y al menos un intento':''}</small></div>)}</div>
+  </details>}
  </section>;
 }

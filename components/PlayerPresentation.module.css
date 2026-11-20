@@ -43,3 +43,16 @@
  .selectionBar .sampleShortcuts button{padding:5px 2px;font-size:10px}
 }
 @media(pointer:coarse){.selectionBar select,.selectionBar input,.selectionBar .sampleShortcuts button,.lineChoice button{min-height:44px}}
+
+/* Advanced NBA presentation v2: one hierarchy and fewer nested panels. */
+.presentation[data-player-view=advanced]{font-size:14px;line-height:1.5}
+.presentation[data-player-view=advanced] :global([data-player-hero]){box-shadow:none}
+.presentation[data-player-view=advanced] :global([data-player-content]){overflow:visible}
+.presentation[data-player-view=advanced] :global([data-chart-card]){padding:18px;border-radius:18px;box-shadow:none;border-color:var(--border);background:var(--surface)}
+.presentation[data-player-view=advanced] :global([data-chart-identity] h2){text-transform:none;font-size:20px;letter-spacing:-.035em}
+.presentation[data-player-view=advanced] :global([data-chart-sample]){font-size:12px;line-height:1.5}
+.presentation[data-player-view=advanced] :global([data-secondary-control]){border:none;background:transparent;padding:4px 0 12px}
+.presentation[data-player-view=advanced] :global([data-secondary-control] label),.presentation[data-player-view=advanced] :global([data-secondary-control] span){font-size:12px}
+.presentation[data-player-view=advanced] :global([data-compact-tabs] button){font-size:13px;text-transform:none;letter-spacing:normal;min-height:42px}
+.presentation[data-player-view=advanced] :global([data-inline-injury] section){padding:10px 14px;font-size:12px}
+@media(max-width:640px){.presentation[data-player-view=advanced] :global([data-chart-card]){padding:12px}.presentation[data-player-view=advanced] :global([data-chart-identity] h2){font-size:18px}}

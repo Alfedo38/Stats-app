@@ -19,7 +19,7 @@ export type JornadaMarket = keyof typeof JORNADA_MARKETS;
 export type JornadaGame = {id:string; away:string; home:string; start:string|null; status:number|null; eventDate?:string};
 export type JornadaQuote = PriceQuote & {overCapturedAt:string|null;underCapturedAt:string|null};
 export type JornadaPlayer = {id:number; name:string; team:string; opponent:string; gameId:string; position:string|null;
-  values:(number|null)[]; minutes:(number|null)[]; dates:string[]; opponents?:(string|null)[]; rivalValues?:(number|null)[]; extended?:{season:string;seasonValues:(number|null)[];h2hValues:(number|null)[]}; seasons:string[]; support?:{l5:MarketSupport;l10:MarketSupport}; quotes:JornadaQuote[]};
+  values:(number|null)[]; minutes:(number|null)[]; dates:string[]; opponents?:(string|null)[]; rivalValues?:(number|null)[]; extended?:{season:string;seasonValues:(number|null)[];previousSeason?:string;previousSeasonValues?:(number|null)[];h2hValues:(number|null)[]}; seasons:string[]; support?:{l5:MarketSupport;l10:MarketSupport}; quotes:JornadaQuote[]};
 export type JornadaData = {ok:true; date:string; market:JornadaMarket; generatedAt:string; rosterAt:string;
   archiveId:string|null; history:'ready'|'unavailable'; quotes:'ready'|'unavailable'|'limited';
   games:JornadaGame[]; players:JornadaPlayer[]; warnings:string[]};
@@ -59,10 +59,11 @@ export function recentSample(rows:unknown,playerId:number,date:string,market:Jor
     seasons:[...new Set(chosen.map(r=>String(r.season_year??r.season??r.season_id??'')).filter(Boolean))]};
 }
 export function extendedSample(rows:unknown,playerId:number,date:string,market:JornadaMarket,opponent:string){
-  const season=historySeasons(date)[0];
+  const [season,previousSeason]=historySeasons(date);
   const sample=recentSample(rows,playerId,date,market,Infinity);
   const start=season.slice(0,4)+'-10-01';
   return {season,seasonValues:sample.values.filter((_,i)=>sample.dates[i]>=start),
+    previousSeason,previousSeasonValues:sample.values.filter((_,i)=>sample.dates[i]<start).slice(0,10),
     h2hValues:sample.values.filter((_,i)=>sample.opponents[i]===opponent)};
 }
 export function summaryFor(player:JornadaPlayer,n:5|10,line:number|null,side:'over'|'under'){

@@ -1,6 +1,7 @@
 'use client';
 import {useEffect,useState} from 'react';
 import {createPortal} from 'react-dom';
+import {AbsenceMinutes} from './AbsenceMinutes';
 import styles from './AbsenceComparison.module.css';
 import {useAnalysisQuery} from '@/hooks/useAnalysisQuery';
 import {canonicalOddsPlayerName} from '@/lib/oddsPlayerNames';
@@ -24,6 +25,7 @@ export function ComparisonResult({data}:{data:Comparison}){
  return <section className={styles.result} aria-label={`Rendimiento con y sin ${data.teammateName}`}>
   <header className={styles.resultHeading}><div><span>CON / SIN COMPAÑERO</span><h3>Cómo cambia su rendimiento sin {data.teammateName}</h3><p>{data.settings.team} · {data.settings.scope==='FULL'?'Partido completo':data.settings.scope==='Q1'?'Primer cuarto':data.settings.scope==='H1'?'Primera mitad':'Segunda mitad'} · {data.settings.season==='all'?'Temporada actual y anterior':data.settings.season}</p></div></header>
   <div className={styles.groups}><div><span>Con {data.teammateName}</span><strong>{yes.games} partidos</strong></div><div><span>Sin {data.teammateName}</span><strong>{no.games} partidos</strong></div></div>
+  {yes.minuteSeasons&&no.minuteSeasons&&<AbsenceMinutes withMinutes={yes.minuteSeasons} withoutMinutes={no.minuteSeasons}/>}
   <p className={styles.tableHelp}>Promedios por partido. La diferencia es <strong>sin − con</strong>: «+» sube y «−» baja.</p>
   <div className={styles.tableWrap}><table><thead><tr><th scope="col">Estadística</th><th scope="col">Con</th><th scope="col">Sin</th><th scope="col">Diferencia</th></tr></thead><tbody>{coreMetrics.map(id=><ComparisonMetricRow key={id} metric={id} yes={yesMetrics.get(id)} no={noMetrics.get(id)}/>)}</tbody></table></div>
   <div className={styles.lineResult}><h4>Tu línea: {data.settings.side==='under'?'menos de':'más de'} {number(data.settings.line)} · {yesMetrics.get(data.settings.market)?.label??data.settings.market.toUpperCase()}</h4><div>{[yes,no].map((group,index)=><p key={index}><span>{index?'Sin':'Con'} el compañero</span><strong>{group.selection.rate===null?'Sin muestra':`${group.selection.hits} de ${group.selection.decided} cumplieron (${number(group.selection.rate,0)}%)`}</strong>{group.selection.pushes>0&&<small>{group.selection.pushes} nula(s), fuera del porcentaje</small>}</p>)}</div>{rateDifference!==null&&<p>Diferencia de acierto: {rateDifference>0?'+':''}{number(rateDifference)} puntos porcentuales.</p>}</div>

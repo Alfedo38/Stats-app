@@ -229,12 +229,25 @@ def _export_with_rebounds(upload=False):
     summaries(directory,manifest,summary_data=summary_data)
     from .rotation_pilot import archive_parts as rotation_parts
     rotation_parts(STATE,directory,manifest,save_part,load_part)
-    # Opt-in: incorpora sólo el resumen generado explícitamente en este proyecto.
-    if env().get('NBA_ASSIST_ARCHIVE')=='1':
+    # Se ejecuta con el mismo bloqueo del archivo y usa los facts recién generados.
+    settings=env()
+    daily_assists=settings.get('NBA_ASSIST_DAILY')=='1'
+    if daily_assists or settings.get('NBA_ASSIST_ARCHIVE')=='1':
         from .assist_snapshot import archive_part as assist_part
-        assist_part(STATE,directory,manifest,save_part)
-        from .assist_league import archive_parts as league_assists
-        league_assists(STATE,directory,manifest,save_part)
+        from .assist_league import archive_parts as league_assists, collect_for_archive
+        try:
+            if daily_assists and upload:
+                from .common import ROOT
+                collect_for_archive(ROOT,STATE,directory,manifest)
+            # El índice anterior queda intacto si algún bloque no puede prepararse.
+            assist_manifest={'parts':{}}
+            assist_part(STATE,directory,assist_manifest,save_part)
+            league_assists(STATE,directory,assist_manifest,save_part)
+            manifest['parts'].update(assist_manifest['parts'])
+        except (ImportError,OSError,ValueError,KeyError,TypeError,AttributeError) as exc:
+            if not daily_assists:
+                raise
+            print('ASISTENCIAS NBA: se mantiene el índice anterior ('+type(exc).__name__+'); continúa el archivo general.',flush=True)
     if env().get('NBA_PLAYTYPES_ARCHIVE')=='1':
         from .playtypes_snapshot import archive_parts as playtypes_parts
         playtypes_parts(STATE,directory,manifest,save_part)

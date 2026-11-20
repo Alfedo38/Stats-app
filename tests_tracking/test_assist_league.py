@@ -1,4 +1,5 @@
 from contextlib import redirect_stdout
+from datetime import date
 from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -8,7 +9,7 @@ import json
 import unittest
 from unittest.mock import patch
 
-from maintenance_nba.assist_league import PART, archive_calendar, archive_parts, chunk_key, main
+from maintenance_nba.assist_league import PART, archive_calendar, archive_parts, chunk_key, collect_for_archive, main
 from maintenance_nba.assist_snapshot import KINDS
 from maintenance_nba.playtypes_snapshot import normalize
 from maintenance_nba.rotation_pilot import atomic_json, Unverified
@@ -88,3 +89,27 @@ class LeagueTest(unittest.TestCase):
         row["PPP"]=.8
         with self.assertRaises(Unverified):
             normalize([row], "Transition", False, "2026-27")
+
+    def test_daily_reads_new_parts_without_replacing_the_published_index(self):
+        self.assertEqual(self.cli("--offline")[0], 0)
+        old_manifest = (self.archive / "manifest.json").read_bytes()
+        stored = json.loads((self.state / "assist-league" / "verified" / f"{GAME}.json").read_text())
+        next_game = dict(stored, id=self.pending, date="2026-11-20")
+        next_game["rotations"] = {"11": {"p": [[0, 1]]}}
+        today_game = "0022600280"
+        part = save_part(self.archive, "facts/11", [
+            {"game_id": GAME, "game_date": DAY, "team_abbreviation": "SAS"},
+            {"game_id": self.pending, "game_date": next_game["date"], "team_abbreviation": "SAS"},
+            {"game_id": today_game, "game_date": "2026-11-21", "team_abbreviation": "SAS"},
+        ])
+        draft = {"parts": {"facts/11": part}}
+        def load(project, game_id, day, teams, source, offline, *, rotations):
+            self.assertEqual((game_id, day, source, offline, rotations),
+                             (self.pending, next_game["date"], "nba-api", False, True))
+            return next_game
+        with patch("maintenance_nba.assist_league.game_record", side_effect=load) as fetch, redirect_stdout(StringIO()):
+            collect_for_archive(self.project, self.state, self.archive, draft, today=date(2026, 11, 21), max_games=1)
+            fetch.assert_called_once()
+        archive_parts(self.state, self.archive, draft, save_part)
+        self.assertIn(f"{PART}/rotations/{chunk_key(self.pending)}", draft["parts"])
+        self.assertEqual((self.archive / "manifest.json").read_bytes(), old_manifest)

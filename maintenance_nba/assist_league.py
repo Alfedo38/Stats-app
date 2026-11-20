@@ -28,11 +28,15 @@ def chunk_key(game_id):
 
 
 def archive_calendar(project, first, last):
-    """Lee el archivo local una sola vez; incluye Regular/Playoffs por ID."""
     base = (project / "maintenance-state" / "archive").resolve()
-    parts = json.loads((base / "manifest.json").read_text())["parts"]
+    return calendar_from_manifest(base, json.loads((base / "manifest.json").read_text()), first, last)
+
+
+def calendar_from_manifest(base, manifest, first, last):
+    """Lee las partes locales de Regular/Playoffs, incluso antes de publicar el índice."""
+    base = base.resolve()
     games = {}
-    for key, meta in parts.items():
+    for key, meta in manifest["parts"].items():
         if not key.startswith("facts/"):
             continue
         path = (base / meta["path"]).resolve()
@@ -174,6 +178,58 @@ def archive_parts(state, directory, manifest, save_part):
         manifest["parts"][name] = save_part(directory, name, rows)
 
 
+def collect_games(project, state, games, first, last, *, max_games, source='nba-api',
+                  rotations=False, offline=False, plan=False):
+    existing, pending, enrich = 0, [], []
+    for gid, (day, teams) in sorted(games.items(), key=lambda x: (x[1][0], x[0]), reverse=True):
+        target = state / PREFIX / "verified" / f"{gid}.json"
+        if target.is_file():
+            row = read_verified(target, gid, day, teams)
+            existing += 1
+            if rotations and source == "nba-api" and not ("rotations" in row or "rotationExcluded" in row):
+                enrich.append((gid, day, teams, target, True))
+        else:
+            pending.append((gid, day, teams, target, False))
+    print(f"{first} a {last} · {len(games)} partidos únicos · {existing} verificados · {len(pending)} pendientes", flush=True)
+    if plan:
+        return None
+    reasons, added, consecutive = {}, 0, 0
+    for gid, day, teams, target, was_verified in (pending+enrich)[:max_games]:
+        try:
+            result = game_record(project, gid, day, teams, source, offline or was_verified, rotations=rotations)
+            atomic_json(target, result)
+            added += int(not was_verified)
+            consecutive = 0
+            print(f"{day} · {gid} · {sum(p[3] for p in result['pairs'])} AST verificadas", flush=True)
+        except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
+            reason = str(exc) if isinstance(exc, Unverified) else type(exc).__name__
+            reasons[gid] = reason
+            print(f"{day} · {gid} · pendiente: {reason}", flush=True)
+            network_failure = any(part in reason for part in ("HTTP_", "TIMEOUT", "Timeout", "Connection", "IMPORTACION"))
+            consecutive = consecutive + 1 if network_failure else 0
+            if not offline and ("HTTP_429" in reason or consecutive >= 4):
+                print("Pausa: se conservan los partidos válidos y el resto queda pendiente.", flush=True)
+                break
+    counts = prepare_outputs(state, games)
+    rotation_blocks = sum(1 for _ in (state / PREFIX / "parts" / "rotations").glob("*.json"))
+    report = state / PREFIX / "reports" / f"{datetime.now(TZ):%Y%m%d-%H%M%S-%f}.json"
+    atomic_json(report, {"from": first, "through": last, "source": source,
+                         "requested": len(games), "verified": existing+added, "failures": reasons,
+                         "teamGames": dict(sorted(counts.items())), "rotationBlocks": rotation_blocks})
+    print(f"{existing+added}/{len(games)} en la ventana · {len(counts)}/30 equipos con datos acumulados · informe: {report}", flush=True)
+    return existing+added
+
+
+def collect_for_archive(project, state, directory, manifest, *, today=None, max_games=24):
+    last = (today or datetime.now(ARCHIVE_TZ).date()) - timedelta(days=1)
+    since, through = (last-timedelta(days=13)).isoformat(), last.isoformat()
+    games = calendar_from_manifest(directory, manifest, since, through)
+    if not games:
+        print("ASISTENCIAS NBA: sin partidos recientes en el archivo; se conserva la cobertura existente.", flush=True)
+        return
+    collect_games(project, state, games, since, through, max_games=max_games, rotations=True)
+
+
 def main():
     root = Path(__file__).resolve().parents[1]
     parser = argparse.ArgumentParser(description=__doc__)
@@ -200,44 +256,10 @@ def main():
         state = output / "maintenance-state"
         games = archive_calendar(project, first.isoformat(), last.isoformat())
         require(bool(games), "SIN_PARTIDOS_REGISTRADOS_EN_EL_ARCHIVO_LOCAL")
-        existing, pending, enrich = 0, [], []
-        for gid, (day, teams) in sorted(games.items(), key=lambda x: (x[1][0], x[0]), reverse=True):
-            target = state / PREFIX / "verified" / f"{gid}.json"
-            if target.is_file():
-                row=read_verified(target, gid, day, teams)
-                existing += 1
-                if args.rotations and args.source == "nba-api" and not ("rotations" in row or "rotationExcluded" in row):
-                    enrich.append((gid, day, teams, target, True))
-            else:
-                pending.append((gid, day, teams, target, False))
-        print(f"{first} a {last} · {len(games)} partidos únicos · {existing} verificados · {len(pending)} pendientes")
-        if args.plan:
-            return 0
-        reasons, added, consecutive = {}, 0, 0
-        for gid, day, teams, target, was_verified in (pending+enrich)[:args.max_games]:
-            try:
-                result = game_record(project, gid, day, teams, args.source, args.offline or was_verified, rotations=args.rotations)
-                atomic_json(target, result)
-                added += int(not was_verified)
-                consecutive = 0
-                print(f"{day} · {gid} · {sum(p[3] for p in result['pairs'])} AST verificadas", flush=True)
-            except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
-                reason = str(exc) if isinstance(exc, Unverified) else type(exc).__name__
-                reasons[gid] = reason
-                print(f"{day} · {gid} · pendiente: {reason}", flush=True)
-                network_failure = any(part in reason for part in ("HTTP_", "TIMEOUT", "Timeout", "Connection", "IMPORTACION"))
-                consecutive = consecutive + 1 if network_failure else 0
-                if not args.offline and ("HTTP_429" in reason or consecutive >= 4):
-                    print("Pausa: se conservan los partidos válidos y el resto queda pendiente.")
-                    break
-        counts = prepare_outputs(state, games)
-        rotation_blocks = sum(1 for _ in (state / PREFIX / "parts" / "rotations").glob("*.json"))
-        report = state / PREFIX / "reports" / f"{datetime.now(TZ):%Y%m%d-%H%M%S-%f}.json"
-        atomic_json(report, {"from": first.isoformat(), "through": last.isoformat(), "source": args.source,
-                             "requested": len(games), "verified": existing+added, "failures": reasons,
-                             "teamGames": dict(sorted(counts.items())), "rotationBlocks": rotation_blocks})
-        print(f"{existing+added}/{len(games)} en la ventana · {len(counts)}/30 equipos con datos acumulados · informe: {report}")
-        return 0 if existing+added else 1
+        verified = collect_games(project, state, games, first.isoformat(), last.isoformat(),
+                                 max_games=args.max_games, source=args.source, rotations=args.rotations,
+                                 offline=args.offline, plan=args.plan)
+        return 0 if args.plan or verified else 1
     except (OSError, ValueError, KeyError, TypeError) as exc:
         parser.exit(2, f"No se pudo preparar la cobertura: {exc}\n")
 

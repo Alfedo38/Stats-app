@@ -1,0 +1,8 @@
+[Unit]
+Description=NBA mantenimiento: publicar archivo estadístico sin cuotas
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/stats-app
+ExecStart=%h/stats-app/.venv-maintenance/bin/python -c "from maintenance_nba.archive import export; export(upload=True)"
+TimeoutStartSec=4h

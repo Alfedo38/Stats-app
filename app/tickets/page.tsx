@@ -8,7 +8,7 @@ import RefreshTickets from './RefreshTickets';
 import styles from './tickets.module.css';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Tickets NBA | MoskProps' };
+export const metadata = { title: 'Tickets NBA' };
 const LABELS: Record<string, string> = { PENDING: 'Pendiente', WIN: 'Ganado', LOSS: 'Perdido', VOID: 'Anulado', REVIEW: 'Revisión', NO_OPTION: 'Sin opción' };
 const BOOKS: Record<string, string> = { stake: 'Stake', betano: 'Betano', bet365: 'bet365' };
 const fmt = (v: number | null | undefined, digits = 2) => typeof v === 'number' && Number.isFinite(v) ? v.toFixed(digits) : '—';
@@ -52,7 +52,6 @@ function TicketBlock({ ticket }: { ticket: Ticket }) {
             <div><dt>Temporada de referencia</dt><dd>{leg.reference_season}</dd></div>
             {leg.season_transition && <div><dt>Temporada actual</dt><dd>{leg.current_season_n ?? 0} partidos previos</dd></div>}
             {leg.prop_type === 'FGM' && <><div><dt>FGA L10</dt><dd>{fmt(leg.fga_L10, 1)}</dd></div><div><dt>FG% L10</dt><dd>{leg.fg_pct_L10 == null ? '—' : `${fmt(leg.fg_pct_L10 * 100, 1)}%`}</dd></div></>}
-            <div><dt>Cuota capturada</dt><dd>{time(leg.quote_captured_at)}</dd></div>
           </dl></details>
         </li>;
       })}</ul>
@@ -102,7 +101,7 @@ export default async function TicketsPage({ searchParams }: { searchParams: Prom
     <header className={styles.header}><div><div className={styles.eyebrow}><TicketIcon size={14} /> NBA</div><h1>Tickets</h1><p>{failed ? 'No pudimos cargar esta jornada.' : `${gameCount} ${gameCount === 1 ? 'partido con tickets publicados' : 'partidos con tickets publicados'} · ${active.length} ${active.length === 1 ? 'ticket' : 'tickets'}`}</p></div><RefreshTickets /></header>
     <div className={styles.toolbar}>
       <div className={styles.dateNav}><Link href={href(shiftDate(date, -1))} aria-label="Jornada anterior"><ChevronLeft size={19} /></Link><span><CalendarDays size={15} />{new Intl.DateTimeFormat('es-AR', { day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${date}T12:00:00Z`))}</span><Link href={href(shiftDate(date, 1))} aria-label="Jornada siguiente"><ChevronRight size={19} /></Link></div>
-      <form className={styles.filters} action="/tickets">
+      <form key={JSON.stringify([date, book, game, status, history])} className={styles.filters} action="/tickets">
         <label><span className={styles.srOnly}>Fecha</span><input name="date" type="date" defaultValue={date} required /></label>
         <label><span className={styles.srOnly}>Casa</span><select name="book" defaultValue={book}><option value="">Todas las casas</option>{Object.entries(BOOKS).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
         <label><span className={styles.srOnly}>Partido</span><select name="game" defaultValue={game}><option value="">Todos los partidos</option>{gameChoices.map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label>

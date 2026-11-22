@@ -32,6 +32,21 @@ export function verifiedRotationRows(raw:unknown):RotationGame[]{
 export function rotationMinutes(g:RotationGame,period?:number){
  return g.spans.reduce((sum,[p,a,b])=>sum+(!period||p===period?b-a:0),0)/60000;
 }
+export function verifiedStarters(raw:unknown,gameId:string,team:string,day:string){
+ if(!raw||typeof raw!=='object'||Array.isArray(raw)||Object.keys(raw).length>45)return [];
+ const starters:number[]=[];
+ try{
+  for(const [pid,record] of Object.entries(raw)){
+   if(record?.team!==team)continue;
+   const [row]=verifiedRotationRows([record]);
+   if(row.gameId!==gameId||row.date!==day||!/^\d{1,10}$/.test(pid)||Number(pid)<1)return [];
+   const startsAtZero=row.spans[0]?.[0]===1&&row.spans[0][1]===0;
+   if(row.starter!==startsAtZero)return [];
+   if(row.starter&&row.played)starters.push(Number(pid));
+  }
+ }catch{return [];}
+ return starters.length===5&&new Set(starters).size===5?starters:[];
+}
 export function rotationSample(rows:RotationGame[],gameIds:readonly string[],team?:string){
  const wanted=new Set(gameIds.map(rotationGameId).filter(Boolean));
  return rows.filter(r=>wanted.has(r.gameId)&&r.played&&(!team||r.team===team))

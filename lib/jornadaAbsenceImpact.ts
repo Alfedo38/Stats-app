@@ -8,12 +8,14 @@ export const IMPACT_UNITS:Record<JornadaMarket,string>={pts:'pts',reb:'reb',ast:
 export type ImpactTarget={playerId:number;gameId:string};
 export type AutoImpactRequest={date:string;market:JornadaMarket;slate:boolean;players:ImpactTarget[]};
 import {minutesDistribution,type SeasonMinutes} from './minutesDistribution';
+import {expectedMinutes} from './minutesResearch';
+import {rotationGameId} from './nbaRotations';
 import {getMinutesValue} from './formatters';
 import {finiteStat} from './selectionStats';
 export const ROLE_STATS={minutes:'MIN',pts:'PTS',reb:'REB',ast:'AST',fga:'FGA',fgm:'FGM'} as const;
 export type RoleStats={metric:keyof typeof ROLE_STATS;withAvg:number|null;withoutAvg:number|null;withCount:number;withoutCount:number;delta:number|null};
 export type AbsenceCohort={present:string[];absent:string[]};
-export type AutoImpactItem={teammateId:number;name:string;reportAt:string|null;withAverage:number|null;withoutAverage:number|null;withCount:number;withoutCount:number;difference:number|null;unknown:number;conflicts:number;firstDate:string|null;lastDate:string|null;minutes?:{with:SeasonMinutes[];without:SeasonMinutes[]};role?:RoleStats[]};
+export type AutoImpactItem={teammateId:number;name:string;reportAt:string|null;withAverage:number|null;withoutAverage:number|null;withCount:number;withoutCount:number;difference:number|null;unknown:number;conflicts:number;firstDate:string|null;lastDate:string|null;minutes?:{with:SeasonMinutes[];without:SeasonMinutes[]};role?:RoleStats[];quarterSamples?:{with:string[];without:string[]};minutesGuide?:{with:ReturnType<typeof expectedMinutes>;without:ReturnType<typeof expectedMinutes>}};
 export type AutoImpactPlayer=ImpactTarget&{team:string;status:'ready'|'none'|'unavailable'|'player_out';reason?:string;items:AutoImpactItem[];joint?:{names:string[];role:RoleStats[]}};
 export type AutoImpactReport=AutoImpactRequest&{ok:true;version:2;archiveId:string|null;rosterAt:string;results:AutoImpactPlayer[]};
 export function impactPlayerKey(player:ImpactTarget){return player.gameId+':'+player.playerId;}
@@ -25,7 +27,10 @@ export function automaticImpactRequest(raw:Record<string,unknown>):AutoImpactReq
 }
 export function confirmedGameAbsences(report:InjuryReport,game:JornadaGame,eventDate:string,team:string){
  if(!report.available||!report.calendarAvailable||report.stale)return null;
+ const edition=report.editions?.find(e=>e.team===team&&e.date===eventDate&&e.game.id===game.id);
+ if(edition&&(edition.state==='pending'||edition.stale))return null;
  const rows=report.items.filter(i=>i.team===team&&i.date===eventDate&&i.game?.id===game.id&&i.game.away===game.away&&i.game.home===game.home);
+ if(!edition&&!rows.length)return null;
  // Conflicting statuses, ambiguous identities and old reports never confirm a missing player.
  const unique=new Map<number,InjuryItem>(),invalid=new Set<number>();
  for(const row of rows){if(!row.playerId)continue;const old=unique.get(row.playerId);if(old&&old.status!==row.status)invalid.add(row.playerId);unique.set(row.playerId,row);}
@@ -61,7 +66,18 @@ function minutesDistributionOrMean(values:(number|null)[],minutes:boolean){
 export function automaticImpactDetail(facts:Record<string,any>[],mateFacts:Record<string,any>[],absences:Record<string,any>[],settings:Omit<ComparisonSettings,'teammateName'>,mate:{playerId:number;name:string;reportAt:string|null}){
  const data=compareAbsences(facts,mateFacts,absences,[],{...settings,teammateName:mate.name},mate.playerId),yes=data.withPlayer.selection,no=data.withoutPlayer.selection;
  const cohort={present:data.withPlayer.gameIds,absent:data.withoutPlayer.gameIds};
+ const sampleFor=(ids:string[])=>{
+  const wanted=new Set(ids.map(value=>String(value).replace(/^0+/,'')));
+  return facts.filter(row=>wanted.has(String(row.game_id??'').replace(/^0+/,'')))
+   .sort((a,b)=>String(b.game_date??'').slice(0,10).localeCompare(String(a.game_date??'').slice(0,10)));
+ };
+ const present=sampleFor(cohort.present),absent=sampleFor(cohort.absent);
+ const rotationIds=(rows:Record<string,any>[])=>[...new Set(rows.map(r=>rotationGameId(r.game_id)).filter((id):id is string=>id!==null))].slice(0,20);
  const item:AutoImpactItem={teammateId:mate.playerId,name:mate.name,reportAt:mate.reportAt,withAverage:yes.average,withoutAverage:no.average,withCount:yes.valid,withoutCount:no.valid,difference:yes.average!==null&&no.average!==null?(Math.round((no.average-yes.average)*10)/10||0):null,unknown:data.window.unknown,conflicts:data.window.conflicts,firstDate:data.window.firstDate,lastDate:data.window.lastDate,minutes:{with:data.withPlayer.minuteSeasons,without:data.withoutPlayer.minuteSeasons},role:absenceRole(facts,[cohort],settings.team)};
+ if(settings.asOfDate){
+  item.quarterSamples={with:rotationIds(present),without:rotationIds(absent)};
+  item.minutesGuide={with:expectedMinutes(present,settings.asOfDate,settings.team),without:expectedMinutes(absent,settings.asOfDate,settings.team)};
+ }
  return {item,cohort};
 }
 export function automaticImpact(...args:Parameters<typeof automaticImpactDetail>):AutoImpactItem{

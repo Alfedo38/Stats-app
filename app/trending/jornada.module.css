@@ -77,3 +77,16 @@
 .explorer .rowDetails>.playerAnalysis{flex:0 1 auto;min-width:0;border:0;padding-top:0}
 .explorer .rowDetails>.playerAnalysis[open]{flex-basis:100%;order:1}
 .explorer .rowDetails .analysisBody{margin-top:4px}
+.marketRail{display:flex;gap:.4rem;overflow-x:auto;padding:.15rem .05rem .4rem;scrollbar-width:thin}
+.marketRail button{flex:none;border:1px solid var(--border);background:var(--surface);border-radius:7px;padding:.34rem .56rem;color:var(--text-muted);font-size:.75rem;font-weight:700}
+.marketRail button[aria-pressed=true]{border-color:var(--mosk-accent);color:var(--mosk-accent);background:var(--mosk-active)}
+.trendRow{display:flex;align-items:center;flex-wrap:wrap;column-gap:.4rem;min-width:0}
+.trendRow>span{color:var(--text-muted);font-size:.68rem;font-variant-numeric:tabular-nums}
+.trend{width:100px;height:27px;max-width:100%;flex:none}
+.trend rect{fill:var(--text-muted);opacity:.58}
+.trend rect[data-outcome=hit]{fill:var(--chart-hit);opacity:1}
+.trend rect[data-outcome=miss]{fill:var(--chart-miss);opacity:1}
+.trend rect[data-outcome=push]{fill:#d0a25a;opacity:1}
+.trend rect[data-l5=false]{opacity:.7}
+.trend line{stroke:var(--text-muted);stroke-dasharray:2 2;stroke-width:.65}
+.b2b{color:var(--text);font-size:.66rem;font-weight:650;letter-spacing:normal}

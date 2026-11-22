@@ -1,6 +1,6 @@
 import {finiteStat, selectionOutcome, selectionSummary} from './selectionStats';
 import {canonicalOddsPlayerName} from './oddsPlayerNames';
-import {oddsMarket, oddsScope, oddsBook, type PriceQuote} from './nbaOdds';
+import {oddsMarket, oddsScope, publishedQuoteScope, publishedSelection, oddsBook, type PriceQuote} from './nbaOdds';
 import {selectQuote} from './ticketReader/quoteMatch';
 import {isDate, TEAMS, emptyLeg, type Book} from './ticketReader/model';
 import {matchupHref, playerGameHref, selectionFromPage, type GameContext} from './playerNavigation';
@@ -16,12 +16,12 @@ export const JORNADA_MARKETS = {
   fga:'Tiros de campo intentados', fgm:'Tiros de campo convertidos', fg3a:'Triples intentados', fta:'Tiros libres intentados',
 } as const;
 export type JornadaMarket = keyof typeof JORNADA_MARKETS;
-export type JornadaGame = {id:string; away:string; home:string; start:string|null; status:number|null; eventDate?:string};
+export type JornadaGame = {id:string; away:string; home:string; start:string|null; status:number|null; eventDate?:string; backToBack?:string[]};
 export type JornadaQuote = PriceQuote & {overCapturedAt:string|null;underCapturedAt:string|null};
 export type JornadaPlayer = {id:number; name:string; team:string; opponent:string; gameId:string; position:string|null;
   values:(number|null)[]; minutes:(number|null)[]; dates:string[]; opponents?:(string|null)[]; rivalValues?:(number|null)[]; extended?:{season:string;seasonValues:(number|null)[];previousSeason?:string;previousSeasonValues?:(number|null)[];h2hValues:(number|null)[]}; seasons:string[]; support?:{l5:MarketSupport;l10:MarketSupport}; quotes:JornadaQuote[]};
 export type JornadaData = {ok:true; date:string; market:JornadaMarket; generatedAt:string; rosterAt:string;
-  archiveId:string|null; history:'ready'|'unavailable'; quotes:'ready'|'unavailable'|'limited';
+  archiveId:string|null; history:'ready'|'unavailable'; quotes:'ready'|'unavailable'|'limited'; priceCoverage?:'missing'|'unmatched'|'ready';
   games:JornadaGame[]; players:JornadaPlayer[]; warnings:string[]};
 export const BOOK_LABELS:Record<string,string> = {bet365:'bet365',betano:'Betano',stake:'Stake'};
 export const marketIsValid = (s:unknown):s is JornadaMarket => typeof s==='string'&&Object.hasOwn(JORNADA_MARKETS,s);
@@ -86,18 +86,15 @@ export function jornadaQuotes(rows:Row[],name:string,game:JornadaGame,date:strin
   const own=rows.filter(r=>canonicalOddsPlayerName(r.jugador||r.player_norm)===canonicalOddsPlayerName(name));
   const lines=new Set<number>();
   for(const row of own){
-    if(oddsMarket(row.stat_key)!==oddsMarket(market)||oddsScope(row.period_scope??row.period??row.scope??row.market_scope)!=='FULL')continue;
-    const value=finiteStat(row.model_line??row.threshold),op=String(row.side??'').toLowerCase();
-    if(value===null)continue;
-    const line=op==='at_least'?Math.ceil(value)-.5:op==='at_most'?Math.floor(value)+.5:value;
-    if(line>0&&line<=300)lines.add(line);
+    if(oddsMarket(row.stat_key)!==oddsMarket(market)||publishedQuoteScope(row)!=='FULL')continue;
+    const selection=publishedSelection(row);
+    if(selection&&selection.line>0)lines.add(selection.line);
   }
   const quotes:JornadaQuote[]=[];
   for(const line of [...lines].sort((a,b)=>a-b))for(const book of ['bet365','betano','stake'] as const){
     const leg={...emptyLeg(date,book),playerName:name,teams:[game.away,game.home],market:({fg3m:'3PT',fg3a:'3PA'} as Record<string,string>)[market]??market.toUpperCase(),scope:'FULL',line};
     const over=selectQuote(own,{...leg,operator:'over'} as Parameters<typeof selectQuote>[1],now),under=selectQuote(own,{...leg,operator:'under'} as Parameters<typeof selectQuote>[1],now);
-    // Exclude impossible future captures even within the analyzer's clock tolerance.
-    const usable=(q:typeof over)=>q.status==='matched'&&!!q.capturedAt&&Date.parse(q.capturedAt)<=now.getTime();
+    const usable=(q:typeof over)=>q.status==='matched'&&!!q.capturedAt;
     if(!usable(over)&&!usable(under))continue;
     quotes.push({player_name:name,prop_type:oddsMarket(market)!,scope:'FULL',line,matchup:game.away+' @ '+game.home,event_date:date,book,
       over_price:usable(over)?over.price!:null,under_price:usable(under)?under.price!:null,

@@ -1,6 +1,5 @@
 "use client";
 import Link from "next/link";
-import {PlayerPortrait} from "@/components/NbaMedia";
 import type {TeamMate} from "@/components/TeamMatesPanel";
 import NbaNextMatchup from "@/components/NbaNextMatchup";
 import RotationPilot from "@/components/RotationPilot";
@@ -18,9 +17,9 @@ import {playerMarketLabel} from "@/lib/playerPresentation";
 
 import { useEffect, useLayoutEffect, useMemo, useState, useCallback, useRef, type ReactNode } from "react";
 import {gamePhase} from "@/lib/nbaGameFilters";
-import {historySeasons,twoSeasonRows} from "@/lib/nbaHistoryWindow";
+import {historySeasons,playerSeasonWindow,playerWindowRows,twoSeasonRows} from "@/lib/nbaHistoryWindow";
 import {opportunityFor} from "@/lib/nbaVisuals";
-import { useSearchParams } from "next/navigation";
+import { useRouter,useSearchParams } from "next/navigation";
 import {
   getMinutesValue,
   getOpponent,
@@ -38,6 +37,7 @@ import {parseGameContext,putGameContext,playerGameHref,PAGE_MARKETS} from "@/lib
 import { useAnalysisQuery } from "@/hooks/useAnalysisQuery";
 import { recentRivalSelection } from "@/lib/rivalSelection";
 import { finiteStat, selectionSummary } from "@/lib/selectionStats";
+import {playerHistoryRowsRequest,rescorePlayerHistory} from "@/lib/playerHistorySelection";
 import { buildPeriodRows, periodMetricValue } from "@/lib/nbaPeriodStats";
 import { sampleCoverage, type AnalysisSample } from "@/lib/nbaAnalysis";
 import PlayerChart from "@/components/PlayerChart";
@@ -45,6 +45,7 @@ import PlayerChangeCard from "@/components/PlayerChangeCard";
 import PlayerOpportunityLegend from "@/components/PlayerSecondaryControl";
 import AlternativeLines from "@/components/AlternativeLines";
 import PlayerSupportingStats from "@/components/PlayerSupportingStats";
+import {reboundSplit,type EvidenceRow} from "@/lib/marketEvidence";
 import {secondaryValue,type SecondaryChoice} from "@/lib/playerRecentChange";
 import SupportingDataGrid from "@/components/SupportingDataGrid";
 import PickInsightPanel from "@/components/PickInsightPanel";
@@ -74,6 +75,17 @@ import {
 
 type StakePlayerOdd = PriceQuote;
 
+function PlayerReboundSplit({rows}:{rows:EvidenceRow[]}){
+  const split=reboundSplit(rows);
+  if(!split.count)return null;
+  const number=(value:number|null)=>value===null?'S/D':value.toLocaleString('es-AR',{maximumFractionDigits:1});
+  return <p className="mosk-rebound-split" aria-label="Promedio de rebotes por tipo">
+    <span><b>{number(split.offense)}</b> ofensivos</span>
+    <span><b>{number(split.defense)}</b> defensivos</span>
+    <small>{split.count}/{split.total} PJ con ambos datos</small>
+  </p>;
+}
+
 interface PlayerChartContainerProps {
   analyzerStorageKey?:string;
   stats: any[];
@@ -83,7 +95,6 @@ interface PlayerChartContainerProps {
   playerTeam?: string|null;
   teammates?: TeamMate[];
   playerId?: string | number | null;
-  stakeOdds?: StakePlayerOdd[];
   filterTeams?: string[];
   opponent?: string | null;
   homeAway?: "HOME" | "AWAY" | string | null;
@@ -290,18 +301,6 @@ function getStakePropType(activeStat: string) {
   return map[activeStat.toLowerCase()] || null;
 }
 
-function findStakeOddsForStat(
-  stakeOdds: StakePlayerOdd[] | undefined,
-  activeStat: string,
-) {
-  const propType = getStakePropType(activeStat);
-  if (!propType || !stakeOdds?.length) return [];
-  return stakeOdds
-    .filter((o) => String(o.prop_type).toUpperCase() === propType)
-    .filter((o) => o.line !== null && o.line !== undefined)
-    .sort((a, b) => Number(a.line) - Number(b.line));
-}
-
 function pickPrimaryStakeOdd(odds: StakePlayerOdd[]) {
   if (!odds.length) return null;
   return [...odds].sort((a, b) => {
@@ -472,7 +471,6 @@ export default function PlayerChartContainer({
   playerTeam,
   teammates=[],
   playerId,
-  stakeOdds = [],
   filterTeams,
   opponent,
   homeAway,
@@ -485,7 +483,8 @@ export default function PlayerChartContainer({
   detailTab="summary",detailNavigation,compact=false,
   onAnalysisSampleChange,
 }: PlayerChartContainerProps) {
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams(),router=useRouter();
+  const [seasonWindow,setSeasonWindow]=useState(()=>playerSeasonWindow(searchParams.get("seasonWindow")));
   const linkedContext=useMemo(()=>parseGameContext(searchParams),[searchParams]);
   const [rotationOpen,setRotationOpen]=useState(false);
   const historyFilters=useRef<HTMLDetailsElement>(null);
@@ -662,6 +661,7 @@ export default function PlayerChartContainer({
     setAbsentNames([]);
     setAbsenceMode("current");setAbsenceTeamFilter("");
     setSeasonPhase("ALL");
+    setSeasonWindow("current");
     defense.setBand("all");
   }, [defense.setBand,setLastN,externalFilters,onRemoveExternalFilter]);
 
@@ -766,11 +766,12 @@ export default function PlayerChartContainer({
   const isHistoricalChartMode = isFullScope && Boolean(historicalMarket);
   const windowLabel = `L${lastN}`;
 
-  const historyQuery=useAnalysisQuery(isHistoricalChartMode&&!pageEvent.loading&&historicalMarket&&playerName&&Number.isFinite(Number(lineValue))?'/api/player-history':null,{
-    playerId,playerName,market:historicalMarket,line:Number(lineValue),side:chartSide,mode:'last2',
+  const historyQuery=useAnalysisQuery(isHistoricalChartMode&&!pageEvent.loading&&historicalMarket&&playerName?'/api/player-history':null,playerHistoryRowsRequest({
+    playerId,playerName,market:historicalMarket,mode:chartOpponent?'all':'last2',
     opponent:chartOpponent||null,homeAway:chartHomeAway,minMinutes:chartHistMinMinutes,woTeammate:null,phase:seasonPhase,limit:1000,asOfDate:historyCutoff,
-  });
+  }));
   const historicalChartData=historyQuery.data;
+  const scoredHistory=useMemo(()=>rescorePlayerHistory(historicalChartData,Number(lineValue),chartSide),[historicalChartData,lineValue,chartSide]);
   const historicalChartLoading=historyQuery.loading;
   const historicalChartError=historyQuery.error;
   const numericPlayerId=Number(playerId);
@@ -919,13 +920,15 @@ export default function PlayerChartContainer({
     return result;
   }, [defense.report,defense.band,defense.options.position,seasonPhase,absenceKey,currentAbsence.matches,processedStats, lastN, activeFilters, externalFilters, externalGameIds, isFullScope, chartOpponent, chartHomeAway, chartHistMinMinutes, activeWoTeammate]);
 
-  const visibleStats = useMemo(()=>lastN>=999?filteredStatsBeforeWindow:filteredStatsBeforeWindow.slice(-lastN),[filteredStatsBeforeWindow,lastN]);
+  const effectiveSeason=effectiveAbsences.length?"last2":seasonWindow;
+  const windowLocal=useMemo(()=>playerWindowRows(filteredStatsBeforeWindow,historyCutoff??eventDate,effectiveSeason,!!chartOpponent,false),[filteredStatsBeforeWindow,historyCutoff,eventDate,effectiveSeason,chartOpponent]);
+  const visibleStats = useMemo(()=>lastN>=999?windowLocal:windowLocal.slice(-lastN),[windowLocal,lastN]);
 
   const historicalChartStats = useMemo(() => {
     const games = Array.isArray(historicalChartData?.games)
       ? historicalChartData.games
       : [];
-    return twoSeasonRows(games,historyCutoff??eventDate)
+    return playerWindowRows<any>(games,historyCutoff??eventDate,"last2",!!chartOpponent)
       .filter(r=>["Regular Season","Playoffs"].includes(gamePhase(r)??""))
       .slice()
       .reverse()
@@ -938,7 +941,6 @@ export default function PlayerChartContainer({
         fta: g.fta,
         ftm:g.ftm,oreb:g.oreb,dreb:g.dreb,
         value: finiteStat(g.value),
-        lineValue,
         opponent_clean: g.opponent_clean ?? g.opponent,
         opponent: g.opponent_clean ?? g.opponent,
         matchup_clean: g.matchup_clean ?? g.matchup,
@@ -973,7 +975,7 @@ export default function PlayerChartContainer({
         game_result: g.game_result ?? null,
         source_mode: "historical",
       }));
-  }, [historicalChartData, lineValue,historyCutoff,eventDate]);
+  }, [historicalChartData,historyCutoff,eventDate,chartOpponent]);
 
   const historicalSampleRows = useMemo(()=>absenceRows(phaseRows(historicalChartStats,seasonPhase),effectiveAbsences,currentAbsence.matches),[historicalChartStats,seasonPhase,absenceKey,currentAbsence.matches]);
   const historicalChartWindow = historicalSampleRows;
@@ -999,7 +1001,8 @@ export default function PlayerChartContainer({
     result = defense.apply(result);
     return result;
   }, [defense.report,defense.band,defense.options.position,historicalChartWindow, lastN, activeFilters, externalFilters, externalGameIds]);
-  const sharedHistoricalWindow=useMemo(()=>lastN>=999?sharedHistoricalBeforeWindow:sharedHistoricalBeforeWindow.slice(-lastN),[sharedHistoricalBeforeWindow,lastN]);
+  const windowHistory=useMemo(()=>playerWindowRows(sharedHistoricalBeforeWindow,historyCutoff??eventDate,effectiveSeason,!!chartOpponent),[sharedHistoricalBeforeWindow,historyCutoff,eventDate,effectiveSeason,chartOpponent]);
+  const sharedHistoricalWindow=useMemo(()=>lastN>=999?windowHistory:windowHistory.slice(-lastN),[windowHistory,lastN]);
   const defenseFilterLoading=defense.band!=="all"&&defense.loading;
   const defenseFilterError=defense.band!=="all"&&!defense.loading&&(!defense.report||!defense.canFilter)?"El filtro defensivo no tiene una referencia completa. Quitá el filtro o elegí otra temporada.":null;
   const sampleLoading=pageEvent.loading||defenseFilterLoading||currentAbsence.loading||(isHistoricalChartMode?historicalChartLoading:!isFullScope&&periodLoading);
@@ -1007,14 +1010,15 @@ export default function PlayerChartContainer({
   const chartStats: any[] = useMemo(()=>sampleLoading||sampleError?[]:isHistoricalChartMode?sharedHistoricalWindow:visibleStats,[sampleLoading,sampleError,isHistoricalChartMode,sharedHistoricalWindow,visibleStats]);
   const metricStats: any[] = chartStats;
   const seasonRows=useMemo(()=>seasonWindowValues(isHistoricalChartMode?sharedHistoricalBeforeWindow:filteredStatsBeforeWindow,historyCutoff??eventDate),[isHistoricalChartMode,sharedHistoricalBeforeWindow,filteredStatsBeforeWindow,historyCutoff,eventDate]);
-  const changeRows=sampleLoading||sampleError?[]:isHistoricalChartMode?sharedHistoricalBeforeWindow:filteredStatsBeforeWindow;
+  const changeRows=sampleLoading||sampleError?[]:isHistoricalChartMode?windowHistory:windowLocal;
+  const seasonLabels=historySeasons(historyCutoff??eventDate);
+  const windowLabelText=chartOpponent?(isHistoricalChartMode?"Hasta 4 temporadas":"Hasta 2 temporadas"):effectiveSeason==='last2'?seasonLabels.join(" + "):seasonLabels[effectiveSeason==='previous'?1:0];
   const changeReferenceRows=useMemo(()=>[...twoSeasonStats,...historicalChartStats],[twoSeasonStats,historicalChartStats]);
   const pageSample=useMemo(()=>{
     if(!/^[1-9]\d{0,12}$/.test(String(playerId))||!isDate(eventDate))return undefined;
-    const labels=[historySeasons(historyCutoff??eventDate).join(" + "),seasonPhase==='ALL'?'Regular + playoffs':seasonPhase==='Playoffs'?'Playoffs':'Temporada regular',chartHomeAway==='HOME'?'Solo local':chartHomeAway==='AWAY'?'Solo visitante':'Local y visitante',chartOpponent?`vs ${chartOpponent}`:'Todos los rivales',chartHistMinMinutes!==null?`MIN ≥ ${chartHistMinMinutes}`:'',effectiveAbsences.length?`Sin ${effectiveAbsences.join(', ')}`:'',...activeFilters.map(f=>f.label),...externalFilters.map(f=>f.label),defense.band!=='all'?`Defensa: ${DEFENSE_BANDS[defense.band]}`:''].filter(Boolean).map(x=>x.slice(0,100));
-    const exactIds=effectiveAbsences.length>0||activeFilters.length>0||externalFilters.length>0||defense.band!=='all';
-    return cleanPageSample({version:1,playerId:String(playerId),eventDate,cutoffDate:historyCutoff??eventDate,scope:activeScope,phase:seasonPhase,seasons:'last2',homeAway:chartHomeAway,opponent:chartOpponent||null,minMinutes:chartHistMinMinutes,labels:labels.slice(0,12),...(exactIds?{gameIds:changeRows.map(row=>sampleGameKey(row.game_id??row.id)).filter(Boolean).slice(0,1000)}:{})});
-  },[playerId,eventDate,historyCutoff,activeScope,seasonPhase,chartHomeAway,chartOpponent,chartHistMinMinutes,absenceKey,activeFilters,externalFilters,defense.band,changeRows]);
+    const labels=[windowLabelText,seasonPhase==='ALL'?'Regular + playoffs':seasonPhase==='Playoffs'?'Playoffs':'Temporada regular',chartHomeAway==='HOME'?'Solo local':chartHomeAway==='AWAY'?'Solo visitante':'Local y visitante',chartOpponent?`vs ${chartOpponent}`:'Todos los rivales',chartHistMinMinutes!==null?`MIN ≥ ${chartHistMinMinutes}`:'',effectiveAbsences.length?`Sin ${effectiveAbsences.join(', ')}`:'',...activeFilters.map(f=>f.label),...externalFilters.map(f=>f.label),defense.band!=='all'?`Defensa: ${DEFENSE_BANDS[defense.band]}`:''].filter(Boolean).map(x=>x.slice(0,100));
+    return cleanPageSample({version:1,playerId:String(playerId),eventDate,cutoffDate:historyCutoff??eventDate,scope:activeScope,phase:seasonPhase,seasons:chartOpponent&&isHistoricalChartMode?'all':'last2',homeAway:chartHomeAway,opponent:chartOpponent||null,minMinutes:chartHistMinMinutes,labels:labels.slice(0,12),gameIds:chartStats.map(row=>sampleGameKey(row.game_id??row.id)).filter(Boolean).slice(0,1000)});
+  },[playerId,eventDate,historyCutoff,activeScope,seasonPhase,chartHomeAway,chartOpponent,chartHistMinMinutes,absenceKey,activeFilters,externalFilters,defense.band,chartStats,windowLabelText,isHistoricalChartMode]);
   const supportingStats = useMemo(
     () => metricStats,
     [metricStats],
@@ -1134,6 +1138,7 @@ export default function PlayerChartContainer({
       if (chartHistMinMinutes) params.set("min", String(chartHistMinMinutes));
       if (chartOpponent) params.set("opponent", chartOpponent);
       if (seasonPhase !== "ALL") params.set("phase", seasonPhase);
+      if(seasonWindow!=="current")params.set("seasonWindow",seasonWindow);
       params.set('defSeason',defense.options.season);params.set('defWindow',defense.options.window);params.set('defPosition',defense.options.position);if(defense.band!=='all')params.set('defBand',defense.band);
       effectiveAbsences.forEach(name=>params.append("absent",name));
       if(absenceMode==="historical"||effectiveAbsences.length)params.set("absenceScope",absenceMode);
@@ -1144,7 +1149,7 @@ export default function PlayerChartContainer({
     } catch {
       return false;
     }
-  }, [defense.options.season,defense.options.window,defense.options.position,defense.band,activeStat, lineValue, lastN, activeScope, chartSide, chartHomeAway, chartHistMinMinutes, chartOpponent, activeWoTeammate, seasonPhase, absenceKey, absenceMode, absenceTeamFilter,gameContext]);
+  }, [defense.options.season,defense.options.window,defense.options.position,defense.band,activeStat, lineValue, lastN, activeScope, chartSide, chartHomeAway, chartHistMinMinutes, chartOpponent, activeWoTeammate, seasonPhase, absenceKey, absenceMode, absenceTeamFilter,gameContext,seasonWindow]);
 
     const marketContext=(
 <div>
@@ -1188,7 +1193,7 @@ export default function PlayerChartContainer({
     effectiveAbsences.length?`Sin ${effectiveAbsences.join(", ")}`:null,
     defense.band!=="all"?DEFENSE_BANDS[defense.band]:null,
   ].filter(Boolean);
-  const filtered = activeContextLabels.length>0 || activeFilters.length>0 || externalFilters.length>0 || Boolean(activeWoTeammate);
+  const filtered = seasonWindow!=="current" || activeContextLabels.length>0 || activeFilters.length>0 || externalFilters.length>0 || Boolean(activeWoTeammate);
   const rosterPlayers = [...new Map(teammates.filter(p=>String(p.id)!==String(playerId)&&/^[1-9]\d{0,12}$/.test(String(p.id))&&(p.full_name||p.player_name)).map(p=>[String(p.id),p])).values()];
   const canAddToAnalyzer=Boolean(analyzerStorageKey&&PAGE_MARKETS[activeStat]);
   const displayStat=playerMarketLabel(activeStat);
@@ -1197,29 +1202,19 @@ export default function PlayerChartContainer({
   const minuteTeam=pageEvent.team??playerTeam;
   const minuteGuide=isFullScope&&minuteTeam&&gameContext?expectedMinutes(twoSeasonStats,historyCutoff??eventDate,minuteTeam):null;
   const rivalHistory=gameRival&&!sampleLoading&&!sampleError&&!chartOpponent
-    ?recentRivalSelection(changeRows,gameRival,Number(lineValue),chartSide)
+    ?recentRivalSelection(isHistoricalChartMode?sharedHistoricalBeforeWindow:filteredStatsBeforeWindow,gameRival,Number(lineValue),chartSide)
     :null;
   const rosterContext=gameContext&&playerTeam&&[gameContext.away,gameContext.home].includes(playerTeam)?gameContext:null;
   const teamPlayerHref=(id:string|number)=>{
     const [path,query]=playerGameHref(id,rosterContext,playerTeam).split("?");
     const q=new URLSearchParams(query);
     q.set("stat",activeStat);q.set("n",String(lastN));
+    if(seasonWindow!=="current")q.set("seasonWindow",seasonWindow);
     if(activeScope!=="FULL")q.set("scope",activeScope);
     return `${path}?${q}`;
   };
   return (
     <div className="space-y-3" data-mosk-analysis>
-      {rosterPlayers.length>0&&<nav className="mosk-roster-nav" aria-label="Cambiar de jugador">
-        <div className="mosk-roster-rail">
-          <span className="mosk-roster-current" aria-current="page">{playerName}</span>
-          {rosterPlayers.map(p=><Link key={String(p.id)} href={teamPlayerHref(p.id)} prefetch={false}>
-            <PlayerPortrait id={p.id} name={String(p.full_name||p.player_name)} size="card" />
-            <span>{p.full_name||p.player_name}</span>
-          </Link>)}
-        </div>
-        <button type="button" className="mosk-soft-button" onClick={()=>window.dispatchEvent(new Event("open-player-roster"))}>Ver plantel</button>
-      </nav>}
-      {!rosterPlayers.length&&playerTeam&&<Link className="mosk-soft-button" href={`/teams/${playerTeam}`}>Ver plantel de {playerTeam}</Link>}
       <PlayerSelectionBar market={activeStat} markets={visibleNavStats} scope={activeScope} lastN={lastN} side={chartSide} line={Number(lineValue)} halfLines={!usesIntegerLine(activeStat)} onMarket={setActiveStat} onScope={value=>setActiveScope(value as SplitScope)} onWindow={setLastN} onSide={setChartSide} onLine={setLineValue} onStep={direction=>setLineValue(prev=>Math.min(usesIntegerLine(activeStat)?300:299.5,adjustLine(prev,direction,activeStat)))}
         odds={<PlayerOddsComparison selectedBook={selectedBook} onSelectBook={setSelectedBook} rows={currentPrices} line={Number(lineValue)} side={chartSide} loading={oddsLoading} error={oddsError} eventReady={!!gameContext} eventRows={eventOdds} market={activeStat} scope={activeScope} onRetry={()=>setOddsRetry(n=>n+1)}/>}
       />
@@ -1249,7 +1244,7 @@ export default function PlayerChartContainer({
         <div className="min-w-0">
           <div ref={chartCard} data-chart-card className="mosk-chart-card scroll-mt-20">
             <header data-chart-identity className="mosk-chart-heading">
-              <div><h2>{displayStat}</h2>{!isFullScope&&<span>{activeScopeOption.label}</span>}</div>
+              <div><h2>{displayStat}</h2><span>{!isFullScope?activeScopeOption.label+" · ":""}{chartStats.length} PJ · {chartSide==="over"?"Más":"Menos"} {formatDecimal(Number(lineValue))}</span></div>
               {!sampleLoading&&!sampleError&&selection.valid>0&&<dl className="mosk-chart-stats">
                 <div><dt>Promedio</dt><dd>{selection.average===null?"S/D":formatDecimal(selection.average)}{activeStat==="usage_pct"?"%":""}</dd></div>
                 <div><dt>Acierto histórico</dt><dd>{selection.rate===null?"S/D":`${hitRate}%`}{selection.decided>0&&<small>{hits}/{selection.decided}</small>}</dd></div>
@@ -1261,6 +1256,11 @@ export default function PlayerChartContainer({
               onFilterRival={!chartOpponent&&gameRival?()=>setChartOpponent(gameRival):undefined}/>}
             <div className="mosk-chart-tools" data-chart-sample-row>
               {gameRival&&<button type="button" className="mosk-soft-button" aria-pressed={chartOpponent===gameRival} onClick={()=>setChartOpponent(chartOpponent===gameRival?"":gameRival)}>Contra {gameRival}</button>}
+              <select className="mosk-soft-button" aria-label="Temporada del gráfico" value={chartOpponent?"rival":effectiveSeason} disabled={!!chartOpponent||!!effectiveAbsences.length} onChange={e=>setSeasonWindow(playerSeasonWindow(e.target.value))}>
+                {chartOpponent&&<option value="rival">{windowLabelText}</option>}
+                <option value="current">{seasonLabels[0]} · Actual</option><option value="previous">{seasonLabels[1]} · Anterior</option><option value="last2">Dos temporadas</option>
+              </select>
+              {rosterPlayers.length>0&&<select className="mosk-soft-button mosk-roster-picker" aria-label="Cambiar de jugador" value="" onChange={e=>{if(e.target.value)router.push(teamPlayerHref(e.target.value));}}><option value="">Cambiar jugador</option>{rosterPlayers.map(p=><option key={String(p.id)} value={String(p.id)}>{p.full_name||p.player_name}</option>)}</select>}
               <button type="button" className="mosk-soft-button" onClick={()=>{if(historyFilters.current){historyFilters.current.open=true;historyFilters.current.scrollIntoView({block:"nearest"});historyFilters.current.querySelector("summary")?.focus({preventScroll:true});}}}>Filtros</button>
               {activeContextLabels.map((text,index)=><span className="mosk-filter-chip" key={`${text}-${index}`}>{text}</span>)}
               {(filtered||lastN!==20)&&<button type="button" onClick={resetMainFilters} title="Quitar filtros y volver a los últimos 20" className="mosk-text-link">Restablecer filtros</button>}
@@ -1286,6 +1286,7 @@ export default function PlayerChartContainer({
               />}
             </div>
             {compact&&<SelectionLegend hasPush={selection.pushes>0} hasMissing={selection.missing>0}/>}
+            {activeStat==="reb"&&isFullScope&&!sampleLoading&&!sampleError&&<PlayerReboundSplit rows={chartStats}/>}
           </div>
           {compact&&isFullScope&&!sampleLoading&&!sampleError&&<PlayerSupportingStats market={activeStat} rows={chartStats} choice={secondaryChoice} onChange={setSecondaryChoice}/>}
           <div id={`absence-comparison-${playerId}`} className="scroll-mt-20"/>
@@ -1293,7 +1294,7 @@ export default function PlayerChartContainer({
             gameIds={chartStats.map(row=>row.game_id??row.id)} enabled={!sampleLoading&&!sampleError}
             cutoff={historyCutoff??eventDate} rival={gameRival} context={gameContext}/>}
 
-          {playerId&&isFullScope&&["pts","fga","fgm","fg2a","fg2m","fg3a","fg3m"].includes(activeStat)&&<NbaPlaytypePanel playerId={String(playerId)} cutoff={historyCutoff??eventDate} rival={gameRival}/>}
+          {playerId&&isFullScope&&["pts","fga","fgm","fg2a","fg2m","fg3a","fg3m"].includes(activeStat)&&<NbaPlaytypePanel playerId={String(playerId)} cutoff={historyCutoff??eventDate} rival={gameRival} context={gameContext}/>}
           {playerId&&<details className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3" onToggle={e=>setRotationOpen(e.currentTarget.open)}>
             <summary className="cursor-pointer text-sm font-bold">Rotaciones de los partidos del gráfico</summary>
             <div className="mt-2"><RotationPilot playerId={String(playerId)} gameIds={chartStats.map(row=>row.game_id??row.id)} open={rotationOpen&&!sampleLoading&&!sampleError}/></div>
@@ -1498,19 +1499,19 @@ export default function PlayerChartContainer({
                       <Loader2 size={11} className="animate-spin" /> Histórico
                     </span>
                   )}
-                  {!historicalChartLoading && historicalChartData?.summary && !effectiveAbsences.length && (
+                  {!historicalChartLoading && scoredHistory?.summary && !effectiveAbsences.length && (
                     <>
-                      <span title="Histórico con rival, cancha, minutos y fase seleccionados; no se limita a L5/L10/L20/L30 ni a los filtros de las tarjetas." className="text-[var(--text-muted)]">Histórico · {historicalChartData.summary.games} PJ</span>
+                      <span title="Histórico con rival, cancha, minutos y fase seleccionados; no se limita a L5/L10/L20/L30 ni a los filtros de las tarjetas." className="text-[var(--text-muted)]">Histórico · {scoredHistory.summary.games} PJ</span>
                       <span className="rounded-lg border border-[#10b981]/25 bg-[#10b981]/10 px-2 py-1 text-[#10b981]">
-                        {historicalChartData.summary.hitRatePct==null?"S/D":`${historicalChartData.summary.hits}/${historicalChartData.summary.decided ?? historicalChartData.summary.games}`}
+                        {scoredHistory.summary.hitRatePct==null?"S/D":`${scoredHistory.summary.hits}/${scoredHistory.summary.decided ?? scoredHistory.summary.games}`}
                       </span>
                       <span className="rounded-lg border border-cyan-400/25 bg-cyan-400/10 px-2 py-1 text-cyan-300">
                         HR{" "}
-                        {historicalChartData.summary.hitRatePct==null?"S/D":Number(historicalChartData.summary.hitRatePct).toFixed(1)}
-                        {historicalChartData.summary.hitRatePct==null?"":"%"}
+                        {scoredHistory.summary.hitRatePct==null?"S/D":Number(scoredHistory.summary.hitRatePct).toFixed(1)}
+                        {scoredHistory.summary.hitRatePct==null?"":"%"}
                       </span>
                       <span className="rounded-lg border border-orange-400/25 bg-orange-400/10 px-2 py-1 text-orange-300">
-                        AVG {historicalChartData.summary.avg ?? "S/D"}
+                        AVG {scoredHistory.summary.avg ?? "S/D"}
                       </span>
                       {chartOpponent && (
                         <span className="rounded-lg border border-[#10b981]/25 bg-[#10b981]/10 px-2 py-1 text-[#10b981]">
@@ -1586,7 +1587,7 @@ export default function PlayerChartContainer({
         homeAway={chartHomeAway}
         woTeammate={activeWoTeammate}
         externalFilterCount={externalFilters.length}
-        initialData={historicalChartData}
+        initialData={scoredHistory}
         initialLoading={historicalChartLoading}
         initialError={historicalChartError}
       /></details>}

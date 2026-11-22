@@ -1,19 +1,22 @@
 'use client';
 
 import {useState} from 'react';
+import Link from 'next/link';
+import type {quarterRole} from '@/lib/nbaSubstitutions';
 import {useAnalysisQuery} from '@/hooks/useAnalysisQuery';
 import {reportDateLabel} from '@/lib/injuryReport';
 import {rotationGameId,rotationMinutes,rotationPeriodMs,type RotationGame} from '@/lib/nbaRotations';
 
 type Coverage={requested:number;covered:number;starts:number;minutes:number|null;q1Minutes:number|null};
-type Pilot={ok:true;available:boolean;source:'archive'|'local'|'none';games:RotationGame[];coverage:Coverage};
+type Change={id:number;name:string;count:number};
+type Pilot={changes?:{games:number;multiple:number;unverified:number;inForPlayer:Change[];playerInFor:Change[]};quarters?:ReturnType<typeof quarterRole>;ok:true;available:boolean;source:'archive'|'local'|'none';games:RotationGame[];coverage:Coverage};
 const fmt=(n:number|null)=>n===null?'S/D':n.toLocaleString('es-AR',{maximumFractionDigits:1});
 const clock=(ms:number)=>{const seconds=Math.round(ms/1000);return Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0');};
 const label=(p:number)=>p<=4?'Q'+p:'PR '+(p-4);
 
 export default function RotationPilot({playerId,gameIds,open}:{playerId:string;gameIds:unknown[];open:boolean}){
  const ids=[...new Set(gameIds.map(rotationGameId).filter((x):x is string=>x!==null))].slice(-30);
- const [pattern,setPattern]=useState(true);
+ const [view,setView]=useState<"pattern"|"game"|"changes">("pattern");
  const [chosen,setChosen]=useState(''),[retry,setRetry]=useState(0);
  const q=useAnalysisQuery<Pilot>(open&&ids.length&&/^[1-9]\d{0,9}$/.test(playerId)?'/api/nba-rotaciones?retry='+retry:null,{playerId,gameIds:ids});
  const d=q.data;
@@ -28,10 +31,18 @@ export default function RotationPilot({playerId,gameIds,open}:{playerId:string;g
   {d&&game&&<>
    <dl className="grid grid-cols-3 gap-3"><div><dt className="text-[var(--text-muted)]">Titular</dt><dd className="text-base font-bold">{d.coverage.starts}/{d.coverage.covered}</dd></div><div><dt className="text-[var(--text-muted)]">Min. promedio</dt><dd className="text-base font-bold">{fmt(d.coverage.minutes)}</dd></div><div><dt className="text-[var(--text-muted)]">Min. 1.º cuarto</dt><dd className="text-base font-bold">{fmt(d.coverage.q1Minutes)}</dd></div></dl>
    <div className="flex flex-wrap gap-2" role="group" aria-label="Vista de rotaciones">
-    <button type="button" className="mosk-soft-button" aria-pressed={pattern} onClick={()=>setPattern(true)}>Patrón reciente</button>
-    <button type="button" className="mosk-soft-button" aria-pressed={!pattern} onClick={()=>setPattern(false)}>Partido a partido</button>
+    <button type="button" className="mosk-soft-button" aria-pressed={view==="pattern"} onClick={()=>setView("pattern")}>Patrón reciente</button>
+    <button type="button" className="mosk-soft-button" aria-pressed={view==="game"} onClick={()=>setView("game")}>Partido a partido</button>
+    <button type="button" className="mosk-soft-button" aria-pressed={view==="changes"} onClick={()=>setView("changes")}>Cambios</button>
    </div>
-   {pattern?<div>
+   {view==="changes"?<div>
+    <p>{d.changes?.games?`Cambios verificados en ${d.changes.games} PJ de la muestra.`:'Todavía no hay quintetos verificables para mostrar sustituciones.'}</p>
+    {d.changes&&d.changes.games>0&&<>
+     <div className="grid gap-3 sm:grid-cols-2 mt-2">{[["Entran cuando sale",d.changes.inForPlayer],["Sale cuando él entra",d.changes.playerInFor]].map(([title,rows])=><div key={String(title)}><strong>{String(title)}</strong><ul>{(rows as Change[]).slice(0,5).map(r=><li key={r.id} className="flex justify-between py-1"><Link className="mosk-text-link" href={`/players/${r.id}`}>{r.name}</Link><span>{r.count} {r.count===1?'cambio':'cambios'}</span></li>)}</ul></div>)}</div>
+     {d.changes.multiple>0&&<p className="text-[var(--text-muted)]">{d.changes.multiple} cambios múltiples sin pareja individual verificable.</p>}
+    </>}
+   </div>:view==="pattern"?<div>
+    {!!d.quarters?.length&&<dl className="grid grid-cols-4 gap-2 mb-3" aria-label="Mediana de minutos por cuarto">{d.quarters.map(q=><div key={q.quarter} className="rounded-md border border-[var(--border)] p-1.5"><dt>Q{q.quarter}</dt><dd><b>{fmt(q.minutes)}</b> min</dd><dd className="text-[var(--text-muted)]">{q.played}/{q.games} PJ</dd></div>)}</dl>}
     <p className="mb-2 text-[var(--text-muted)]">Cada bloque indica en cuántos partidos estuvo en cancha al segundo 30 de ese minuto. Usá el reloj de izquierda a derecha: 12:00 → 0:00.</p>
     {Array.from({length:4},(_,i)=>i+1).map(period=><div className="mb-2 flex items-center gap-2" key={period}>
       <strong>Q{period}</strong><div className="grid flex-1 grid-cols-12 gap-1">{Array.from({length:12},(_,i)=>{

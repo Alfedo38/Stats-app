@@ -248,9 +248,9 @@ def _export_with_rebounds(upload=False):
             if not daily_assists:
                 raise
             print('ASISTENCIAS NBA: se mantiene el índice anterior ('+type(exc).__name__+'); continúa el archivo general.',flush=True)
-    if env().get('NBA_PLAYTYPES_ARCHIVE')=='1':
-        from .playtypes_snapshot import archive_parts as playtypes_parts
-        playtypes_parts(STATE,directory,manifest,save_part)
+    # NBA_QA_V26_DATA
+    from .qa_context_v26 import integrate_release
+    integrate_release(STATE,directory,manifest,save_part,load_part,identity)
     manifest['updated_at']=datetime.now(timezone.utc).isoformat()
     manifest['counts']={kind:sum(m['rows'] for n,m in manifest['parts'].items() if n.startswith(kind+'/')) for kind in SOURCES}
     manifest['id']=sha(canonical({k:v for k,v in manifest.items() if k not in ('id','updated_at')}))

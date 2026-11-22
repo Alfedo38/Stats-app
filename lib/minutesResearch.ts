@@ -20,6 +20,8 @@ export function expectedMinutes(rows:Record<string,any>[],cutoff:string,team:str
  const mae=(i:number)=>errors.length?errors.reduce((sum,e)=>sum+e[i],0)/errors.length:null;
  const baseline=mae(0),tested=mae(1),validated=errors.length>=20&&baseline!==null&&tested!==null&&tested+0.1<baseline;
  const history=minutesDistribution(values.slice(-10));
- return {history,estimate:validated?candidate(values):null,validated:validated&&history.count>=MINUTES_MIN_GAMES,
+ const latest=[...games.values()].map(g=>g.date).sort().at(-1);
+ const near=!!latest&&Date.parse(cutoff+'T12:00:00Z')-Date.parse(latest+'T12:00:00Z')<=45*86400000;
+ return {history,estimate:validated&&near?candidate(values):null,validated:validated&&near&&history.count>=MINUTES_MIN_GAMES,
   observations:errors.length,baseline,tested};
 }

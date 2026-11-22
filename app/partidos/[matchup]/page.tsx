@@ -8,17 +8,18 @@ import { argentinaDate, canonicalTeam, matchupFilters } from '@/lib/matchupFilte
 import { getMatchupData, getMatchupSeasons, type TeamAverage } from '@/lib/matchupData';
 import {getJornadaSchedule} from '@/lib/nbaJornadaData';
 import {getInjuryReport} from '@/lib/injuryReportData';
-import {reportTimeLabel,nbaHistoryCutoff} from '@/lib/injuryReport';
+import {reportTimeLabel,nbaHistoryCutoff,injuryEditionLabel} from '@/lib/injuryReport';
 import MatchupFilterBar from '@/components/MatchupFilterBar';
 import {matchupHref} from '@/lib/playerNavigation';
 import MatchupPlayerTable from '@/components/MatchupPlayerTable';
 import DefensiveMatchups from '@/components/DefensiveMatchups';
+import NbaLastLineups from '@/components/NbaLastLineups';
 import {historySeasons} from '@/lib/nbaHistoryWindow';
 import {archiveEnabled,archivePart} from '@/lib/nbaArchive';
 import styles from './Matchup.module.css';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: 'Comparativa del partido | MoskProps' };
+export const metadata = { title: 'Comparativa del partido' };
 type SearchParams = Record<string, string | string[] | undefined>;
 type Metric = { key: keyof TeamAverage; label: string; percent?: boolean };
 const offense: Metric[] = [
@@ -98,10 +99,11 @@ export default async function MatchupPage({ params, searchParams }: { params: Pr
         <strong>Previa rápida</strong>
         <div className={styles.sampleGrid}>{[away,home].map(team=>{
           const rest=restFor(team),rows=matchInjuries.filter(r=>r.team===team),key=rows.filter(r=>['OUT','DOUBTFUL','QUESTIONABLE'].includes(r.status));
-          return <div className={styles.sampleCard} key={team}><strong>{team}</strong><span>{rest?`${rest.days} día(s) de descanso`:'Descanso S/D'}</span><small>{key.length?key.slice(0,4).map(p=>`${p.name} · ${p.status}`).join(' / '):rows.length?'Sin bajas OUT, dudosas o en duda en el parte visible.':'Sin estados verificados para este partido.'}</small></div>;
+          return <div className={styles.sampleCard} key={team}><strong>{team}</strong><span>{rest?`${rest.days} día(s) de descanso`:'Descanso S/D'}</span><small>{key.length?key.slice(0,4).map(p=>`${p.name} · ${p.status}`).join(' / '):rows.length?'Sin bajas ni estados dudosos en el parte vigente.':injuryEditionLabel(injuryReport.editions?.find(e=>e.team===team&&e.date===filters.date&&e.game.away===away&&e.game.home===home))}</small></div>;
         })}</div>
         {scheduled&&<Link className={styles.back} href={`/trending?date=${filters.date}&game=${scheduled.id}&mode=prices`}>Comparar líneas de ambos equipos →</Link>}
       </section>
+      {scheduled&&<NbaLastLineups key={scheduled.id} context={{away,home,date:filters.date,start:scheduled.start??undefined,returnTo:matchupHref(away,home,filters.date,scheduled.start??undefined)}}/>}
       <MatchupFilterBar path={`/partidos/${away}-${home}`} filters={filters} seasons={seasons.length ? seasons : [filters.season]} start={start} />
       <div className={styles.context}>
         <strong>Estadísticas {filters.season}</strong><span>{sample} · {filters.phase === 'ALL' ? 'Regular + playoffs' : filters.phase === 'Playoffs' ? 'Playoffs' : 'Temporada regular'}</span>

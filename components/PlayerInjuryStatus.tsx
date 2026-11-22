@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import {useEffect,useState} from 'react';
 import {useAnalysisQuery} from '@/hooks/useAnalysisQuery';
-import {selectPlayerInjury,injuryPlayerId,reportDateLabel,reportTimeLabel,type InjuryReport} from '@/lib/injuryReport';
+import {selectPlayerInjury,reportDateLabel,reportTimeLabel,type InjuryReport} from '@/lib/injuryReport';
 import {parseGameContext,type GameContext} from '@/lib/playerNavigation';
 import {isDate} from '@/lib/ticketReader/model';
 import InjuryStatusBadge from './InjuryStatusBadge';
@@ -25,21 +25,13 @@ export default function PlayerInjuryStatus({playerId,team,date,context}:{playerI
  const {data:report}=useAnalysisQuery<InjuryReport>(`/api/injury-report?date=${targetDate}`);
  if(!report?.available)return null;
  const own=selectPlayerInjury(report,playerId,targetDate,targetContext);
- const teammates=report.items.filter(p=>p.date===targetDate&&p.team===team&&p.playerId!==injuryPlayerId(playerId)&&p.status!=='AVAILABLE'&&(!targetContext||p.game?.away===targetContext.away&&p.game?.home===targetContext.home));
- if(!own&&!teammates.length)return null;
+ if(!own)return null;
  return <section data-inline-injury aria-label="Estado médico del jugador" className="mosk-injury-strip">
    {own&&<div className="flex flex-wrap items-center gap-2">
      <InjuryStatusBadge item={own}/>
      {own.reason&&<span>{own.reason}</span>}
      {(report.stale||own.stale||own.conflict)&&<strong>Revisar vigencia del parte</strong>}
    </div>}
-   {teammates.length>0&&<details>
-     <summary className="cursor-pointer font-semibold">Compañeros en el parte ({teammates.length})</summary>
-     <div className="mt-2 grid gap-2">{teammates.map(p=><div key={p.id} className="flex flex-wrap items-center gap-2">
-       <strong>{p.name}</strong><InjuryStatusBadge item={p}/>
-       {p.playerId&&team&&<button type="button" className="mosk-text-link" onClick={()=>window.dispatchEvent(new CustomEvent('nba-compare-teammate',{detail:{playerId,name:p.name,team}}))}>Comparar con/sin</button>}
-     </div>)}</div>
-   </details>}
    <Link href={`/injuries?date=${targetDate}${team?'&team='+team:''}`} className="mosk-text-link" title={own?`Parte del ${reportDateLabel(own.reportGameDate)} · ${reportTimeLabel(own.reportAt)}`:'Ver el parte publicado'}>Ver parte ↗</Link>
  </section>;
 }

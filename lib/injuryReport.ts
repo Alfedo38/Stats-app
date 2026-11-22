@@ -9,7 +9,7 @@ export type InjuryStatus=typeof INJURY_STATUSES[number];
 export const INJURY_LABELS:Record<InjuryStatus,string>={PROBABLE:'Probable',QUESTIONABLE:'En duda',DOUBTFUL:'Muy dudoso',OUT:'Fuera',AVAILABLE:'Disponible',UNKNOWN:'Por confirmar'};
 export type ReportGame={id:string;date:string;away:string;home:string;start:string|null};
 export type InjuryItem={id:string;playerId:number|null;name:string;team:string;date:string;reportGameDate:string;matchup:string;status:InjuryStatus;reason:string|null;reportAt:string|null;source:string;game:ReportGame|null;conflict:boolean;stale:boolean};
-export type InjuryReport={ok:true;available:boolean;calendarAvailable:boolean;games?:ReportGame[];date:string;nextDate:string;latestReportAt:string|null;queriedAt:string;stale:boolean;items:InjuryItem[];warnings:string[]};
+export type InjuryReport={ok:true;available:boolean;calendarAvailable:boolean;games?:ReportGame[];editions?:InjuryEdition[];date:string;nextDate:string;latestReportAt:string|null;queriedAt:string;stale:boolean;items:InjuryItem[];warnings:string[]};
 export function injuryDate(raw:unknown):string|null{const value=raw instanceof Date?Number.isFinite(raw.getTime())?raw.toISOString().slice(0,10):'':typeof raw==='string'?raw.slice(0,10):'';return isDate(value)?value:null;}
 export function injuryTimestamp(raw:unknown):string|null{
  if(raw instanceof Date)return Number.isFinite(raw.getTime())?raw.toISOString():null;
@@ -48,3 +48,43 @@ export function injuryPlayerId(value:unknown):number|null {
  const id=Number(value);return Number.isSafeInteger(id)&&id>0?id:null;
 }
 export function selectPlayerInjury(report:InjuryReport,playerId:number|string,date:string,context:GameContext|null=null){const id=injuryPlayerId(playerId);if(id===null)return null;const rows=report.items.filter(p=>p.playerId===id&&p.date===date&&(!context||p.game?.away===context.away&&p.game?.home===context.home));return rows.length===1?rows[0]:null;}
+
+export type InjuryEdition = {date:string;team:string;game:ReportGame;state:'listed'|'pending'|'clear';reportAt:string;stale:boolean};
+export function injuryEditionLabel(edition?:InjuryEdition|null){
+ if(!edition)return 'Sin parte verificado';
+ return edition.state==='pending'?'Parte pendiente de envío':edition.state==='clear'?'Sin novedades informadas':'Parte oficial';
+}
+function editionKey(day:string,matchup:string,team:string){return [day,normalizedEvent(matchup),team].join('|');}
+export function mergeInjuryEditions(legacy:Raw[],rows:Raw[],games:ReportGame[],now:Date){
+ const covered=new Map<string,{edition:InjuryEdition;players:Raw[]}>();
+ const recent=new Map<string,string>();
+ for(const row of legacy){
+  const day=injuryDate(row.game_date),team=injuryTeam(row.team),at=injuryTimestamp(row.report_ts);
+  if(!day||!team||!at)continue;
+  const key=editionKey(day,String(row.matchup??''),team);
+  if(at>(recent.get(key)??''))recent.set(key,at);
+ }
+ for(const row of rows){
+  const day=injuryDate(row.game_date),team=injuryTeam(row.team),at=injuryTimestamp(row.report_ts),matchup=String(row.matchup??'');
+  if(!day||!team||!at||Date.parse(at)>now.getTime()+300000||(row.state!=='listed'&&row.state!=='pending'&&row.state!=='clear')||!Array.isArray(row.players)||row.players.length>30)continue;
+  const key=editionKey(day,matchup,team),matching=games.filter(g=>nbaHistoryCutoff(g)===day&&(g.away===team||g.home===team)&&normalizedEvent(g.away+'-'+g.home)===normalizedEvent(matchup));
+  if(matching.length!==1||at<(recent.get(key)??'')||at<=(covered.get(key)?.edition.reportAt??''))continue;
+  const game=matching[0],until=game.start?Date.parse(game.start)-now.getTime():Infinity;
+  const freshLimit=until>=0&&until<=2*3600000?35*60000:36*3600000;
+  const players=row.players.flatMap((p:unknown,index:number)=>{
+   if(!p||typeof p!=='object')return [];
+   const {name,status,reason}=p as Raw;
+   if(typeof name!=='string'||!name.trim()||name.length>120||injuryStatus(status)==='UNKNOWN')return [];
+   return [{id:[key,index].join('|'),report_ts:at,game_date:day,matchup,team,
+    player_name:name.includes(',')?name.split(',').slice(1).join(' ').trim()+' '+name.split(',')[0].trim():name,
+    normalized_status:status,reason,source:'Parte oficial NBA'}];
+  });
+  if(players.length!==row.players.length||(row.state==='listed')!==(players.length>0))continue;
+  covered.set(key,{edition:{date:game.date,team,game,reportAt:at,state:row.state,stale:now.getTime()-Date.parse(at)>freshLimit},players});
+ }
+ const inherited=legacy.filter(row=>{
+  const day=injuryDate(row.game_date),team=injuryTeam(row.team);
+  return !day||!team||!covered.has(editionKey(day,String(row.matchup??''),team));
+ });
+ return {rows:[...inherited,...[...covered.values()].flatMap(x=>x.players)],editions:[...covered.values()].map(x=>x.edition)};
+}

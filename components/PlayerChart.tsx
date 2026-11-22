@@ -442,7 +442,8 @@ export default function PlayerChart({
           strokeDasharray={clean?"5 4":"7 5"}
           label={{
             value: clean?lineValue.toLocaleString('es-AR'):`Línea ${lineValue}`,
-            position: clean?"left":"right",
+            position: clean?"insideTopRight":"right",
+            offset: clean?8:5,
             fill: clean?"var(--text)":"#10b981",
             fontSize: clean?10:11,
             fontWeight: clean?700:900,

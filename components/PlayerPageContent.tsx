@@ -11,25 +11,12 @@ import NBAContextExplorer from "@/components/NBAContextExplorer";
 import type { ActiveFilter } from "@/components/StatFilters";
 import type { GameSlot } from "@/lib/api";
 
-type StakeOdd = {
-  player_name: string;
-  prop_type: string;
-  line: number | null;
-  matchup: string | null;
-  over_price: number | null;
-  under_price: number | null;
-  updated_at: string | null;
-  book?: string | null;
-  source?: string | null;
-};
-
 interface PlayerPageContentProps {
   analyzerStorageKey?:string;
   stats: any[];
   navStats: { id: string; label: string }[];
   playerName: string;
   initialStat?: string;
-  stakeOdds: StakeOdd[];
   teammates: TeamMate[];
   teamAbbr: string | null;
   currentPlayerId: string;
@@ -57,7 +44,6 @@ export default function PlayerPageContent({
   navStats,
   playerName,
   initialStat = "pts",
-  stakeOdds,
   teammates,
   teamAbbr,
   currentPlayerId,
@@ -232,7 +218,6 @@ export default function PlayerPageContent({
               selectedGame={selectedGame}
               onSelectGame={setSelectedGame}
               filterTeams={filterTeams}
-              stakeOdds={stakeOdds}
               className="min-h-0 flex-1"
             />
           </aside>
@@ -249,7 +234,6 @@ export default function PlayerPageContent({
           playerTeam={teamAbbr}
           teammates={teammates}
           playerId={currentPlayerId}
-          stakeOdds={stakeOdds}
           filterTeams={filterTeams}
           opponent={nextOpponent || null}
           homeAway={nextHomeAway || null}

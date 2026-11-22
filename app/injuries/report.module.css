@@ -3,3 +3,5 @@
 .count button { min-height:32px; padding:5px 8px; border-radius:7px; }
 .count button:focus-visible { outline:2px solid var(--brand); outline-offset:2px; }
 @media(pointer:coarse) { .count button { min-height:44px; } }
+.editions{display:flex;flex-wrap:wrap;gap:.4rem;list-style:none;padding:0;margin:.55rem 0}
+.editions li{border:1px solid var(--border);background:var(--surface);border-radius:.5rem;padding:.3rem .5rem;color:var(--text-muted);font-size:.75rem}

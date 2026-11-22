@@ -18,3 +18,9 @@
 .strip>div,.strip>button{flex:1 1 110px;text-align:left;padding:6px 8px;border-radius:8px;background:var(--bg);border:1px solid var(--border);min-width:0;font-size:.73rem}
 .strip small{display:block;color:var(--text-muted);font-size:.67rem}.strip b{font-size:.82rem;font-variant-numeric:tabular-nums}
 @media(max-width:640px){.twoCols{grid-template-columns:1fr}.disclosure>summary{padding:11px}.body{padding:0 10px 10px}}
+.lineups { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.75rem; }
+.lineups section { padding:.65rem .8rem; border:1px solid var(--border); border-radius:8px; }
+.lineups ul { margin-top:.35rem; }
+.lineups li a { display:inline-block; padding:.25rem 0; }
+.lineups a:hover { text-decoration:underline; }
+@media(max-width:400px){ .lineups { grid-template-columns:1fr; } }

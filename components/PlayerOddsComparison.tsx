@@ -19,6 +19,11 @@ export default function PlayerOddsComparison({ rows, line, side, loading, error,
   if(market==='fg2a'||market==='fg2m')return <p className="text-xs text-[var(--text-muted)]">Solo estadísticas · Sin cuotas asociadas</p>;
   const label = side === 'over' ? 'Over' : 'Under';
   const state=playerQuoteState({rows,eventRows,line,side,market,scope,eventReady,loading,error:!!error});
+  const knownError=state.status==='unavailable'&&error&&[
+    'No se pudieron verificar las cuotas: hay demasiadas capturas para este jugador.',
+    'La fuente de cuotas no está disponible.',
+    'Tu sesión terminó. Volvé a iniciar sesión.',
+  ].includes(error)?error:null;
 
   return (
     <div className="min-w-0" aria-busy={loading}>
@@ -26,7 +31,7 @@ export default function PlayerOddsComparison({ rows, line, side, loading, error,
         cards={PRICE_BOOKS.map(book=>({key:book.key,label:book.label,price:priceAt(rows,book.key,line,side)?.price??null}))}
         selectedBook={selectedBook} onSelectBook={onSelectBook}/>
       {loading && <span className="sr-only" role="status">Actualizando cuotas…</span>}
-      {state.message&&<p className="mt-1 max-w-64 text-[10px] leading-4 text-[var(--text-muted)]" role="status">{state.status==='line_missing'?'Sin cuota para esta línea.':state.message}{onRetry&&!loading&&eventReady&&state.status==='unavailable'&&<button type="button" onClick={onRetry} className="ml-1 font-bold text-[#10b981]">Reintentar</button>}</p>}
+      {state.message&&<p className="mt-1 max-w-64 text-[10px] leading-4 text-[var(--text-muted)]" role="status">{state.status==='line_missing'?'Sin cuota para esta línea.':knownError??state.message}{onRetry&&!loading&&eventReady&&state.status==='unavailable'&&<button type="button" onClick={onRetry} className="ml-1 font-bold text-[#10b981]">Reintentar</button>}</p>}
       {!!state.lines.length&&onSelectLine&&<details className="mt-1 max-w-64 text-[10px] text-[var(--text-muted)]"><summary className="cursor-pointer">Ver líneas disponibles</summary><div className="mt-1 flex flex-wrap gap-1">{state.lines.map(value=><button type="button" key={value} onClick={()=>onSelectLine(value)} className="rounded border border-[var(--border)] px-2 py-1 font-bold text-[#10b981]">{label} {value.toLocaleString('es-AR')}</button>)}</div></details>}
     </div>
   );

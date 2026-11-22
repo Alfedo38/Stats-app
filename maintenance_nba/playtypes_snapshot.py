@@ -8,7 +8,10 @@ from pathlib import Path
 import re
 from time import sleep
 
-from .assist_league import TEAMS, ARCHIVE_TZ
+from zoneinfo import ZoneInfo
+from .defense_snapshot import TEAMS
+
+ARCHIVE_TZ = ZoneInfo("America/New_York")
 from .rotation_pilot import atomic_json, require
 
 KINDS = ("PRBallHandler", "Isolation", "Transition", "Spotup", "PRRollman")
@@ -28,7 +31,7 @@ def normalize(rows, kind, team_mode, season):
     expected = str(int(season[:4]))
     found = {}
     for row in rows:
-        if not str(row["SEASON_ID"]).endswith(expected) or row["PLAY_TYPE"].lower() != kind.lower():
+        if str(row["SEASON_ID"]) not in (season, expected, "2"+expected) or row["PLAY_TYPE"].lower() != kind.lower():
             raise ValueError("JUGADA_O_TEMPORADA_DISTINTA")
         mode = "defensive" if team_mode else "offensive"
         require(row["TYPE_GROUPING"].lower() == mode, "GRUPO_DE_JUGADA_DISTINTO")
@@ -64,17 +67,26 @@ def collect(season):
             for key, data in normalize(next(iter(datasets.values())), kind, team_mode, season).items():
                 parts[role].setdefault(key, {})[kind] = data
             sleep(1.2)
-    return {"version": 1, "season": season, "capturedOn": datetime.now(ARCHIVE_TZ).date().isoformat(), **parts}
+    at = datetime.now(ARCHIVE_TZ)
+    return {"version": 1, "season": season, "capturedOn": at.date().isoformat(), "capturedAt": at.isoformat(), **parts}
 
 
 def archive_parts(state, directory, manifest, save_part):
     import json
+    groups = {}
     for path in sorted((state / "nba-playtypes").glob("*.json")):
-        require(re.fullmatch(r"20\d{2}-\d{2}", path.stem) and path.stat().st_size <= 500_000, "PERFIL_OFENSIVO_INVALIDO")
+        match = re.fullmatch(r"(20\d{2}-\d{2})(?:--(20\d{2}-\d{2}-\d{2}))?", path.stem)
+        require(match is not None and path.stat().st_size <= 500_000, "PERFIL_OFENSIVO_INVALIDO")
+        season, capture = match.groups()
         data = json.loads(path.read_text())
-        require(data.get("version") == 1 and data.get("season") == path.stem, "PERFIL_OFENSIVO_INVALIDO")
-        name = f"{PART}/{path.stem}"
-        manifest["parts"][name] = save_part(directory, name, data)
+        require(data.get("version") == 1 and data.get("season") == season, "PERFIL_OFENSIVO_INVALIDO")
+        if capture:
+            require(data.get("capturedOn") == capture and datetime.fromisoformat(data["capturedAt"]).date().isoformat() == capture, "FECHA_DE_PERFIL_INVALIDA")
+        groups.setdefault(season, []).append((data["capturedOn"], capture, data))
+    for season, profiles in groups.items():
+        for _, capture, data in sorted(profiles, key=lambda r: (r[0], r[1] or ""))[-4:]:
+            name = f"{PART}/{season}" + (f"/{capture}" if capture else "")
+            manifest["parts"][name] = save_part(directory, name, data)
 
 
 def main():
@@ -88,10 +100,10 @@ def main():
         root = args.output_project.expanduser()
         require((root / "package.json").is_file(), "PROYECTO_INVALIDO")
         data = collect(season)
-        path = root / "maintenance-state" / "nba-playtypes" / f"{season}.json"
+        path = root / "maintenance-state" / "nba-playtypes" / f'{season}--{data["capturedOn"]}.json'
         atomic_json(path, data)
         print(f"{data['capturedOn']} · {len(data['players'])} jugadores y {len(data['teams'])} equipos · {path}")
-    except (ImportError, OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
+    except Exception as exc:
         parser.exit(1, f"No se pudo verificar el perfil ({type(exc).__name__}). Se conserva la captura anterior.\n")
 
 

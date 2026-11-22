@@ -119,3 +119,14 @@ export function contextEmptyText(kind:'shots'|'matchups',coverage:ReturnType<typ
   if(!coverage.total)return 'No hay partidos seleccionados con estos filtros.';
   return `${coverage.total} partido(s) seleccionado(s) · ${coverage[kind]} con ${kind==='shots'?'tiros':'asignaciones defensivas'} disponibles.`;
 }
+
+export function reboundSplit(rows:EvidenceRow[]){
+  const sample=evidenceRows(rows),both=sample.flatMap(row=>{
+    const off=evidenceValue(row,'oreb'),def=evidenceValue(row,'dreb'),total=evidenceValue(row,'reb');
+    return off===null||def===null||!Number.isInteger(off)||!Number.isInteger(def)||off<0||def<0||
+      total!==null&&off+def!==total?[]:[[off,def]];
+  });
+  return {count:both.length,total:sample.length,
+    offense:both.length?both.reduce((sum,r)=>sum+r[0],0)/both.length:null,
+    defense:both.length?both.reduce((sum,r)=>sum+r[1],0)/both.length:null};
+}

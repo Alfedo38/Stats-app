@@ -43,6 +43,6 @@ const busy=renderToStaticMarkup(React.createElement(panel,{rows:[],line:36.5,sid
 assert.ok(busy.includes('aria-busy="true"'));assert.ok(busy.includes('Actualizando cuotas'));
 const route=load('app/api/player-odds/route.ts');assert.equal(authenticated,1);
 assert.equal((await route.GET({url:'http://localhost/?playerName='})).status,400);assert.equal(queries.length,0);
-handler=async()=>[{book:'stake',jugador:'Jugador',stat_key:'PTS',side:'over',model_line:36.5,odds_decimal:1.9,partido:'CHI vs DEN',scraped_at_utc:new Date('2026-10-13T22:00:00Z')}];
+handler=async()=>[{row:{book:'stake',jugador:'Jugador',stat_key:'PTS',side:'over',model_line:36.5,odds_decimal:1.9,partido:'CHI vs DEN',scraped_at_utc:'2026-10-13T22:00:00Z'}}];
 const result=await route.GET({url:'http://localhost/?playerName=Jugador'});assert.equal(result.status,200);assert.equal(result.data.odds[0].over_price,1.9);assert.equal(result.headers['Cache-Control'],'private, no-store');assert.ok(JSON.stringify(queries[0].values).includes('jugador'));
 console.log('Panel y API de cuotas (base simulada): códigos visibles, línea única, precios exactos/faltantes, lado Over/Under, autenticación aplicada y lectura por jugador OK.');

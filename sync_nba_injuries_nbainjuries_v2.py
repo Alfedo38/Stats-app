@@ -24,10 +24,10 @@ ROOT = Path(__file__).resolve().parents[1]
 MOTOR_DIR = Path(__file__).resolve().parent
 
 for env_file in [
-    ROOT / ".env.local",
-    ROOT / ".env",
     MOTOR_DIR / ".env.local",
     MOTOR_DIR / ".env",
+    ROOT / ".env.local",
+    ROOT / ".env",
 ]:
     if env_file.exists():
         load_dotenv(env_file, override=False)
@@ -82,20 +82,11 @@ def normalize_player_name(name: str) -> str:
 
 
 def normalize_status(status: str, reason: str = "") -> tuple[str, int]:
-    text = f"{status or ''} {reason or ''}".lower()
-    if "out" in text:
-        return "OUT", 100
-    if "doubtful" in text:
-        return "DOUBTFUL", 80
-    if "questionable" in text:
-        return "QUESTIONABLE", 60
-    if "probable" in text:
-        return "PROBABLE", 25
-    if "available" in text:
-        return "AVAILABLE", 0
-    if not status and not reason:
-        return "UNKNOWN", 10
-    return "UNKNOWN", 15
+    key = str(status or "").strip().lower()
+    grades = {"out": ("OUT", 100), "doubtful": ("DOUBTFUL", 80),
+              "questionable": ("QUESTIONABLE", 60), "probable": ("PROBABLE", 25),
+              "available": ("AVAILABLE", 0)}
+    return grades.get(key, ("UNKNOWN", 10 if not key and not reason else 15))
 
 
 def parse_game_date(value):

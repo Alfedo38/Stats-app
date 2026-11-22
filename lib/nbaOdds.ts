@@ -43,19 +43,58 @@ export function priceAt(rows:PriceQuote[],book:string,line:number,side:'over'|'u
  const quotes=rows.filter(q=>oddsBook(q.book??(q.source==='legacy'?'stake':null))===book&&oddsNumber(q.line)!==null&&Math.abs(Number(q.line)-line)<1e-8).sort((a,b)=>quoteTime(b.updated_at).localeCompare(quoteTime(a.updated_at)));
  const quote=quotes[0];if(!quote)return null;const price=decimalPrice(side==='over'?quote.over_price:quote.under_price);const capturedAt=side==="over"?quote.overCapturedAt:quote.underCapturedAt;return price===null?null:{price,updatedAt:quoteTime(capturedAt===undefined?quote.updated_at:capturedAt)||null};
 }
-export function groupUniversalQuotes(rows:Record<string,any>[]):PriceQuote[]{
+type PublishedRow=Record<string,unknown>;
+const validDay=(v:string)=>/^\d{4}-\d{2}-\d{2}$/.test(v)&&Number.isFinite(Date.parse(v+'T12:00:00Z'))&&new Date(v+'T12:00:00Z').toISOString().slice(0,10)===v;
+export function publishedQuoteDate(row:PublishedRow){
+ const day=(v:unknown)=>v instanceof Date&&Number.isFinite(v.getTime())?v.toISOString().slice(0,10):String(v??'').slice(0,10);
+ const explicit=day(row.event_date);
+ if(validDay(explicit))return explicit;
+ const start=row.start_time||row.start_utc;
+ if(start instanceof Date||typeof start==='string'&&/(?:Z|[+-]\d{2}:?\d{2})$/.test(start)){
+  const d=start instanceof Date?start:new Date(start);
+  if(Number.isFinite(d.getTime())){
+   const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Argentina/Buenos_Aires',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(d);
+   return ['year','month','day'].map(k=>parts.find(x=>x.type===k)!.value).join('-');
+  }
+ }
+ const legacy=day(row.game_date);
+ return validDay(legacy)?legacy:null;
+}
+export function publishedQuoteScope(row:PublishedRow){
+ const scopes=[row.period_scope,row.period,row.scope,row.market_scope].filter(v=>v!=null&&String(v).trim()!=='').map(oddsScope);
+ return scopes.length?scopes.every(v=>v!==null&&v===scopes[0])?scopes[0]:null:'FULL';
+}
+export function publishedQuoteEnabled(row:PublishedRow){
+ return [row.active,row.is_active,row.bookmaker_is_active,row.valid].filter(v=>v!=null&&String(v).trim()!=='').every(v=>v===true||v===1||['true','t','1'].includes(String(v).toLowerCase().trim()));
+}
+export function publishedQuoteCapture(row:PublishedRow,now:Date){
+ const raw=row.scraped_at_utc??row.updated_at;
+ const date=raw instanceof Date?raw:typeof raw==='string'&&raw.trim()?new Date(raw):null;
+ return date&&Number.isFinite(date.getTime())&&date.getTime()<=now.getTime()?date.toISOString():null;
+}
+export function publishedQuoteEvent(row:PublishedRow){
+ const primary=normalizedEvent(row.game_norm);
+ return /^[A-Z]{3}-[A-Z]{3}$/.test(primary)?primary:normalizedEvent(row.partido||row.game_norm);
+}
+export function publishedSelection(row:PublishedRow){
+ const raw=oddsNumber(row.model_line??row.threshold),op=norm(row.side);
+ if(raw===null||raw<0)return null;
+ const line=op==='at_least'?Math.ceil(raw)-.5:op==='at_most'?Math.floor(raw)+.5:raw;
+ const side=op==='at_least'||op==='over'?'over' as const:op==='at_most'||op==='under'?'under' as const:null;
+ return side&&line>=0&&line<=300?{line,side}:null;
+}
+export function groupUniversalQuotes(rows:Record<string,any>[],now=new Date()):PriceQuote[]{
  const grouped=new Map<string,PriceQuote>(),states=new Map<string,{time:string;price:number|null}>();
- for(const row of [...rows].sort((a,b)=>quoteTime(b.scraped_at_utc).localeCompare(quoteTime(a.scraped_at_utc)))){
-  const book=oddsBook(row.book),market=oddsMarket(row.stat_key),scope=oddsScope(row.period_scope??row.period??row.scope??row.market_scope),line=oddsNumber(row.model_line??row.threshold),price=decimalPrice(row.odds_decimal);
-  if(!book||!market||!scope||line===null||line<0||!['over','under'].includes(String(row.side).toLowerCase()))continue;
-  const event=normalizedEvent(row.game_norm||row.partido);
-  const date=String(row.event_date??row.game_date??row.start_time??'').slice(0,10)||null;
+ const usable=rows.flatMap(row=>{const time=publishedQuoteCapture(row,now);return time?[{row,time}]:[];}).sort((a,b)=>b.time.localeCompare(a.time));
+ for(const {row,time} of usable){
+  const book=oddsBook(row.book),market=oddsMarket(row.stat_key),scope=publishedQuoteScope(row),selection=publishedSelection(row),price=decimalPrice(row.odds_decimal);
+  if(!book||!market||!scope||!selection||(row.league!=null&&String(row.league).trim().toUpperCase()!=='NBA'))continue;
+  const {line,side}=selection,event=publishedQuoteEvent(row),date=publishedQuoteDate(row);
   const eventKey=`${event}|${date??''}`;
   const key=`${book}|${eventKey}|${scope}|${market}|${line}`;
-  const quote:PriceQuote=grouped.get(key)??{player_name:row.jugador??row.player_norm??'',prop_type:market,line,matchup:row.partido||row.game_norm||null,over_price:null,under_price:null,updated_at:quoteTime(row.scraped_at_utc)||null,book,scope,event_key:eventKey,event_date:date,source:'universal'};
-  const field=String(row.side).toLowerCase()==='over'?'over_price':'under_price';
-  const sideKey=`${key}|${field}`,flags=[row.active,row.is_active].filter(v=>v!==undefined&&v!==null);
-  const enabled=flags.every(v=>v===true||v===1||['true','t','1'].includes(String(v).toLowerCase())),nextPrice=enabled?price:null,time=quoteTime(row.scraped_at_utc),previous=states.get(sideKey);
+  const quote:PriceQuote=grouped.get(key)??{player_name:row.jugador??row.player_norm??'',prop_type:market,line,matchup:/^[A-Z]{3}-[A-Z]{3}$/.test(event)?event:row.partido||row.game_norm||null,over_price:null,under_price:null,updated_at:time,book,scope,event_key:eventKey,event_date:date,source:'universal'};
+  const field=side==='over'?'over_price':'under_price';
+  const sideKey=`${key}|${field}`,nextPrice=publishedQuoteEnabled(row)?price:null,previous=states.get(sideKey);
   if(!previous){quote[field]=nextPrice;quote[field==="over_price"?"overCapturedAt":"underCapturedAt"]=time||null;states.set(sideKey,{time,price:nextPrice});}
   else if(previous.time===time&&previous.price!==nextPrice)quote[field]=null;
   grouped.set(key,quote);

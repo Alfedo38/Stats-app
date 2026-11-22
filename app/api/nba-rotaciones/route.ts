@@ -2,6 +2,7 @@ import {NextResponse} from 'next/server';
 import {withAuth,readBody} from '@/lib/auth/server';
 import {playerRotations} from '@/lib/nbaRotationData';
 import {rotationGameId,rotationSample,summarizeRotation} from '@/lib/nbaRotations';
+import {quarterRole} from '@/lib/nbaSubstitutions';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 const headers={'Cache-Control':'private, no-store'};
@@ -12,7 +13,8 @@ export const POST=withAuth(async (req:Request)=>{
   return NextResponse.json({ok:false,error:'Revisá el jugador y los partidos.'},{status:400,headers});
  try{
   const d=await playerRotations(playerId,undefined,data.gameIds);
-  return NextResponse.json({ok:true,available:d.available,source:d.source,games:rotationSample(d.rows,data.gameIds),coverage:summarizeRotation(d.rows,data.gameIds)},{headers});
+  const games=rotationSample(d.rows,data.gameIds);
+  return NextResponse.json({ok:true,available:d.available,source:d.source,games,coverage:summarizeRotation(d.rows,data.gameIds),changes:d.changes,quarters:quarterRole(games)},{headers});
  }catch{
   return NextResponse.json({ok:false,error:'No se pudieron leer las rotaciones. Reintentá.'},{status:503,headers});
  }

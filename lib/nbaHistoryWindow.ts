@@ -17,3 +17,18 @@ export function twoSeasonRows<T extends {game_date?:unknown;date?:unknown}>(rows
  const seasons=historySeasons(reference),start=`${seasons[1].slice(0,4)}-10-01`,end=`${Number(seasons[0].slice(0,4))+1}-10-01`;
  return rows.filter(row=>{const raw=row.game_date??row.date,date=raw instanceof Date?raw.toISOString().slice(0,10):String(raw??'').slice(0,10);const parsed=Date.parse(date+'T12:00:00Z');return /^\d{4}-\d{2}-\d{2}$/.test(date)&&Number.isFinite(parsed)&&new Date(parsed).toISOString().slice(0,10)===date&&date>=start&&date<end;});
 }
+
+export type PlayerSeasonWindow='current'|'previous'|'last2';
+export function playerSeasonWindow(value:unknown):PlayerSeasonWindow {
+ return value==='previous'||value==='last2'?value:'current';
+}
+export function playerWindowRows<T extends {game_date?:unknown;date?:unknown}>(rows:T[],reference:string|null|undefined,window:PlayerSeasonWindow,rival:boolean,full=true):T[]{
+ const seasons=historySeasons(reference);
+ const chosen=rival?(full?matchupSeasons(reference):seasons):window==='last2'?seasons:[seasons[window==='previous'?1:0]];
+ const start=chosen.at(-1)!.slice(0,4)+'-10-01',end=(Number(chosen[0].slice(0,4))+1)+'-10-01';
+ return rows.filter(row=>{
+  const raw=row.game_date??row.date,date=raw instanceof Date&&Number.isFinite(raw.getTime())?raw.toISOString().slice(0,10):String(raw??'').slice(0,10);
+  const parsed=Date.parse(date+'T12:00:00Z');
+  return date>=start&&date<end&&(!reference||date<reference)&&Number.isFinite(parsed)&&new Date(parsed).toISOString().slice(0,10)===date;
+ });
+}

@@ -10,7 +10,7 @@ import JornadaExplorer from "./JornadaExplorer";
 import {argDate} from "@/lib/nbaJornada";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "On Fire | MoskProps" };
+export const metadata = { title: "Jornada NBA" };
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -159,7 +159,7 @@ export default async function TrendingPage({searchParams}:{searchParams:Promise<
           </p>
         </header>
 
-        <nav aria-label="Vistas de On Fire" className="flex gap-2 flex-wrap">
+        <nav aria-label="Vistas de Jornada NBA" className="flex gap-2 flex-wrap">
           <Link href="/trending" aria-current={!ranking?'page':undefined} className={`px-4 py-2.5 rounded-xl border text-xs font-black ${!ranking?'border-[#10b981] text-[#10b981] bg-[var(--brand-soft)]':'border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)]'}`}>Jornada</Link>
           <Link href="/trending?view=rankings" aria-current={ranking?'page':undefined} className={`px-4 py-2.5 rounded-xl border text-xs font-black ${ranking?'border-[#10b981] text-[#10b981] bg-[var(--brand-soft)]':'border-[var(--border)] bg-[var(--surface)] text-[var(--text-muted)]'}`}>Rankings L5</Link>
         </nav>

@@ -20,7 +20,7 @@ export function DefenseReadout({data,opponent,position,side}:{data:DefenseReport
  const metric=unit[data.settings?.market]??(DEFENSE_MARKETS[data.settings?.market]??'unidades').toLowerCase();
  const short=row.games<(data.minGames??5);
  return <div className={styles.readout}>
-  <div className={styles.allowed}><strong>{fmt(row.allowed)}</strong><span>{metric} permitidos por partido</span></div>
+  <div className={styles.allowed}><strong>{fmt(row.allowed)}</strong><span>{metric} que permite por partido</span></div>
   {row.rank!==null&&<p className={styles.coverage}><strong>{row.rank}.º de {row.rankedTeams}</strong> por lo que permite{row.rankedTeams<30?' · ranking parcial':''}</p>}
   {delta!==null&&<p className={styles.delta}>{Math.abs(delta)<.05?'Similar al promedio de la liga':`${fmt(Math.abs(delta))}% ${delta>0?'más':'menos'} que el promedio de la liga`}</p>}
   <p className={styles.coverage}>Datos de <strong>{row.games} de {row.total} partidos</strong>.{short?' Todavía hay pocos partidos para comparar.':''}</p>

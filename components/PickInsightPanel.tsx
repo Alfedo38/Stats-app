@@ -73,7 +73,7 @@ function getLean(hitRate: number, avgValue: number, lineValue: number, side: "ov
   }
   if (hitRate <= 35 && !favorableAverage) {
     return {
-      label: "Historial dividido",
+      label: "Menos aciertos que fallos",
       verdict: "nobet",
       icon: TrendingDown,
       heroClass: "bg-red-500/10 border-red-500/40",
@@ -82,7 +82,7 @@ function getLean(hitRate: number, avgValue: number, lineValue: number, side: "ov
     };
   }
   return {
-    label: "Menos aciertos que fallos",
+    label: hitRate>50?"Más aciertos que fallos":hitRate<50?"Menos aciertos que fallos":"Igual cantidad de aciertos y fallos",
     verdict: "nobet",
     icon: ShieldQuestion,
     heroClass: "bg-yellow-500/10 border-yellow-500/40",

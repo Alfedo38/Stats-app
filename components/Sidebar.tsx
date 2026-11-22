@@ -37,7 +37,7 @@ export default function Sidebar() {
     { name: "Analizar ticket", path: "/analizar-ticket", icon: <Ticket size={18} /> },
     { name: "Equipos", path: "/teams", icon: <Users size={18} /> },
     { name: "Parte Médico", path: "/injuries", icon: <Stethoscope size={18} /> },
-    { name: "On Fire", path: "/trending", icon: <Flame size={18} /> },
+    { name: "Jornada NBA", path: "/trending", icon: <Flame size={18} /> },
   ];
 
   const wnbaItems = [

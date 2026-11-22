@@ -1,11 +1,11 @@
 import {isDate,TEAMS} from './ticketReader/model';
 
 export const PLAYTYPES={PRBallHandler:'Pick and roll con pelota',Isolation:'Uno contra uno',Transition:'Transición',
- Spotup:'Tiro tras recibir',PRRollman:'Continuación del bloqueo'} as const;
+ Spotup:'Ataque tras recibir (spot up)',PRRollman:'Continuación del bloqueo'} as const;
 type PlayType=keyof typeof PLAYTYPES;
 type Line=[pointsPerGame:number,ppp:number,games:number,possessions:number];
 type Profile=Partial<Record<PlayType,Line>>;
-type Snapshot={version:1;season:string;capturedOn:string;players:Record<string,Profile>;teams:Record<string,Profile>};
+type Snapshot={version:1;season:string;capturedOn:string;capturedAt?:string;players:Record<string,Profile>;teams:Record<string,Profile>};
 export type PlaytypeReport={available:boolean;capturedOn:string|null;rows:{name:string;points:number;ppp:number;plays:number;
  games:number;rivalPpp:number|null;rivalPlays:number|null;leaguePpp:number|null}[]};
 const finite=(n:unknown,max:number):n is number=>typeof n==='number'&&Number.isFinite(n)&&n>=0&&n<=max;
@@ -17,12 +17,15 @@ function checkedProfile(raw:unknown){
  }
  return raw as Profile;
 }
-export function playerPlaytypes(raw:unknown,pid:number,team:string|null,season:string,cutoff:string):PlaytypeReport{
+export function playerPlaytypes(raw:unknown,pid:number,team:string|null,season:string,cutoff:string,start?:string|null):PlaytypeReport{
  const d=raw as Snapshot|null;
  if(!d)return {available:false,capturedOn:null,rows:[]};
  if(d.version!==1||!isDate(d.capturedOn)||d.season!==season||!d.players||Array.isArray(d.players)||!d.teams||
   Array.isArray(d.teams)||Object.keys(d.players).length>700||Object.keys(d.teams).some(t=>!TEAMS.includes(t)))throw Error('PLAYTYPES_DATA');
- if(cutoff<=d.capturedOn||!Object.hasOwn(d.players,String(pid)))return {available:false,capturedOn:d.capturedOn,rows:[]};
+ const observed=d.capturedAt?Date.parse(d.capturedAt):NaN;
+ const sameDay=d.capturedOn===cutoff&&start&&Number.isFinite(Date.parse(start))&&Number.isFinite(observed)
+    &&d.capturedAt?.slice(0,10)===d.capturedOn&&observed<Date.parse(start);
+ if((cutoff<=d.capturedOn&&!sameDay)||!Object.hasOwn(d.players,String(pid)))return {available:false,capturedOn:d.capturedOn,rows:[]};
  const own=checkedProfile(d.players[String(pid)]),rival=team&&d.teams[team]?checkedProfile(d.teams[team]):null;
  const refs=Object.values(d.teams).map(checkedProfile);
  const rows=(Object.keys(PLAYTYPES) as PlayType[]).flatMap(type=>{

@@ -18,7 +18,9 @@ export default function PlayerHeader({playerName,playerId,teamAbbr,position,next
  const rival=LEAGUE_TEAMS.find(t=>t.id===upcoming?.opponent);
  return <header data-player-hero className={styles.hero}>
   <div className={styles.identity}><PlayerPortrait id={playerId} name={playerName} size="hero"/><div><h1>{playerName}</h1><p>{teamAbbr&&<><TeamLogo team={teamAbbr} size={22}/><Link href={`/teams/${teamAbbr}`}>{LEAGUE_TEAMS.find(t=>t.id===teamAbbr)?.name??teamAbbr}</Link></>}{position&&<span>· {position}</span>}{bio?.jerseyNumber&&<span>· #{bio.jerseyNumber}</span>}</p></div></div>
-  {upcoming&&<section data-next-game className={styles.next}><p>Próximo partido</p><Link href={`/teams/${upcoming.opponent}`}><TeamLogo team={upcoming.opponent} size={42}/><div><strong>{upcoming.isHome?'Recibe a':'Visita a'} {rival?.name??upcoming.opponent}</strong><small>{upcoming.date.split('-').reverse().join('/')}{upcoming.time?` · ${upcoming.time} ARG`:''}</small></div><ArrowUpRight size={15}/></Link></section>}
+  {upcoming&&<Link data-next-game className="mosk-hero-match" href={`/teams/${upcoming.opponent}`} title={`${upcoming.date} · ${rival?.name??upcoming.opponent}`}>
+    <TeamLogo team={upcoming.opponent} size={23}/><strong>{upcoming.isHome?'vs.':'@'} {upcoming.opponent}</strong>{upcoming.time&&<small>{upcoming.time} AR</small>}<ArrowUpRight size={12}/>
+  </Link>}
   {bio&&Object.values(bio).some(Boolean)&&<details className={styles.bio}><summary>Datos del jugador</summary><div>{[['Altura',bio.height],['Peso',bio.weight],['Edad',bio.age?`${bio.age} años`:null],['País',bio.country],['Origen',bio.school]].filter(([,value])=>value).map(([label,value])=><span key={String(label)}>{label}: <strong>{value}</strong></span>)}</div></details>}
  </header>;
 }

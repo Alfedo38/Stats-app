@@ -32,7 +32,7 @@ const QUICK_LINKS = [
     href:    "/trending",
     icon:    TrendingUp,
     color:   "#3b82f6",
-    title:   "On Fire",
+    title:   "Jornada NBA",
     desc:    "Jugadores por partido, estadísticas recientes y cuotas por línea.",
   },
   {

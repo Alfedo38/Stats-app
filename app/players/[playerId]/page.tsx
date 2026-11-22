@@ -12,7 +12,6 @@ import {argentinaDate} from "@/lib/ticketReader/model";
 import PlayerPageContent                      from "@/components/PlayerPageContent";
 import { getPlayerData } from "@/lib/api";
 import { getPlayerDataFast } from "@/lib/playerDataFast";
-import { getPlayerOddsMultiBook } from "@/lib/playerOdds";
 import { getPlayerBioDetails } from "@/lib/playerBio";
 import { getCurrentRosterPlayer, getCurrentRosterPlayers, CURRENT_ROSTER_UPDATED_AT } from "@/lib/currentRosters";
 import { ArrowLeft } from "lucide-react";
@@ -37,10 +36,10 @@ const NAV_STATS = [
 
 export async function generateMetadata() {
   return {
-    title: "Jugador | MoskProps",
+    title: "Jugador",
     description: "Análisis de props: hit rates, gráfico histórico, matchup DvP y contexto de cinco años.",
     openGraph: {
-      title: "Jugador | MoskProps",
+      title: "Jugador",
       description: "Estadísticas avanzadas, histórico de cinco años y DvP.",
       type: "website",
     },
@@ -291,10 +290,7 @@ export default async function PlayerPage(props: any) {
       position:p.position,jersey_number:p.jersey_number,roster_updated_at:CURRENT_ROSTER_UPDATED_AT,
     }));
 
-    const [stakeOdds, bioDetails] = await Promise.all([
-      soft("stakeOdds", getPlayerOddsMultiBook(playerName), [] as any[], 900),
-      soft("bioDetails", getPlayerBioDetails(playerId, playerName), null as any, 1500),
-    ]);
+    const bioDetails = await soft("bioDetails", getPlayerBioDetails(playerId, playerName), null as any, 1500);
 
     // Sin schedule server-side para no bloquear el HTML inicial.
     // Dejamos arrays vacíos para mantener compatibilidad con PlayerPageContent.
@@ -350,14 +346,13 @@ export default async function PlayerPage(props: any) {
     ];
 
     const clientStats = JSON.parse(JSON.stringify(clientPlain(cleanStats))) as any[];
-    const clientStakeOdds = JSON.parse(JSON.stringify(clientPlain(stakeOdds))) as any[];
     const clientTeammates = JSON.parse(JSON.stringify(clientPlain(teammates))) as any[];
 
     return (
       <main className="mosk-player-page min-h-screen bg-[var(--bg)] text-[var(--text)] pb-20">
         <nav data-player-nav className="mosk-player-back">
           <Link href={eventContext?.returnTo??"/"} className="text-[var(--text-muted)] hover:text-[#10b981] transition-colors flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
-            <ArrowLeft size={14} /> {eventContext?.returnTo.startsWith("/trending?")?"Volver a On Fire":eventContext?"Volver al partido":"Volver al Inicio"}
+            <ArrowLeft size={14} /> {eventContext?.returnTo.startsWith("/trending?")?"Volver a Jornada NBA":eventContext?"Volver al partido":"Volver al Inicio"}
           </Link>
         </nav>
 
@@ -388,7 +383,6 @@ export default async function PlayerPage(props: any) {
             navStats={NAV_STATS}
             playerName={playerName}
             initialStat={requestedStat}
-            stakeOdds={clientStakeOdds}
             teammates={clientTeammates}
             teamAbbr={teamAbbr ? String(teamAbbr).toUpperCase() : null}
             currentPlayerId={String(playerId)}

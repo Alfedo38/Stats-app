@@ -5,7 +5,7 @@ import {archiveManifest,archivePart,archiveEnabled} from './nbaArchive';
 import {getCurrentRosterPlayers,CURRENT_ROSTER_UPDATED_AT} from './currentRosters';
 import {rosterFitsDate} from './ticketReader/teamContext';
 import {canonicalOddsPlayerName} from './oddsPlayerNames';
-import {oddsMarket} from './nbaOdds';
+import {oddsMarket,publishedQuoteDate} from './nbaOdds';
 import {normalizedGame,plusDays,recentSample,extendedSample,jornadaQuotes,type JornadaData,type JornadaMarket} from './nbaJornada';
 
 const cache=new Map<string,{until:number;value:Promise<JornadaData>}>();
@@ -32,6 +32,7 @@ export async function getNbaSlate(date:string,market:JornadaMarket):Promise<Jorn
   return {...a,games,players:versionsMatch?players:players.map(p=>({...p,values:[],minutes:[],dates:[],opponents:[],rivalValues:undefined,extended:undefined,support:undefined,seasons:[]})),archiveId:versionsMatch?(left.size?a.archiveId:b?.archiveId??null):null,
    history:versionsMatch&&(!left.size||a.history==='ready')&&(!right.size||b?.history==='ready')?'ready':'unavailable',
    quotes:left.size&&a.quotes!=='ready'?a.quotes:right.size&&b?b.quotes:'ready',
+   priceCoverage:players.some(p=>p.quotes.length)?'ready':(left.size&&a.priceCoverage==='unmatched'||right.size&&b?.priceCoverage==='unmatched')?'unmatched':'missing',
    warnings:[...new Set([...(left.size?a.warnings:[]),...(right.size?b?.warnings??[]:[]),...(b?[]:['No pudimos verificar los partidos de madrugada.']),...(versionsMatch?[]:['Cambió el archivo histórico durante la carga. Volvé a consultar la jornada.'])])]};
 }
 export async function getJornadaSchedule(date:string){
@@ -42,6 +43,17 @@ export async function getJornadaSchedule(date:string){
   if(schedule.length>40)throw new JornadaError('SCHEDULE_LIMIT',503,'El calendario necesita revisión. No se mezclaron partidos.');
   return [...new Map(schedule.map(row=>normalizedGame(row,date)).filter(g=>g!==null).map(g=>[g.id,g])).values()];
 }
+const restSchedules=new Map<string,{expires:number;games:Promise<Awaited<ReturnType<typeof getJornadaSchedule>>>}>();
+function withRestSchedule(date:string){
+ const old=restSchedules.get(date);if(old&&old.expires>Date.now())return old.games;
+ const games=prisma.$queryRawUnsafe<Record<string,unknown>[]>(`SELECT nba_game_id,away,home,start_utc,status_id,postponed,
+   to_char(event_date,'YYYY-MM-DD') AS day FROM public.nba_daily_schedule
+   WHERE event_date BETWEEN ($1::date - 2) AND ($1::date - 1) AND status_id=3 AND postponed=false LIMIT 81`,date)
+  .then(rows=>rows.length>80?[]:rows.map(row=>normalizedGame(row,String(row.day))).filter(g=>g!==null))
+  .catch(()=>[]);
+ if(restSchedules.size>=24)restSchedules.delete(restSchedules.keys().next().value!);
+ restSchedules.set(date,{expires:Date.now()+120000,games});return games;
+}
 async function loadJornada(date:string,market:JornadaMarket):Promise<JornadaData>{
   const games=await getJornadaSchedule(date);
   const data:JornadaData={ok:true,date,market,generatedAt:new Date().toISOString(),rosterAt:CURRENT_ROSTER_UPDATED_AT,archiveId:null,history:'ready',quotes:'ready',games,players:[],warnings:[]};
@@ -51,20 +63,29 @@ async function loadJornada(date:string,market:JornadaMarket):Promise<JornadaData
   }
   let summary:Record<string,unknown>={}, rivalIndex:Record<string,Record<string,unknown>>|null=null, extendedIndex:Record<string,unknown>|null=null;
   const roster=getCurrentRosterPlayers([...new Set(games.flatMap(g=>[g.away,g.home]))]);
-  const [historical,prices]=await Promise.allSettled([
+  const [historical,prices,rest]=await Promise.allSettled([
     (async()=>{if(!archiveEnabled())throw Error('DISABLED');const m=await archiveManifest();const s=await archivePart('summaries',m);if(!s?.recent||typeof s.recent!=='object'||Array.isArray(s.recent))throw Error('EMPTY');const extended=m.parts?.jornada_history_v2?await archivePart('jornada_history_v2',m).catch(()=>null):null;const rivals=!extended&&m.parts?.jornada_rivals_v1?await archivePart('jornada_rivals_v1',m).catch(()=>null):null;return {id:m.id,recent:s.recent,rivals,extended};})(),
     prisma.$queryRawUnsafe<{row:Record<string,unknown>}[]>(
-      `SELECT jsonb_build_object('book',book,'jugador',jugador,'player_norm',player_norm,'stat_key',stat_key,'side',side,'model_line',model_line,'threshold',threshold,'odds_decimal',odds_decimal,'partido',partido,'game_norm',game_norm,'scraped_at_utc',scraped_at_utc,'event_date',COALESCE(to_jsonb(o)->>'event_date',to_jsonb(o)->>'game_date'),'start_time',COALESCE(to_jsonb(o)->>'start_time',to_jsonb(o)->>'start_utc'),'period_scope',COALESCE(to_jsonb(o)->>'period_scope',to_jsonb(o)->>'scope',to_jsonb(o)->>'market_scope',to_jsonb(o)->>'period'),'league',to_jsonb(o)->>'league','valid',to_jsonb(o)->'valid','active',to_jsonb(o)->'active','bookmaker_is_active',to_jsonb(o)->'bookmaker_is_active') AS row
+      `SELECT to_jsonb(o) AS row
        FROM public.latest_player_prop_odds_cache o
        WHERE lower(btrim(stat_key))=ANY($1::text[])
-       AND (left(COALESCE(to_jsonb(o)->>'event_date',to_jsonb(o)->>'game_date'),10)=$2::text
-         OR (COALESCE(to_jsonb(o)->>'event_date',to_jsonb(o)->>'game_date') IS NULL AND COALESCE(to_jsonb(o)->>'start_time',to_jsonb(o)->>'start_utc') IS NOT NULL))
+       AND (left(nullif(to_jsonb(o)->>'event_date',''),10)=$2::text
+         OR (nullif(to_jsonb(o)->>'event_date','') IS NULL AND
+           (left(nullif(to_jsonb(o)->>'game_date',''),10)=$2::text
+            OR left(COALESCE(nullif(to_jsonb(o)->>'start_time',''),nullif(to_jsonb(o)->>'start_utc','')),10)
+              BETWEEN ($2::date - 1)::text AND ($2::date + 1)::text)))
        ORDER BY scraped_at_utc DESC LIMIT 12001`,marketAliases(market),date),
+    withRestSchedule(date),
   ]);
+  if(rest.status==='fulfilled')for(const g of games){
+    if(!g.start)continue;const prior=plusDays(nbaSlateDate(g.start,date),-1);
+    const teams=new Set(rest.value.filter(x=>x.start&&x.status===3&&nbaSlateDate(x.start,x.eventDate??date)===prior).flatMap(x=>[x.away,x.home]));
+    g.backToBack=[g.away,g.home].filter(t=>teams.has(t));
+  }
   if(historical.status==='fulfilled'){summary=historical.value.recent;rivalIndex=historical.value.rivals??null;extendedIndex=historical.value.extended??null;data.archiveId=historical.value.id;}
   else {data.history='unavailable';data.warnings.push('No pudimos leer el resumen histórico verificado. Las estadísticas quedan S/D.');}
   let quotes:Record<string,unknown>[]=[];
-  if(prices.status==='fulfilled'&&prices.value.length<=12000)quotes=prices.value.map(r=>r.row);
+  if(prices.status==='fulfilled'&&prices.value.length<=12000)quotes=prices.value.map(r=>r.row).filter(r=>publishedQuoteDate(r)===date);
   else {data.quotes=prices.status==='fulfilled'?'limited':'unavailable';data.warnings.push('No pudimos verificar las cuotas de este mercado. Las selecciones pueden agregarse sin precio.');}
   const byName=new Map<string,Record<string,unknown>[]>(),counts=new Map<string,number>();
   for(const p of roster){const name=canonicalOddsPlayerName(p.full_name);counts.set(name,(counts.get(name)??0)+1);}
@@ -79,6 +100,7 @@ async function loadJornada(date:string,market:JornadaMarket):Promise<JornadaData
     data.players.push({rivalValues,extended,id:p.player_id,name:p.full_name,team:p.team_abbreviation,opponent,position:p.position,gameId:game.id,
       ...recentSample(summary[String(p.player_id)],p.player_id,cutoff,market,10,true),quotes:counts.get(name)===1?jornadaQuotes(byName.get(name)??[],p.full_name,game,date,market,now):[]});
   }
+  if(data.quotes==='ready')data.priceCoverage=data.players.some(p=>p.quotes.length)?'ready':quotes.length?'unmatched':'missing';
   return data;
 }
 function marketAliases(market:JornadaMarket){

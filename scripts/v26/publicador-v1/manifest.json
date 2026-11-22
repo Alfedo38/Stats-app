@@ -1,0 +1,10 @@
+{
+  "package": "nba-publicador-seguro-v1",
+  "format": 1,
+  "files": {
+    "publicar_supabase.py": {
+      "before": "20320cc8c9f96f2241700c20687c89bcd9fa7ce21ad8c966450ae22dd7a62cb2",
+      "after": "b1eaf489adb76d1135a58c0ffc1adf0da1f220b81f7da206b54cfc780153fd36"
+    }
+  }
+}

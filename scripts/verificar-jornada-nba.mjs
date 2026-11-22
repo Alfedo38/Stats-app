@@ -64,16 +64,56 @@ await check('Dos selecciones se acumulan sin analizar ni duplicarse',()=>{const 
 // Render the actual component with controlled hook state. No browser, login or external server.
 const reactDOM=require('react-dom/server'),jsx=require('react/jsx-runtime').jsx;
 const uiData={ok:true,date,market:'pts',generatedAt:now.toISOString(),rosterAt:date,archiveId:'a'.repeat(64),history:'ready',quotes:'ready',games:[game],players:[p()],warnings:[]};
-function renderUI({data=uiData,loading=false,error=null,state={}}={}){
+function renderUI({data=uiData,loading=false,error=null,state={},initialFilters={}}={}){
  let index=0;
  const component=loader({'react':{...react,useState:initial=>{index++;return [index in state?state[index]:typeof initial==='function'?initial():initial,()=>{}];}},'next/link':({children,href,...props})=>jsx('a',{...props,href,children}),'@/hooks/useAnalysisQuery':{useAnalysisQuery:()=>({data,loading,error})}})('./app/trending/JornadaExplorer.tsx').default;
- return reactDOM.renderToStaticMarkup(jsx(component,{initialDate:date,storageKey:'qa-user'}));
+ return reactDOM.renderToStaticMarkup(jsx(component,{initialDate:date,storageKey:'qa-user',initialFilters}));
 }
 await check('Pantalla real conserva identidad, muestra y los accesos a ficha/analizador',()=>{const html=renderUI();assert.match(html,/Jugador QA/);assert.match(html,/Últimos 5:/);assert.match(html,/Últimos 10 · Puntos/);assert.match(html,/superaron 20,5/);assert.match(html,/<strong>20<\/strong>/);assert.match(html,/Al analizador/);assert.match(html,/game=CLE-ATL/);assert.match(html,/aria-label="Mercado"/);});
 await check('Render sin muestra no muestra un porcentaje ni minutos inventados',()=>{const html=renderUI({data:{...uiData,players:[p({values:[],minutes:[],dates:[]})]}});assert.match(html,/Sin muestra para evaluar/);assert.match(html,/S\/D/);assert.doesNotMatch(html,/>0%<|Lean Under/);});
 await check('Filtro Under renderiza el lado y su acierto propio',()=>{const html=renderUI({data:{...uiData,players:[p({values:[10,20,30]})]},state:{6:'under',11:{[date+':pts:under:all:'+game.id+':1']:{line:19.5,book:null}}}});assert.match(html,/Menos de/);assert.match(html,/1 de 3 quedaron por debajo de 19,5/);});
 await check('Un día sin partidos y un error de carga tienen mensajes distintos',()=>{assert.match(renderUI({data:{...uiData,games:[],players:[]}}),/No hay partidos en el calendario/);assert.match(renderUI({data:null,error:'Calendario de prueba no disponible'}),/Reintentar/);assert.doesNotMatch(renderUI({data:null,error:'Calendario de prueba no disponible'}),/Jugador QA/);});
 await check('Cambiar de consulta muestra carga sin arrastrar resultados anteriores',()=>{const html=renderUI({data:null,loading:true});assert.match(html,/Cargando partidos/);assert.doesNotMatch(html,/Jugador QA|Al analizador/);});
+const qualifying=[20,20,20,20,12,20,20,20,20,12];
+await check('4/5 + 8/10 exige ambas ventanas completas, con la línea y el lado elegidos',()=>{
+ assert.equal(j.qualifiesJornadaConsistency(qualifying,19.5,'over'),true);
+ assert.equal(j.qualifiesJornadaConsistency(qualifying,19.5,'under'),false);
+ assert.equal(j.qualifiesJornadaConsistency([20,20,20,12,12,20,20,20,20,20],19.5,'over'),false);
+ assert.equal(j.qualifiesJornadaConsistency([20,20,20,20,12,20,20,20,12,12],19.5,'over'),false);
+ assert.equal(j.qualifiesJornadaConsistency([...qualifying.slice(0,9),null],19.5,'over'),false);
+ assert.equal(j.qualifiesJornadaConsistency(qualifying.slice(0,9),19.5,'over'),false);
+ assert.equal(j.qualifiesJornadaConsistency(qualifying,20.5,'over'),false);
+ assert.equal(j.qualifiesJornadaConsistency(qualifying,20.5,'under'),true);
+ assert.equal(j.qualifiesJornadaConsistency(qualifying,null,'under'),false);
+});
+await check('El filtro en Jornada exige precio exacto si se elige casa, y conserva período al abrir la ficha',()=>{
+ const quotes=j.jornadaQuotes([
+   raw({period_scope:'Q1',model_line:19.5}),
+   raw({period_scope:'Q1',model_line:20.5,book:'bet365'}),
+   raw({period_scope:'Q1',model_line:17.5,side:'under',book:'bet365'}),
+   raw({model_line:19.5,book:'bet365'}),
+ ],'Jugador QA',game,date,'pts',now,'Q1');
+ const data={...uiData,scope:'Q1',players:[p({values:qualifying,quotes})]};
+ const initialFilters={scope:'Q1',strict:'1',book:'stake'};
+ const html=renderUI({data,initialFilters});
+ assert.match(html,/L5 4\/5 · L10 8\/10/);
+ assert.match(html,/Línea publicada/);
+ assert.match(html,/scope=Q1/);
+ assert.match(html,/strict%3D1/);
+ assert.doesNotMatch(html,/Defensa por posición/);
+ const otherHouse=renderUI({data,initialFilters:{...initialFilters,book:'bet365'}});
+ assert.match(otherHouse,/Ningún jugador cumple 4\/5 y 8\/10/);
+ assert.doesNotMatch(otherHouse,/Jugador QA/);
+ assert.doesNotMatch(renderUI({data,initialFilters:{...initialFilters,side:'under'}}),/Jugador QA/);
+ const edited=renderUI({data:{...data,players:[p({values:qualifying,quotes:[...quotes,{...quotes.find(q=>q.book==='stake'),line:20.5}]})]},initialFilters,
+   state:{11:{[date+':pts:Q1:over:stake:'+game.id+':1']:{line:20.5,book:'stake'}}}});
+ assert.doesNotMatch(edited,/Jugador QA/);
+ const nav=load('./lib/playerNavigation.ts');
+ assert.match(nav.safeJornadaReturn('/trending?date='+date+'&scope=Q1&strict=1'),/scope=Q1&strict=1/);
+ const leg=j.jornadaLeg(data.players[0],game,date,'pts',19.5,'over','stake',now,'Q1');
+ assert.equal(leg.scope,'Q1');
+ assert.equal(leg.odds,1.9);
+});
 
 await check('Inicio conserva un partido finalizado aunque no llegue el marcador externo',()=>{
  const Carousel=loader({'next/link':({children,href,...props})=>jsx('a',{...props,href,children})})('./components/GameCarousel.tsx').default;
@@ -91,20 +131,79 @@ await check('Un partido seleccionado muestra su nombre en el recuento y conserva
 });
 
 // Exercise the real data adapter with in-memory sports fixtures, no network or credentials.
-let dbReads=0,archiveReads=0,failPrices=false,failSchedule=false,failArchive=false,stale=false;
-const server=loader({'server-only':{},'./prisma':{$queryRawUnsafe:async(sql,...args)=>{dbReads++;assert.ok(!/\b(?:INSERT|UPDATE|DELETE|TRUNCATE)\b/i.test(sql));if(sql.includes('status_id=3')){assert.match(sql,/LIMIT 81/);return[{nba_game_id:'0022600098',away:'ATL',home:'BOS',day:'2026-10-29',start_utc:'2026-10-29T23:00:00Z',status_id:3}];}if(sql.includes('nba_daily_schedule')){if(failSchedule)throw Error('secret-db-url');assert.match(sql,/event_date=\$1::date/);assert.match(sql,/LIMIT 41/);return[{nba_game_id:game.id,away:'CLE',home:'ATL',start_utc:game.start,status_id:1}];}assert.match(sql,/LIMIT 12001/);if(failPrices)throw Error('secret-price-url');return[{row:raw()}];}},'./nbaArchive':{archiveEnabled:()=>true,archiveManifest:async()=>{archiveReads++;if(failArchive)throw Error('secret-bucket-url');return{id:'a'.repeat(64)};},archivePart:async()=>({recent:{1:Array.from({length:10},(_,i)=>fact(i+1))}})},'./currentRosters':{CURRENT_ROSTER_UPDATED_AT:'2026-10-26',getCurrentRosterPlayers:()=>[{player_id:1,full_name:'Jugador QA',team_abbreviation:'ATL',position:'G'},{player_id:2,full_name:'Sin Muestra',team_abbreviation:'CLE',position:'C'}]},'./ticketReader/teamContext':{rosterFitsDate:()=>!stale}})('./lib/nbaJornadaData.ts');
+let dbReads=0,archiveReads=0,periodReads=0,failPrices=false,failSchedule=false,failArchive=false,failPeriod=false,stale=false;
+class FixedDate extends Date{constructor(...args){super(...(args.length?args:[+now]));}static now(){return +now;}}
+const server=loader({
+ 'server-only':{},
+ './prisma':{$queryRawUnsafe:async(sql,...args)=>{
+   dbReads++;assert.ok(!/\b(?:INSERT|UPDATE|DELETE|TRUNCATE)\b/i.test(sql));
+   if(sql.includes('status_id=3')){
+    assert.match(sql,/LIMIT 81/);
+    return [{nba_game_id:'0022600098',away:'ATL',home:'BOS',day:'2026-10-29',start_utc:'2026-10-29T23:00:00Z',status_id:3}];
+   }
+   if(sql.includes('nba_daily_schedule')){
+    if(failSchedule)throw Error('secret-db-url');
+    assert.match(sql,/event_date=\$1::date/);assert.match(sql,/LIMIT 41/);
+    return [{nba_game_id:game.id,away:'CLE',home:'ATL',start_utc:game.start,status_id:1}];
+   }
+   if(sql.includes('player_period_splits_front_v2_cache')){
+    periodReads++;
+    if(failPeriod)throw Error('secret-period-url');
+    assert.match(sql,/LIMIT 10001/);
+    const wanted=JSON.parse(args[0]);
+    assert.equal(wanted.length,10);assert.ok(wanted.every(t=>t.player_id===1&&t.game_date<date));
+    assert.equal(args[2],'2026-10-20');assert.equal(args[3],'2026-10-29');
+    assert.deepEqual(Array.from(args[1]),['Q1']);
+    const q1=(id,change={})=>({row:fact(id,{split_code:'Q1',team_abbreviation:'ATL',period_minutes:8,pts:5,reb:2,ast:1,...change})});
+    const noStats={pts:0,reb:0,ast:0,fg3m:0,fg3a:0,fta:0};
+    return [q1(1),q1(2,{team_abbreviation:'CLE'}),q1(3,{split_code:'H1'}),q1(4,{...noStats,period_minutes:0}),
+      q1(5,{pts:0}),q1(6,{...noStats,period_minutes:null,min_text:'29:40'})];
+   }
+   assert.match(sql,/LIMIT 12001/);if(failPrices)throw Error('secret-price-url');
+   return [{row:raw()},{row:raw({period_scope:'Q1',model_line:4.5})}];
+ }},
+ './nbaArchive':{archiveEnabled:()=>true,archiveManifest:async()=>{archiveReads++;if(failArchive)throw Error('secret-bucket-url');return{id:'a'.repeat(64)};},
+  archivePart:async()=>({recent:{1:Array.from({length:10},(_,i)=>fact(i+1,{team_abbreviation:'ATL'}))}})},
+ './currentRosters':{CURRENT_ROSTER_UPDATED_AT:'2026-10-26',getCurrentRosterPlayers:()=>[{player_id:1,full_name:'Jugador QA',team_abbreviation:'ATL',position:'G'},{player_id:2,full_name:'Sin Muestra',team_abbreviation:'CLE',position:'C'}]},
+ './ticketReader/teamContext':{rosterFitsDate:()=>!stale},
+ __globals:{Date:FixedDate},
+})('./lib/nbaJornadaData.ts');
 await check('Adaptador acota las consultas y marca el juego consecutivo con resultado anterior',async()=>{const data=await server.getJornada(date,'pts');assert.equal(dbReads,3);assert.equal(archiveReads,1);assert.deepEqual(Array.from(data.games[0].backToBack),['ATL']);assert.equal(data.players.length,2);assert.equal(data.players[0].values.length,10);assert.equal(data.players[1].values.length,0);assert.equal(data.archiveId,'a'.repeat(64));});
 await check('Visitas repetidas comparten la caché de un minuto',async()=>{const [a,b]=await Promise.all([server.getJornada(date,'pts'),server.getJornada(date,'pts')]);assert.equal(a,b);assert.equal(dbReads,3);});
 await check('Cuotas caídas conservan jugadores e histórico y muestran aviso',async()=>{failPrices=true;const data=await server.getJornada(date,'reb');assert.equal(data.quotes,'unavailable');assert.equal(data.players.length,2);assert.equal(data.history,'ready');assert.equal(data.players[0].quotes.length,0);assert.ok(data.warnings.length);failPrices=false;});
 await check('Archivo caído deja estadísticas vacías y conserva calendario',async()=>{failArchive=true;const data=await server.getJornada(date,'ast');assert.equal(data.history,'unavailable');assert.equal(data.players.length,2);assert.equal(data.players[0].values.length,0);assert.equal(data.archiveId,null);assert.ok(!JSON.stringify(data).includes('secret-'));failArchive=false;});
 await check('Plantel fuera de vigencia no fabrica equipos o rivales',async()=>{stale=true;const before=dbReads;const data=await server.getJornada(date,'fg3a');assert.equal(data.players.length,0);assert.equal(data.games.length,1);assert.equal(dbReads-before,1);assert.ok(data.warnings.length);stale=false;});
 await check('Caída de calendario falla sin publicar credenciales del error',async()=>{failSchedule=true;await assert.rejects(server.getJornada(date,'fta'),e=>e.status===503&&!e.message.includes('secret'));failSchedule=false;});
+await check('Jornada cruza el parcial por partido, equipo y fecha; comparte lectura entre mercados',async()=>{
+ const [pts,reb]=await Promise.all([server.getJornada(date,'pts','Q1'),server.getJornada(date,'reb','Q1')]);
+ assert.equal(periodReads,1);
+ assert.equal(pts.scope,'Q1');assert.equal(pts.history,'ready');assert.equal(pts.players[0].dates.length,10);
+ assert.deepEqual(Array.from(pts.players[0].values.slice(0,6)),[5,null,null,null,0,null]);
+ assert.deepEqual(Array.from(reb.players[0].values.slice(0,6)),[2,null,null,null,2,null]);
+ assert.equal(pts.players[0].minutes[5],null);
+ assert.equal(pts.players[0].rivalValues,undefined);
+ assert.deepEqual(Array.from(pts.players[0].quotes).map(q=>[q.scope,q.line]),[['Q1',4.5]]);
+ const full=await server.getJornada(date,'pts');
+ assert.deepEqual(Array.from(full.players[0].quotes).map(q=>[q.scope,q.line]),[['FULL',19.5]]);
+});
+await check('Si los parciales fallan no usa números ni cuotas del partido completo',async()=>{
+ failPeriod=true;const data=await server.getJornada(date,'pts','H1');failPeriod=false;
+ assert.equal(data.scope,'H1');assert.equal(data.history,'unavailable');assert.ok(data.players[0].values.every(v=>v===null));
+ assert.equal(data.players[0].quotes.length,0);
+ assert.match(data.warnings.join(' '),/período elegido/);assert.doesNotMatch(JSON.stringify(data),/secret/);
+});
 let allowed=true,calls=0;
-class FixedDate extends Date{constructor(...args){super(...(args.length?args:[+now]));}static now(){return +now;}}
-const route=loader({'@/lib/auth/server':{withAuth:fn=>async r=>allowed?fn(r):{status:401}},'next/server':{NextResponse:{json:(data,options={})=>({data,status:options.status??200,headers:options.headers??{}})}},'@/lib/nbaJornadaData':{JornadaError:server.JornadaError,getJornada:async()=>{calls++;return {ok:true};}},__globals:{Date:FixedDate}})('./app/api/nba-jornada/route.ts');
+const route=loader({'@/lib/auth/server':{withAuth:fn=>async r=>allowed?fn(r):{status:401}},'next/server':{NextResponse:{json:(data,options={})=>({data,status:options.status??200,headers:options.headers??{}})}},'@/lib/nbaJornadaData':{JornadaError:server.JornadaError,getJornada:async(_,__,scope)=>{calls++;return {ok:true,scope};}},__globals:{Date:FixedDate}})('./app/api/nba-jornada/route.ts');
 const req=q=>({url:'http://local.invalid/api/nba-jornada?'+new URLSearchParams(q)});
 await check('La API requiere sesión y valida antes de consultar',async()=>{assert.equal((await route.GET(req({date,market:'pts'}))).status,200);assert.equal(calls,1);for(const q of [{date:'bad'},{date,market:'bad'},{date:'2025-10-30'}])assert.equal((await route.GET(req(q))).status,400);allowed=false;assert.equal((await route.GET(req({date}))).status,401);assert.equal(calls,1);});
 await check('La API usa caché privada del navegador, sin respuesta pública',async()=>{allowed=true;const r=await route.GET(req({date}));assert.equal(r.headers['Cache-Control'],'private, no-store');});
+await check('La API conserva el período válido y rechaza períodos ajenos',async()=>{
+ const before=calls;
+ const ok=await route.GET(req({date,scope:'H2_REG'}));
+ assert.equal(ok.status,200);assert.equal(ok.data.scope,'H2_REG');
+ assert.equal((await route.GET(req({date,scope:'Q4'}))).status,400);
+ assert.equal(calls,before+1);
+});
 await check('Evidencia L5/L10 y rival respeta Under, cero, empate y rival por partido',()=>{
  const sample={values:[0,4,5,null,6,3],opponents:['CLE','BOS','CLE','CLE',null,'CLE'],opponent:'CLE'};
  const e=j.jornadaEvidence(sample,5,'under');
@@ -246,5 +345,48 @@ await check('Una vista guardada restaura filtros, sin arrastrar fecha o partido;
  const presets=readPresets({getItem:()=>JSON.stringify([{name:' Asistencias ',filters},{name:'Inválido',filters:{...filters,market:'__proto__'}}])},'qa');
  assert.equal(presets.length,1);assert.equal(presets[0].name,'Asistencias');assert.equal(presets[0].filters.side,'under');
  assert.equal(presets[0].filters.date,undefined);assert.equal(presets[0].filters.game,undefined);
+ const withPeriod=readPresets({getItem:()=>JSON.stringify([
+  {name:'Con historial',filters:{...filters,scope:'Q1',strict:true}},
+  {name:'Inválida',filters:{...filters,scope:'Q7'}},
+ ])},'qa');
+ assert.equal(withPeriod.length,1);
+ assert.equal(withPeriod[0].filters.scope,'Q1');assert.equal(withPeriod[0].filters.strict,true);
+});
+await check('Ficha 1C distingue cero confirmado, ausencia y falta de datos, y calcula ingreso suplente',()=>{
+ const {firstQuarterSample,recentPeriodGames}=load('./lib/nbaPeriodSample.ts');
+ const {verifiedRotationRows}=load('./lib/nbaRotations.ts');
+ const {FirstQuarterReadout}=load('./components/NbaFirstQuarterCard.tsx');
+ const facts=Array.from({length:6},(_,i)=>fact(i+1,{team_abbreviation:'ATL'}));
+ const [starter,bench,skipped,unknown,pointsOnly,conflict]=facts;
+ const games=recentPeriodGames([...facts,{...bench},{...fact(0),team_abbreviation:'ATL'},
+   fact(7,{team_abbreviation:'ATL',min:0}),fact(8,{team_abbreviation:'ATL',player_id:2}),
+   fact(9,{team_abbreviation:'ATL',season_type:'Preseason'})],1,date);
+ assert.equal(games.length,6);
+ const rotation=(r,spans,starter=false,change={})=>{
+  const playedMs=spans.reduce((acc,[,from,to])=>acc+to-from,0);
+  return {gameId:r.game_id.padStart(10,'0'),date:r.game_date,team:'ATL',starter,played:true,boxMs:playedMs,playedMs,periods:4,spans,...change};
+ };
+ const rotations=verifiedRotationRows([
+  rotation(starter,[[1,0,480000],[2,0,600000]],true),
+  rotation(bench,[[1,240000,480000],[2,0,600000]]),
+  rotation(skipped,[[2,0,600000]]),
+  rotation(unknown,[[1,0,480000]],true,{team:'CLE'}),
+  rotation(conflict,[[2,0,600000]]),
+ ]);
+ const split=(r,change={})=>({player_id:r.player_id,game_id:r.game_id,game_date:r.game_date,team_abbreviation:'ATL',split_code:'Q1',min_text:'31:24',pts:0,reb:0,ast:0,...change});
+ const sample=firstQuarterSample(games,[
+  split(starter,{pts:4,reb:1,ast:0}),split(bench,{pts:0,reb:2,ast:1}),
+  split(skipped),split(unknown),split(unknown,{player_id:2,pts:11}),split(unknown,{split_code:'H1',pts:18}),
+  split(pointsOnly,{pts:3,reb:null,ast:null}),split(conflict,{pts:5}),
+ ],rotations);
+ assert.deepEqual(Array.from(sample.rows.map(r=>r.minutes)),[8,4,0,null,null,null]);
+ assert.deepEqual(Array.from(sample.rows.map(r=>r.values.pts)),[4,0,null,null,3,null]);
+ assert.equal(sample.played,3);assert.equal(sample.skipped,1);
+ assert.equal(sample.starts,1);assert.equal(sample.benchEntries,1);assert.equal(sample.medianEntry,480000);
+ assert.equal(sample.minutes.value,4);assert.equal(sample.minutes.games,3);
+ assert.equal(sample.stats[0].value,7/3);assert.equal(sample.stats[2].games,2);
+ const html=reactDOM.renderToStaticMarkup(jsx(FirstQuarterReadout,{sample}));
+ assert.match(html,/Titular/);assert.match(html,/8:00 restantes/);assert.match(html,/No jugó<\/td><td>0:00/);
+ assert.match(html,/S\/D<\/td><td>S\/D/);assert.match(html,/Sin conciliar/);assert.doesNotMatch(html,/31:24/);
 });
 console.log('Jornada y calidad, total con verificaciones nuevas: '+checks.length);

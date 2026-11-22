@@ -90,3 +90,8 @@
 .trend rect[data-l5=false]{opacity:.7}
 .trend line{stroke:var(--text-muted);stroke-dasharray:2 2;stroke-width:.65}
 .b2b{color:var(--text);font-size:.66rem;font-weight:650;letter-spacing:normal}
+.filters .search { grid-column: span 1; }
+.quickFilters .consistencyFilter { display: inline-flex; align-items: center; gap: 6px; }
+.quickFilters .consistencyFilter[aria-pressed=true] { color: var(--mosk-accent,var(--text)); }
+.consistencyHint { margin: -5px 0 0; padding-inline-start: 11px; border-inline-start: 2px solid var(--mosk-accent,#10b981); color: var(--text-muted); font-size: .76rem; line-height: 1.5; }
+@media (max-width: 640px) { .filters .search { grid-column: 1/-1; } }

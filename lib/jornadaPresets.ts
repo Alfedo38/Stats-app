@@ -1,18 +1,20 @@
-import {BOOK_LABELS,marketIsValid,type JornadaMarket} from './nbaJornada';
+import {BOOK_LABELS,jornadaScopeIsValid,marketIsValid,type JornadaMarket} from './nbaJornada';
 import {DEFENSE_BANDS,type DefenseBand} from './nbaDefense';
+import type {OddsScope} from './nbaOdds';
 
 export const PRESET_LIMIT=6;
-export type JornadaPresetFilters={market:JornadaMarket;book:string;side:'over'|'under';sample:5|10;minimum:number;onlyQuotes:boolean;sort:string;defenseBand:DefenseBand;published:boolean;dense:boolean};
+export type JornadaPresetFilters={market:JornadaMarket;book:string;side:'over'|'under';sample:5|10;minimum:number;onlyQuotes:boolean;sort:string;defenseBand:DefenseBand;published:boolean;dense:boolean;scope?:OddsScope;strict?:boolean};
 export type JornadaPreset={name:string;filters:JornadaPresetFilters};
 export function cleanPreset(value:unknown):JornadaPreset|null{
  if(!value||typeof value!=='object')return null;
  const {name,filters}=value as Partial<JornadaPreset>;
  if(typeof name!=='string'||!name.trim()||name.length>32||!filters||typeof filters!=='object')return null;
- const {market,book,side,sample,minimum,onlyQuotes,sort,defenseBand,published,dense}=filters;
+ const {market,book,side,sample,minimum,onlyQuotes,sort,defenseBand,published,dense,scope,strict}=filters;
  if(!marketIsValid(market)||typeof book!=='string'||book!=='all'&&!Object.hasOwn(BOOK_LABELS,book)||(side!=='over'&&side!=='under')
    ||(sample!==5&&sample!==10)||![0,5,10].includes(minimum)||typeof onlyQuotes!=='boolean'||!['average','minutes','rate','gap'].includes(sort)
-   ||sort==='gap'&&(!published||book!=='all')||typeof defenseBand!=='string'||!Object.hasOwn(DEFENSE_BANDS,defenseBand)||typeof published!=='boolean'||typeof dense!=='boolean')return null;
- return {name:name.trim(),filters:{market,book,side,sample,minimum,onlyQuotes,sort,defenseBand,published,dense}};
+   ||sort==='gap'&&(!published||book!=='all')||typeof defenseBand!=='string'||!Object.hasOwn(DEFENSE_BANDS,defenseBand)||typeof published!=='boolean'||typeof dense!=='boolean'
+   ||scope!==undefined&&!jornadaScopeIsValid(scope)||strict!==undefined&&typeof strict!=='boolean')return null;
+ return {name:name.trim(),filters:{market,book,side,sample,minimum,onlyQuotes,sort,defenseBand,published,dense,...(scope?{scope}:{}),...(strict!==undefined?{strict}:{})}};
 }
 export function readPresets(storage:Pick<Storage,'getItem'>,key:string){
  const raw=storage.getItem(key);

@@ -187,9 +187,14 @@ if(opts.archivo){
   const render=(props)=>DOM.renderToStaticMarkup(React.createElement(Card,props));
   const result={...output.body,data:calc(history,snapshot,{...target,cutoff:date(16)})};
   const html=render({result});
-  for(const token of ['Puntos · Favorable','SAC concede','Produc','Rebotes','Asistencias','Escenario: mejora sin confirmar','Qué sostiene el ajuste']){
+  for(const token of ['Promedio reciente · Puntos','SAC concede','Rebotes','Asistencias','Escenario por defensa','Todavía faltan partidos para validar','Qué sostiene el ajuste']){
    assert.ok(html.includes(token),token);
   }
+  assert.match(html,/Promedio reciente · Puntos<\/span><div><strong>20,0<\/strong>/);
+  assert.doesNotMatch(html,/Estimación ajustada · Puntos/);
+  const estimated=render({result:{...result,data:calc(history,snapshot)}});
+  assert.match(estimated,/Estimación ajustada · Puntos/);
+  assert.match(estimated,/Base 20,0/);
   const out=render({result,out:true});
   assert.match(out,/Figura fuera/);assert.doesNotMatch(out,/<table/);
   const partial=render({result:{...result,data:calc(history,{...snapshot,games:[]})}});

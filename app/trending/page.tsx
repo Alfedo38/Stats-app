@@ -149,10 +149,10 @@ export default async function TrendingPage({searchParams}:{searchParams:Promise<
         <header>
           <p className="text-[9px] font-black uppercase tracking-[0.35em] text-[#10b981] mb-2 flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse inline-block" />
-            {ranking?'Últimos 5 partidos':'Explorá la jornada NBA'}
+            {ranking?'Últimos 5 partidos':'Explorador de jugadores'}
           </p>
           <h1 className="text-5xl md:text-6xl font-black italic uppercase tracking-tighter leading-none">
-            On <span className="text-[#10b981]">Fire</span>
+            {ranking?'On':'Jornada'} <span className="text-[#10b981]">{ranking?'Fire':'NBA'}</span>
           </h1>
           <p className="text-[var(--text-muted)] text-sm mt-2">
             {ranking?'Rendimiento real de los últimos 5 partidos por jugador.':'Encontrá jugadores, compará sus últimos partidos y llevá la selección al analizador.'}

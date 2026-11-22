@@ -56,6 +56,9 @@ async function handleGET(req: NextRequest) {
         player_name,
         team_abbreviation,
         min_text,
+        to_jsonb(p)->'period_minutes' AS period_minutes,
+        to_jsonb(p)->'period_minutes_verified' AS period_minutes_verified,
+        to_jsonb(p)->>'minutes_scope' AS minutes_scope,
         pts,
         reb,
         ast,
@@ -76,7 +79,7 @@ async function handleGET(req: NextRequest) {
         ra,
         pra,
         case when stl is not null and blk is not null then stl + blk else null end AS stl_blk
-      FROM public.player_period_splits_front_v2_cache
+      FROM public.player_period_splits_front_v2_cache p
       WHERE player_id = $1::bigint
       ORDER BY game_date DESC, split_code ASC
       LIMIT $2::int

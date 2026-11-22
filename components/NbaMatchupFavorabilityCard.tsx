@@ -10,7 +10,7 @@ import styles from './NbaMatchupFavorabilityCard.module.css';
 const labels:Record<MatchupStat,string>={pts:'Puntos',reb:'Rebotes',ast:'Asistencias'};
 const units:Record<MatchupStat,string>={pts:'PTS',reb:'REB',ast:'AST'};
 const groups={G:'a bases y escoltas',F:'a aleros y ala-pívots',C:'a pívots',ALL:'en total'};
-const directions={favorable:'Favorable',demanding:'Exigente',neutral:'Parejo',unknown:'Sin ajuste'};
+const directions={favorable:'Cruce favorable',demanding:'Cruce exigente',neutral:'Diferencia pequeña',unknown:'Sin ajuste'};
 const reasons={
   calendar:'No hay un partido verificado para este cruce.',
   team:'Falta confirmar el equipo del jugador para esta fecha.',
@@ -33,31 +33,43 @@ export function MatchupFavorabilityReadout({result,market='pts',out=false}:{resu
   const rows=result.data.metrics, active=rows.find(r=>r.stat===market)??rows.find(r=>r.defense)??rows[0];
   if(out) return <div className={styles.unavailable}>Figura fuera en el parte de este partido.</div>;
   if(!active||!rows.some(r=>r.base||r.defense)) return <div className={styles.unavailable}>Todavía no hay partidos suficientes para calcular el ajuste.</div>;
-  const hasScenario=rows.some(r=>r.kind==='scenario'), hasEstimate=rows.some(r=>r.kind==='estimate');
+  const applies=active.kind==='estimate';
+  const validation=active.validation;
   return <>
-    <div className={styles.why} data-tone={active.direction}>
-      <strong>{labels[active.stat]} · {directions[active.direction]}</strong>
+    <div className={styles.lead}>
+      <span>{applies?'Estimación ajustada':'Promedio reciente'} · {labels[active.stat]}</span>
+      <div><strong>{fmt(applies?active.adjusted:active.base?.value)}</strong> <span>{units[active.stat]}</span></div>
+      {applies&&active.base&&<p>Base {fmt(active.base.value)} · {diff(active.delta)} {units[active.stat]} por el rival.</p>}
+      {!applies&&active.base&&<p>{active.base.games} {active.base.games===1?'partido':'partidos'} con su equipo.</p>}
+    </div>
+    <div className={styles.why} data-tone={applies?active.direction:'unknown'}>
+      {applies&&<strong>{directions[active.direction]}</strong>}
+      {active.kind==='scenario'&&<strong>Escenario por defensa: {fmt(active.adjusted)} ({diff(active.delta)})</strong>}
+      {active.kind==='scenario'&&<p>{validation.games>=20?'No se comprobó que el ajuste sea más preciso.':'Todavía faltan partidos para validar el ajuste.'}</p>}
+      {active.kind==='scenario'&&validation.referenceError!==null&&validation.adjustedError!==null&&
+        <p>Error por partido: {fmt(validation.referenceError)} base / {fmt(validation.adjustedError)} ajuste · {validation.games} PJ.</p>}
       <p>{why(active,result.opponent)}</p>
     </div>
-    <table className={styles.metrics} aria-label="Producción reciente y ajuste de puntos, rebotes y asistencias">
-      <thead><tr><th scope="col" aria-label="Estadística"></th><th scope="col">Base</th><th scope="col">Con rival</th><th scope="col" aria-label="Diferencia">Dif.</th></tr></thead>
+    <table className={styles.metrics} aria-label="Referencia y efecto del rival por estadística">
+      <thead><tr><th scope="col" aria-label="Estadística"></th><th scope="col">Referencia</th><th scope="col">Efecto rival</th></tr></thead>
       <tbody>{rows.map(row=><tr key={row.stat} data-active={row.stat===market}>
         <th scope="row"><abbr title={labels[row.stat]}>{units[row.stat]}</abbr></th>
-        <td>{fmt(row.base?.value)}</td>
-        <td><strong>{fmt(row.adjusted)}</strong>{row.kind==='scenario'&&<sup aria-label="Escenario">*</sup>}</td>
-        <td data-tone={row.direction}>{diff(row.delta)}</td>
+        <td><strong>{fmt(row.kind==='estimate'?row.adjusted:row.base?.value)}</strong></td>
+        <td data-tone={row.kind==='estimate'?row.direction:undefined}>
+          {row.kind==='estimate'?diff(row.delta):row.kind==='scenario'?<span className={styles.scenario}>{diff(row.delta)} · escenario</span>:'—'}
+        </td>
       </tr>)}</tbody>
     </table>
-    <p className={styles.note}>Partido completo · si juega.{hasScenario?' * Escenario: mejora sin confirmar.':hasEstimate?' Estimación con evaluación histórica.':''}</p>
+    {rows.some(r=>r.kind==='scenario')&&<p className={styles.note}>Los escenarios no cambian la referencia.</p>}
     <details className={styles.evidence}>
       <summary>Qué sostiene el ajuste</summary>
-      <p>Base: hasta 10 partidos con el mismo equipo, temporada y fase. El ajuste usa parte de la diferencia defensiva según la cobertura. No incorpora bajas, ritmo extra ni cuotas.</p>
+      <p>La referencia es para el partido completo si juega. La base toma hasta 10 partidos con el mismo equipo, temporada y fase. El ajuste usa parte de la diferencia defensiva según la cobertura.</p>
       {rows.map(row=>{
         const d=row.defense,v=row.validation,b=row.base;
         return <div key={row.stat} className={styles.statDetail}>
           <strong>{labels[row.stat]}</strong>
           <p>{b?`Base: ${b.games}/${b.total} PJ · ${fmt(b.minutes)} min de media.`:'Faltan partidos recientes del jugador para una base comparable.'}</p>
-          {d&&<p>{result.opponent}: {fmt(d.opponentAllowed)} vs. {fmt(d.leagueAllowed)} {groups[d.group]} por PJ. {d.games}/{d.total} PJ con dato · {d.teams} equipos en la referencia.{row.adjusted!==null&&` Ajuste aplicado: ${diff(d.appliedPct)} %.`}</p>}
+          {d&&<p>{result.opponent}: {fmt(d.opponentAllowed)} vs. {fmt(d.leagueAllowed)} {groups[d.group]} por PJ. {d.games}/{d.total} PJ con dato · {d.teams} equipos en la referencia.{row.adjusted!==null&&` Ajuste evaluado: ${diff(d.appliedPct)} %.`}</p>}
           {v.games>0&&<p>Error histórico por PJ: {fmt(v.referenceError)} base → {fmt(v.adjustedError)} ajustado en {v.games} partidos. {v.improved?'El ajuste mejoró la referencia.':v.games<20?'Muestra insuficiente para confirmar mejora.':'No se confirmó una mejora sobre la base.'}</p>}
         </div>;
       })}

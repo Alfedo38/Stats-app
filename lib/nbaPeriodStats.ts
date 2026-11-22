@@ -36,18 +36,20 @@ export function periodMetricValue(row:Record<string,any>,stat:string,scope:Perio
 }
 function id(row:Record<string,any>){const raw=String(row.game_id??row.game_id_nozero??row.game_key??row.game_date??row.id??'');return /^\d+$/.test(raw)?raw.replace(/^0+/,'')||'0':raw;}
 function first(...values:any[]){return values.find(v=>v!=null&&String(v).trim()!=='')??null;}
+export function verifiedPeriodMinutes(row:Record<string,unknown>,scope:Exclude<PeriodScope,'FULL'>,wide=false){
+ const explicit=wide?row[`${prefix(scope)}_period_minutes`]:row.period_minutes;
+ const trusted=!wide&&(row.period_minutes_verified===true||periodCode(row.minutes_scope)===scope);
+ const raw=explicit??(trusted?first(row.min_clean,row.minutes_clean,row.min,row.minutes,row.min_text):null);
+ const parsed=toFiniteNumber(raw);
+ return parsed!==null&&parsed>=0&&parsed<=(scope==='Q1'?12:24)?parsed:null;
+}
 function clean(base:Record<string,any>,part:Record<string,any>,scope:PeriodScope,wide:boolean){
  const output:Record<string,any>={...base,...part,split_code:scope,period_scope:scope, full_game_minutes:base.full_game_minutes??getMinutesValue(base)};
  const px=prefix(scope);
  for(const field of FIELDS){const names=keys(field).map(key=>wide?`${px}_${key}`:key);output[field]=take(part,names);}
  for(const field of FIELDS)for(const alias of keys(field))output[alias]=output[field];
  // Legacy min/min_text on period rows came from the full-game roster.
- const explicit = wide ? part[`${px}_period_minutes`] : part.period_minutes;
- const trusted = !wide && (part.period_minutes_verified===true || periodCode(part.minutes_scope)===scope);
- const raw = explicit ?? (trusted ? first(part.min_clean,part.minutes_clean,part.min,part.minutes,part.min_text) : null);
- const parsed = toFiniteNumber(raw);
- const maximum = scope==='Q1'?12:24;
- const minutes = parsed!==null && parsed>=0 && parsed<=maximum ? parsed : null;
+ const minutes=scope==='FULL'?null:verifiedPeriodMinutes(part,scope,wide);
  output.period_minutes_verified=minutes!==null;
  output.minutes_scope=minutes!==null?scope:null;
  for(const field of ['min','minutes','min_clean','minutes_clean','min_decimal','minutes_decimal','minutes_played','min_sec','period_minutes','mp','mins','minutos','min_text'])output[field]=minutes;

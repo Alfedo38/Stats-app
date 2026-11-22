@@ -1,0 +1,26 @@
+.card { margin-block-start: 12px; padding: 14px; min-width: 0; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 13px; }
+.header { display: flex; gap: 10px; align-items: center; margin-block-end: 11px; }
+.header h3 { margin: 0; font-size: .94rem; font-weight: 800; }
+.header p { margin: 2px 0 0; font-size: .73rem; color: var(--text-muted); }
+.icon, .badge { display: grid; place-items: center; color: var(--mosk-accent,var(--text)); background: var(--mosk-active,var(--surface-soft)); border-radius: 8px; }
+.icon { width: 34px; height: 34px; }
+.badge { margin-inline-start: auto; padding: 3px 7px; font-size: .68rem; font-weight: 800; }
+.tiles { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 8px; margin: 0; }
+.tiles > div { padding: 9px 11px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; }
+.tiles .minutes { background: var(--surface-soft); }
+.tiles dt, .tiles dd:last-child, .role, .hint { color: var(--text-muted); font-size: .72rem; }
+.tiles dd { margin: 0; }
+.tiles dd:nth-child(2) { margin-block: 1px; font-size: 1.25rem; line-height: 1.25; font-weight: 800; font-variant-numeric: tabular-nums; }
+.role { display: flex; flex-wrap: wrap; gap: 5px 14px; margin-block: 10px; line-height: 1.45; }
+.role strong { color: var(--text); }
+.details { padding-top: 8px; border-top: 1px solid var(--border); }
+.details summary, .hint button { color: var(--mosk-accent,var(--text)); font-weight: 700; cursor: pointer; font-size: .75rem; }
+.hint button { text-decoration: underline; }
+.scroll { overflow-x: auto; margin-block-start: 6px; }
+.scroll table { width: 100%; min-width: 350px; border-collapse: collapse; font-size: .73rem; font-variant-numeric: tabular-nums; }
+.scroll th, .scroll td { padding: 6px; text-align: right; }
+.scroll th:first-child, .scroll th:nth-child(2), .scroll td:nth-child(2) { text-align: left; }
+.scroll thead { color: var(--text-muted); }
+.scroll tbody tr { border-top: 1px solid var(--border); }
+.hint { margin: 5px 0; line-height: 1.45; }
+@media (max-width: 600px) { .tiles { grid-template-columns: repeat(2,minmax(0,1fr)); } }

@@ -3,6 +3,8 @@ import Link from "next/link";
 import type {TeamMate} from "@/components/TeamMatesPanel";
 import NbaNextMatchup from "@/components/NbaNextMatchup";
 import RotationPilot from "@/components/RotationPilot";
+import NbaFirstQuarterCard from "@/components/NbaFirstQuarterCard";
+import {recentPeriodGames} from "@/lib/nbaPeriodSample";
 import NbaPlaytypePanel from "@/components/NbaPlaytypePanel";
 import NbaResearchStrip from "@/components/NbaResearchStrip";
 import {expectedMinutes} from "@/lib/minutesResearch";
@@ -796,6 +798,7 @@ export default function PlayerChartContainer({
   );
 
   const twoSeasonStats=useMemo(()=>twoSeasonRows(stats||[],historyCutoff??eventDate).filter(r=>["Regular Season","Playoffs"].includes(gamePhase(r)??"")),[stats,historyCutoff,eventDate]);
+  const firstQuarterGames=useMemo(()=>activeScope==='Q1'?recentPeriodGames(phaseRows(twoSeasonStats,seasonPhase),numericPlayerId,historyCutoff??eventDate):[],[activeScope,twoSeasonStats,seasonPhase,numericPlayerId,historyCutoff,eventDate]);
 
   // ── Raw scoped stats ─────────────────────────────────────────────────────────
   const scopedRawStats = useMemo(
@@ -1289,6 +1292,7 @@ export default function PlayerChartContainer({
             {activeStat==="reb"&&isFullScope&&!sampleLoading&&!sampleError&&<PlayerReboundSplit rows={chartStats}/>}
           </div>
           {compact&&isFullScope&&!sampleLoading&&!sampleError&&<PlayerSupportingStats market={activeStat} rows={chartStats} choice={secondaryChoice} onChange={setSecondaryChoice}/>}
+          {activeScope==='Q1'&&<NbaFirstQuarterCard playerId={numericPlayerId} games={firstQuarterGames} splits={periodSplitRows} splitsLoading={periodLoading} splitsError={periodError}/>}
           <div id={`absence-comparison-${playerId}`} className="scroll-mt-20"/>
           {playerId&&isFullScope&&activeStat==="ast"&&<AssistConnections playerId={String(playerId)}
             gameIds={chartStats.map(row=>row.game_id??row.id)} enabled={!sampleLoading&&!sampleError}

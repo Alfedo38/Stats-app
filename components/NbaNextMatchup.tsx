@@ -3,6 +3,7 @@ import Link from 'next/link';
 import {useAnalysisQuery} from '@/hooks/useAnalysisQuery';
 import {useJornadaInjuryImpact} from '@/hooks/useJornadaInjuryImpact';
 import JornadaAbsenceImpact from './JornadaAbsenceImpact';
+import NbaMatchupFavorabilityCard from './NbaMatchupFavorabilityCard';
 import {marketIsValid} from '@/lib/nbaJornada';
 import {impactPlayerKey} from '@/lib/jornadaAbsenceImpact';
 import {INJURY_LABELS,injuryEditionLabel,reportTimeLabel,type InjuryReport} from '@/lib/injuryReport';
@@ -31,6 +32,7 @@ export default function NbaNextMatchup({context,team,playerId,market='pts',scope
   <header className="mosk-next-rival">
     <div><h2>Qué cambia hoy</h2>{opponent?<Link className={styles.link} href={`/teams/${opponent}`}>{team===context.home?'vs.':'@'} {rival}</Link>:<span>{context.away} – {context.home}</span>}{consecutive&&<small className="mosk-rest-note">{consecutive}: segundo partido seguido</small>}</div>
   </header>
+  {scope==='FULL'&&Number.isSafeInteger(id)&&id>0&&<NbaMatchupFavorabilityCard context={context} playerId={id} market={market} injuries={report.data}/>}
   {opponent&&rivalHistory&&rivalHistory.valid>0&&<section className="mosk-rival-history" aria-label={`Historial contra ${opponent}`}>
     <div><strong>Últimos vs. {opponent}</strong>{onFilterRival&&<button type="button" onClick={onFilterRival} className="mosk-text-link">Ver en gráfico</button>}</div>
     {rivalHistory.decided>0&&<span>{rivalHistory.hits} de {rivalHistory.decided} {rivalHistory.side==='over'?'superaron':'quedaron por debajo de'} {number(rivalHistory.line)}</span>}
